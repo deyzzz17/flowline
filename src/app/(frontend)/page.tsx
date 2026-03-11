@@ -15,7 +15,7 @@ export default async function HomePage() {
         <div className="max-w-2xl mx-auto px-4 h-16 flex items-center justify-between">
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">
             Flowline<span className="text-blue-600">.</span>
-          </h1> 
+          </h1>
           <CreateTask />
         </div>
       </header>
@@ -26,7 +26,7 @@ export default async function HomePage() {
             My To-do List ({tasks.length})
           </h2>
         </div>
-        <TaskList tasks={tasks as any} />
+        <TaskList tasks={tasks as Task} />
       </main>
 
       <footer className="max-w-2xl mx-auto px-4 py-10 text-center">
