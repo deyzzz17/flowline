@@ -26,7 +26,7 @@ export default async function HomePage() {
             My To-do List ({tasks.length})
           </h2>
         </div>
-        <TaskList tasks={tasks as Task} />
+        <TaskList tasks={tasks as any} />
       </main>
 
       <footer className="max-w-2xl mx-auto px-4 py-10 text-center">
