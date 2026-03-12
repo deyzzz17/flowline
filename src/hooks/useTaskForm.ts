@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { createTaskAction } from '@/app/(frontend)/Tasks/actions'
+import { api } from '@/api'
 
 export const useManageForm = () => {
   const [isOpen, setIsOpen] = useState(false)
@@ -37,7 +37,7 @@ export const useTaskCreation = () => {
       return false
     }
     setIsLoading(true)
-    const result = await createTaskAction({ title, description })
+    const result = await api.tasks.create({ title, description })
     setIsLoading(false)
     if (result.success) {
       resetForm()

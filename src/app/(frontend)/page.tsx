@@ -1,12 +1,9 @@
-import { TodoList } from '@/components/todo-list'
+import { api } from '@/api'
 import { AchievedList } from '@/components/achieved-list'
 import { CreateTask } from '@/components/create-task'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { Task } from '@/payload-types'
-import { api } from '@/api'
-import { ClipboardList, CheckCircle2, Trash2 } from 'lucide-react'
-import { moveToTrashAction, softDeleteTaskAction } from './Tasks/actions'
-import { CheckCircleIcon } from 'lucide-react'
+import { TodoList } from '@/components/todo-list'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { CheckCircle2, CheckCircleIcon, ClipboardList, Trash2 } from 'lucide-react'
 
 export default async function HomePage() {
   const result = await api.tasks.list()
@@ -56,7 +53,7 @@ export default async function HomePage() {
                   Tasks in progress ({todoTasks.length})
                 </h3>
               </div>
-              <TodoList tasks={todoTasks} onDelete={softDeleteTaskAction} />
+              <TodoList tasks={todoTasks} onDelete={api.tasks.softDelete} />
             </div>
           </section>
         </TabsContent>
@@ -85,7 +82,7 @@ export default async function HomePage() {
                 Nothing here at the moment. Complete a task to see it appear!
               </div>
             ) : (
-              <AchievedList tasks={achievedTasks} onDelete={softDeleteTaskAction} />
+              <AchievedList tasks={achievedTasks} onDelete={api.tasks.softDelete} />
             )}
           </div>
         </TabsContent>
@@ -118,7 +115,7 @@ export default async function HomePage() {
                 The trash can is empty.
               </div>
             ) : (
-              <TodoList tasks={trashedTasks} onDelete={moveToTrashAction} />
+              <TodoList tasks={trashedTasks} onDelete={api.tasks.trash} />
             )}
           </div>
         </TabsContent>

@@ -1,9 +1,7 @@
 'use client'
 
+import { api } from '@/api'
 import { useState } from 'react'
-import { toggleTaskStatusAction } from '@/app/(frontend)/Tasks/actions'
-import { softDeleteTaskAction } from '@/app/(frontend)/Tasks/actions'
-import { moveToTrashAction } from '@/app/(frontend)/Tasks/actions'
 
 export const useTask = () => {
   const [isUpdating, setIsUpdating] = useState(false)
@@ -11,7 +9,7 @@ export const useTask = () => {
   const toggleStatus = async (id: number, currentStatus: 'active' | 'completed') => {
     setIsUpdating(true)
 
-    const result = await toggleTaskStatusAction(id, currentStatus)
+    const result = await api.tasks.toggleStatus(id, currentStatus)
 
     setIsUpdating(false)
     return result.success
