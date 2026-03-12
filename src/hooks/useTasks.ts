@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { toggleTaskStatusAction } from '@/app/(frontend)/Tasks/actions'
+import { softDeleteTaskAction } from '@/app/(frontend)/Tasks/actions'
+import { moveToTrashAction } from '@/app/(frontend)/Tasks/actions'
 
 export const useTask = () => {
   const [isUpdating, setIsUpdating] = useState(false)

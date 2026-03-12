@@ -23,3 +23,23 @@ export async function toggleTaskStatusAction(id: number, currentStatus: 'active'
     return { success: false, error: 'Error while updating the task' }
   }
 }
+
+export async function softDeleteTaskAction(id: number) {
+  try {
+    await tasksAPI.updateStatus(id, 'deleted')
+    revalidatePath('/')
+    return { success: true }
+  } catch {
+    return { success: false, error: 'Error while soft deleting the task' }
+  }
+}
+
+export async function moveToTrashAction(id: number) {
+  try {
+    await tasksAPI.delete(id)
+    revalidatePath('/')
+    return { success: true }
+  } catch {
+    return { success: false, error: 'Error while deleting the task' }
+  }
+}

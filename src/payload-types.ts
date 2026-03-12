@@ -171,7 +171,7 @@ export interface Task {
   id: number;
   title: string;
   description?: string | null;
-  status: 'active' | 'completed';
+  status: 'active' | 'completed' | 'deleted';
   updatedAt: string;
   createdAt: string;
 }

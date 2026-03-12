@@ -23,6 +23,7 @@ export const Tasks: CollectionConfig = {
       options: [
         { label: 'Active', value: 'active' },
         { label: 'Completed', value: 'completed' },
+        { label: 'Deleted', value: 'deleted' },
       ],
       required: true,
     },

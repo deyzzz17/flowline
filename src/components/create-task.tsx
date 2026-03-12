@@ -42,9 +42,9 @@ export const CreateTask = () => {
           onClick={open}
           className="group gap-3 px-4 py-6 rounded-xl border border-input bg-background text-foreground hover:bg-accent transition-all shadow-sm"
         >
-          <span className="text-muted-foreground group-hover:text-foreground transition-colors">
-            Add a new task
-          </span>
+          <span className="text-muted-foreground group-hover:text-foreground transition-colors focus-visible:ring-0 focus-visible:ring-offset-0">
+            Add a new task 
+          </span> 
           <div className="bg-blue-50 dark:bg-blue-950 p-1.5 rounded-md transition-colors group-hover:bg-blue-100 dark:group-hover:bg-blue-900">
             <PlusIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
           </div>
