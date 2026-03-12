@@ -1,7 +1,5 @@
-'use client'
-
-import TaskCard from './task-card'
-import type { Task } from '@/types'
+import { Task } from '@/payload-types'
+import { TaskCard } from './task-card'
 
 interface TaskListProps {
   tasks: Task[]
@@ -19,13 +17,7 @@ export function TaskList({ tasks }: TaskListProps) {
   return (
     <div className="grid gap-4 w-full">
       {tasks.map((task) => (
-        <TaskCard
-          key={task.id}
-          id={task.id}
-          title={task.title}
-          description={task.description}
-          status={task.status}
-        />
+        <TaskCard key={task.id} task={task} />
       ))}
     </div>
   )

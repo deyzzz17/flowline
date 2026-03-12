@@ -1,45 +1,57 @@
-import { tasksAPI } from '@/api/tasks'
 import { TaskList } from '@/components/task-list'
-import CreateTask from '@/components/create-task'
-import React from 'react'
-
-import './styles.css'
+import { CreateTask } from '@/components/create-task'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Task } from '@/payload-types'
+import { api } from '@/api'
+import { ClipboardList, CheckCircle2, Trash2 } from 'lucide-react'
 
 export default async function HomePage() {
-  const result = await tasksAPI.getAll()
+  const result = await api.tasks.list()
   const tasks = result.docs
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-4 h-16 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            Flowline<span className="text-blue-600">.</span>
-          </h1>
+    <div className="max-w-4xl mx-auto space-y-8 pb-10 text-foreground">
+      <section className="space-y-1">
+        <h1 className="text-5xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground text-base">
+          Manage your workspace and track your progress.
+        </p>
+      </section>
+
+      <div className="mt-16 mb-3">
+        <Tabs defaultValue="todo" className="w-fit">
+          <TabsList className="bg-muted/50 p-1 h-9">
+            <TabsTrigger value="todo" className="gap-2 px-4 h-7 text-xs font-medium">
+              <ClipboardList className="h-3.5 w-3.5" /> To do
+            </TabsTrigger>
+            <TabsTrigger value="achieved" disabled className="gap-2 px-4 h-7 text-xs font-medium">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Achieved
+            </TabsTrigger>
+            <TabsTrigger value="trashed" disabled className="gap-2 px-4 h-7 text-xs font-medium">
+              <Trash2 className="h-3.5 w-3.5" /> Trashed
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      <section className="space-y-5">
+        <div className="flex items-end justify-between border-b pb-4">
+          <div className="space-y-0.5">
+            <h2 className="text-2xl font-bold tracking-tight">My Todolist</h2>
+            <p className="text-muted-foreground">Manage your daily tasks in style.</p>
+          </div>
           <CreateTask />
         </div>
-      </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
-            My To-do List ({tasks.length})
-          </h2>
+        <div className="rounded-xl border bg-card/30 text-card-foreground shadow-sm p-5">
+          <div className="mb-4">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">
+              Tasks in progress ({tasks.length})
+            </h3>
+          </div>
+          <TaskList tasks={tasks as Task[]} />
         </div>
-        <TaskList tasks={tasks as any} />
-      </main>
-
-      <footer className="max-w-2xl mx-auto px-4 py-10 text-center">
-        <p className="text-xs text-slate-400">
-          Built with Payload & Next.js •
-          <a
-            href="/admin"
-            className="ml-1 text-slate-400 hover:text-blue-600 underline underline-offset-4 transition-colors"
-          >
-            Open Admin Panel
-          </a>
-        </p>
-      </footer>
+      </section>
     </div>
   )
 }

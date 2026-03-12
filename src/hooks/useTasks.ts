@@ -6,7 +6,7 @@ import { toggleTaskStatusAction } from '@/app/(frontend)/Tasks/actions'
 export const useTask = () => {
   const [isUpdating, setIsUpdating] = useState(false)
 
-  const toggleStatus = async (id: string, currentStatus: 'active' | 'completed') => {
+  const toggleStatus = async (id: number, currentStatus: 'active' | 'completed') => {
     setIsUpdating(true)
 
     const result = await toggleTaskStatusAction(id, currentStatus)

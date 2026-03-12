@@ -13,7 +13,7 @@ export const tasksAPI = {
     })
   },
 
-  async getAll() {
+  async list() {
     const payload = await getPayload({ config })
     return await payload.find({
       collection: 'tasks',
@@ -21,7 +21,7 @@ export const tasksAPI = {
     })
   },
 
-  async updateStatus(id: string, newStatus: 'active' | 'completed') {
+  async updateStatus(id: number, newStatus: 'active' | 'completed') {
     const payload = await getPayload({ config })
     return await payload.update({
       collection: 'tasks',

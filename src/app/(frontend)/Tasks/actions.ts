@@ -13,7 +13,7 @@ export async function createTaskAction(task: { title: string; description?: stri
   }
 }
 
-export async function toggleTaskStatusAction(id: string, currentStatus: 'active' | 'completed') {
+export async function toggleTaskStatusAction(id: number, currentStatus: 'active' | 'completed') {
   try {
     const newStatus = currentStatus === 'active' ? 'completed' : 'active'
     await tasksAPI.updateStatus(id, newStatus)

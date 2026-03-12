@@ -2,39 +2,43 @@
 
 import { Checkbox } from './ui/checkbox'
 import { useTask } from '@/hooks/useTasks'
-import type { Task } from '@/types'
+import type { Task } from '@/payload-types'
 
-const TaskCard = ({ id, title, description, status }: Task) => {
+export const TaskCard = ({ task }: { task: Task }) => {
   const { toggleStatus, isUpdating } = useTask()
-  const isCompleted = status === 'completed'
+  const isCompleted = task.status === 'completed'
 
   return (
     <div
-      className={`flex items-start space-x-4 p-4 bg-white border rounded-lg transition-opacity ${isUpdating ? 'opacity-50' : 'opacity-100'}`}
+      className={`flex items-start space-x-4 p-4 rounded-lg border bg-background transition-all hover:bg-accent/50 ${
+        isUpdating ? 'opacity-50' : 'opacity-100'
+      }`}
     >
       <div className="mt-1">
         <Checkbox
-          id={id}
+          id={`${task.id}`}
           checked={isCompleted}
           disabled={isUpdating}
-          onCheckedChange={() => toggleStatus(id, status)}
+          onCheckedChange={() => toggleStatus(task.id, task.status)}
         />
       </div>
 
       <div className="grid gap-1.5 leading-none">
         <label
-          htmlFor={id}
-          className={`text-base font-semibold cursor-pointer ${
-            isCompleted ? 'line-through text-slate-400' : 'text-slate-900'
+          htmlFor={`${task.id}`}
+          className={`text-base font-semibold cursor-pointer transition-colors ${
+            isCompleted ? 'line-through text-muted-foreground' : 'text-foreground'
           }`}
         >
-          {title}
+          {task.title}
         </label>
 
-        {description && <p className="text-sm text-slate-500 font-normal">{description}</p>}
+        {task.description && (
+          <p className="text-sm text-muted-foreground font-normal leading-relaxed">
+            {task.description}
+          </p>
+        )}
       </div>
     </div>
   )
 }
-
-export default TaskCard

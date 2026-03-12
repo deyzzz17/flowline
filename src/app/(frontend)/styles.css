@@ -1,6 +1,6 @@
 @import 'tailwindcss';
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -79,8 +79,7 @@ img {
 }
 
 h1 {
-  margin: 40px 0;
-  font-size: 64px;
+  margin: 20px 0;
   line-height: 70px;
   font-weight: bold;
 
@@ -101,8 +100,12 @@ h1 {
   }
 }
 
-p {
+h2 {
   margin: 24px 0;
+}
+
+p {
+  margin: 0px 0;
 
   @media (max-width: 1024px) {
     margin: calc(var(--base) * 0.75) 0;
