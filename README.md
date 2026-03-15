@@ -140,11 +140,11 @@ Once the server is running, open your browser to `http://localhost:3000`.
 
 The first version of Flowline implements core task management.  Planned features include:
 
-- **Habit tracking** – create recurring habits and monitor streaks and progress with graphs.
-- **Agenda view** – integrate calendar events to visualise your schedule and plan ahead.
-- **Timers and productivity tools** – incorporate Pomodoro timers and focus tools.
-- **Workspace management** – create shared workspaces, invite colleagues and categorise tasks by project or team.
-- **Analytics** – view detailed statistics on completed tasks, habits and productivity trends.
+- **Habit tracking**: create recurring habits and monitor streaks and progress with graphs.
+- **Agenda view**: integrate calendar events to visualise your schedule and plan ahead.
+- **Timers and productivity tools**: incorporate Pomodoro timers and focus tools.
+- **Workspace management**: create shared workspaces, invite colleagues and categorise tasks by project or team.
+- **Analytics**: view detailed statistics on completed tasks, habits and productivity trends.
 
 ## Author
 
