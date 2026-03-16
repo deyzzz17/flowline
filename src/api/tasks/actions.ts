@@ -5,6 +5,7 @@ import 'server-only'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { revalidatePath } from 'next/cache'
+import { ok, err } from '@/types/result'
 
 export const createTask = async (task: { title: string; description?: string }) => {
   try {
@@ -18,9 +19,9 @@ export const createTask = async (task: { title: string; description?: string }) 
     })
 
     revalidatePath('/')
-    return { success: true, data: newTask }
+    return ok(newTask)
   } catch {
-    return { success: false, error: 'Error while creating the task' }
+    return err('Error while creating the task')
   }
 }
 
@@ -63,9 +64,9 @@ export const softDeleteTask = async (taskId: number) => {
   try {
     await updateTaskStatus(taskId, 'deleted')
     revalidatePath('/')
-    return { success: true }
+    return ok(true)
   } catch {
-    return { success: false, error: 'Error while soft deleting the task' }
+    return err('Error while soft deleting the task')
   }
 }
 
@@ -73,9 +74,9 @@ export const moveToTrash = async (id: number) => {
   try {
     await deleteTask(id)
     revalidatePath('/')
-    return { success: true }
+    return ok(true)
   } catch {
-    return { success: false, error: 'Error while deleting the task' }
+    return err('Error while deleting the task')
   }
 }
 
@@ -84,18 +85,42 @@ export const toggleTaskStatus = async (id: number, currentStatus: 'active' | 'co
     const newStatus = currentStatus === 'active' ? 'completed' : 'active'
     await updateTaskStatus(id, newStatus)
     revalidatePath('/')
-    return { success: true }
+    return ok(true)
   } catch {
-    return { success: false, error: 'Error while updating the task' }
+    return err('Error while updating the task')
   }
 }
 
-// type Result<T, E> monad
-// ok(data), err(error)
-// const result = createTask()
-// if (isOk(result)) { result.data.title }
-// if (isErr(result)) { result.error.message }
-// result.match({
-//  isOk: (data) => {...},
-//  isErr: (error) => {...}
-// })
+export const restoreTask = async (id: number) => {
+  try {
+    await updateTaskStatus(id, 'active')
+    revalidatePath('/')
+    return ok(true)
+  } catch {
+    return err('Error while restoring the task')
+  }
+}
+
+export const editTask = async (
+  id: number,
+  draft: { title: string; description?: string | undefined },
+) => {
+  try {
+    const payload = await getPayload({ config })
+    const originalTask = await payload.findByID({ collection: 'tasks', id })
+    const finalTitle = draft.title.trim() === '' ? originalTask.title : draft.title
+    const finalDescription = draft.description
+    const updatedTask = await payload.update({
+      collection: 'tasks',
+      id,
+      data: {
+        title: finalTitle,
+        description: finalDescription,
+      },
+    })
+    revalidatePath('/')
+    return ok(updatedTask)
+  } catch {
+    return err('Error while editing the task')
+  }
+}

@@ -6,6 +6,8 @@ import {
   softDeleteTask,
   moveToTrash,
   toggleTaskStatus,
+  restoreTask,
+  editTask,
 } from './actions'
 
 export const tasksAPI = {
@@ -16,4 +18,6 @@ export const tasksAPI = {
   softDelete: softDeleteTask,
   trash: moveToTrash,
   toggleStatus: toggleTaskStatus,
+  restore: restoreTask,
+  edit: editTask,
 }

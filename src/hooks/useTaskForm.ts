@@ -5,9 +5,8 @@ import { api } from '@/api'
 
 export const useManageForm = () => {
   const [isOpen, setIsOpen] = useState(false)
-  const open = () => setIsOpen(true)
   const close = () => setIsOpen(false)
-  return { isOpen, open, close, setIsOpen }
+  return { isOpen, close, setIsOpen }
 }
 
 export const useTaskCreation = () => {
@@ -39,7 +38,7 @@ export const useTaskCreation = () => {
     setIsLoading(true)
     const result = await api.tasks.create({ title, description })
     setIsLoading(false)
-    if (result.success) {
+    if (result.ok) {
       resetForm()
       return true
     }

@@ -19,7 +19,7 @@ import { AlertCircleIcon } from 'lucide-react'
 import { useManageForm, useTaskCreation } from '@/hooks/useTaskForm'
 
 export const CreateTask = () => {
-  const { isOpen, open, close, setIsOpen } = useManageForm()
+  const { isOpen, close, setIsOpen } = useManageForm()
   const { title, setTitle, description, setDescription, showError, isLoading, saveTask } =
     useTaskCreation()
 

@@ -2,6 +2,7 @@ import { api } from '@/api'
 import { AchievedList } from '@/components/achieved-list'
 import { CreateTask } from '@/components/create-task'
 import { TodoList } from '@/components/todo-list'
+import { Trash } from '@/components/trash-list'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CheckCircle2, CheckCircleIcon, ClipboardList, Trash2 } from 'lucide-react'
 
@@ -16,8 +17,8 @@ export default async function HomePage() {
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-10 text-foreground">
       <section className="space-y-1">
-        <h1 className="text-5xl space-y-6 font-bold tracking-tight">Dashboard</h1>
-        <p className="text-lg text-muted-foreground">
+        <h1 className="text-4xl space-y-6 font-bold tracking-tight">Dashboard</h1>
+        <p className="text-base text-muted-foreground">
           Manage your workspace and track your progress.
         </p>
       </section>
@@ -115,7 +116,11 @@ export default async function HomePage() {
                 The trash can is empty.
               </div>
             ) : (
-              <TodoList tasks={trashedTasks} onDelete={api.tasks.trash} />
+              <Trash
+                tasks={trashedTasks}
+                onDelete={api.tasks.trash}
+                onRestore={api.tasks.restore}
+              />
             )}
           </div>
         </TabsContent>
