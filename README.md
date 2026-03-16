@@ -2,6 +2,25 @@
 
 Flowline is a personal productivity application that consolidates your to‑do lists, habit tracking and scheduling into a single web experience.  It is built with **Next.js** and **React** for the front‑end, **Payload CMS** for the headless back‑end and **Neon** for the serverless PostgreSQL database.  The design uses **Tailwind CSS** and the **shadcn/ui** component library to deliver a clean, accessible interface.
 
+## Table of contents
+
+- [Highlights](#highlights)
+- [Overview](#overview)
+- [Application workflow](#application-workflow)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Key hooks](#key-hooks)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#1-prerequisites)
+  - [Clone the repository](#2-clone-the-repository)
+  - [Install dependencies](#3-install-dependencies)
+  - [Configure environment variables](#4-configure-environment-variables)
+  - [Run the development server](#5-run-the-development-server)
+  - [Seed the database (optional)](#6-seed-the-database-optional)
+- [Usage](#usage)
+- [Roadmap](#roadmap)
+- [Author](#author)
+
 ## Highlights
 
 - **Unified task and habit management**: organise your to‑dos, track recurring habits and plan your agenda from one place.
