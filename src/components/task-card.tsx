@@ -12,26 +12,37 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline'
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+
 interface TaskCardProps {
   task: Task
   onDelete: (id: number) => void
   onRestore?: (id: number) => void
+  isEditing?: boolean
+  isDisabled?: boolean
+  taskManager: ReturnType<typeof useTask>
 }
 
-export const TaskCard = ({ task, onDelete, onRestore }: TaskCardProps) => {
-  const {
-    toggleStatus,
-    isUpdating,
-    editingId,
-    startEditing,
-    stopEditing,
-    saveEdit,
-    draft,
-    updateDraft,
-  } = useTask()
-
-  const isEditing = editingId === task.id
-  const isDisabled = editingId !== undefined && !isEditing
+export const TaskCard = ({
+  task,
+  onDelete,
+  onRestore,
+  isEditing,
+  isDisabled,
+  taskManager,
+}: TaskCardProps) => {
+  const { toggleStatus, isUpdating, startEditing, stopEditing, saveEdit, draft, updateDraft } =
+    taskManager
 
   const isActive = task.status === 'active'
   const isCompleted = task.status === 'completed'
@@ -46,15 +57,15 @@ export const TaskCard = ({ task, onDelete, onRestore }: TaskCardProps) => {
       <div
         className={`relative z-20 flex items-start space-x-4 p-4 rounded-xl border bg-background transition-all ${
           isEditing ? 'ring-2 ring-primary shadow-md border-transparent' : 'hover:bg-accent/50'
-        } ${isUpdating ? 'opacity-50' : 'opacity-100'} ${
-          isDisabled ? 'opacity-30 pointer-events-none grayscale' : ''
+        } ${isDisabled ? 'opacity-40 grayscale pointer-events-none' : 'opacity-100'} ${
+          isUpdating ? 'opacity-50' : ''
         }`}
       >
         <div className="mt-1">
           <Checkbox
             id={`${task.id}`}
             checked={isCompleted}
-            disabled={isUpdating || isDeleted || isEditing}
+            disabled={isUpdating || isDeleted || isEditing || isDisabled}
             onCheckedChange={() => toggleStatus(task.id, task.status as 'active' | 'completed')}
           />
         </div>
@@ -123,28 +134,57 @@ export const TaskCard = ({ task, onDelete, onRestore }: TaskCardProps) => {
               size="icon"
               className="h-9 w-9 text-muted-foreground hover:text-primary transition-colors"
               onClick={() => startEditing(task)}
+              disabled={isDisabled}
             >
               <PencilSquareIcon className="h-5 w-5" />
             </Button>
           )}
 
-          {isDeleted && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 text-muted-foreground hover:text-primary transition-transform hover:rotate-180"
-              onClick={() => onRestore?.(task.id)}
-            >
-              <ArrowPathIcon className="h-5 w-5" />
-            </Button>
-          )}
-
-          {!isEditing && (
+          {isDeleted ? (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 text-muted-foreground hover:text-primary transition-transform hover:rotate-180"
+                onClick={() => onRestore?.(task.id)}
+                disabled={isDisabled}
+              >
+                <ArrowPathIcon className="h-5 w-5" />
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                  >
+                    <TrashIcon className="h-5 w-5" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete the task{' '}
+                      <strong>{task.title}</strong> from your list.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => onDelete(task.id)} variant="destructive">
+                      Delete permanently
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
+          ) : (
             <Button
               variant="ghost"
               size="icon"
               className="h-9 w-9 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
               onClick={() => onDelete(task.id)}
+              disabled={isDisabled}
             >
               <TrashIcon className="h-5 w-5" />
             </Button>
