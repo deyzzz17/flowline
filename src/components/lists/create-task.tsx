@@ -16,7 +16,8 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { PlusIcon } from '@heroicons/react/24/outline'
 import { AlertCircleIcon } from 'lucide-react'
-import { useManageForm, useTaskCreation } from '@/hooks/useTaskForm'
+import { useManageForm } from '@/hooks/tasks/use-manage-form'
+import { useTaskCreation } from '@/hooks/tasks/use-task-creation'
 
 export const CreateTask = () => {
   const { isOpen, close, setIsOpen } = useManageForm()

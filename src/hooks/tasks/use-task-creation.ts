@@ -1,13 +1,5 @@
-'use client'
-
-import { useState } from 'react'
 import { api } from '@/api'
-
-export const useManageForm = () => {
-  const [isOpen, setIsOpen] = useState(false)
-  const close = () => setIsOpen(false)
-  return { isOpen, close, setIsOpen }
-}
+import { useState } from 'react'
 
 export const useTaskCreation = () => {
   const [title, setTitle] = useState('')

@@ -2,7 +2,7 @@
 
 import { Task } from '@/payload-types'
 import { TaskCard } from './task-card'
-import { useTask } from '@/hooks/useTasks'
+import { useTask } from '@/hooks/tasks/use-task'
 
 interface TaskListProps {
   tasks: Task[]

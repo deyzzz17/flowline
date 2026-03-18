@@ -1,9 +1,9 @@
 'use client'
 
-import { Checkbox } from './ui/checkbox'
-import { useTask } from '@/hooks/useTasks'
+import { Checkbox } from '../ui/checkbox'
+import { useTask } from '@/hooks/tasks/use-task'
 import type { Task } from '@/payload-types'
-import { Button } from './ui/button'
+import { Button } from '../ui/button'
 import {
   TrashIcon,
   ArrowPathIcon,

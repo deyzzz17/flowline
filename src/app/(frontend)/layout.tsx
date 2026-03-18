@@ -1,10 +1,12 @@
 import React from 'react'
-import { ThemeProvider } from '@/components/theme-provider'
-import { ModeToggle } from '@/components/mode-toggle'
+import { ThemeProvider } from '@/components/theme/theme-provider'
+import { ModeToggle } from '@/components/theme/mode-toggle'
+import { FlowlineLogo } from '@/components/header/flowline-logo'
 import './styles.css'
+import { AuthButtons } from '@/components/header/auth-button'
 
 export const metadata = {
-  description: 'Flowline - Simple Task Management',
+  description: 'Flowline - Your productivity OS',
   title: 'Flowline',
 }
 
@@ -18,20 +20,23 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           enableSystem
           disableTransitionOnChange
         >
-          <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
-            <div className="container max-w-4xl mx-auto flex h-20 items-center justify-between px-4">
-              <div className="flex items-center gap-2">
-                <span className="text-4xl font-black uppercase text-foreground transition-all">
-                  Flowline<span className="text-blue-600 dark:text-blue-500 ml-1">.</span>
+          <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/60">
+            <div className="mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-10">
+              <a href="/" className="group flex items-center gap-3">
+                <FlowlineLogo />
+                <span className="text-[17px] font-bold tracking-tight text-foreground transition-colors group-hover:text-foreground/80">
+                  Flowline
                 </span>
-              </div>
-              <div className="flex items-center gap-4">
+              </a>
+
+              <div className="flex items-center gap-2 sm:gap-3">
                 <ModeToggle />
+                <AuthButtons />
               </div>
             </div>
           </header>
 
-          <main className="container max-w-4xl mx-auto p-4 md:p-8">{children}</main>
+          <main className="w-full">{children}</main>
         </ThemeProvider>
       </body>
     </html>
