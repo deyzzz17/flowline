@@ -1,9 +1,9 @@
 import React from 'react'
+import '../styles.css'
 import { ThemeProvider } from '@/components/theme/theme-provider'
+import { AuthButtons } from '@/components/header/auth-button'
 import { ModeToggle } from '@/components/theme/mode-toggle'
 import { FlowlineLogo } from '@/components/header/flowline-logo'
-import './styles.css'
-import { AuthButtons } from '@/components/header/auth-button'
 
 export const metadata = {
   description: 'Flowline - Your productivity OS',
@@ -13,7 +13,7 @@ export const metadata = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen bg-background font-sans antialiased text-foreground">
+      <body className="min-h-screen bg-background overflow-hidden">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -36,7 +36,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </div>
           </header>
 
-          <main className="w-full">{children}</main>
+          <main className="h-[calc(100dvh-4rem)] w-full overflow-hidden">{children}</main>
         </ThemeProvider>
       </body>
     </html>

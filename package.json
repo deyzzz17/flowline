@@ -24,6 +24,7 @@
     "@payloadcms/richtext-lexical": "3.79.0",
     "@payloadcms/ui": "3.79.0",
     "@tailwindcss/postcss": "^4.2.1",
+    "better-auth": "^1.5.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cross-env": "^7.0.3",

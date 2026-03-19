@@ -1,6 +1,7 @@
 'use client'
 
 import { useManageAuth } from '@/hooks/header/use-manage-auth'
+import Link from 'next/link'
 
 export function AuthButtons() {
   const { open, change } = useManageAuth()
@@ -8,10 +9,16 @@ export function AuthButtons() {
   return (
     <div className="relative flex items-center gap-2 sm:gap-3">
       <div className="mx-1 hidden h-5 w-px bg-border sm:block" />
-      <button className="hidden rounded-full px-4 py-2 text-sm font-medium text-muted-foreground transition-all duration-200 hover:bg-accent hover:text-foreground sm:block">
+      <Link
+        href="/sign-in"
+        className="hidden rounded-full px-4 py-2 text-sm font-medium text-muted-foreground transition-all duration-200 hover:bg-accent hover:text-foreground sm:block"
+      >
         Sign in
-      </button>
-      <button className="group relative hidden overflow-hidden rounded-full bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-violet-500/20 transition-all duration-200 hover:bg-violet-500 hover:shadow-md hover:shadow-violet-500/30 hover:-translate-y-px active:translate-y-0 sm:inline-flex items-center gap-1.5">
+      </Link>
+      <Link
+        href="/sign-up"
+        className="group relative hidden overflow-hidden rounded-full bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-violet-500/20 transition-all duration-200 hover:bg-violet-500 hover:shadow-md hover:shadow-violet-500/30 hover:-translate-y-px active:translate-y-0 sm:inline-flex items-center gap-1.5"
+      >
         <span>Sign up</span>
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -28,7 +35,7 @@ export function AuthButtons() {
           />
         </svg>
         <div className="absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-white/15 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
-      </button>
+      </Link>
 
       <button
         onClick={change}
