@@ -7,7 +7,6 @@ import {
   CheckCircleIcon,
 } from '@heroicons/react/24/outline'
 import { CheckCheck, Flame, LayoutGrid, Timer, TrendingUp, Zap } from 'lucide-react'
-import { Counter } from '@/components/dashboard/counter'
 import { HeroSection } from '@/components/dashboard/hero-section'
 import { Orb } from '@/components/dashboard/orb'
 import { SparkLine } from '@/components/dashboard/spark-line'
@@ -15,6 +14,7 @@ import { FeatureCard } from '@/components/dashboard/feature-card'
 import { BentoCard } from '@/components/dashboard/bento-card'
 import { MiniTask } from '@/components/dashboard/mini-task'
 import { HabitBar } from '@/components/dashboard/habit-bar'
+import Link from 'next/link'
 
 export default function HomePage() {
   const focusData = [3.2, 5.1, 4.0, 6.4, 5.6, 7.2, 4.4]
@@ -87,13 +87,6 @@ export default function HomePage() {
       iconDarkColor: 'text-amber-300',
       delay: 250,
     },
-  ]
-
-  const stats = [
-    { value: 50000, suffix: '+', label: 'Active users' },
-    { value: 2000000, suffix: '+', label: 'Tasks completed' },
-    { value: 98, suffix: '%', label: 'Satisfaction rate' },
-    { value: 4, suffix: 'x', label: 'Productivity boost' },
   ]
 
   return (
@@ -347,21 +340,6 @@ export default function HomePage() {
         </section>
 
         <section className="mx-auto max-w-screen-2xl px-4 pb-24 sm:px-6 lg:px-10">
-          <div className="rounded-3xl border border-slate-200 bg-white/80 p-10 shadow-sm backdrop-blur-sm md:p-16 dark:border-white/10 dark:bg-white/5 dark:shadow-none">
-            <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
-              {stats.map((s) => (
-                <div key={s.label} className="text-center">
-                  <div className="mb-1 text-4xl font-bold text-slate-900 md:text-5xl dark:text-white">
-                    <Counter to={s.value} suffix={s.suffix} />
-                  </div>
-                  <div className="text-sm text-slate-400 dark:text-white/40">{s.label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="mx-auto max-w-screen-2xl px-4 pb-24 sm:px-6 lg:px-10">
           <div className="mb-14 text-center">
             <p className="mb-4 text-xs uppercase tracking-widest text-violet-600 dark:text-violet-400">
               Everything you need
@@ -458,20 +436,21 @@ export default function HomePage() {
                 Flowline.
               </p>
               <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-                <button
+                <Link
+                  href="/sign-up"
                   className="group relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-violet-600 px-8 py-3.5 text-sm font-bold text-white shadow-lg shadow-violet-500/30 transition-all duration-300 hover:bg-violet-500 hover:-translate-y-0.5 hover:shadow-violet-500/40 hover:shadow-xl active:translate-y-0
                   dark:bg-white dark:text-violet-900 dark:shadow-white/10 dark:hover:shadow-white/20"
                 >
-                  Start for free
+                  Sign up
                   <ArrowRightIcon className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                   <div className="absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-white/15 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-                </button>
+                </Link>
                 <button
                   className="inline-flex items-center gap-2 rounded-full border px-8 py-3.5 text-sm font-semibold backdrop-blur-sm transition-all duration-300
                   border-violet-200 bg-white/80 text-violet-600 hover:border-violet-300 hover:bg-white hover:text-violet-700
                   dark:border-white/20 dark:bg-white/5 dark:text-white/70 dark:hover:border-white/30 dark:hover:bg-white/10 dark:hover:text-white"
                 >
-                  Schedule a demo
+                  Demo
                 </button>
               </div>
               <p className="mt-6 text-xs text-slate-400 dark:text-white/25">

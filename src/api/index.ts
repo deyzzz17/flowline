@@ -1,7 +1,7 @@
-import { tasksAPI } from "./tasks";
-
-
+import { authAPI } from './authentification'
+import { tasksAPI } from './tasks'
 
 export const api = {
-  tasks: tasksAPI
+  tasks: tasksAPI,
+  authentifications: authAPI,
 }
