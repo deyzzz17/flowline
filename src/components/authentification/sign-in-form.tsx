@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { AlertCircleIcon } from 'lucide-react'
+import Link from 'next/link'
 
 export function SignInForm() {
   const { email, setEmail, password, setPassword, error, isLoading, handleSubmit } = useSignIn()
@@ -46,12 +47,12 @@ export function SignInForm() {
             <Label htmlFor="password" className="text-sm font-medium">
               Password
             </Label>
-            <a
+            <Link
               href="/forgot-password"
               className="text-xs text-muted-foreground transition-colors hover:text-foreground"
             >
               Forgot password?
-            </a>
+            </Link>
           </div>
           <Input
             id="password"
@@ -100,12 +101,12 @@ export function SignInForm() {
 
       <p className="text-center text-sm text-muted-foreground">
         Don&apos;t have an account?{' '}
-        <a
+        <Link
           href="/sign-up"
           className="font-semibold text-violet-600 transition-colors hover:text-violet-500 dark:text-violet-400"
         >
           Sign up
-        </a>
+        </Link>
       </p>
     </>
   )

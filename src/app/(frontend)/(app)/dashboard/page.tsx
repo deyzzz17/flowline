@@ -11,6 +11,7 @@ import {
 import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import Link from 'next/link'
 
 function getInitials(name: string | null | undefined): string {
   if (!name) return '?'
@@ -167,12 +168,12 @@ export default async function DashboardPage() {
                     {completedTasks}/{totalTasks}
                   </span>
                 </div>
-                <a
+                <Link
                   href="/lists"
                   className="flex items-center gap-1 text-xs font-medium text-violet-600 transition-colors hover:text-violet-500 dark:text-violet-400"
                 >
                   View all <ArrowRight className="h-3 w-3" />
-                </a>
+                </Link>
               </div>
             </div>
             <div className="divide-y divide-border/30">
@@ -227,7 +228,7 @@ export default async function DashboardPage() {
                 bg: 'bg-pink-500/10',
               },
             ].map((action) => (
-              <a
+              <Link
                 key={action.label}
                 href={action.href}
                 className="group flex items-center gap-3 rounded-2xl border border-border/60 bg-card/40 p-4 backdrop-blur-sm transition-all duration-200 hover:border-border hover:-translate-y-0.5 hover:shadow-md"
@@ -241,7 +242,7 @@ export default async function DashboardPage() {
                   <p className="text-sm font-semibold text-foreground">{action.label}</p>
                   <p className="text-xs text-muted-foreground">{action.desc}</p>
                 </div>
-              </a>
+              </Link>
             ))}
           </div>
         </div>
@@ -302,12 +303,12 @@ export default async function DashboardPage() {
               ))}
             </div>
             <div className="px-5 py-3">
-              <a
+              <Link
                 href="/calendar"
                 className="flex items-center gap-1 text-xs font-medium text-violet-600 transition-colors hover:text-violet-500 dark:text-violet-400"
               >
                 Open calendar <ArrowRight className="h-3 w-3" />
-              </a>
+              </Link>
             </div>
           </div>
 

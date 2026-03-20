@@ -6,6 +6,7 @@ import { Label } from '../ui/label'
 import { Input } from '../ui/input'
 import { cn } from '@/lib/utils'
 import { Button } from '../ui/button'
+import Link from 'next/link'
 
 export const SignUpForm = () => {
   const { name, setName, email, setEmail, password, setPassword, error, isLoading, handleSubmit } =
@@ -110,24 +111,24 @@ export const SignUpForm = () => {
 
       <p className="text-center text-xs text-muted-foreground/60">
         By creating an account, you agree to our{' '}
-        <a href="/terms" className="underline underline-offset-2 hover:text-foreground">
+        <Link href="/terms" className="underline underline-offset-2 hover:text-foreground">
           Terms of Service
-        </a>{' '}
+        </Link>{' '}
         and{' '}
-        <a href="/privacy" className="underline underline-offset-2 hover:text-foreground">
+        <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">
           Privacy Policy
-        </a>
+        </Link>
         .
       </p>
 
       <p className="text-center text-sm text-muted-foreground">
         Already have an account?{' '}
-        <a
+        <Link
           href="/sign-in"
           className="font-semibold text-violet-600 transition-colors hover:text-violet-500 dark:text-violet-400"
         >
           Sign in
-        </a>
+        </Link>
       </p>
     </>
   )
