@@ -1,5 +1,6 @@
-import { signInAction } from './actions'
+import { signInAction, signUpAction } from './actions'
 
 export const authAPI = {
   signIn: signInAction,
+  signUp: signUpAction,
 }

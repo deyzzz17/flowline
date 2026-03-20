@@ -1,5 +1,3 @@
-'use client'
-
 import Image from 'next/image'
 import { Orb } from '@/components/dashboard/orb'
 import { SignInForm } from '@/components/authentification/sign-in-form'
