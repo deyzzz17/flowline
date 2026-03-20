@@ -1,5 +1,5 @@
 import React from 'react'
-import '../styles.css'
+import './styles.css'
 import { Metadata } from 'next'
 import { ThemeProvider } from '@/components/theme/theme-provider'
 
