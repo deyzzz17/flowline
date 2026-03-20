@@ -47,12 +47,11 @@ export function SignInForm() {
             <Label htmlFor="password" className="text-sm font-medium">
               Password
             </Label>
-            <Link
-              href="/forgot-password"
+            <p
               className="text-xs text-muted-foreground transition-colors hover:text-foreground"
             >
               Forgot password?
-            </Link>
+            </p>
           </div>
           <Input
             id="password"
