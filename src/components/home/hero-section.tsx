@@ -1,6 +1,6 @@
 'use client'
 
-import { useMounted } from '@/hooks/dashboard/use-mounted'
+import { useMounted } from '@/hooks/home/use-mounted'
 import { ArrowRightIcon, SparklesIcon } from '@heroicons/react/24/outline'
 import Link from 'next/link'
 

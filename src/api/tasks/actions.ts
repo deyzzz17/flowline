@@ -6,15 +6,21 @@ import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { revalidatePath } from 'next/cache'
 import { ok, err } from '@/types/result'
+import { auth } from '@/lib/auth'
+import { headers } from 'next/headers'
 
 export const createTask = async (task: { title: string; description?: string }) => {
   try {
+    const session = await auth.api.getSession({ headers: await headers() })
+    const userId = session?.user?.id
+    if (!userId) return err('Not authenticated')
     const payload = await getPayload({ config })
     const newTask = await payload.create({
       collection: 'tasks',
       data: {
         ...task,
         status: 'active',
+        userId,
       },
     })
 
@@ -26,17 +32,16 @@ export const createTask = async (task: { title: string; description?: string }) 
 }
 
 export const listTasks = async (status?: 'active' | 'completed' | 'deleted') => {
+  const session = await auth.api.getSession({ headers: await headers() })
+  const userId = session?.user?.id
+  if (!userId) return { docs: [] }
   const payload = await getPayload({ config })
   return await payload.find({
     collection: 'tasks',
     sort: '-createdAt',
-    where: status
-      ? {
-          status: {
-            equals: status,
-          },
-        }
-      : undefined,
+    where: {
+      and: [{ userId: { equals: userId } }, ...(status ? [{ status: { equals: status } }] : [])],
+    },
   })
 }
 
@@ -44,6 +49,9 @@ export const updateTaskStatus = async (
   id: number,
   newStatus: 'active' | 'completed' | 'deleted',
 ) => {
+  const session = await auth.api.getSession({ headers: await headers() })
+  const userId = session?.user?.id
+  if (!userId) return err('Not authenticated')
   const payload = await getPayload({ config })
   return await payload.update({
     collection: 'tasks',

@@ -1,5 +1,5 @@
 import Image from 'next/image'
-import { Orb } from '@/components/dashboard/orb'
+import { Orb } from '@/components/home/orb'
 import { SignUpForm } from '@/components/authentification/sign-up-form'
 
 export default function SignUpPage() {

@@ -27,5 +27,11 @@ export const Tasks: CollectionConfig = {
       ],
       required: true,
     },
+    {
+      name: 'userId',
+      type: 'text',
+      required: true,
+      index: true,
+    },
   ],
 }

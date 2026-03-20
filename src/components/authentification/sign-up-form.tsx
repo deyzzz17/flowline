@@ -1,3 +1,5 @@
+'use client'
+
 import { useSignUp } from '@/hooks/authentification/use-sign-up'
 import { AlertCircleIcon } from 'lucide-react'
 import { Label } from '../ui/label'

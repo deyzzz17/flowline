@@ -1,5 +1,5 @@
 import Image from 'next/image'
-import { Orb } from '@/components/dashboard/orb'
+import { Orb } from '@/components/home/orb'
 import { SignInForm } from '@/components/authentification/sign-in-form'
 
 export default function SignInPage() {

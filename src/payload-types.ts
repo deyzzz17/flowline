@@ -172,6 +172,7 @@ export interface Task {
   title: string;
   description?: string | null;
   status: 'active' | 'completed' | 'deleted';
+  userId: string;
   updatedAt: string;
   createdAt: string;
 }
@@ -301,6 +302,7 @@ export interface TasksSelect<T extends boolean = true> {
   title?: T;
   description?: T;
   status?: T;
+  userId?: T;
   updatedAt?: T;
   createdAt?: T;
 }

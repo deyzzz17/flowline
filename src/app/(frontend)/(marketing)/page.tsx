@@ -7,13 +7,13 @@ import {
   CheckCircleIcon,
 } from '@heroicons/react/24/outline'
 import { CheckCheck, Flame, LayoutGrid, Timer, TrendingUp, Zap } from 'lucide-react'
-import { HeroSection } from '@/components/dashboard/hero-section'
-import { Orb } from '@/components/dashboard/orb'
-import { SparkLine } from '@/components/dashboard/spark-line'
-import { FeatureCard } from '@/components/dashboard/feature-card'
-import { BentoCard } from '@/components/dashboard/bento-card'
-import { MiniTask } from '@/components/dashboard/mini-task'
-import { HabitBar } from '@/components/dashboard/habit-bar'
+import { HeroSection } from '@/components/home/hero-section'
+import { Orb } from '@/components/home/orb'
+import { SparkLine } from '@/components/home/spark-line'
+import { FeatureCard } from '@/components/home/feature-card'
+import { BentoCard } from '@/components/home/bento-card'
+import { MiniTask } from '@/components/home/mini-task'
+import { HabitBar } from '@/components/home/habit-bar'
 import Link from 'next/link'
 
 export default function HomePage() {

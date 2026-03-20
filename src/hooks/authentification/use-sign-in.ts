@@ -24,7 +24,7 @@ export function useSignIn() {
       return
     }
 
-    router.push('/')
+    router.push('/dashboard')
   }
 
   return {
