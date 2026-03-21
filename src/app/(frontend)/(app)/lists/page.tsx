@@ -26,14 +26,6 @@ export default async function HomePage() {
 
   return (
     <div className="relative mx-auto max-w-screen-2xl px-4 pb-16 sm:px-6 lg:px-10">
-      <div
-        className="pointer-events-none absolute inset-0 z-0 hidden dark:block"
-        style={{
-          backgroundImage: `linear-gradient(to right,rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(to bottom,rgba(255,255,255,0.02) 1px,transparent 1px)`,
-          backgroundSize: '72px 72px',
-        }}
-      />
-
       <div className="relative z-10">
         <section className="mb-8 mt-10">
           <div className="flex items-end justify-between gap-4">
