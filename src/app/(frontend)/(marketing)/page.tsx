@@ -348,7 +348,7 @@ export default function HomePage() {
               Built for the way you work
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-slate-500 dark:text-white/40">
-              Every feature is designed to work together seamlessly — from your daily solo habits to
+              Every feature is designed to work together seamlessly, from your daily solo habits to
               complex team-wide projects.
             </p>
           </div>

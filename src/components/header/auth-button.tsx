@@ -1,10 +1,10 @@
 'use client'
 
-import { useManageAuth } from '@/hooks/header/use-manage-auth'
+import { useManageDisplay } from '@/hooks/header/use-manage-auth'
 import Link from 'next/link'
 
-export function AuthButtons() {
-  const { open, change } = useManageAuth()
+export const AuthButtons = () => {
+  const { open, change } = useManageDisplay()
 
   return (
     <div className="relative flex items-center gap-2 sm:gap-3">
@@ -74,12 +74,18 @@ export function AuthButtons() {
       {open && (
         <div className="absolute right-0 top-12 z-50 w-48 overflow-hidden rounded-2xl border border-border bg-background/95 shadow-lg backdrop-blur-md sm:hidden">
           <div className="p-2 flex flex-col gap-1">
-            <button className="w-full rounded-xl px-4 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:bg-accent">
+            <Link
+              href="/sign-in"
+              className="w-full rounded-xl px-4 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:bg-accent"
+            >
               Sign in
-            </button>
-            <button className="w-full rounded-xl bg-violet-600 px-4 py-2.5 text-left text-sm font-semibold text-white transition-colors hover:bg-violet-500">
+            </Link>
+            <Link
+              href="/sign-up"
+              className="w-full rounded-xl bg-violet-600 px-4 py-2.5 text-left text-sm font-semibold text-white transition-colors hover:bg-violet-500"
+            >
               Sign up
-            </button>
+            </Link>
           </div>
         </div>
       )}

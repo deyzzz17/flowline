@@ -8,7 +8,7 @@ import { Label } from '../ui/label'
 import { AlertCircleIcon } from 'lucide-react'
 import Link from 'next/link'
 
-export function SignInForm() {
+export const SignInForm = () => {
   const { email, setEmail, password, setPassword, error, isLoading, handleSubmit } = useSignIn()
 
   return (
@@ -47,9 +47,7 @@ export function SignInForm() {
             <Label htmlFor="password" className="text-sm font-medium">
               Password
             </Label>
-            <p
-              className="text-xs text-muted-foreground transition-colors hover:text-foreground"
-            >
+            <p className="text-xs text-muted-foreground transition-colors hover:text-foreground">
               Forgot password?
             </p>
           </div>

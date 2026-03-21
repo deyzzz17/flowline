@@ -9,7 +9,7 @@ interface TaskListProps {
   onDelete: (id: number) => void
 }
 
-export function TodoList({ tasks, onDelete }: TaskListProps) {
+export const TodoList = ({ tasks, onDelete }: TaskListProps) => {
   const taskManager = useTask()
 
   if (tasks.length === 0) {

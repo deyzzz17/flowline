@@ -9,7 +9,7 @@ interface TaskListProps {
   onDelete: (id: number) => void
 }
 
-export function AchievedList({ tasks, onDelete }: TaskListProps) {
+export const AchievedList = ({ tasks, onDelete }: TaskListProps) => {
   const taskManager = useTask()
 
   if (tasks.length === 0) {

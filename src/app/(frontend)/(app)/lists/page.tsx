@@ -13,16 +13,17 @@ import {
   Sparkles,
 } from 'lucide-react'
 
-export default async function HomePage() {
+export default async function TasksPage() {
   const result = await api.tasks.list()
   const allTasks = result.docs
 
   const todoTasks = allTasks.filter((t) => t.status === 'active')
   const achievedTasks = allTasks.filter((t) => t.status === 'completed')
   const trashedTasks = allTasks.filter((t) => t.status === 'deleted')
+  const activeTasks = allTasks.filter((t) => t.status === 'active' || 'completed')
 
   const completionRate =
-    allTasks.length > 0 ? Math.round((achievedTasks.length / allTasks.length) * 100) : 0
+    allTasks.length > 0 ? Math.round((achievedTasks.length / activeTasks.length) * 100) : 0
 
   return (
     <div className="relative mx-auto max-w-screen-2xl px-4 pb-16 sm:px-6 lg:px-10">
@@ -36,7 +37,7 @@ export default async function HomePage() {
               <h1 className="text-3xl font-bold tracking-tight text-foreground">Tasks</h1>
               <p className="mt-1.5 text-sm text-muted-foreground">
                 {allTasks.length === 0
-                  ? 'No tasks yet — create your first one below.'
+                  ? 'No tasks yet, create your first one below.'
                   : `${todoTasks.length} active · ${achievedTasks.length} completed · ${trashedTasks.length} trashed`}
               </p>
             </div>
@@ -99,7 +100,7 @@ export default async function HomePage() {
                   <h2 className="text-lg font-semibold tracking-tight text-foreground">Today</h2>
                   <p className="mt-0.5 text-sm text-muted-foreground">
                     {todoTasks.length === 0
-                      ? 'Your list is clear — add something to get started.'
+                      ? 'Your list is clear, add something to get started.'
                       : `${todoTasks.length} task${todoTasks.length !== 1 ? 's' : ''} remaining.`}
                   </p>
                 </div>
@@ -124,7 +125,7 @@ export default async function HomePage() {
                       <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
                         <Sparkles className="h-5 w-5 text-muted-foreground/40" />
                       </div>
-                      <p className="text-sm font-medium text-muted-foreground">All clear!</p>
+                      <p className="text-sm font-medium text-muted-foreground">All clear</p>
                       <p className="mt-1 text-xs text-muted-foreground/60">
                         Create a task above to get started.
                       </p>
@@ -146,7 +147,7 @@ export default async function HomePage() {
                   </h2>
                   <p className="mt-0.5 text-sm text-muted-foreground">
                     {achievedTasks.length === 0
-                      ? 'Nothing completed yet — keep going.'
+                      ? 'Nothing completed yet, keep going!'
                       : `${achievedTasks.length} task${achievedTasks.length !== 1 ? 's' : ''} completed. Great work.`}
                   </p>
                 </div>

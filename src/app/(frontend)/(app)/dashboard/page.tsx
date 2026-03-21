@@ -12,6 +12,8 @@ import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import Link from 'next/link'
+import { DashboardTasks } from '@/components/dashboard/user-tasks'
+import { api } from '@/api'
 
 function getInitials(name: string | null | undefined): string {
   if (!name) return '?'
@@ -58,14 +60,6 @@ const mockStats = [
   },
 ]
 
-const mockTasks = [
-  { id: 1, title: 'Review Q1 analytics report', done: false, priority: 'high' },
-  { id: 2, title: 'Update team workspace permissions', done: true, priority: 'medium' },
-  { id: 3, title: 'Prepare sprint planning notes', done: false, priority: 'high' },
-  { id: 4, title: 'Send weekly update email', done: false, priority: 'low' },
-  { id: 5, title: 'Review pull requests', done: true, priority: 'medium' },
-]
-
 const mockHabits = [
   { label: 'Morning workout', pct: 86, color: 'bg-gradient-to-r from-orange-500 to-red-500' },
   { label: 'Read 30 min', pct: 72, color: 'bg-gradient-to-r from-violet-500 to-purple-500' },
@@ -78,19 +72,16 @@ const mockEvents = [
   { title: 'Team standup', time: '09:00', color: 'bg-emerald-500' },
 ]
 
-const priorityColor: Record<string, string> = {
-  high: 'bg-red-500/15 text-red-600 dark:text-red-400',
-  medium: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
-  low: 'bg-slate-500/10 text-slate-500 dark:text-slate-400',
-}
-
 export default async function DashboardPage() {
   const session = await auth.api.getSession({ headers: await headers() })
   const user = session?.user
 
-  const completedTasks = mockTasks.filter((t) => t.done).length
-  const totalTasks = mockTasks.length
-  const progress = Math.round((completedTasks / totalTasks) * 100)
+  const result = await api.tasks.list()
+  const allTasks = result.docs
+
+  const todoTasks = allTasks.filter((t) => t.status === 'active')
+  const achievedTasks = allTasks.filter((t) => t.status === 'completed')
+  const activeTasks = allTasks.filter((t) => t.status === 'active' || 'completed')
 
   return (
     <div className="mx-auto max-w-screen-2xl px-4 pb-16 sm:px-6 lg:px-10">
@@ -150,59 +141,11 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <div className="rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm">
-            <div className="flex items-center justify-between border-b border-border/50 px-5 py-4">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-violet-500 dark:text-violet-400" />
-                <span className="text-sm font-semibold text-foreground">Today&apos;s Tasks</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-violet-500 transition-all duration-500"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                  <span className="text-xs font-semibold text-muted-foreground">
-                    {completedTasks}/{totalTasks}
-                  </span>
-                </div>
-                <Link
-                  href="/lists"
-                  className="flex items-center gap-1 text-xs font-medium text-violet-600 transition-colors hover:text-violet-500 dark:text-violet-400"
-                >
-                  View all <ArrowRight className="h-3 w-3" />
-                </Link>
-              </div>
-            </div>
-            <div className="divide-y divide-border/30">
-              {mockTasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-muted/30"
-                >
-                  <div
-                    className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${task.done ? 'border-violet-500 bg-violet-500/20 dark:border-violet-400' : 'border-border'}`}
-                  >
-                    {task.done && (
-                      <div className="h-1.5 w-1.5 rounded-full bg-violet-500 dark:bg-violet-400" />
-                    )}
-                  </div>
-                  <span
-                    className={`flex-1 text-sm ${task.done ? 'text-muted-foreground line-through' : 'text-foreground'}`}
-                  >
-                    {task.title}
-                  </span>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${priorityColor[task.priority]}`}
-                  >
-                    {task.priority}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <DashboardTasks
+            tasks={todoTasks}
+            completedCount={achievedTasks.length}
+            totalCount={activeTasks.length}
+          />
 
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             {[

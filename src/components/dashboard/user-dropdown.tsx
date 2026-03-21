@@ -23,7 +23,7 @@ function getInitials(name: string | null | undefined): string {
     .slice(0, 2)
 }
 
-export function UserDropdown() {
+export const UserDropdown = () => {
   const { data: session, isPending } = useSession()
   const user = session?.user
   const router = useRouter()
@@ -47,7 +47,7 @@ export function UserDropdown() {
               {user?.name ? getInitials(user.name) : <User className="h-4 w-4" />}
             </AvatarFallback>
           </Avatar>
-        </button> 
+        </button>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-56 rounded-xl p-1.5">

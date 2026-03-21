@@ -10,7 +10,7 @@ interface TaskListProps {
   onRestore: (id: number) => void
 }
 
-export function Trash({ tasks, onDelete, onRestore }: TaskListProps) {
+export const Trash = ({ tasks, onDelete, onRestore }: TaskListProps) => {
   const taskManager = useTask()
 
   if (tasks.length === 0) {
