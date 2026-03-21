@@ -2,6 +2,7 @@ import React from 'react'
 import './styles.css'
 import { Metadata } from 'next'
 import { ThemeProvider } from '@/components/theme/theme-provider'
+import { Analytics } from '@vercel/analytics/next'
 
 export const metadata: Metadata = {
   description: 'Flowline - Your productivity OS',
@@ -18,6 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           enableSystem
           disableTransitionOnChange
         >
+          <Analytics />
           {children}
         </ThemeProvider>
       </body>
