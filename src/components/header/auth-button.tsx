@@ -71,7 +71,6 @@ export function AuthButtons() {
         )}
       </button>
 
-      {/* Dropdown mobile */}
       {open && (
         <div className="absolute right-0 top-12 z-50 w-48 overflow-hidden rounded-2xl border border-border bg-background/95 shadow-lg backdrop-blur-md sm:hidden">
           <div className="p-2 flex flex-col gap-1">

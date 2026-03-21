@@ -445,13 +445,6 @@ export default function HomePage() {
                   <ArrowRightIcon className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                   <div className="absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-white/15 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
                 </Link>
-                <button
-                  className="inline-flex items-center gap-2 rounded-full border px-8 py-3.5 text-sm font-semibold backdrop-blur-sm transition-all duration-300
-                  border-violet-200 bg-white/80 text-violet-600 hover:border-violet-300 hover:bg-white hover:text-violet-700
-                  dark:border-white/20 dark:bg-white/5 dark:text-white/70 dark:hover:border-white/30 dark:hover:bg-white/10 dark:hover:text-white"
-                >
-                  Demo
-                </button>
               </div>
               <p className="mt-6 text-xs text-slate-400 dark:text-white/25">
                 No credit card required · Cancel anytime

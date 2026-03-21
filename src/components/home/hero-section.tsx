@@ -49,9 +49,6 @@ export const HeroSection = () => {
           <ArrowRightIcon className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
           <div className="absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-white/15 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
         </Link>
-        <button className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-8 py-3.5 text-sm font-semibold text-slate-600 shadow-sm transition-all duration-300 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 hover:-translate-y-0.5 dark:border-white/15 dark:bg-white/5 dark:text-white/80 dark:shadow-none dark:hover:border-white/30 dark:hover:bg-white/10 dark:hover:text-white">
-          Demo
-        </button>
       </div>
     </section>
   )
