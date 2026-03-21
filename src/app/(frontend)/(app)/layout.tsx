@@ -1,7 +1,8 @@
 import React from 'react'
 import { ModeToggle } from '@/components/theme/mode-toggle'
 import { FlowlineLogo } from '@/components/header/flowline-logo'
-import { MobileSidebarTrigger, Sidebar } from '@/components/dashboard/sidebar'
+import { Sidebar } from '@/components/dashboard/sidebar'
+import { MobileSidebarTrigger } from '@/components/dashboard/mobile-side-bar-trigger'
 
 import Link from 'next/link'
 import { UserDropdown } from '@/components/dashboard/user-dropdown'
