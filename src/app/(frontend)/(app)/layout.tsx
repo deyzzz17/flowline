@@ -1,7 +1,7 @@
 import React from 'react'
 import { ModeToggle } from '@/components/theme/mode-toggle'
 import { FlowlineLogo } from '@/components/header/flowline-logo'
-import { Sidebar } from '@/components/dashboard/sidebar'
+import { MobileSidebarTrigger, Sidebar } from '@/components/dashboard/sidebar'
 
 import Link from 'next/link'
 import { UserDropdown } from '@/components/dashboard/user-dropdown'
@@ -22,6 +22,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <div className="flex items-center gap-2 sm:gap-3">
               <ModeToggle />
               <div className="mx-1 hidden h-5 w-px bg-border sm:block" />
+              <MobileSidebarTrigger />
               <UserDropdown />
             </div>
           </div>
