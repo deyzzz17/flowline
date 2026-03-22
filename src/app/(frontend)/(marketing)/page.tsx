@@ -15,8 +15,11 @@ import { BentoCard } from '@/components/home/bento-card'
 import { MiniTask } from '@/components/home/mini-task'
 import { HabitBar } from '@/components/home/habit-bar'
 import Link from 'next/link'
+import { requireGuest } from '@/lib/require-auth'
 
-export default function HomePage() {
+export default async function HomePage() {
+  await requireGuest()
+
   const focusData = [3.2, 5.1, 4.0, 6.4, 5.6, 7.2, 4.4]
   const focusLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 

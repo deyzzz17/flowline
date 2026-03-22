@@ -4,35 +4,17 @@ import { Task } from '@/payload-types'
 import { TaskCard } from './task-card'
 import { useTask } from '@/hooks/tasks/use-task'
 
-interface TaskListProps {
+interface TrashListProps {
   tasks: Task[]
-  onDelete: (id: number) => void
-  onRestore: (id: number) => void
 }
 
-export const Trash = ({ tasks, onDelete, onRestore }: TaskListProps) => {
+export const Trash = ({ tasks }: TrashListProps) => {
   const taskManager = useTask()
-
-  if (tasks.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center p-12 rounded-xl border border-dashed bg-card/30 text-center">
-        <p className="text-sm text-muted-foreground">
-          Your todo list is empty. Start by creating one!
-        </p>
-      </div>
-    )
-  }
 
   return (
     <div className="grid gap-4 w-full">
       {tasks.map((task) => (
-        <TaskCard
-          key={task.id}
-          task={task}
-          onDelete={onDelete}
-          onRestore={onRestore}
-          taskManager={taskManager}
-        />
+        <TaskCard key={task.id} task={task} taskManager={taskManager} />
       ))}
     </div>
   )

@@ -1,8 +1,11 @@
 import Image from 'next/image'
 import { Orb } from '@/components/home/orb'
 import { SignUpForm } from '@/components/authentification/sign-up-form'
+import { requireGuest } from '@/lib/require-auth'
 
-export default function SignUpPage() {
+export default async function SignUpPage() {
+  await requireGuest()
+
   return (
     <div className="relative grid h-full lg:grid-cols-2">
       <div

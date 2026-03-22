@@ -1,13 +1,16 @@
 'use client'
 
-import { api } from '@/api'
-import { Task } from '@/payload-types'
 import { useState } from 'react'
+import { Task } from '@/payload-types'
+import { useToggleTask } from './use-toggle-task'
+import { useEditTask } from './use-edit-task'
 
 export const useTask = () => {
   const [editingId, setEditingId] = useState<number | undefined>(undefined)
-  const [isUpdating, setIsUpdating] = useState(false)
   const [draft, setDraft] = useState({ title: '', description: '' })
+
+  const toggleMutation = useToggleTask()
+  const editMutation = useEditTask()
 
   const startEditing = (task: Task) => {
     setEditingId(task.id)
@@ -16,6 +19,7 @@ export const useTask = () => {
       description: task.description ?? '',
     })
   }
+
   const stopEditing = () => {
     setEditingId(undefined)
     setDraft({ title: '', description: '' })
@@ -27,22 +31,27 @@ export const useTask = () => {
 
   const saveEdit = async (id: number) => {
     if (editingId !== id) return
-    setIsUpdating(true)
-    const result = await api.tasks.edit(id, draft)
-    setIsUpdating(false)
-    return result.ok
+    try {
+      await editMutation.mutateAsync({ id, draft })
+      stopEditing()
+      return true
+    } catch {
+      return false
+    }
   }
 
   const toggleStatus = async (id: number, currentStatus: 'active' | 'completed') => {
-    setIsUpdating(true)
-    const result = await api.tasks.toggleStatus(id, currentStatus)
-    setIsUpdating(false)
-    return result.ok
+    try {
+      await toggleMutation.mutateAsync({ id, status: currentStatus })
+      return true
+    } catch {
+      return false
+    }
   }
 
   return {
     toggleStatus,
-    isUpdating,
+    isUpdating: toggleMutation.isPending || editMutation.isPending,
     editingId,
     startEditing,
     stopEditing,

@@ -4,23 +4,12 @@ import { Task } from '@/payload-types'
 import { TaskCard } from './task-card'
 import { useTask } from '@/hooks/tasks/use-task'
 
-interface TaskListProps {
+interface TodoListProps {
   tasks: Task[]
-  onDelete: (id: number) => void
 }
 
-export const TodoList = ({ tasks, onDelete }: TaskListProps) => {
+export const TodoList = ({ tasks }: TodoListProps) => {
   const taskManager = useTask()
-
-  if (tasks.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center p-12 rounded-xl border border-dashed bg-card/30 text-center">
-        <p className="text-sm text-muted-foreground">
-          Your todo list is empty. Start by creating one!
-        </p>
-      </div>
-    )
-  }
 
   return (
     <div className="grid gap-4 w-full">
@@ -31,7 +20,6 @@ export const TodoList = ({ tasks, onDelete }: TaskListProps) => {
           <TaskCard
             key={task.id}
             task={task}
-            onDelete={onDelete}
             isEditing={isEditing}
             isDisabled={isDisabled}
             taskManager={taskManager}
