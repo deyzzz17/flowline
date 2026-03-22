@@ -1,14 +1,12 @@
-'use client'
-
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
-import type { Task } from '@/payload-types'
+import { Task } from '@/payload-types'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-export const useDeleteTask = () => {
+export const useSoftDelete = () => {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: number) => api.tasks.trash(id),
+    mutationFn: (id: number) => api.tasks.softDelete(id),
 
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ['tasks'] })
@@ -17,7 +15,7 @@ export const useDeleteTask = () => {
 
       queryClient.setQueryData<{ docs: Task[] }>(['tasks'], (old) => ({
         ...old!,
-        docs: old!.docs.filter((task) => task.id !== id),
+        docs: old!.docs.map((task) => (task.id === id ? { ...task, status: 'deleted' } : task)),
       }))
 
       return { previous }

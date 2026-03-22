@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Task } from '@/payload-types'
 import { useToggleTask } from './use-toggle-task'
-import { useEditTask } from './use-create-task'
+import { useEditTask } from './use-edit-task'
 
 export const useTask = () => {
   const [editingId, setEditingId] = useState<number | undefined>(undefined)

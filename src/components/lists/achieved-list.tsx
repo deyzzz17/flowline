@@ -2,7 +2,7 @@
 
 import { Task } from '@/payload-types'
 import { TaskCard } from './task-card'
-import { useTask } from '@/hooks/tasks/use-task'
+import { useTask } from '@/hooks/tasks/useTask'
 
 interface AchievedListProps {
   tasks: Task[]

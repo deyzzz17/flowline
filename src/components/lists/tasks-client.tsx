@@ -16,7 +16,7 @@ import {
   Trash2,
 } from 'lucide-react'
 
-export function TasksClient() {
+export const TasksClient = () => {
   const { data } = useQuery({
     queryKey: ['tasks'],
     queryFn: () => api.tasks.list(),
