@@ -1,20 +1,19 @@
-'use client'
-
+import { api } from '@/api'
 import { useState } from 'react'
-import { useCreateTask } from './use-create-task'
 
 export const useTaskCreation = () => {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [showError, setShowError] = useState(false)
-
-  const createTask = useCreateTask()
+  const [isLoading, setIsLoading] = useState(false)
 
   const isInvalid = title.trim() === ''
 
   const handleSetTitle = (value: string) => {
     setTitle(value)
-    if (showError) setShowError(false)
+    if (showError) {
+      setShowError(false)
+    }
   }
 
   const resetForm = () => {
@@ -28,13 +27,14 @@ export const useTaskCreation = () => {
       setShowError(true)
       return false
     }
-    try {
-      await createTask.mutateAsync({ title, description })
+    setIsLoading(true)
+    const result = await api.tasks.create({ title, description })
+    setIsLoading(false)
+    if (result.ok) {
       resetForm()
       return true
-    } catch {
-      return false
     }
+    return false
   }
 
   return {
@@ -45,7 +45,7 @@ export const useTaskCreation = () => {
     setDescription,
     resetForm,
     showError,
-    isLoading: createTask.isPending,
+    isLoading,
     saveTask,
   }
 }
