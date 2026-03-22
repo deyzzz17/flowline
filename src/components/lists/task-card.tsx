@@ -2,6 +2,9 @@
 
 import { Checkbox } from '../ui/checkbox'
 import { useTask } from '@/hooks/tasks/use-task'
+import { useSoftDelete } from '@/hooks/tasks/use-delete-task'
+import { useDeleteTask } from '@/hooks/tasks/use-delete-task'
+import { useRestoreTask } from '@/hooks/tasks/use-delete-task'
 import type { Task } from '@/payload-types'
 import { Button } from '../ui/button'
 import {
@@ -11,7 +14,6 @@ import {
   CheckIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline'
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,27 +28,24 @@ import {
 
 interface TaskCardProps {
   task: Task
-  onDelete: (id: number) => void
-  onRestore?: (id: number) => void
   isEditing?: boolean
   isDisabled?: boolean
   taskManager: ReturnType<typeof useTask>
 }
 
-export const TaskCard = ({
-  task,
-  onDelete,
-  onRestore,
-  isEditing,
-  isDisabled,
-  taskManager,
-}: TaskCardProps) => {
+export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardProps) => {
   const { toggleStatus, isUpdating, startEditing, stopEditing, saveEdit, draft, updateDraft } =
     taskManager
+
+  const softDelete = useSoftDelete()
+  const deleteTask = useDeleteTask()
+  const restoreTask = useRestoreTask()
 
   const isActive = task.status === 'active'
   const isCompleted = task.status === 'completed'
   const isDeleted = task.status === 'deleted'
+
+  const isPending = softDelete.isPending || deleteTask.isPending || restoreTask.isPending
 
   return (
     <>
@@ -58,7 +57,7 @@ export const TaskCard = ({
         className={`relative z-20 flex items-start space-x-4 p-4 rounded-xl border bg-background transition-all ${
           isEditing ? 'ring-2 ring-primary shadow-md border-transparent' : 'hover:bg-accent/50'
         } ${isDisabled ? 'opacity-40 grayscale pointer-events-none' : 'opacity-100'} ${
-          isUpdating ? 'opacity-50' : ''
+          isUpdating || isPending ? 'opacity-50' : ''
         }`}
       >
         <div className="mt-1">
@@ -88,14 +87,7 @@ export const TaskCard = ({
                 placeholder="Add a description..."
               />
               <div className="flex space-x-2">
-                <Button
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={() => {
-                    saveEdit(task.id)
-                    stopEditing()
-                  }}
-                >
+                <Button size="sm" className="h-7 px-2 text-xs" onClick={() => saveEdit(task.id)}>
                   <CheckIcon />
                 </Button>
                 <Button
@@ -117,7 +109,6 @@ export const TaskCard = ({
               >
                 {task.title}
               </label>
-
               {task.description && (
                 <p className="text-sm text-muted-foreground font-normal leading-relaxed mt-1 whitespace-pre-wrap">
                   {task.description}
@@ -146,17 +137,19 @@ export const TaskCard = ({
                 variant="ghost"
                 size="icon"
                 className="h-9 w-9 text-muted-foreground hover:text-primary transition-transform hover:rotate-180"
-                onClick={() => onRestore?.(task.id)}
-                disabled={isDisabled}
+                onClick={() => restoreTask.mutate(task.id)}
+                disabled={isPending}
               >
                 <ArrowPathIcon className="h-5 w-5" />
               </Button>
+
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-9 w-9 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                    disabled={isPending}
                   >
                     <TrashIcon className="h-5 w-5" />
                   </Button>
@@ -165,13 +158,16 @@ export const TaskCard = ({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This action cannot be undone. This will permanently delete the task{' '}
-                      <strong>{task.title}</strong> from your list.
+                      This action cannot be undone. This will permanently delete{' '}
+                      <strong>{task.title}</strong>.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => onDelete(task.id)} variant="destructive">
+                    <AlertDialogAction
+                      onClick={() => deleteTask.mutate(task.id)}
+                      variant="destructive"
+                    >
                       Delete permanently
                     </AlertDialogAction>
                   </AlertDialogFooter>
@@ -183,8 +179,8 @@ export const TaskCard = ({
               variant="ghost"
               size="icon"
               className="h-9 w-9 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
-              onClick={() => onDelete(task.id)}
-              disabled={isDisabled}
+              onClick={() => softDelete.mutate(task.id)}
+              disabled={isDisabled || isPending}
             >
               <TrashIcon className="h-5 w-5" />
             </Button>

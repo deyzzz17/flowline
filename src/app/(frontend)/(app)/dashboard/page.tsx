@@ -80,7 +80,7 @@ export default async function DashboardPage() {
 
   const todoTasks = allTasks.filter((t) => t.status === 'active')
   const achievedTasks = allTasks.filter((t) => t.status === 'completed')
-  const activeTasks = allTasks.filter((t) => t.status === 'active' || 'completed')
+  const nonDeletedTasks = allTasks.filter((t) => t.status !== 'deleted')
 
   return (
     <div className="mx-auto max-w-screen-2xl px-4 pb-16 sm:px-6 lg:px-10">
@@ -143,7 +143,7 @@ export default async function DashboardPage() {
           <DashboardTasks
             tasks={todoTasks}
             completedCount={achievedTasks.length}
-            totalCount={activeTasks.length}
+            totalCount={nonDeletedTasks.length}
           />
 
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
