@@ -39,7 +39,7 @@ export const listTasks = async (page = 1, status?: 'active' | 'completed' | 'del
   return await payload.find({
     collection: 'tasks',
     sort: '-createdAt',
-    limit: 10,
+    limit: 0,
     page,
     where: {
       and: [{ userId: { equals: userId } }, ...(status ? [{ status: { equals: status } }] : [])],
