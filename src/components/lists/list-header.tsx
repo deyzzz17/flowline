@@ -1,15 +1,21 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { api } from '@/api'
+import { Task } from '@/payload-types'
 
 export const ListHeader = () => {
-  const { data } = useQuery({
+  const { data } = useInfiniteQuery({
     queryKey: ['tasks'],
-    queryFn: () => api.tasks.list(),
+    queryFn: ({ pageParam = 1 }) => api.tasks.list(pageParam),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      const page = lastPage as { docs: Task[]; nextPage?: number | null; hasNextPage?: boolean }
+      return page.hasNextPage ? (page.nextPage ?? undefined) : undefined
+    },
   })
 
-  const allTasks = data?.docs ?? []
+  const allTasks = data?.pages.flatMap((p) => p.docs) ?? []
   const todoTasks = allTasks.filter((t) => t.status === 'active')
   const achievedTasks = allTasks.filter((t) => t.status === 'completed')
   const trashedTasks = allTasks.filter((t) => t.status === 'deleted')

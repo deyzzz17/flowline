@@ -8,9 +8,11 @@ export default async function TasksPage() {
   await requireAuth()
 
   const queryClient = new QueryClient()
-  await queryClient.prefetchQuery({
+
+  await queryClient.prefetchInfiniteQuery({
     queryKey: ['tasks'],
-    queryFn: () => api.tasks.list(),
+    queryFn: ({ pageParam = 1 }) => api.tasks.list(pageParam as number),
+    initialPageParam: 1,
   })
 
   return (

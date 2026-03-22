@@ -1,6 +1,6 @@
 import { api } from '@/api'
-import { Task } from '@/payload-types'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { TasksCache, updateTaskInCache } from './utils/task-cache'
 
 export const useSoftDelete = () => {
   const queryClient = useQueryClient()
@@ -10,25 +10,17 @@ export const useSoftDelete = () => {
 
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ['tasks'] })
-
-      const previous = queryClient.getQueryData<{ docs: Task[] }>(['tasks'])
-
-      queryClient.setQueryData<{ docs: Task[] }>(['tasks'], (old) => ({
-        ...old!,
-        docs: old!.docs.map((task) => (task.id === id ? { ...task, status: 'deleted' } : task)),
-      }))
-
+      const previous = queryClient.getQueryData<TasksCache>(['tasks'])
+      queryClient.setQueryData<TasksCache>(['tasks'], (old) =>
+        updateTaskInCache(old, (task) => (task.id === id ? { ...task, status: 'deleted' } : task)),
+      )
       return { previous }
     },
 
     onError: (_err, _vars, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(['tasks'], context.previous)
-      }
+      if (context?.previous) queryClient.setQueryData(['tasks'], context.previous)
     },
 
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
-    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
   })
 }

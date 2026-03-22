@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { api } from '@/api'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { TodoList } from '@/components/lists/todo-list'
@@ -12,17 +12,43 @@ import {
   CheckCircleIcon,
   ClipboardList,
   ListTodo,
+  Loader2,
   Sparkles,
   Trash2,
 } from 'lucide-react'
+import { Task } from '@/payload-types'
 
-export const TasksClient = () => {
-  const { data } = useQuery({
+function LoadMoreButton({ onClick, isLoading }: { onClick: () => void; isLoading: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={isLoading}
+      className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-border/60 bg-muted/30 py-3 text-xs font-semibold text-muted-foreground transition-all hover:bg-muted hover:text-foreground disabled:opacity-50"
+    >
+      {isLoading ? (
+        <>
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Loading...
+        </>
+      ) : (
+        'Load more'
+      )}
+    </button>
+  )
+}
+
+export function TasksClient() {
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ['tasks'],
-    queryFn: () => api.tasks.list(),
+    queryFn: ({ pageParam = 1 }) => api.tasks.list(pageParam),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      const page = lastPage as { docs: Task[]; nextPage?: number | null; hasNextPage?: boolean }
+      return page.hasNextPage ? (page.nextPage ?? undefined) : undefined
+    },
   })
 
-  const allTasks = data?.docs ?? []
+  const allTasks = data?.pages.flatMap((p) => p.docs) ?? []
   const todoTasks = allTasks.filter((t) => t.status === 'active')
   const achievedTasks = allTasks.filter((t) => t.status === 'completed')
   const trashedTasks = allTasks.filter((t) => t.status === 'deleted')
@@ -98,7 +124,15 @@ export const TasksClient = () => {
                   </p>
                 </div>
               ) : (
-                <TodoList tasks={todoTasks} />
+                <>
+                  <TodoList tasks={todoTasks} />
+                  {hasNextPage && (
+                    <LoadMoreButton
+                      onClick={() => fetchNextPage()}
+                      isLoading={isFetchingNextPage}
+                    />
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -142,14 +176,21 @@ export const TasksClient = () => {
                   </p>
                 </div>
               ) : (
-                <AchievedList tasks={achievedTasks} />
+                <>
+                  <AchievedList tasks={achievedTasks} />
+                  {hasNextPage && (
+                    <LoadMoreButton
+                      onClick={() => fetchNextPage()}
+                      isLoading={isFetchingNextPage}
+                    />
+                  )}
+                </>
               )}
             </div>
           </div>
         </div>
       </TabsContent>
 
-      {/* ── Trash ── */}
       <TabsContent value="trashed" className="outline-none">
         <div className="space-y-6">
           <div className="flex items-end justify-between">
@@ -187,7 +228,15 @@ export const TasksClient = () => {
                   </p>
                 </div>
               ) : (
-                <Trash tasks={trashedTasks} />
+                <>
+                  <Trash tasks={trashedTasks} />
+                  {hasNextPage && (
+                    <LoadMoreButton
+                      onClick={() => fetchNextPage()}
+                      isLoading={isFetchingNextPage}
+                    />
+                  )}
+                </>
               )}
             </div>
           </div>

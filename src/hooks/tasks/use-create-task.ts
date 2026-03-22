@@ -3,6 +3,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import type { Task } from '@/payload-types'
+import { TasksCache, addTaskToCache } from './utils/task-cache'
 
 export const useCreateTask = () => {
   const queryClient = useQueryClient()
@@ -12,8 +13,7 @@ export const useCreateTask = () => {
 
     onMutate: async (newTask) => {
       await queryClient.cancelQueries({ queryKey: ['tasks'] })
-
-      const previous = queryClient.getQueryData<{ docs: Task[] }>(['tasks'])
+      const previous = queryClient.getQueryData<TasksCache>(['tasks'])
 
       const tempTask: Task = {
         id: -Date.now(),
@@ -25,24 +25,14 @@ export const useCreateTask = () => {
         updatedAt: new Date().toISOString(),
       }
 
-      queryClient.setQueryData<{ docs: Task[] }>(['tasks'], (old) => ({
-        ...old!,
-        docs: [tempTask, ...(old?.docs ?? [])],
-      }))
-
+      queryClient.setQueryData<TasksCache>(['tasks'], (old) => addTaskToCache(old, tempTask))
       return { previous }
     },
 
     onError: (_err, _vars, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(['tasks'], context.previous)
-      }
+      if (context?.previous) queryClient.setQueryData(['tasks'], context.previous)
     },
 
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
-    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
   })
 }
-
-
