@@ -1,7 +1,7 @@
 'use client'
 
 import { Checkbox } from '../ui/checkbox'
-import { useTask } from '@/hooks/tasks/useTask'
+import { useTask } from '@/hooks/tasks/use-task'
 import { useSoftDelete } from '@/hooks/tasks/use-soft-delete'
 import { useDeleteTask } from '@/hooks/tasks/use-delete-task'
 import { useRestoreTask } from '@/hooks/tasks/use-restore-task'
