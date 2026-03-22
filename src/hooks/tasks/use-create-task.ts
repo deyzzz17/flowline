@@ -4,6 +4,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import type { Task } from '@/payload-types'
 
+type TasksCache = Awaited<ReturnType<typeof api.tasks.list>>
+
 export const useCreateTask = () => {
   const queryClient = useQueryClient()
 
@@ -13,7 +15,7 @@ export const useCreateTask = () => {
     onMutate: async (newTask) => {
       await queryClient.cancelQueries({ queryKey: ['tasks'] })
 
-      const previous = queryClient.getQueryData<{ docs: Task[] }>(['tasks'])
+      const previous = queryClient.getQueryData<TasksCache>(['tasks'])
 
       const tempTask: Task = {
         id: -Date.now(),
@@ -25,10 +27,13 @@ export const useCreateTask = () => {
         updatedAt: new Date().toISOString(),
       }
 
-      queryClient.setQueryData<{ docs: Task[] }>(['tasks'], (old) => ({
-        ...old!,
-        docs: [tempTask, ...(old?.docs ?? [])],
-      }))
+      queryClient.setQueryData<{ docs: Task[] }>(['tasks'], (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          docs: [tempTask, ...old.docs],
+        }
+      })
 
       return { previous }
     },
