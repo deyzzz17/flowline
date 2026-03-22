@@ -149,7 +149,6 @@ export const TasksClient = () => {
         </div>
       </TabsContent>
 
-      {/* ── Trash ── */}
       <TabsContent value="trashed" className="outline-none">
         <div className="space-y-6">
           <div className="flex items-end justify-between">
