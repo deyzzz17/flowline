@@ -15,7 +15,7 @@ export const useCreateTask = () => {
     onMutate: async (newTask) => {
       await queryClient.cancelQueries({ queryKey: ['tasks'] })
 
-      const previous = queryClient.getQueryData<TasksCache>(['tasks'])
+      const previous = queryClient.getQueryData<{ docs: Task[] }>(['tasks'])
 
       const tempTask: Task = {
         id: -Date.now(),
