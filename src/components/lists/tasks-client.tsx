@@ -60,7 +60,6 @@ export function TasksClient() {
         </TabsList>
       </div>
 
-      {/* ── To do ── */}
       <TabsContent value="todo" className="outline-none">
         <div className="space-y-6">
           <div className="flex items-end justify-between">
@@ -106,7 +105,6 @@ export function TasksClient() {
         </div>
       </TabsContent>
 
-      {/* ── Achieved ── */}
       <TabsContent value="achieved" className="outline-none">
         <div className="space-y-6">
           <div className="flex items-end justify-between">
