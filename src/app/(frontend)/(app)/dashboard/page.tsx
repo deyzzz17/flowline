@@ -8,12 +8,11 @@ import {
   Sparkles,
   User,
 } from 'lucide-react'
-import { auth } from '@/lib/auth'
-import { headers } from 'next/headers'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import Link from 'next/link'
 import { DashboardTasks } from '@/components/dashboard/user-tasks'
 import { api } from '@/api'
+import { requireAuth } from '@/lib/require-auth'
 
 function getInitials(name: string | null | undefined): string {
   if (!name) return '?'
@@ -73,8 +72,8 @@ const mockEvents = [
 ]
 
 export default async function DashboardPage() {
-  const session = await auth.api.getSession({ headers: await headers() })
-  const user = session?.user
+  const session = await requireAuth()
+  const user = session.user
 
   const result = await api.tasks.list()
   const allTasks = result.docs

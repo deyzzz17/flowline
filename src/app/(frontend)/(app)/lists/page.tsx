@@ -4,6 +4,7 @@ import { CreateTask } from '@/components/lists/create-task'
 import { TodoList } from '@/components/lists/todo-list'
 import { Trash } from '@/components/lists/trash-list'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { requireAuth } from '@/lib/require-auth'
 import {
   CheckCircle2,
   CheckCircleIcon,
@@ -14,6 +15,8 @@ import {
 } from 'lucide-react'
 
 export default async function TasksPage() {
+  await requireAuth()
+
   const result = await api.tasks.list()
   const allTasks = result.docs
 
