@@ -5,13 +5,22 @@ import { Button } from '../ui/button'
 import { cn } from '@/lib/utils'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
-import { AlertCircleIcon } from 'lucide-react'
+import { AlertCircleIcon, Eye, EyeOff } from 'lucide-react'
 import Link from 'next/link'
 import { signInWithGoogle } from '@/lib/auth-client'
 
 export const SignInForm = () => {
-  const { email, setEmail, password, setPassword, error, isLoading, handleSubmit, showPassword } =
-    useSignIn()
+  const {
+    email,
+    setEmail,
+    password,
+    setPassword,
+    error,
+    isLoading,
+    handleSubmit,
+    showPassword,
+    setShowPassword,
+  } = useSignIn()
 
   return (
     <>
@@ -65,6 +74,14 @@ export const SignInForm = () => {
               error && 'border-destructive/50 focus-visible:ring-destructive/30',
             )}
           />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 transition-colors hover:text-foreground"
+            tabIndex={-1}
+          >
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
         </div>
 
         <Button
@@ -98,6 +115,22 @@ export const SignInForm = () => {
         </Button>
       </form>
 
+      <p className="text-center text-sm text-muted-foreground">
+        Don&apos;t have an account?{' '}
+        <Link
+          href="/sign-up"
+          className="font-semibold text-violet-600 transition-colors hover:text-violet-500 dark:text-violet-400"
+        >
+          Sign up
+        </Link>
+      </p>
+
+      <div className="flex items-center gap-3">
+        <div className="h-px flex-1 bg-border/60" />
+        <span className="text-xs text-muted-foreground/60">or</span>
+        <div className="h-px flex-1 bg-border/60" />
+      </div>
+
       <button
         type="button"
         onClick={() => signInWithGoogle()}
@@ -123,16 +156,6 @@ export const SignInForm = () => {
         </svg>
         Continue with Google
       </button>
-
-      <p className="text-center text-sm text-muted-foreground">
-        Don&apos;t have an account?{' '}
-        <Link
-          href="/sign-up"
-          className="font-semibold text-violet-600 transition-colors hover:text-violet-500 dark:text-violet-400"
-        >
-          Sign up
-        </Link>
-      </p>
     </>
   )
 }

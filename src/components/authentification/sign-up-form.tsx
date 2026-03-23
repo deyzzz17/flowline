@@ -67,12 +67,6 @@ export const SignUpForm = () => {
         </div>
       )}
 
-      <div className="flex items-center gap-3">
-        <div className="h-px flex-1 bg-border/60" />
-        <span className="text-xs text-muted-foreground/60">or</span>
-        <div className="h-px flex-1 bg-border/60" />
-      </div>
-
       <form onSubmit={onSubmit} className="space-y-5">
         <div className="space-y-2">
           <Label htmlFor="name" className="text-sm font-medium">
@@ -212,7 +206,12 @@ export const SignUpForm = () => {
 
         <Button
           type="submit"
-          disabled={isLoading || !allRulesPassed || (confirmTouched && !passwordsMatch)}
+          disabled={
+            isLoading ||
+            !allRulesPassed ||
+            confirm.length === 0 ||
+            (confirmTouched && !passwordsMatch)
+          }
           className="group relative h-10 w-full overflow-hidden rounded-xl bg-violet-600 font-semibold text-white shadow-sm shadow-violet-500/20 transition-all hover:bg-violet-500 hover:shadow-violet-500/30 disabled:opacity-60"
         >
           {isLoading ? (
@@ -241,6 +240,34 @@ export const SignUpForm = () => {
         </Button>
       </form>
 
+      <p className="text-center text-xs text-muted-foreground/60">
+        By creating an account, you agree to our{' '}
+        <Link href="/terms" className="underline underline-offset-2 hover:text-foreground">
+          Terms of Service
+        </Link>{' '}
+        and{' '}
+        <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">
+          Privacy Policy
+        </Link>
+        .
+      </p>
+
+      <p className="text-center text-sm text-muted-foreground">
+        Already have an account?{' '}
+        <Link
+          href="/sign-in"
+          className="font-semibold text-violet-600 transition-colors hover:text-violet-500 dark:text-violet-400"
+        >
+          Sign in
+        </Link>
+      </p>
+
+      <div className="flex items-center gap-3">
+        <div className="h-px flex-1 bg-border/60" />
+        <span className="text-xs text-muted-foreground/60">or</span>
+        <div className="h-px flex-1 bg-border/60" />
+      </div>
+
       <button
         type="button"
         onClick={() => signInWithGoogle()}
@@ -266,28 +293,6 @@ export const SignUpForm = () => {
         </svg>
         Continue with Google
       </button>
-
-      <p className="text-center text-xs text-muted-foreground/60">
-        By creating an account, you agree to our{' '}
-        <Link href="/terms" className="underline underline-offset-2 hover:text-foreground">
-          Terms of Service
-        </Link>{' '}
-        and{' '}
-        <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">
-          Privacy Policy
-        </Link>
-        .
-      </p>
-
-      <p className="text-center text-sm text-muted-foreground">
-        Already have an account?{' '}
-        <Link
-          href="/sign-in"
-          className="font-semibold text-violet-600 transition-colors hover:text-violet-500 dark:text-violet-400"
-        >
-          Sign in
-        </Link>
-      </p>
     </>
   )
 }
