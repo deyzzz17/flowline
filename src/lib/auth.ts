@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth'
 import { Pool } from 'pg'
+//import { sendVerificationEmail } from './email'
 
 export const auth = betterAuth({
   database: new Pool({
@@ -7,6 +8,7 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
+    requireEmailVerification: false,
   },
   session: {
     cookieCache: {
@@ -21,4 +23,9 @@ export const auth = betterAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
     },
   },
+  // emailVerification: {
+  //   sendVerificationEmail: async ({ user, url }) => {
+  //     await sendVerificationEmail(user.email, url)
+  //   },
+  // },
 })

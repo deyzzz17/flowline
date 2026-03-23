@@ -7,6 +7,7 @@ import {
   ArrowRight,
   Sparkles,
   User,
+  Pencil,
 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import Link from 'next/link'
@@ -111,6 +112,13 @@ export default async function DashboardPage() {
             <p className="mt-0.5 text-sm text-muted-foreground">{user?.email ?? ''}</p>
           </div>
         </div>
+        <Link
+          href="/profile"
+          className="flex items-center gap-2 rounded-xl border border-border/60 bg-card/40 px-3 py-2 text-xs font-medium text-muted-foreground backdrop-blur-sm transition-all duration-200 hover:border-border hover:bg-muted hover:text-foreground"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+          Edit profile
+        </Link>
       </section>
 
       <section className="mb-8">
