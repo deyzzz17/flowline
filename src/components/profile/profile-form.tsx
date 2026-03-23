@@ -1,11 +1,35 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Camera, CheckCircle2, Loader2, ShieldAlert, User, Trash2 } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import {
+  Camera,
+  CheckCircle2,
+  Loader2,
+  ShieldAlert,
+  User,
+  Trash2,
+  AlertCircle,
+  X,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useUpdateProfile } from '@/hooks/profile/use-update-profile'
+import { useUploadAvatar } from '@/hooks/profile/use-upload-avatar'
+import { useDeleteAccount } from '@/hooks/profile/use-delete-account'
 
 function getInitials(name: string): string {
   if (!name) return '?'
@@ -30,21 +54,47 @@ export function ProfileForm({
   initialImage,
   isEmailVerified,
 }: ProfileFormProps) {
+  const router = useRouter()
   const [name, setName] = useState(initialName)
-  const [isSaving, setIsSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const [currentImage, setCurrentImage] = useState(initialImage)
   const fileRef = useRef<HTMLInputElement>(null)
 
+  const { save, isSaving, saved, error: saveError, clearError: clearSaveError } = useUpdateProfile()
+
+  const {
+    upload,
+    isUploading,
+    error: uploadError,
+    clearError: clearUploadError,
+  } = useUploadAvatar((url) => setCurrentImage(url))
+
+  const {
+    remove,
+    isDeleting,
+    error: deleteError,
+    clearError: clearDeleteError,
+  } = useDeleteAccount()
+
   const isDirty = name !== initialName
+  const displayError = uploadError ?? saveError ?? deleteError
+
+  const clearAllErrors = () => {
+    clearUploadError()
+    clearSaveError()
+    clearDeleteError()
+  }
 
   const handleSave = async () => {
-    if (!isDirty) return
-    setIsSaving(true)
-    // TODO: authClient.updateUser({ name })
-    await new Promise((r) => setTimeout(r, 800))
-    setIsSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+    const success = await save({ name })
+    if (success) router.refresh()
+  }
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const success = await upload(file)
+    if (success) router.refresh()
+    e.target.value = ''
   }
 
   return (
@@ -59,6 +109,22 @@ export function ProfileForm({
         </p>
       </section>
 
+      {displayError && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/8 px-4 py-3 animate-in fade-in slide-in-from-top-1">
+          <div className="flex items-center gap-2 text-sm text-destructive">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            {displayError}
+          </div>
+          <button
+            type="button"
+            onClick={clearAllErrors}
+            className="text-destructive/60 transition-colors hover:text-destructive"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       <div className="space-y-4">
         <div className="rounded-2xl border border-border/60 bg-card/40 p-6 backdrop-blur-sm">
           <h2 className="mb-5 text-sm font-semibold text-foreground">General</h2>
@@ -67,23 +133,37 @@ export function ProfileForm({
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
+              disabled={isUploading}
               className="group relative shrink-0"
               aria-label="Change avatar"
             >
               <Avatar className="h-20 w-20">
-                <AvatarImage src={initialImage ?? undefined} alt={name} />
+                <AvatarImage src={currentImage ?? undefined} alt={name} />
                 <AvatarFallback className="bg-linear-to-br from-violet-500 to-purple-600 text-2xl font-bold text-white">
                   {name ? getInitials(name) : <User className="h-8 w-8" />}
                 </AvatarFallback>
               </Avatar>
               <div className="absolute inset-0 flex flex-col items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-                <Camera className="h-5 w-5 text-white" />
-                <span className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
-                  Change
-                </span>
+                {isUploading ? (
+                  <Loader2 className="h-5 w-5 animate-spin text-white" />
+                ) : (
+                  <>
+                    <Camera className="h-5 w-5 text-white" />
+                    <span className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+                      Change
+                    </span>
+                  </>
+                )}
               </div>
             </button>
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" />
+
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              className="hidden"
+              onChange={handleFileChange}
+            />
 
             <div className="flex-1 min-w-0 space-y-4">
               <div className="space-y-1.5">
@@ -91,15 +171,12 @@ export function ProfileForm({
                   htmlFor="name"
                   className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
                 >
-                  Display name
+                  Name
                 </Label>
                 <Input
                   id="name"
                   value={name}
-                  onChange={(e) => {
-                    setName(e.target.value)
-                    setSaved(false)
-                  }}
+                  onChange={(e) => setName(e.target.value)}
                   placeholder="Your display name"
                   className="h-10 rounded-xl border-border/60 bg-background text-sm focus-visible:ring-violet-500/30"
                 />
@@ -184,13 +261,45 @@ export function ProfileForm({
             Once you delete your account, there is no going back. All your data will be permanently
             removed.
           </p>
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-xl border border-destructive/40 bg-background px-4 py-2 text-xs font-semibold text-destructive transition-all hover:bg-destructive hover:text-white hover:border-transparent"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Delete account
-          </button>
+
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button
+                type="button"
+                className="flex items-center gap-2 rounded-xl border border-destructive/40 bg-background px-4 py-2 text-xs font-semibold text-destructive transition-all hover:bg-destructive hover:text-white hover:border-transparent"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete account
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. Your account and all associated data — including
+                  your tasks — will be permanently deleted.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={remove}
+                  disabled={isDeleting}
+                  variant="destructive"
+                  className="flex items-center gap-2"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    'Delete permanently'
+                  )}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
     </div>
