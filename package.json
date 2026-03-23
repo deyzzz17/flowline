@@ -24,7 +24,7 @@
     "@payloadcms/richtext-lexical": "3.79.0",
     "@payloadcms/ui": "3.79.0",
     "@tailwindcss/postcss": "^4.2.1",
-    "@tanstack/react-query": "^5.94.5",
+    "@tanstack/react-query": "^5.95.1",
     "@vercel/analytics": "^2.0.1",
     "better-auth": "^1.5.5",
     "class-variance-authority": "^0.7.1",

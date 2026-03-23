@@ -3,4 +3,6 @@ export const authClient = createAuthClient({
   baseURL: process.env.BETTER_AUTH_URL!,
 })
 
-export const { signIn, signUp, signOut, useSession } = createAuthClient()
+export const signInWithGoogle = () => signIn.social({ provider: 'google' })
+
+export const { signIn, signUp, signOut, useSession } = authClient
