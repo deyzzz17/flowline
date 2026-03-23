@@ -4,12 +4,13 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/api'
 
-export function useSignIn() {
+export const useSignIn = () => {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -35,5 +36,7 @@ export function useSignIn() {
     error,
     isLoading,
     handleSubmit,
+    showPassword,
+    setShowPassword,
   }
 }

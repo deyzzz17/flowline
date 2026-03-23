@@ -10,7 +10,8 @@ import Link from 'next/link'
 import { signInWithGoogle } from '@/lib/auth-client'
 
 export const SignInForm = () => {
-  const { email, setEmail, password, setPassword, error, isLoading, handleSubmit } = useSignIn()
+  const { email, setEmail, password, setPassword, error, isLoading, handleSubmit, showPassword } =
+    useSignIn()
 
   return (
     <>
@@ -54,7 +55,7 @@ export const SignInForm = () => {
           </div>
           <Input
             id="password"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
