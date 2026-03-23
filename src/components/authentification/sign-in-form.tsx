@@ -88,7 +88,7 @@ export const SignInForm = () => {
 
         <Button
           type="submit"
-          disabled={isLoading}
+          disabled={isLoading || email.length === 0 || password.length === 0}
           className="group relative h-10 w-full overflow-hidden rounded-xl bg-violet-600 font-semibold text-white shadow-sm shadow-violet-500/20 transition-all hover:bg-violet-500 hover:shadow-violet-500/30 disabled:opacity-60"
         >
           {isLoading ? (
