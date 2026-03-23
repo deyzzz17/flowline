@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { authClient } from '@/lib/auth-client'
 import { api } from '@/api'
 
 export const useDeleteAccount = () => {
@@ -13,22 +12,12 @@ export const useDeleteAccount = () => {
   const remove = async () => {
     setIsDeleting(true)
     setError(null)
-
     const result = await api.profile.delete()
+    setIsDeleting(false)
     if (!result.ok) {
       setError(result.error)
-      setIsDeleting(false)
       return false
     }
-
-    const { error: authError } = await authClient.deleteUser()
-    setIsDeleting(false)
-
-    if (authError) {
-      setError(authError.message ?? 'Error while deleting account')
-      return false
-    }
-
     router.push('/sign-up')
     return true
   }
