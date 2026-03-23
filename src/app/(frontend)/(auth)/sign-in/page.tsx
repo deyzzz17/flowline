@@ -1,42 +1,203 @@
-import Image from 'next/image'
-import { Orb } from '@/components/home/orb'
-import { SignInForm } from '@/components/authentification/sign-in-form'
-import { requireGuest } from '@/lib/require-auth'
+'use client'
 
-export default async function SignInPage() {
-  await requireGuest()
+import { useRef, useState } from 'react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Camera, CheckCircle2, Loader2, ShieldAlert, User, Trash2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+function getInitials(name: string): string {
+  if (!name) return '?'
+  return name
+    .split(' ')
+    .map((p) => p[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+interface ProfileFormProps {
+  initialName: string
+  initialEmail: string
+  initialImage: string | null
+  isEmailVerified: boolean
+}
+
+export function ProfileForm({
+  initialName,
+  initialEmail,
+  initialImage,
+  isEmailVerified,
+}: ProfileFormProps) {
+  const [name, setName] = useState(initialName)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const isDirty = name !== initialName
+
+  const handleSave = async () => {
+    if (!isDirty) return
+    setIsSaving(true)
+    // TODO: authClient.updateUser({ name })
+    await new Promise((r) => setTimeout(r, 800))
+    setIsSaving(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 3000)
+  }
 
   return (
-    <div className="relative grid h-full lg:grid-cols-2">
-      <div
-        className="pointer-events-none absolute inset-0 z-0 hidden dark:block"
-        style={{
-          backgroundImage: `linear-gradient(to right,rgba(255,255,255,0.03) 1px,transparent 1px),linear-gradient(to bottom,rgba(255,255,255,0.03) 1px,transparent 1px)`,
-          backgroundSize: '72px 72px',
-        }}
-      />
-      <div
-        className="pointer-events-none absolute inset-0 z-0 dark:hidden"
-        style={{
-          backgroundImage: `linear-gradient(to right,rgba(109,40,217,0.04) 1px,transparent 1px),linear-gradient(to bottom,rgba(109,40,217,0.04) 1px,transparent 1px)`,
-          backgroundSize: '72px 72px',
-        }}
-      />
+    <div className="mx-auto max-w-2xl px-4 pb-16 sm:px-6">
+      <section className="mt-10 mb-8">
+        <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-violet-600 dark:text-violet-400">
+          Account
+        </p>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">Profile</h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          Manage your personal information and preferences.
+        </p>
+      </section>
 
-      <Orb className="pointer-events-none absolute -top-32 -left-32 h-96 w-96 rounded-full bg-violet-500 opacity-5 dark:opacity-10 blur-3xl animate-pulse" />
-      <Orb className="pointer-events-none absolute bottom-0 left-1/4 h-64 w-64 rounded-full bg-indigo-500 opacity-5 dark:opacity-10 blur-3xl animate-pulse" />
-
-      <div className="relative z-10 flex flex-col p-6 md:p-10">
-        <div className="flex flex-1 items-center justify-center">
-          <div className="w-full max-w-sm space-y-8">
-            <SignInForm />
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-border/60 bg-card/40 p-6 backdrop-blur-sm">
+          <h2 className="mb-5 text-sm font-semibold text-foreground">Profile picture</h2>
+          <div className="flex items-center gap-5">
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="group relative shrink-0"
+              aria-label="Change avatar"
+            >
+              <Avatar className="h-20 w-20">
+                <AvatarImage src={initialImage ?? undefined} alt={name} />
+                <AvatarFallback className="bg-linear-to-br from-violet-500 to-purple-600 text-2xl font-bold text-white">
+                  {name ? getInitials(name) : <User className="h-8 w-8" />}
+                </AvatarFallback>
+              </Avatar>
+              <div className="absolute inset-0 flex flex-col items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                <Camera className="h-5 w-5 text-white" />
+                <span className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+                  Change
+                </span>
+              </div>
+            </button>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" />
+            <div>
+              <p className="text-sm font-medium text-foreground">{name || 'Unknown'}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{initialEmail}</p>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="relative hidden overflow-hidden lg:block">
-        <div className="absolute inset-0 z-10 bg-linear-to-br from-violet-600/20 via-transparent to-indigo-600/20" />
-        <Image src="/auth-cover.jpg" alt="" fill priority sizes="50vw" className="object-cover" />
+        <div className="rounded-2xl border border-border/60 bg-card/40 p-6 backdrop-blur-sm">
+          <h2 className="mb-5 text-sm font-semibold text-foreground">General</h2>
+          <div className="space-y-5">
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="name"
+                className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
+              >
+                Display name
+              </Label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value)
+                  setSaved(false)
+                }}
+                placeholder="Your display name"
+                className="h-10 rounded-xl border-border/60 bg-background text-sm focus-visible:ring-violet-500/30"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Email address
+              </Label>
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/40 px-3 py-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="truncate text-sm text-muted-foreground">{initialEmail}</span>
+                  {isEmailVerified ? (
+                    <span className="flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                      <CheckCircle2 className="h-2.5 w-2.5" />
+                      Verified
+                    </span>
+                  ) : (
+                    <span className="flex shrink-0 items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                      <ShieldAlert className="h-2.5 w-2.5" />
+                      Unverified
+                    </span>
+                  )}
+                </div>
+                {!isEmailVerified && (
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-600 transition-all hover:bg-amber-500/20 dark:text-amber-400"
+                  >
+                    Verify
+                  </button>
+                )}
+              </div>
+              {!isEmailVerified && (
+                <p className="text-xs text-amber-600/70 dark:text-amber-400/70">
+                  Verify your email to access all features.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-6 flex items-center justify-between border-t border-border/50 pt-5">
+            <p className="text-xs text-muted-foreground/60">
+              {saved ? (
+                <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Changes saved
+                </span>
+              ) : isDirty ? (
+                'You have unsaved changes.'
+              ) : (
+                'No changes to save.'
+              )}
+            </p>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!isDirty || isSaving}
+              className={cn(
+                'flex items-center gap-2 rounded-xl px-5 py-2 text-xs font-semibold transition-all duration-200',
+                isDirty && !isSaving
+                  ? 'bg-violet-600 text-white shadow-sm shadow-violet-500/20 hover:bg-violet-500'
+                  : 'cursor-not-allowed bg-muted text-muted-foreground',
+              )}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save changes'
+              )}
+            </button>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6">
+          <h2 className="mb-1 text-sm font-semibold text-foreground">Delete Zone</h2>
+          <p className="mb-4 text-xs text-muted-foreground">
+            Once you delete your account, there is no going back. All your data will be permanently
+            removed.
+          </p>
+          <button
+            type="button"
+            className="flex items-center gap-2 rounded-xl border border-destructive/40 bg-background px-4 py-2 text-xs font-semibold text-destructive transition-all hover:bg-destructive hover:text-white hover:border-transparent"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete account
+          </button>
+        </div>
       </div>
     </div>
   )
