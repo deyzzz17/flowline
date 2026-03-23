@@ -5,4 +5,4 @@ export const authClient = createAuthClient({
 
 export const signInWithGoogle = () => signIn.social({ provider: 'google' })
 
-export const { signIn, signUp, signOut, useSession, updateUser } = authClient
+export const { signIn, signUp, signOut, useSession, updateUser, deleteUser } = authClient

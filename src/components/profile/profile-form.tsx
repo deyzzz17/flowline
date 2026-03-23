@@ -87,6 +87,7 @@ export function ProfileForm({
   const handleSave = async () => {
     const success = await save({ name })
     if (success) router.refresh()
+    router.push('/dashboard')
   }
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
