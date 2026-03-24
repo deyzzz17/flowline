@@ -89,6 +89,7 @@ export function ProfileForm({
   const handleSave = async () => {
     await save(name, pendingFile)
     setPendingFile(null)
+    await authClient.getSession({ query: { disableCookieCache: true } })
     router.refresh()
     router.push('/dashboard')
   }
