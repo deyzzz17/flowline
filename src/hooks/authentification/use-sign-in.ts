@@ -11,6 +11,7 @@ export const useSignIn = () => {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({})
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -38,5 +39,7 @@ export const useSignIn = () => {
     handleSubmit,
     showPassword,
     setShowPassword,
+    fieldErrors,
+    setFieldErrors,
   }
 }

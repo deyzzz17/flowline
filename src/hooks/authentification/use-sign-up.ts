@@ -28,6 +28,12 @@ export const useSignUp = () => {
   const [showConfirm, setShowConfirm] = useState(false)
   const [passwordFocused, setPasswordFocused] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<{
+    name?: string
+    email?: string
+    password?: string
+    confirm?: string
+  }>({})
 
   const allRulesPassed = passwordRules.every((r) => r.test(password))
   const passwordsMatch = password === confirm
@@ -72,5 +78,7 @@ export const useSignUp = () => {
     allRulesPassed,
     passwordsMatch,
     confirmTouched,
+    fieldErrors,
+    setFieldErrors,
   }
 }
