@@ -12,16 +12,6 @@ import { DashboardTasks } from '@/components/dashboard/user-tasks'
 import { api } from '@/api'
 import { ProfileBanner } from '@/components/dashboard/profile-banner'
 
-function getInitials(name: string | null | undefined): string {
-  if (!name) return '?'
-  return name
-    .split(' ')
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-}
-
 const mockStats = [
   {
     label: 'Tasks completed',

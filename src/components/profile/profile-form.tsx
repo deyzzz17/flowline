@@ -31,6 +31,7 @@ import { cn } from '@/lib/utils'
 import { useUpdateProfile } from '@/hooks/profile/use-update-profile'
 import { useUploadAvatar } from '@/hooks/profile/use-upload-avatar'
 import { useDeleteAccount } from '@/hooks/profile/use-delete-account'
+import { authClient } from '@/lib/auth-client'
 
 function getInitials(name: string): string {
   if (!name) return '?'
