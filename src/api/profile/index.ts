@@ -1,7 +1,7 @@
-import { deleteAccount, updateProfile, uploadAvatar } from './actions'
+import { deleteAccount, getCloudinarySignature, updateProfile } from './actions'
 
 export const profileAPI = {
-  uploadAvatar,
+  getSignature: getCloudinarySignature,
   update: updateProfile,
   delete: deleteAccount,
 }

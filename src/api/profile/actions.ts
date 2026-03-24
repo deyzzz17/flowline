@@ -8,36 +8,35 @@ import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { revalidatePath } from 'next/cache'
 
-export const uploadAvatar = async (formData: FormData) => {
-  const session = await auth.api.getSession({ headers: await headers() })
-  const userId = session?.user?.id
-  if (!userId) return err('Not authenticated')
+export const getCloudinarySignature = async () => {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() })
+    const userId = session?.user?.id
+    if (!userId) return err('Not authenticated')
 
-  const file = formData.get('file') as File
-  if (!file) return err('No file provided')
+    const timestamp = Math.round(new Date().getTime() / 1000)
+    const publicId = `flowline/avatars/user_${userId}`
 
-  const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-  if (!validTypes.includes(file.type)) return err('Invalid file type')
-  if (file.size > 2 * 1024 * 1024) return err('File too large')
+    const signature = cloudinary.utils.api_sign_request(
+      {
+        timestamp,
+        public_id: publicId,
+        overwrite: true,
+        transformation: 'c_fill,g_face,h_200,w_200/f_webp,q_auto',
+      },
+      process.env.CLOUDINARY_API_SECRET!,
+    )
 
-  const bytes = await file.arrayBuffer()
-  const base64 = Buffer.from(bytes).toString('base64')
-  const dataUri = `data:${file.type};base64,${base64}`
-
-  const result = await cloudinary.uploader.upload(dataUri, {
-    folder: 'flowline/avatars',
-    public_id: `user_${userId}`,
-    overwrite: true,
-    transformation: [
-      { width: 200, height: 200, crop: 'fill', gravity: 'face' },
-      { format: 'webp', quality: 'auto' },
-    ],
-  })
-
-  revalidatePath('/dashboard')
-  revalidatePath('/profile')
-
-  return ok(result.secure_url)
+    return ok({
+      timestamp,
+      signature,
+      publicId,
+      apiKey: process.env.CLOUDINARY_API_KEY!,
+      cloudName: process.env.CLOUDINARY_CLOUD_NAME!,
+    })
+  } catch {
+    return err('Error generating signature')
+  }
 }
 
 export const updateProfile = async (data: { name?: string; image?: string }) => {
@@ -48,8 +47,8 @@ export const updateProfile = async (data: { name?: string; image?: string }) => 
     await auth.api.updateUser({
       headers: await headers(),
       body: {
-        ...(data.name && { name: data.name }),
-        ...(data.image && { image: data.image }),
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.image !== undefined && { image: data.image }),
       },
     })
 
