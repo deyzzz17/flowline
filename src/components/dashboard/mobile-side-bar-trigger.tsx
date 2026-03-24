@@ -1,15 +1,20 @@
 'use client'
 
 import { useManageDisplay } from '@/hooks/header/use-manage-auth'
-import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet'
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '../ui/sheet'
 import { Menu } from 'lucide-react'
 import { SidebarContent } from './sidebar-content'
+import { VisuallyHidden } from 'radix-ui'
 
 export const MobileSidebarTrigger = () => {
   const { open, change } = useManageDisplay()
 
   return (
     <Sheet open={open} onOpenChange={change}>
+      <VisuallyHidden.Root>
+        <SheetTitle>Sidebar Menu</SheetTitle>
+        <SheetDescription>Open Sidebar</SheetDescription>
+      </VisuallyHidden.Root>
       <SheetTrigger asChild>
         <button
           className="flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
