@@ -79,7 +79,7 @@ export const deleteAccount = async () => {
     await auth.api.deleteUser({
       headers: await headers(),
       body: {
-        callbackURL: `/sign-up`,
+        callbackURL: `${process.env.BETTER_AUTH_URL}/sign-up`,
       },
     })
 
