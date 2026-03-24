@@ -29,6 +29,7 @@ export default buildConfig({
     pool: {
       connectionString: process.env.DATABASE_URL || '',
     },
+    tablesFilter: ['!user', '!session', '!account', '!verification'],
   }),
   sharp,
   plugins: [],

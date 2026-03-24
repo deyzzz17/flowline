@@ -90,7 +90,6 @@ export const Tasks: CollectionConfig = {
         {
           name: 'frequency',
           type: 'select',
-          defaultValue: 'daily',
           options: [
             { label: 'Every day', value: 'daily' },
             { label: 'Custom days', value: 'custom' },
