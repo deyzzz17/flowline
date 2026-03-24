@@ -113,7 +113,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 placeholder="Task title"
               />
               <textarea
-                className="w-full bg-accent/30 p-2 rounded-md text-sm outline-none resize-none min-h-[60px]"
+                className="w-full bg-accent/30 p-2 rounded-md text-sm outline-none resize-none min-h-15"
                 value={draft.description}
                 onChange={(e) => updateDraft({ description: e.target.value })}
                 placeholder="Add a description..."
