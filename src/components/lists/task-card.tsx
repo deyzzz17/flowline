@@ -5,7 +5,7 @@ import { useTask } from '@/hooks/tasks/use-task'
 import { useSoftDelete } from '@/hooks/tasks/use-soft-delete'
 import { useDeleteTask } from '@/hooks/tasks/use-delete-task'
 import { useRestoreTask } from '@/hooks/tasks/use-restore-task'
-import { useToggleSubtask } from '@/hooks/tasks/use-toggle-subtask'
+import { useToggleSubtask } from '@/hooks/tasks/use-toggle-subtasks'
 import type { Task } from '@/payload-types'
 import { Button } from '../ui/button'
 import {
@@ -29,9 +29,6 @@ import {
 import { RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-/* ─────────────────────────────────────────
-   Tag colors
-───────────────────────────────────────── */
 const TAG_STYLES: Record<string, string> = {
   urgent: 'bg-red-500/10 text-red-600 dark:text-red-400',
   work: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
