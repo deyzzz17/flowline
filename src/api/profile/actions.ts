@@ -52,8 +52,7 @@ export const updateProfile = async (data: { name?: string; image?: string }) => 
       },
     })
 
-    revalidatePath('/dashboard')
-    revalidatePath('/profile')
+    revalidatePath('/', 'layout')
 
     return ok(true)
   } catch {
