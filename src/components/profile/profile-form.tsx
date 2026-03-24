@@ -31,7 +31,7 @@ import { cn } from '@/lib/utils'
 import { useUpdateProfile } from '@/hooks/profile/use-update-profile'
 import { useUploadAvatar } from '@/hooks/profile/use-upload-avatar'
 import { useDeleteAccount } from '@/hooks/profile/use-delete-account'
-import { authClient } from '@/lib/auth-client'
+import { useUser } from '@/contexts/user-context'
 
 function getInitials(name: string): string {
   if (!name) return '?'
@@ -50,12 +50,12 @@ interface ProfileFormProps {
   isEmailVerified: boolean
 }
 
-export function ProfileForm({
+export const ProfileForm = ({
   initialName,
   initialEmail,
   initialImage,
   isEmailVerified,
-}: ProfileFormProps) {
+}: ProfileFormProps) => {
   const router = useRouter()
   const [name, setName] = useState(initialName)
   const [previewImage, setPreviewImage] = useState<string | null>(initialImage)
@@ -80,6 +80,7 @@ export function ProfileForm({
 
   const isDirty = name !== initialName || pendingFile !== null
   const displayError = uploadError ?? saveError ?? deleteError
+  const { updateUser } = useUser()
 
   const clearAllErrors = () => {
     clearUploadError()
@@ -88,10 +89,8 @@ export function ProfileForm({
   }
 
   const handleSave = async () => {
-    await save(name, pendingFile)
-    setPendingFile(null)
-    await authClient.getSession({ query: { disableCookieCache: true } })
-    router.refresh()
+    const imageUrl = await save(name, pendingFile)
+    updateUser({ name, ...(imageUrl && { image: imageUrl }) })
     router.push('/dashboard')
   }
 

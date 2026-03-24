@@ -1,9 +1,9 @@
 'use client'
 
-import { useSession } from '@/lib/auth-client'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { User, Pencil } from 'lucide-react'
 import Link from 'next/link'
+import { useUser } from '@/contexts/user-context'
 
 function getInitials(name: string | null | undefined): string {
   if (!name) return '?'
@@ -16,8 +16,7 @@ function getInitials(name: string | null | undefined): string {
 }
 
 export function ProfileBanner() {
-  const { data: session } = useSession()
-  const user = session?.user
+  const { user } = useUser()
 
   return (
     <section className="mb-8 border-b border-border/50 py-8">

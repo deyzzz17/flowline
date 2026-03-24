@@ -1,5 +1,5 @@
 'use client'
-import { useSession } from '@/lib/auth-client'
+import { useUser } from '@/contexts/user-context'
 
 function getInitials(name: string | null | undefined): string {
   if (!name) return '?'
@@ -12,12 +12,10 @@ function getInitials(name: string | null | undefined): string {
 }
 
 export function useCurrentUser() {
-  const { data: session, isPending } = useSession()
-  const user = session?.user ?? null
+  const { user } = useUser()
 
   return {
     user,
-    isPending,
     initials: getInitials(user?.name),
     image: user?.image ?? undefined,
     name: user?.name ?? null,

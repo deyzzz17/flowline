@@ -10,8 +10,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { signOut, useSession } from '@/lib/auth-client'
+import { signOut } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
+import { useUser } from '@/contexts/user-context'
 
 function getInitials(name: string | null | undefined): string {
   if (!name) return '?'
@@ -24,17 +25,12 @@ function getInitials(name: string | null | undefined): string {
 }
 
 export const UserDropdown = () => {
-  const { data: session, isPending } = useSession()
-  const user = session?.user
+  const { user } = useUser()
   const router = useRouter()
 
   const handleSignOut = async () => {
     await signOut()
     router.push('/sign-in')
-  }
-
-  if (isPending) {
-    return <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
   }
 
   return (
