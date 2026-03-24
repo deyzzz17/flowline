@@ -171,8 +171,21 @@ export interface Task {
   id: number;
   title: string;
   description?: string | null;
-  status: 'active' | 'completed' | 'deleted';
+  status: 'active' | 'completed' | 'deleted' | 'inactive';
   userId: string;
+  type: 'simple' | 'recurring';
+  tags?: ('urgent' | 'work' | 'personal' | 'health' | 'finance' | 'learning')[] | null;
+  subtasks?:
+    | {
+        title: string;
+        done?: boolean | null;
+        id?: string | null;
+      }[]
+    | null;
+  recurrence?: {
+    frequency?: ('daily' | 'custom') | null;
+    days?: ('mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun')[] | null;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -303,6 +316,21 @@ export interface TasksSelect<T extends boolean = true> {
   description?: T;
   status?: T;
   userId?: T;
+  type?: T;
+  tags?: T;
+  subtasks?:
+    | T
+    | {
+        title?: T;
+        done?: T;
+        id?: T;
+      };
+  recurrence?:
+    | T
+    | {
+        frequency?: T;
+        days?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }

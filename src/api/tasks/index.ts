@@ -8,6 +8,7 @@ import {
   toggleTaskStatus,
   restoreTask,
   editTask,
+  toggleSubtask,
 } from './actions'
 
 export const tasksAPI = {
@@ -20,4 +21,5 @@ export const tasksAPI = {
   toggleStatus: toggleTaskStatus,
   restore: restoreTask,
   edit: editTask,
+  toggleSubtask,
 }

@@ -8,18 +8,56 @@ import { revalidatePath } from 'next/cache'
 import { ok, err } from '@/types/result'
 import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
+import { Task } from '@/payload-types'
 
-export const createTask = async (task: { title: string; description?: string }) => {
+type CreateTaskInput = {
+  title: string
+  description?: string
+  type?: Task['type']
+  tags?: Task['tags']
+  subtasks?: Task['subtasks']
+  recurrence?: Task['recurrence']
+}
+
+type EditTaskInput = Partial<
+  Pick<Task, 'title' | 'description' | 'tags' | 'subtasks' | 'recurrence'>
+>
+
+type Subtask = NonNullable<Task['subtasks']>[number]
+
+const getSession = async () => {
+  const session = await auth.api.getSession({ headers: await headers() })
+  return session?.user?.id ?? null
+}
+
+const allSubtasksDone = (subtasks: Subtask[]): boolean => {
+  if (subtasks.length === 0) return false
+  return subtasks.every((s) => s.done)
+}
+
+export const createTask = async (task: CreateTaskInput) => {
   try {
-    const session = await auth.api.getSession({ headers: await headers() })
-    const userId = session?.user?.id
+    const userId = await getSession()
     if (!userId) return err('Not authenticated')
+
     const payload = await getPayload({ config })
+    let initialStatus: 'active' | 'inactive' = 'active'
+    if (task.type === 'recurring' && task.recurrence?.frequency === 'custom') {
+      const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+      const today = DAYS[new Date().getDay()]
+      initialStatus = task.recurrence.days?.includes(today as never) ? 'active' : 'inactive'
+    }
+
     const newTask = await payload.create({
       collection: 'tasks',
       data: {
-        ...task,
-        status: 'active',
+        title: task.title,
+        description: task.description ?? '',
+        status: initialStatus,
+        type: task.type ?? 'simple',
+        tags: task.tags ?? [],
+        subtasks: task.subtasks ?? [],
+        ...(task.recurrence && { recurrence: task.recurrence }),
         userId,
       },
     })
@@ -32,28 +70,33 @@ export const createTask = async (task: { title: string; description?: string }) 
 }
 
 export const listTasks = async (page = 1, status?: 'active' | 'completed' | 'deleted') => {
-  const session = await auth.api.getSession({ headers: await headers() })
-  const userId = session?.user?.id
+  const userId = await getSession()
   if (!userId) return { docs: [] }
+
   const payload = await getPayload({ config })
+
   return await payload.find({
     collection: 'tasks',
     sort: '-createdAt',
     limit: 0,
     page,
     where: {
-      and: [{ userId: { equals: userId } }, ...(status ? [{ status: { equals: status } }] : [])],
+      and: [
+        { userId: { equals: userId } },
+        { status: { not_equals: 'inactive' } },
+        ...(status ? [{ status: { equals: status } }] : []),
+      ],
     },
   })
 }
 
 export const updateTaskStatus = async (
   id: number,
-  newStatus: 'active' | 'completed' | 'deleted',
+  newStatus: 'active' | 'completed' | 'deleted' | 'inactive',
 ) => {
-  const session = await auth.api.getSession({ headers: await headers() })
-  const userId = session?.user?.id
+  const userId = await getSession()
   if (!userId) return err('Not authenticated')
+
   const payload = await getPayload({ config })
   return await payload.update({
     collection: 'tasks',
@@ -64,10 +107,7 @@ export const updateTaskStatus = async (
 
 export const deleteTask = async (id: number) => {
   const payload = await getPayload({ config })
-  return await payload.delete({
-    collection: 'tasks',
-    id: id,
-  })
+  return await payload.delete({ collection: 'tasks', id })
 }
 
 export const softDeleteTask = async (taskId: number) => {
@@ -111,26 +151,59 @@ export const restoreTask = async (id: number) => {
   }
 }
 
-export const editTask = async (
-  id: number,
-  draft: { title: string; description?: string | undefined },
-) => {
+export const editTask = async (id: number, draft: EditTaskInput) => {
   try {
     const payload = await getPayload({ config })
     const originalTask = await payload.findByID({ collection: 'tasks', id })
-    const finalTitle = draft.title.trim() === '' ? originalTask.title : draft.title
-    const finalDescription = draft.description
+
+    const finalTitle =
+      draft.title !== undefined && draft.title.trim() !== '' ? draft.title : originalTask.title
+
     const updatedTask = await payload.update({
       collection: 'tasks',
       id,
       data: {
         title: finalTitle,
-        description: finalDescription,
+        ...(draft.description !== undefined && { description: draft.description }),
+        ...(draft.tags !== undefined && { tags: draft.tags }),
+        ...(draft.subtasks !== undefined && { subtasks: draft.subtasks }),
+        ...(draft.recurrence !== undefined && { recurrence: draft.recurrence }),
       },
     })
+
     revalidatePath('/')
     return ok(updatedTask)
   } catch {
     return err('Error while editing the task')
+  }
+}
+
+export const toggleSubtask = async (taskId: number, subtaskIndex: number) => {
+  try {
+    const payload = await getPayload({ config })
+    const task = await payload.findByID({ collection: 'tasks', id: taskId })
+
+    type Subtask = NonNullable<Task['subtasks']>[number]
+    const subtasks = (task.subtasks ?? []) as Subtask[]
+
+    const updatedSubtasks = subtasks.map((s, i) =>
+      i === subtaskIndex ? { ...s, done: !s.done } : s,
+    )
+
+    const newStatus = allSubtasksDone(updatedSubtasks) ? 'completed' : task.status
+
+    await payload.update({
+      collection: 'tasks',
+      id: taskId,
+      data: {
+        subtasks: updatedSubtasks,
+        ...(newStatus !== task.status && { status: newStatus }),
+      },
+    })
+
+    revalidatePath('/')
+    return ok({ subtasks: updatedSubtasks, status: newStatus })
+  } catch {
+    return err('Error while toggling subtask')
   }
 }

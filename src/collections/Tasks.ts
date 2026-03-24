@@ -24,6 +24,7 @@ export const Tasks: CollectionConfig = {
         { label: 'Active', value: 'active' },
         { label: 'Completed', value: 'completed' },
         { label: 'Deleted', value: 'deleted' },
+        { label: 'Inactive', value: 'inactive' },
       ],
       required: true,
     },
@@ -32,6 +33,88 @@ export const Tasks: CollectionConfig = {
       type: 'text',
       required: true,
       index: true,
+    },
+
+    {
+      name: 'type',
+      type: 'select',
+      defaultValue: 'simple',
+      options: [
+        { label: 'Simple', value: 'simple' },
+        { label: 'Recurring', value: 'recurring' },
+      ],
+      required: true,
+    },
+
+    {
+      name: 'tags',
+      type: 'select',
+      hasMany: true,
+      required: false,
+      options: [
+        { label: 'Urgent', value: 'urgent' },
+        { label: 'Work', value: 'work' },
+        { label: 'Personal', value: 'personal' },
+        { label: 'Health', value: 'health' },
+        { label: 'Finance', value: 'finance' },
+        { label: 'Learning', value: 'learning' },
+      ],
+    },
+
+    {
+      name: 'subtasks',
+      type: 'array',
+      required: false,
+      fields: [
+        {
+          name: 'title',
+          type: 'text',
+          required: true,
+        },
+        {
+          name: 'done',
+          type: 'checkbox',
+          defaultValue: false,
+        },
+      ],
+    },
+
+    {
+      name: 'recurrence',
+      type: 'group',
+      required: false,
+      admin: {
+        condition: (data) => data.type === 'recurring',
+      },
+      fields: [
+        {
+          name: 'frequency',
+          type: 'select',
+          defaultValue: 'daily',
+          options: [
+            { label: 'Every day', value: 'daily' },
+            { label: 'Custom days', value: 'custom' },
+          ],
+        },
+        {
+          name: 'days',
+          type: 'select',
+          hasMany: true,
+          required: false,
+          admin: {
+            condition: (_, siblingData) => siblingData?.frequency === 'custom',
+          },
+          options: [
+            { label: 'Monday', value: 'mon' },
+            { label: 'Tuesday', value: 'tue' },
+            { label: 'Wednesday', value: 'wed' },
+            { label: 'Thursday', value: 'thu' },
+            { label: 'Friday', value: 'fri' },
+            { label: 'Saturday', value: 'sat' },
+            { label: 'Sunday', value: 'sun' },
+          ],
+        },
+      ],
     },
   ],
 }
