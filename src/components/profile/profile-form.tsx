@@ -277,8 +277,8 @@ export function ProfileForm({
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This action cannot be undone. Your account and all associated data — including
-                  your tasks — will be permanently deleted.
+                  This action cannot be undone. Your account and all associated data (including your
+                  tasks) will be permanently deleted.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

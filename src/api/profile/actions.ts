@@ -76,13 +76,6 @@ export const deleteAccount = async () => {
 
     await cloudinary.uploader.destroy(`flowline/avatars/user_${userId}`)
 
-    await auth.api.deleteUser({
-      headers: await headers(),
-      body: {
-        callbackURL: `${process.env.BETTER_AUTH_URL}/sign-up`,
-      },
-    })
-
     return ok(true)
   } catch {
     return err('Error while deleting account')
