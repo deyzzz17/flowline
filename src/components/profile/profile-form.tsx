@@ -57,16 +57,19 @@ export function ProfileForm({
 }: ProfileFormProps) {
   const router = useRouter()
   const [name, setName] = useState(initialName)
-  const [currentImage, setCurrentImage] = useState(initialImage)
+  const [previewImage, setPreviewImage] = useState<string | null>(initialImage)
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const { save, isSaving, saved, error: saveError, clearError: clearSaveError } = useUpdateProfile()
   const {
-    upload,
-    isUploading,
+    selectFile,
     error: uploadError,
     clearError: clearUploadError,
-  } = useUploadAvatar((url) => setCurrentImage(url))
+  } = useUploadAvatar((previewUrl, file) => {
+    setPreviewImage(previewUrl)
+    setPendingFile(file)
+  })
   const {
     remove,
     isDeleting,
@@ -74,7 +77,7 @@ export function ProfileForm({
     clearError: clearDeleteError,
   } = useDeleteAccount()
 
-  const isDirty = name !== initialName
+  const isDirty = name !== initialName || pendingFile !== null
   const displayError = uploadError ?? saveError ?? deleteError
 
   const clearAllErrors = () => {
@@ -84,25 +87,24 @@ export function ProfileForm({
   }
 
   const handleSave = async () => {
-    const success = await save({ name })
-    if (success) {
-      router.refresh()
-      router.push('/dashboard')
-    }
+    await save(name, pendingFile)
+    setPendingFile(null)
+    router.refresh()
+    router.push('/dashboard')
   }
 
   const handleCancel = () => {
     setName(initialName)
-    setCurrentImage(initialImage)
+    setPreviewImage(initialImage)
+    setPendingFile(null)
     clearAllErrors()
     router.push('/dashboard')
   }
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    const success = await upload(file)
-    if (success) router.refresh()
+    selectFile(file)
     e.target.value = ''
   }
 
@@ -142,27 +144,24 @@ export function ProfileForm({
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              disabled={isUploading}
+              disabled={isSaving}
               className="group relative shrink-0"
               aria-label="Change avatar"
             >
               <Avatar className="h-20 w-20">
-                <AvatarImage src={currentImage ?? undefined} alt={name} />
+                <AvatarImage src={previewImage ?? undefined} alt={name} />
                 <AvatarFallback className="bg-linear-to-br from-violet-500 to-purple-600 text-2xl font-bold text-white">
                   {name ? getInitials(name) : <User className="h-8 w-8" />}
                 </AvatarFallback>
               </Avatar>
+              {pendingFile && (
+                <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-violet-500 ring-2 ring-background" />
+              )}
               <div className="absolute inset-0 flex flex-col items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-                {isUploading ? (
-                  <Loader2 className="h-5 w-5 animate-spin text-white" />
-                ) : (
-                  <>
-                    <Camera className="h-5 w-5 text-white" />
-                    <span className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
-                      Change
-                    </span>
-                  </>
-                )}
+                <Camera className="h-5 w-5 text-white" />
+                <span className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+                  Change
+                </span>
               </div>
             </button>
 
@@ -263,7 +262,7 @@ export function ProfileForm({
               <button
                 type="button"
                 onClick={handleCancel}
-                className="rounded-xl px-4 py-2 text-xs font-semibold text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground"
+                className="rounded-xl px-4 py-2 text-xs font-semibold text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
               >
                 Cancel
               </button>
@@ -292,7 +291,7 @@ export function ProfileForm({
         </div>
 
         <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6">
-          <h2 className="mb-1 text-sm font-semibold text-foreground">Delete zone</h2>
+          <h2 className="mb-1 text-sm font-semibold text-foreground">Danger zone</h2>
           <p className="mb-4 text-xs text-muted-foreground">
             Once you delete your account, there is no going back. All your data will be permanently
             removed.
