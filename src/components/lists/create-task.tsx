@@ -53,8 +53,8 @@ export const CreateTask = () => {
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md">
+        <DialogTitle>New Task</DialogTitle>
         <DialogHeader>
-          <DialogTitle>New Task</DialogTitle>
           <DialogDescription>Add a title and description for your task.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleOnSubmit} className="space-y-6">
