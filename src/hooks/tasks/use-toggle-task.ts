@@ -13,14 +13,25 @@ export function useToggleTask() {
 
     onMutate: async ({ id, status }) => {
       await queryClient.cancelQueries({ queryKey: ['tasks'] })
-
       const previous = queryClient.getQueryData<{ docs: Task[] }>(['tasks'])
 
       queryClient.setQueryData<{ docs: Task[] }>(['tasks'], (old) => ({
         ...old!,
-        docs: old!.docs.map((task) =>
-          task.id === id ? { ...task, status: status === 'active' ? 'completed' : 'active' } : task,
-        ),
+        docs: old!.docs.map((task) => {
+          if (task.id !== id) return task
+
+          const newStatus = status === 'active' ? 'completed' : 'active'
+          const hasSubtasks = (task.subtasks ?? []).length > 0
+
+          return {
+            ...task,
+            status: newStatus,
+            ...(newStatus === 'active' &&
+              hasSubtasks && {
+                subtasks: (task.subtasks ?? []).map((s) => ({ ...s, done: false })),
+              }),
+          }
+        }),
       }))
 
       return { previous }

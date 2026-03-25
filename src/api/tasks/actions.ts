@@ -133,7 +133,25 @@ export const moveToTrash = async (id: number) => {
 export const toggleTaskStatus = async (id: number, currentStatus: 'active' | 'completed') => {
   try {
     const newStatus = currentStatus === 'active' ? 'completed' : 'active'
-    await updateTaskStatus(id, newStatus)
+
+    const payload = await getPayload({ config })
+    const task = await payload.findByID({ collection: 'tasks', id })
+
+    const subtasks = (task.subtasks ?? []) as NonNullable<Task['subtasks']>
+    const hasSubtasks = subtasks.length > 0
+    const shouldResetSubtasks = newStatus === 'active' && hasSubtasks
+
+    await payload.update({
+      collection: 'tasks',
+      id,
+      data: {
+        status: newStatus,
+        ...(shouldResetSubtasks && {
+          subtasks: subtasks.map((s) => ({ ...s, done: false })),
+        }),
+      },
+    })
+
     revalidatePath('/')
     return ok(true)
   } catch {

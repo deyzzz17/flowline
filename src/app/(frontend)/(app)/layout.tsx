@@ -6,7 +6,7 @@ import { MobileSidebarTrigger } from '@/components/dashboard/mobile-side-bar-tri
 
 import Link from 'next/link'
 import { UserDropdown } from '@/components/dashboard/user-dropdown'
-import { Providers } from './providers'
+import { Providers } from '../../../components/providers/providers'
 import { UserProvider } from '@/contexts/user-context'
 import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'

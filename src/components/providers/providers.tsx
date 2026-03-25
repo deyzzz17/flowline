@@ -1,5 +1,6 @@
 'use client'
 
+import { useSyncTimezone } from '@/hooks/authentification/use-sync-timezone'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 
@@ -12,5 +13,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
       }),
   )
+
+  useSyncTimezone()
+
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
 }

@@ -17,6 +17,13 @@ export const auth = betterAuth({
     },
   },
   user: {
+    additionalFields: {
+      timezone: {
+        type: 'string',
+        required: false,
+        defaultValue: 'UTC',
+      },
+    },
     deleteUser: {
       enabled: true,
     },

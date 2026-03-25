@@ -39,12 +39,12 @@ const TAG_STYLES: Record<string, string> = {
 }
 
 const TAG_LABELS: Record<string, string> = {
-  urgent: '🔴 Urgent',
-  work: '💼 Work',
-  personal: '🙂 Personal',
-  health: '💪 Health',
-  finance: '💰 Finance',
-  learning: '📚 Learning',
+  urgent: 'Urgent',
+  work: 'Work',
+  personal: 'Personal',
+  health: 'Health',
+  finance: 'Finance',
+  learning: 'Learning',
 }
 
 interface TaskCardProps {
@@ -96,7 +96,9 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
           <Checkbox
             id={`${task.id}`}
             checked={isCompleted}
-            disabled={isUpdating || isDeleted || isEditing || isDisabled || hasSubtasks}
+            disabled={
+              isUpdating || isDeleted || isEditing || isDisabled || (hasSubtasks && !isCompleted)
+            }
             onCheckedChange={() => toggleStatus(task.id, task.status as 'active' | 'completed')}
           />
         </div>
@@ -226,7 +228,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
           )}
         </div>
 
-        {/* ── Actions ── */}
         <div className="flex items-center self-start mt-0.5 space-x-1 shrink-0">
           {!isEditing && isActive && (
             <Button
