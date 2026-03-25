@@ -15,24 +15,39 @@ export function useToggleTask() {
       await queryClient.cancelQueries({ queryKey: ['tasks'] })
       const previous = queryClient.getQueryData<{ docs: Task[] }>(['tasks'])
 
-      queryClient.setQueryData<{ docs: Task[] }>(['tasks'], (old) => ({
-        ...old!,
-        docs: old!.docs.map((task) => {
-          if (task.id !== id) return task
+      queryClient.setQueryData<{ docs: Task[] }>(['tasks'], (old) => {
+        if (!old) return old
 
-          const newStatus = status === 'active' ? 'completed' : 'active'
-          const hasSubtasks = (task.subtasks ?? []).length > 0
+        return {
+          ...old,
+          docs: old.docs.map((task) => {
+            if (task.id !== id) return task
 
-          return {
-            ...task,
-            status: newStatus,
-            ...(newStatus === 'active' &&
-              hasSubtasks && {
-                subtasks: (task.subtasks ?? []).map((s) => ({ ...s, done: false })),
-              }),
-          }
-        }),
-      }))
+            let nextStatus: Task['status'] = 'active'
+
+            if (status === 'active') {
+              nextStatus = 'completed'
+            } else if (status === 'completed') {
+              nextStatus = 'active'
+            }
+
+            const hasSubtasks = (task.subtasks ?? []).length > 0
+
+            return {
+              ...task,
+              status: nextStatus,
+              ...(nextStatus === 'active' &&
+                hasSubtasks && {
+                  subtasks: (task.subtasks ?? []).map((s) => ({ ...s, done: false })),
+                }),
+              ...(nextStatus !== 'active' &&
+                hasSubtasks && {
+                  subtasks: (task.subtasks ?? []).map((s) => ({ ...s, done: true })),
+                }),
+            }
+          }),
+        }
+      })
 
       return { previous }
     },
