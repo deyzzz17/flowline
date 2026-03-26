@@ -115,5 +115,10 @@ export const Tasks: CollectionConfig = {
         },
       ],
     },
+    {
+      name: 'dueDate',
+      type: 'date',
+      required: false,
+    },
   ],
 }

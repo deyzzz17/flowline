@@ -17,10 +17,11 @@ type CreateTaskInput = {
   tags?: Task['tags']
   subtasks?: Task['subtasks']
   recurrence?: Task['recurrence']
+  dueDate?: string | null
 }
 
 type EditTaskInput = Partial<
-  Pick<Task, 'title' | 'description' | 'tags' | 'subtasks' | 'recurrence'>
+  Pick<Task, 'title' | 'description' | 'tags' | 'subtasks' | 'recurrence' | 'dueDate'>
 >
 
 type Subtask = NonNullable<Task['subtasks']>[number]
@@ -58,6 +59,7 @@ export const createTask = async (task: CreateTaskInput) => {
         tags: task.tags ?? [],
         subtasks: task.subtasks ?? [],
         ...(task.recurrence && { recurrence: task.recurrence }),
+        ...(task.dueDate !== undefined && { dueDate: task.dueDate }),
         userId,
       },
     })
@@ -186,6 +188,7 @@ export const editTask = async (id: number, draft: EditTaskInput) => {
         ...(draft.tags !== undefined && { tags: draft.tags }),
         ...(draft.subtasks !== undefined && { subtasks: draft.subtasks }),
         ...(draft.recurrence !== undefined && { recurrence: draft.recurrence }),
+        ...(draft.dueDate !== undefined && { dueDate: draft.dueDate }),
       },
     })
 

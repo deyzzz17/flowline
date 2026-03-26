@@ -11,20 +11,23 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Calendar } from '@/components/ui/calendar'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { PlusIcon } from '@heroicons/react/24/outline'
-import { AlertCircleIcon, Plus, X, RefreshCw, Circle } from 'lucide-react'
+import { AlertCircleIcon, Plus, X, RefreshCw, Circle, CalendarIcon } from 'lucide-react'
+import { format } from 'date-fns'
 import { useManageForm } from '@/hooks/tasks/use-manage-form'
 import { useTaskCreation } from '@/hooks/tasks/use-task-creation'
 
 const TAG_OPTIONS = [
-  { value: 'urgent', label: '🔴 Urgent' },
-  { value: 'work', label: '💼 Work' },
-  { value: 'personal', label: '🙂 Personal' },
-  { value: 'health', label: '💪 Health' },
-  { value: 'finance', label: '💰 Finance' },
-  { value: 'learning', label: '📚 Learning' },
+  { value: 'urgent', label: 'Urgent' },
+  { value: 'work', label: 'Work' },
+  { value: 'personal', label: 'Personal' },
+  { value: 'health', label: 'Health' },
+  { value: 'finance', label: 'Finance' },
+  { value: 'learning', label: 'Learning' },
 ] as const
 
 const DAY_OPTIONS = [
@@ -58,9 +61,12 @@ export const CreateTask = () => {
     setFrequency,
     days,
     toggleDay,
+    dueDate,
+    setDueDate,
   } = useTaskCreation()
 
   const [subtaskInput, setSubtaskInput] = React.useState('')
+  const [calendarOpen, setCalendarOpen] = React.useState(false)
 
   const handleOnSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -106,7 +112,6 @@ export const CreateTask = () => {
         </DialogHeader>
 
         <form onSubmit={handleOnSubmit} className="space-y-5">
-          {/* ── Type toggle ── */}
           <div className="flex gap-2">
             <button
               type="button"
@@ -136,7 +141,6 @@ export const CreateTask = () => {
             </button>
           </div>
 
-          {/* ── Title ── */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label htmlFor="taskTitle" className="text-sm font-medium">
@@ -161,7 +165,6 @@ export const CreateTask = () => {
             />
           </div>
 
-          {/* ── Description ── */}
           <div className="space-y-1.5">
             <label htmlFor="taskDescription" className="text-sm font-medium">
               Description
@@ -176,7 +179,53 @@ export const CreateTask = () => {
             />
           </div>
 
-          {/* ── Tags ── */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">
+              Due date
+              <span className="ml-1.5 text-xs text-muted-foreground font-normal">Optional</span>
+            </label>
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    'flex h-10 w-full items-center gap-2 rounded-xl border border-border/60 bg-background px-3 text-sm transition-all hover:bg-muted',
+                    !dueDate && 'text-muted-foreground',
+                  )}
+                >
+                  <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="flex-1 text-left">
+                    {dueDate ? format(dueDate, 'PPP') : 'Pick a date'}
+                  </span>
+                  {dueDate && (
+                    <span
+                      role="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setDueDate(undefined)
+                      }}
+                      className="text-muted-foreground/50 hover:text-foreground transition-colors"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </span>
+                  )}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dueDate}
+                  onSelect={(date) => {
+                    setDueDate(date)
+                    setCalendarOpen(false)
+                  }}
+                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                  autoFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
               Tags
@@ -201,7 +250,6 @@ export const CreateTask = () => {
             </div>
           </div>
 
-          {/* ── Subtasks ── */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
               Subtasks
@@ -245,14 +293,11 @@ export const CreateTask = () => {
             </div>
           </div>
 
-          {/* ── Récurrence (si recurring) ── */}
           {type === 'recurring' && (
             <div className="space-y-3 rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-400">
                 Recurrence
               </p>
-
-              {/* Fréquence */}
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -280,7 +325,6 @@ export const CreateTask = () => {
                 </button>
               </div>
 
-              {/* Jours (si custom) */}
               {frequency === 'custom' && (
                 <div className="flex gap-1.5">
                   {DAY_OPTIONS.map((day) => (

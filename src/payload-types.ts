@@ -186,6 +186,7 @@ export interface Task {
     frequency?: ('daily' | 'custom') | null;
     days?: ('mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun')[] | null;
   };
+  dueDate?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -331,6 +332,7 @@ export interface TasksSelect<T extends boolean = true> {
         frequency?: T;
         days?: T;
       };
+  dueDate?: T;
   updatedAt?: T;
   createdAt?: T;
 }
