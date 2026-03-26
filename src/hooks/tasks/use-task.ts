@@ -40,13 +40,8 @@ export const useTask = () => {
     }
   }
 
-  const toggleStatus = async (id: number, currentStatus: 'active' | 'completed') => {
-    try {
-      await toggleMutation.mutateAsync({ id, status: currentStatus })
-      return true
-    } catch {
-      return false
-    }
+  const toggleStatus = (id: number, currentStatus: 'active' | 'completed') => {
+    toggleMutation.mutate({ id, status: currentStatus })
   }
 
   return {

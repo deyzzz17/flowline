@@ -88,7 +88,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
           'relative z-20 flex items-start space-x-4 p-4 rounded-xl border bg-background transition-all',
           isEditing ? 'ring-2 ring-primary shadow-md border-transparent' : 'hover:bg-accent/50',
           isDisabled ? 'opacity-40 grayscale pointer-events-none' : 'opacity-100',
-          (isUpdating || isPending) && 'opacity-50',
+          isPending && 'opacity-50',
         )}
       >
         <div className="mt-1 shrink-0">
