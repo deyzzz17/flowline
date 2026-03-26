@@ -5,6 +5,16 @@ import { Task } from '@/payload-types'
 import { useToggleTask } from './use-toggle-task'
 import { useEditTask } from './use-edit-task'
 
+type EditDraft = {
+  title?: string
+  description?: string
+  tags?: Task['tags']
+  dueDate?: string | null
+  type?: Task['type']
+  recurrence?: Task['recurrence']
+  subtasks?: { title: string; done: boolean }[]
+}
+
 export const useTask = () => {
   const [editingId, setEditingId] = useState<number | undefined>(undefined)
   const [draft, setDraft] = useState({ title: '', description: '' })
@@ -29,10 +39,16 @@ export const useTask = () => {
     setDraft((prev) => ({ ...prev, ...updates }))
   }
 
-  const saveEdit = async (id: number) => {
+  const saveEdit = async (id: number, extraFields?: Omit<EditDraft, 'title' | 'description'>) => {
     if (editingId !== id) return
     try {
-      await editMutation.mutateAsync({ id, draft })
+      await editMutation.mutateAsync({
+        id,
+        draft: {
+          ...draft,
+          ...extraFields,
+        },
+      })
       stopEditing()
       return true
     } catch {
