@@ -378,7 +378,7 @@ export const CreateTask = () => {
 
                         {isExpanded && (
                           <div className="px-3 pb-3 pt-2 space-y-4 border-t border-border/40 bg-background/50">
-                            <div className="space-y-4">
+                            <div className="space-y-6">
                               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                                 Description
                                 <span className="ml-1.5 normal-case font-normal">Optional</span>
@@ -393,7 +393,7 @@ export const CreateTask = () => {
                               />
                             </div>
 
-                            <div className="space-y-4">
+                            <div className="space-y-6">
                               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                                 Due date
                                 <span className="ml-1.5 normal-case font-normal">Optional</span>
@@ -404,7 +404,7 @@ export const CreateTask = () => {
                               />
                             </div>
 
-                            <div className="space-y-4">
+                            <div className="space-y-6">
                               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                                 Tags
                                 <span className="ml-1.5 normal-case font-normal">Optional</span>

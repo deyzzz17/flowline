@@ -29,7 +29,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { RefreshCw, CalendarIcon, Plus, X, Circle, AlertCircle } from 'lucide-react'
+import { RefreshCw, CalendarIcon, Plus, X, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format, isPast, isToday, isTomorrow } from 'date-fns'
 
@@ -72,15 +72,14 @@ const DAY_OPTIONS = [
 
 type TaskTag = NonNullable<Task['tags']>[number]
 type RecurrenceDay = NonNullable<NonNullable<Task['recurrence']>['days']>[number]
+type EditSubtask = { title: string; done: boolean }
 
 function DueDateBadge({ dateString, completed }: { dateString: string; completed: boolean }) {
   const date = new Date(dateString)
   const overdue = !completed && isPast(date) && !isToday(date)
   const dueToday = isToday(date)
   const dueTomorrow = isTomorrow(date)
-
   const label = dueToday ? 'Today' : dueTomorrow ? 'Tomorrow' : format(date, 'MMM d')
-
   return (
     <span
       className={cn(
@@ -170,14 +169,13 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
   const [editType, setEditType] = useState<Task['type']>('simple')
   const [editFrequency, setEditFrequency] = useState<'daily' | 'custom'>('daily')
   const [editDays, setEditDays] = useState<RecurrenceDay[]>([])
-  const [editSubtasks, setEditSubtasks] = useState<{ title: string; done: boolean }[]>([])
+  const [editSubtasks, setEditSubtasks] = useState<EditSubtask[]>([])
   const [subtaskInput, setSubtaskInput] = useState('')
 
   const isActive = task.status === 'active'
   const isCompleted = task.status === 'completed'
   const isDeleted = task.status === 'deleted'
   const isRecurring = task.type === 'recurring'
-
   const isPending = softDelete.isPending || deleteTask.isPending || restoreTask.isPending
 
   const subtasks = task.subtasks ?? []
@@ -204,6 +202,10 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
     setEditDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]))
   }
 
+  const updateSubtaskTitle = (index: number, title: string) => {
+    setEditSubtasks((prev) => prev.map((s, i) => (i === index ? { ...s, title } : s)))
+  }
+
   const addEditSubtask = () => {
     if (!subtaskInput.trim()) return
     setEditSubtasks((prev) => [...prev, { title: subtaskInput.trim(), done: false }])
@@ -223,7 +225,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
         editType === 'recurring'
           ? { frequency: editFrequency, ...(editFrequency === 'custom' && { days: editDays }) }
           : undefined,
-      subtasks: editSubtasks,
+      subtasks: editSubtasks.filter((s) => s.title.trim() !== ''),
     })
   }
 
@@ -239,6 +241,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
           isPending && 'opacity-50',
         )}
       >
+        {/* Checkbox */}
         <div className="mt-1 shrink-0">
           <Checkbox
             id={`${task.id}`}
@@ -250,9 +253,12 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
           />
         </div>
 
+        {/* Content */}
         <div className="flex-1 min-w-0">
           {isEditing ? (
+            /* ═══════════════ EDIT MODE ═══════════════ */
             <div className="space-y-4">
+              {/* Type */}
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -282,6 +288,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 </button>
               </div>
 
+              {/* Title */}
               <input
                 autoFocus
                 className="w-full bg-transparent text-base font-semibold outline-none border-b border-primary/30 focus:border-primary transition-colors pb-1"
@@ -290,14 +297,16 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit()}
                 placeholder="Task title"
               />
-              
+
+              {/* Description */}
               <textarea
-                className="w-full bg-muted/30 p-3 rounded-xl text-sm outline-none resize-none min-h-18 border border-border/40 focus:border-primary/30 transition-colors"
+                className="w-full bg-muted/30 p-3 rounded-xl text-sm outline-none resize-none min-h-[72px] border border-border/40 focus:border-primary/30 transition-colors"
                 value={draft.description}
                 onChange={(e) => updateDraft({ description: e.target.value })}
                 placeholder="Add a description..."
               />
 
+              {/* Due date */}
               {editType === 'simple' && (
                 <div className="space-y-1.5">
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -307,6 +316,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 </div>
               )}
 
+              {/* Tags */}
               <div className="space-y-1.5">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Tags
@@ -330,6 +340,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 </div>
               </div>
 
+              {/* Recurrence */}
               {editType === 'recurring' && (
                 <div className="space-y-2.5 rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
                   <p className="text-xs font-semibold uppercase tracking-widest text-violet-600 dark:text-violet-400">
@@ -374,30 +385,38 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 </div>
               )}
 
+              {/* Subtasks — éditables inline */}
               <div className="space-y-1.5">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Subtasks
                 </p>
+
                 {editSubtasks.length > 0 && (
-                  <div className="space-y-1 mb-2">
+                  <div className="space-y-1.5 mb-2">
                     {editSubtasks.map((s, i) => (
                       <div
                         key={i}
-                        className="flex items-center gap-2 rounded-lg bg-muted/40 px-2.5 py-1.5"
+                        className="flex items-center gap-2 rounded-lg border border-border/40 bg-muted/20 px-2.5 py-1.5 group"
                       >
-                        <Circle className="h-2.5 w-2.5 shrink-0 text-muted-foreground/40" />
-                        <span
+                        {/* Checkbox état done — non modifiable dans l'édition */}
+                        <Checkbox checked={s.done} disabled className="h-3.5 w-3.5 shrink-0" />
+                        {/* Titre éditable inline */}
+                        <input
+                          value={s.title}
+                          onChange={(e) => updateSubtaskTitle(i, e.target.value)}
+                          placeholder="Subtask title..."
                           className={cn(
-                            'flex-1 text-xs',
-                            s.done && 'line-through text-muted-foreground/50',
+                            'flex-1 bg-transparent text-xs outline-none transition-colors',
+                            s.done ? 'line-through text-muted-foreground/50' : 'text-foreground',
+                            'border-b border-transparent focus:border-primary/30',
                           )}
-                        >
-                          {s.title}
-                        </span>
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        {/* Supprimer */}
                         <button
                           type="button"
                           onClick={() => removeEditSubtask(i)}
-                          className="text-muted-foreground/50 hover:text-destructive transition-colors"
+                          className="opacity-0 group-hover:opacity-100 text-muted-foreground/50 hover:text-destructive transition-all"
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -405,6 +424,8 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                     ))}
                   </div>
                 )}
+
+                {/* Nouvelle subtask */}
                 <div className="flex gap-2">
                   <input
                     value={subtaskInput}
@@ -417,6 +438,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                     }}
                     placeholder="Add a subtask..."
                     className="flex-1 h-8 rounded-lg border border-border/60 bg-background px-3 text-xs outline-none focus:border-primary/40 transition-colors"
+                    onClick={(e) => e.stopPropagation()}
                   />
                   <button
                     type="button"
@@ -429,6 +451,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 </div>
               </div>
 
+              {/* Save / Cancel */}
               <div className="flex items-center gap-2 pt-1">
                 <Button size="sm" className="h-8 px-3 text-xs gap-1.5" onClick={handleSaveEdit}>
                   <CheckIcon className="h-3.5 w-3.5" />
@@ -446,7 +469,9 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
               </div>
             </div>
           ) : (
+            /* ═══════════════ VIEW MODE ═══════════════ */
             <div className="space-y-2 py-0.5">
+              {/* Title */}
               <div className="flex items-center gap-2 flex-wrap">
                 <span
                   className={cn(
@@ -467,12 +492,14 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 )}
               </div>
 
+              {/* Description */}
               {task.description && (
                 <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
                   {task.description}
                 </p>
               )}
 
+              {/* Tags + Due date */}
               {(tags.length > 0 || task.dueDate) && (
                 <div className="flex flex-wrap items-center gap-1.5">
                   {task.dueDate && (
@@ -492,6 +519,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 </div>
               )}
 
+              {/* Subtasks */}
               {hasSubtasks && (
                 <div className="space-y-1.5 pt-0.5">
                   <div className="flex items-center gap-2">
@@ -547,6 +575,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
           )}
         </div>
 
+        {/* Actions */}
         {!isEditing && (
           <div className="flex items-center self-start gap-0.5 shrink-0">
             {isActive && (
