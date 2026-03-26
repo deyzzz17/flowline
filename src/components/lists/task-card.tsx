@@ -175,17 +175,10 @@ interface TaskCardProps {
   task: Task
   isEditing?: boolean
   isDisabled?: boolean
-  isInactive?: boolean
   taskManager: ReturnType<typeof useTask>
 }
 
-export const TaskCard = ({
-  task,
-  isEditing,
-  isDisabled,
-  isInactive = false,
-  taskManager,
-}: TaskCardProps) => {
+export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardProps) => {
   const { toggleStatus, isUpdating, startEditing, stopEditing, saveEdit, draft, updateDraft } =
     taskManager
 
@@ -208,6 +201,7 @@ export const TaskCard = ({
   const isActive = task.status === 'active'
   const isCompleted = task.status === 'completed'
   const isDeleted = task.status === 'deleted'
+  const isInactive = task.status === 'inactive'
   const isRecurring = task.type === 'recurring'
   const isPending = softDelete.isPending || deleteTask.isPending || restoreTask.isPending
 
@@ -508,16 +502,18 @@ export const TaskCard = ({
                                   className="h-16 resize-none text-xs"
                                 />
                               </div>
-                              <div className="space-y-1.5">
-                                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                                  Due date{' '}
-                                  <span className="normal-case font-normal">— Optional</span>
-                                </p>
-                                <InlineDatePicker
-                                  value={s.dueDate}
-                                  onChange={(d) => updateSubtask(i, 'dueDate', d)}
-                                />
-                              </div>
+                              {!isRecurring && (
+                                <div className="space-y-1.5">
+                                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                                    Due date{' '}
+                                    <span className="normal-case font-normal">— Optional</span>
+                                  </p>
+                                  <InlineDatePicker
+                                    value={s.dueDate}
+                                    onChange={(d) => updateSubtask(i, 'dueDate', d)}
+                                  />
+                                </div>
+                              )}
                               <div className="space-y-1.5">
                                 <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
                                   Tags <span className="normal-case font-normal">— Optional</span>

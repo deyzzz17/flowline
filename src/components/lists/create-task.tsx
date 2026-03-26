@@ -370,15 +370,18 @@ export const CreateTask = () => {
                               />
                             </div>
 
-                            <div className="space-y-2">
-                              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                Due date <span className="normal-case font-normal">— Optional</span>
-                              </label>
-                              <DatePicker
-                                value={s.dueDate}
-                                onChange={(d) => updateSubtaskDetail(index, 'dueDate', d)}
-                              />
-                            </div>
+                            {!isRecurring && (
+                              <div className="space-y-2">
+                                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                  Due date{' '}
+                                  <span className="normal-case font-normal">— Optional</span>
+                                </label>
+                                <DatePicker
+                                  value={s.dueDate}
+                                  onChange={(d) => updateSubtaskDetail(index, 'dueDate', d)}
+                                />
+                              </div>
+                            )}
 
                             <div className="space-y-2">
                               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
