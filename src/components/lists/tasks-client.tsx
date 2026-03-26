@@ -5,6 +5,7 @@ import { api } from '@/api'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { TodoList } from '@/components/lists/todo-list'
 import { AchievedList } from '@/components/lists/achieved-list'
+import { InactiveList } from '@/components/lists/inactive-list'
 import { Trash } from '@/components/lists/trash-list'
 import { CreateTask } from '@/components/lists/create-task'
 import {
@@ -14,6 +15,7 @@ import {
   ListTodo,
   Sparkles,
   Trash2,
+  PauseCircle,
 } from 'lucide-react'
 
 export const TasksClient = () => {
@@ -25,6 +27,7 @@ export const TasksClient = () => {
   const allTasks = data?.docs ?? []
   const todoTasks = allTasks.filter((t) => t.status === 'active')
   const achievedTasks = allTasks.filter((t) => t.status === 'completed')
+  const inactiveTasks = allTasks.filter((t) => t.status === 'inactive')
   const trashedTasks = allTasks.filter((t) => t.status === 'deleted')
 
   return (
@@ -51,6 +54,18 @@ export const TasksClient = () => {
             Achieved
           </TabsTrigger>
           <TabsTrigger
+            value="inactive"
+            className="gap-1.5 rounded-lg px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+          >
+            <PauseCircle className="h-3.5 w-3.5" />
+            Inactive
+            {inactiveTasks.length > 0 && (
+              <span className="ml-0.5 rounded-full bg-muted px-1.5 py-px text-[10px] font-bold text-muted-foreground">
+                {inactiveTasks.length}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger
             value="trashed"
             className="gap-1.5 rounded-lg px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
           >
@@ -73,7 +88,6 @@ export const TasksClient = () => {
             </div>
             <CreateTask />
           </div>
-
           <div className="rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm">
             <div className="flex items-center justify-between border-b border-border/50 px-5 py-3.5">
               <div className="flex items-center gap-2">
@@ -120,7 +134,6 @@ export const TasksClient = () => {
               <CheckCircleIcon size={18} />
             </div>
           </div>
-
           <div className="rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm">
             <div className="flex items-center justify-between border-b border-border/50 px-5 py-3.5">
               <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
@@ -149,6 +162,54 @@ export const TasksClient = () => {
         </div>
       </TabsContent>
 
+      <TabsContent value="inactive" className="outline-none">
+        <div className="space-y-6">
+          <div className="flex items-end justify-between">
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight text-foreground">Inactive</h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                {inactiveTasks.length === 0
+                  ? 'No inactive recurring tasks.'
+                  : `${inactiveTasks.length} recurring task${inactiveTasks.length !== 1 ? 's' : ''} not scheduled for today.`}
+              </p>
+            </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+              <PauseCircle size={18} />
+            </div>
+          </div>
+          <div className="rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm">
+            <div className="flex items-center justify-between border-b border-border/50 px-5 py-3.5">
+              <div className="flex items-center gap-2">
+                <PauseCircle className="h-3.5 w-3.5 text-muted-foreground/60" />
+                <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
+                  Sleeping
+                </span>
+              </div>
+              <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
+                {inactiveTasks.length}
+              </span>
+            </div>
+            <div className="p-5">
+              {inactiveTasks.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
+                    <PauseCircle className="h-5 w-5 text-muted-foreground/40" />
+                  </div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    All recurring tasks are active
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground/60">
+                    Recurring tasks not scheduled for today appear here.
+                  </p>
+                </div>
+              ) : (
+                <InactiveList tasks={inactiveTasks} />
+              )}
+            </div>
+          </div>
+        </div>
+      </TabsContent>
+
       <TabsContent value="trashed" className="outline-none">
         <div className="space-y-6">
           <div className="flex items-end justify-between">
@@ -164,7 +225,6 @@ export const TasksClient = () => {
               <Trash2 size={18} />
             </div>
           </div>
-
           <div className="rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm">
             <div className="flex items-center justify-between border-b border-border/50 px-5 py-3.5">
               <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">

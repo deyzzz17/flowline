@@ -77,6 +77,15 @@ const DAY_OPTIONS = [
   { value: 'sat', label: 'Sa' },
   { value: 'sun', label: 'Su' },
 ]
+const DAY_FULL: Record<string, string> = {
+  mon: 'Mon',
+  tue: 'Tue',
+  wed: 'Wed',
+  thu: 'Thu',
+  fri: 'Fri',
+  sat: 'Sat',
+  sun: 'Sun',
+}
 
 type TaskTag = NonNullable<Task['tags']>[number]
 type RecurrenceDay = NonNullable<NonNullable<Task['recurrence']>['days']>[number]
@@ -166,10 +175,17 @@ interface TaskCardProps {
   task: Task
   isEditing?: boolean
   isDisabled?: boolean
+  isInactive?: boolean
   taskManager: ReturnType<typeof useTask>
 }
 
-export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardProps) => {
+export const TaskCard = ({
+  task,
+  isEditing,
+  isDisabled,
+  isInactive = false,
+  taskManager,
+}: TaskCardProps) => {
   const { toggleStatus, isUpdating, startEditing, stopEditing, saveEdit, draft, updateDraft } =
     taskManager
 
@@ -200,6 +216,9 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
   const hasSubtasks = subtasks.length > 0
   const subtaskProgress = hasSubtasks ? Math.round((completedSubtasks / subtasks.length) * 100) : 0
   const tags = (task.tags ?? []) as string[]
+
+  const recurrenceDays = (task.recurrence?.days ?? []) as string[]
+  const isDaily = task.recurrence?.frequency === 'daily'
 
   const handleStartEditing = () => {
     setEditTags((task.tags ?? []) as TaskTag[])
@@ -281,6 +300,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
           'relative z-20 flex items-start gap-3 p-4 rounded-xl border bg-background transition-all',
           isEditing ? 'ring-2 ring-primary shadow-md border-transparent' : 'hover:bg-accent/50',
           isDisabled ? 'opacity-40 grayscale pointer-events-none' : 'opacity-100',
+          isInactive && !isEditing && 'opacity-60',
           isPending && 'opacity-50',
         )}
       >
@@ -289,7 +309,12 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
             id={`${task.id}`}
             checked={isCompleted}
             disabled={
-              isUpdating || isDeleted || isEditing || isDisabled || (hasSubtasks && !isCompleted)
+              isUpdating ||
+              isDeleted ||
+              isEditing ||
+              isDisabled ||
+              isInactive ||
+              (hasSubtasks && !isCompleted)
             }
             onCheckedChange={() => toggleStatus(task.id, task.status as 'active' | 'completed')}
           />
@@ -337,7 +362,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
               />
 
               <textarea
-                className="w-full bg-muted/30 p-3 rounded-xl text-sm outline-none resize-none min-h-[72px] border border-border/40 focus:border-primary/30 transition-colors"
+                className="w-full bg-muted/30 p-3 rounded-xl text-sm outline-none resize-none min-h-18 border border-border/40 focus:border-primary/30 transition-colors"
                 value={draft.description}
                 onChange={(e) => updateDraft({ description: e.target.value })}
                 placeholder="Add a description..."
@@ -568,21 +593,62 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 <span
                   className={cn(
                     'h-2 w-2 shrink-0 rounded-full',
-                    isRecurring ? 'bg-violet-500' : 'bg-blue-500',
+                    isInactive
+                      ? 'bg-muted-foreground/40'
+                      : isRecurring
+                        ? 'bg-violet-500'
+                        : 'bg-blue-500',
                   )}
                 />
                 <label
                   className={cn(
                     'text-base font-semibold transition-colors leading-snug',
-                    isCompleted ? 'line-through text-muted-foreground/60' : 'text-foreground',
+                    isCompleted
+                      ? 'line-through text-muted-foreground/60'
+                      : isInactive
+                        ? 'text-muted-foreground'
+                        : 'text-foreground',
                   )}
                 >
                   {task.title}
                 </label>
                 {isRecurring && !isCompleted && (
-                  <RefreshCw className="h-3 w-3 shrink-0 text-violet-500/60" />
+                  <RefreshCw
+                    className={cn(
+                      'h-3 w-3 shrink-0',
+                      isInactive ? 'text-muted-foreground/40' : 'text-violet-500/60',
+                    )}
+                  />
                 )}
               </div>
+
+              {isRecurring && (
+                <div className="flex items-center gap-1.5">
+                  {isDaily ? (
+                    <span className="text-[10px] font-medium text-muted-foreground/60">
+                      Every day
+                    </span>
+                  ) : recurrenceDays.length > 0 ? (
+                    <div className="flex items-center gap-1">
+                      {DAY_OPTIONS.map((day) => (
+                        <span
+                          key={day.value}
+                          className={cn(
+                            'rounded px-1.5 py-0.5 text-[10px] font-semibold transition-colors',
+                            recurrenceDays.includes(day.value)
+                              ? isInactive
+                                ? 'bg-muted-foreground/10 text-muted-foreground/60'
+                                : 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                              : 'text-muted-foreground/20',
+                          )}
+                        >
+                          {DAY_FULL[day.value]}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              )}
 
               {task.description && (
                 <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
@@ -625,13 +691,11 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                       {completedSubtasks}/{subtasks.length}
                     </span>
                   </div>
-
                   {subtasks.map((subtask, index) => {
                     const subtaskTags = (subtask.tags ?? []) as string[]
                     const hasSubtaskDetails =
                       subtask.description || subtask.dueDate || subtaskTags.length > 0
                     const isViewExpanded = expandedViewSubtask === index
-
                     return (
                       <div
                         key={subtask.id ?? index}
@@ -644,6 +708,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                             disabled={
                               isDeleted ||
                               isCompleted ||
+                              isInactive ||
                               (toggleSubtask.isPending &&
                                 toggleSubtask.variables?.taskId === task.id &&
                                 toggleSubtask.variables?.subtaskIndex === index)
@@ -664,11 +729,9 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                           >
                             {subtask.title}
                           </label>
-
                           {hasSubtaskDetails && !isViewExpanded && (
                             <Tag className="h-2.5 w-2.5 shrink-0 text-violet-500/50" />
                           )}
-
                           {hasSubtaskDetails && (
                             <button
                               type="button"
@@ -682,7 +745,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                               )}
                             </button>
                           )}
-
                           {!isDeleted && !isCompleted && (
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
@@ -717,7 +779,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                             </AlertDialog>
                           )}
                         </div>
-
                         {isViewExpanded && (
                           <div className="px-3 pb-2.5 pt-1.5 space-y-1.5 border-t border-border/30 bg-muted/10">
                             {subtask.description && (
@@ -759,7 +820,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
 
         {!isEditing && (
           <div className="flex items-center self-start gap-0.5 shrink-0">
-            {isActive && (
+            {(isActive || isInactive) && (
               <Button
                 variant="ghost"
                 size="icon"

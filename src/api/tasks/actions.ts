@@ -71,7 +71,10 @@ export const createTask = async (task: CreateTaskInput) => {
   }
 }
 
-export const listTasks = async (page = 1, status?: 'active' | 'completed' | 'deleted') => {
+export const listTasks = async (
+  page = 1,
+  status?: 'active' | 'completed' | 'deleted' | 'inactive',
+) => {
   const userId = await getSession()
   if (!userId) return { docs: [] }
 
@@ -83,11 +86,7 @@ export const listTasks = async (page = 1, status?: 'active' | 'completed' | 'del
     limit: 0,
     page,
     where: {
-      and: [
-        { userId: { equals: userId } },
-        { status: { not_equals: 'inactive' } },
-        ...(status ? [{ status: { equals: status } }] : []),
-      ],
+      and: [{ userId: { equals: userId } }, ...(status ? [{ status: { equals: status } }] : [])],
     },
   })
 }
