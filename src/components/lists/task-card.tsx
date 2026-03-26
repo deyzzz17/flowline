@@ -72,7 +72,13 @@ const DAY_OPTIONS = [
 
 type TaskTag = NonNullable<Task['tags']>[number]
 type RecurrenceDay = NonNullable<NonNullable<Task['recurrence']>['days']>[number]
-type EditSubtask = { title: string; done: boolean }
+type EditSubtask = {
+  title: string
+  done: boolean
+  description?: string
+  dueDate?: Date
+  tags?: string[]
+}
 
 function DueDateBadge({ dateString, completed }: { dateString: string; completed: boolean }) {
   const date = new Date(dateString)
@@ -225,7 +231,15 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
         editType === 'recurring'
           ? { frequency: editFrequency, ...(editFrequency === 'custom' && { days: editDays }) }
           : undefined,
-      subtasks: editSubtasks.filter((s) => s.title.trim() !== ''),
+      subtasks: editSubtasks
+        .filter((s) => s.title.trim() !== '')
+        .map((s) => ({
+          title: s.title,
+          done: s.done,
+          description: s.description ?? '',
+          dueDate: s.dueDate ? s.dueDate.toISOString() : null,
+          tags: s.tags ?? [],
+        })),
     })
   }
 
@@ -241,7 +255,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
           isPending && 'opacity-50',
         )}
       >
-        {/* Checkbox */}
         <div className="mt-1 shrink-0">
           <Checkbox
             id={`${task.id}`}
@@ -253,12 +266,9 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
           />
         </div>
 
-        {/* Content */}
         <div className="flex-1 min-w-0">
           {isEditing ? (
-            /* ═══════════════ EDIT MODE ═══════════════ */
             <div className="space-y-4">
-              {/* Type */}
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -288,7 +298,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 </button>
               </div>
 
-              {/* Title */}
               <input
                 autoFocus
                 className="w-full bg-transparent text-base font-semibold outline-none border-b border-primary/30 focus:border-primary transition-colors pb-1"
@@ -298,15 +307,13 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 placeholder="Task title"
               />
 
-              {/* Description */}
               <textarea
-                className="w-full bg-muted/30 p-3 rounded-xl text-sm outline-none resize-none min-h-[72px] border border-border/40 focus:border-primary/30 transition-colors"
+                className="w-full bg-muted/30 p-3 rounded-xl text-sm outline-none resize-none min-h-18 border border-border/40 focus:border-primary/30 transition-colors"
                 value={draft.description}
                 onChange={(e) => updateDraft({ description: e.target.value })}
                 placeholder="Add a description..."
               />
 
-              {/* Due date */}
               {editType === 'simple' && (
                 <div className="space-y-1.5">
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -316,7 +323,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 </div>
               )}
 
-              {/* Tags */}
               <div className="space-y-1.5">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Tags
@@ -340,7 +346,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 </div>
               </div>
 
-              {/* Recurrence */}
               {editType === 'recurring' && (
                 <div className="space-y-2.5 rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
                   <p className="text-xs font-semibold uppercase tracking-widest text-violet-600 dark:text-violet-400">
@@ -385,7 +390,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 </div>
               )}
 
-              {/* Subtasks — éditables inline */}
               <div className="space-y-1.5">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Subtasks
@@ -398,9 +402,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                         key={i}
                         className="flex items-center gap-2 rounded-lg border border-border/40 bg-muted/20 px-2.5 py-1.5 group"
                       >
-                        {/* Checkbox état done — non modifiable dans l'édition */}
                         <Checkbox checked={s.done} disabled className="h-3.5 w-3.5 shrink-0" />
-                        {/* Titre éditable inline */}
                         <input
                           value={s.title}
                           onChange={(e) => updateSubtaskTitle(i, e.target.value)}
@@ -412,7 +414,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                           )}
                           onClick={(e) => e.stopPropagation()}
                         />
-                        {/* Supprimer */}
                         <button
                           type="button"
                           onClick={() => removeEditSubtask(i)}
@@ -425,7 +426,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                   </div>
                 )}
 
-                {/* Nouvelle subtask */}
                 <div className="flex gap-2">
                   <input
                     value={subtaskInput}
@@ -451,7 +451,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 </div>
               </div>
 
-              {/* Save / Cancel */}
               <div className="flex items-center gap-2 pt-1">
                 <Button size="sm" className="h-8 px-3 text-xs gap-1.5" onClick={handleSaveEdit}>
                   <CheckIcon className="h-3.5 w-3.5" />
@@ -469,9 +468,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
               </div>
             </div>
           ) : (
-            /* ═══════════════ VIEW MODE ═══════════════ */
             <div className="space-y-2 py-0.5">
-              {/* Title */}
               <div className="flex items-center gap-2 flex-wrap">
                 <span
                   className={cn(
@@ -492,14 +489,12 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 )}
               </div>
 
-              {/* Description */}
               {task.description && (
                 <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
                   {task.description}
                 </p>
               )}
 
-              {/* Tags + Due date */}
               {(tags.length > 0 || task.dueDate) && (
                 <div className="flex flex-wrap items-center gap-1.5">
                   {task.dueDate && (
@@ -519,7 +514,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 </div>
               )}
 
-              {/* Subtasks */}
               {hasSubtasks && (
                 <div className="space-y-1.5 pt-0.5">
                   <div className="flex items-center gap-2">
@@ -575,7 +569,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
           )}
         </div>
 
-        {/* Actions */}
         {!isEditing && (
           <div className="flex items-center self-start gap-0.5 shrink-0">
             {isActive && (

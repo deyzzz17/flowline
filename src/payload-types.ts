@@ -179,6 +179,9 @@ export interface Task {
     | {
         title: string;
         done?: boolean | null;
+        description?: string | null;
+        dueDate?: string | null;
+        tags?: ('urgent' | 'work' | 'personal' | 'health' | 'finance' | 'learning')[] | null;
         id?: string | null;
       }[]
     | null;
@@ -324,6 +327,9 @@ export interface TasksSelect<T extends boolean = true> {
     | {
         title?: T;
         done?: T;
+        description?: T;
+        dueDate?: T;
+        tags?: T;
         id?: T;
       };
   recurrence?:

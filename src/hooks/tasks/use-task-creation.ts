@@ -9,12 +9,20 @@ type TaskTag = NonNullable<Task['tags']>[number]
 type RecurrenceFrequency = NonNullable<Task['recurrence']>['frequency']
 type RecurrenceDay = NonNullable<NonNullable<Task['recurrence']>['days']>[number]
 
+export type SubtaskDetail = {
+  title: string
+  done: boolean
+  description?: string
+  dueDate?: Date
+  tags?: string[]
+}
+
 export const useTaskCreation = () => {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [type, setType] = useState<TaskType>('simple')
   const [tags, setTags] = useState<TaskTag[]>([])
-  const [subtasks, setSubtasks] = useState<{ title: string; done: boolean }[]>([])
+  const [subtasks, setSubtasks] = useState<SubtaskDetail[]>([])
   const [frequency, setFrequency] = useState<RecurrenceFrequency>('daily')
   const [days, setDays] = useState<RecurrenceDay[]>([])
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined)
@@ -45,6 +53,16 @@ export const useTaskCreation = () => {
     setSubtasks((prev) => prev.filter((_, i) => i !== index))
   }
 
+  const updateSubtaskDetail = (index: number, field: keyof SubtaskDetail, value: unknown) => {
+    setSubtasks((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)))
+  }
+
+  const toggleSubtaskTag = (index: number, tag: string) => {
+    const current = subtasks[index]?.tags ?? []
+    const updated = current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag]
+    updateSubtaskDetail(index, 'tags', updated)
+  }
+
   const resetForm = () => {
     setTitle('')
     setDescription('')
@@ -69,8 +87,14 @@ export const useTaskCreation = () => {
       description,
       type,
       tags,
-      subtasks,
       dueDate: dueDate ? dueDate.toISOString() : null,
+      subtasks: subtasks.map((s) => ({
+        title: s.title,
+        done: s.done,
+        ...(s.description && { description: s.description }),
+        ...(s.dueDate && { dueDate: s.dueDate.toISOString() }),
+        ...(s.tags?.length && { tags: s.tags as NonNullable<Task['subtasks']>[number]['tags'] }),
+      })),
       ...(type === 'recurring' && {
         recurrence: {
           frequency,
@@ -102,6 +126,8 @@ export const useTaskCreation = () => {
     subtasks,
     addSubtask,
     removeSubtask,
+    updateSubtaskDetail,
+    toggleSubtaskTag,
     frequency,
     setFrequency,
     days,

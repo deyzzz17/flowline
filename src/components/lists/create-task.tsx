@@ -49,14 +49,6 @@ const DAY_OPTIONS = [
   { value: 'sun', label: 'Su' },
 ] as const
 
-type SubtaskDetail = {
-  title: string
-  done: boolean
-  description?: string
-  dueDate?: Date
-  tags?: string[]
-}
-
 const FormField = ({
   label,
   optional,
@@ -180,34 +172,21 @@ export const CreateTask = () => {
     subtasks,
     addSubtask,
     removeSubtask,
+    updateSubtaskDetail,
+    toggleSubtaskTag,
     frequency,
     setFrequency,
     days,
     toggleDay,
     dueDate,
     setDueDate,
+    resetForm,
   } = useTaskCreation()
 
   const [subtaskInput, setSubtaskInput] = React.useState('')
   const [expandedIndex, setExpandedIndex] = React.useState<number | null>(null)
-  const [subtaskDetails, setSubtaskDetails] = React.useState<
-    Record<number, Partial<SubtaskDetail>>
-  >({})
 
   const isRecurring = type === 'recurring'
-
-  const updateSubtaskDetail = (index: number, field: keyof SubtaskDetail, value: unknown) => {
-    setSubtaskDetails((prev) => ({
-      ...prev,
-      [index]: { ...prev[index], [field]: value },
-    }))
-  }
-
-  const toggleSubtaskTag = (index: number, tag: string) => {
-    const current = subtaskDetails[index]?.tags ?? []
-    const updated = current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag]
-    updateSubtaskDetail(index, 'tags', updated)
-  }
 
   const handleOnSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -215,7 +194,6 @@ export const CreateTask = () => {
     if (success) {
       setSubtaskInput('')
       setExpandedIndex(null)
-      setSubtaskDetails({})
       close()
     }
   }
@@ -235,20 +213,25 @@ export const CreateTask = () => {
 
   const handleRemoveSubtask = (index: number) => {
     removeSubtask(index)
+    if (expandedIndex === index) setExpandedIndex(null)
+    else if (expandedIndex !== null && expandedIndex > index) setExpandedIndex(expandedIndex - 1)
+  }
+
+  const handleClose = () => {
+    resetForm()
+    setSubtaskInput('')
     setExpandedIndex(null)
-    setSubtaskDetails((prev) => {
-      const next: Record<number, Partial<SubtaskDetail>> = {}
-      Object.entries(prev).forEach(([k, v]) => {
-        const i = parseInt(k)
-        if (i < index) next[i] = v
-        else if (i > index) next[i - 1] = v
-      })
-      return next
-    })
+    close()
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) handleClose()
+        else setIsOpen(true)
+      }}
+    >
       <DialogTrigger asChild>
         <Button
           variant="outline"
@@ -337,9 +320,7 @@ export const CreateTask = () => {
                 <div className="space-y-1.5">
                   {subtasks.map((s, index) => {
                     const isExpanded = expandedIndex === index
-                    const detail = subtaskDetails[index] ?? {}
-                    const hasDetails =
-                      detail.description || detail.dueDate || (detail.tags?.length ?? 0) > 0
+                    const hasDetails = s.description || s.dueDate || (s.tags?.length ?? 0) > 0
 
                     return (
                       <div
@@ -349,13 +330,9 @@ export const CreateTask = () => {
                         <div className="flex items-center gap-2 px-3 py-2.5 bg-muted/30">
                           <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/40" />
                           <span className="flex-1 text-sm text-foreground">{s.title}</span>
-
                           {hasDetails && !isExpanded && (
-                            <span className="flex items-center gap-1 text-[10px] font-medium text-violet-500">
-                              <Tag className="h-2.5 w-2.5" />
-                            </span>
+                            <Tag className="h-2.5 w-2.5 shrink-0 text-violet-500/60" />
                           )}
-
                           <button
                             type="button"
                             onClick={() => setExpandedIndex(isExpanded ? null : index)}
@@ -377,14 +354,14 @@ export const CreateTask = () => {
                         </div>
 
                         {isExpanded && (
-                          <div className="px-3 pb-3 pt-2 space-y-4 border-t border-border/40 bg-background/50">
-                            <div className="space-y-6">
+                          <div className="px-3 pb-3 pt-2.5 space-y-4 border-t border-border/40 bg-background/50">
+                            <div className="space-y-2">
                               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                Description
-                                <span className="ml-1.5 normal-case font-normal">Optional</span>
+                                Description{' '}
+                                <span className="normal-case font-normal">— Optional</span>
                               </label>
                               <Textarea
-                                value={detail.description ?? ''}
+                                value={s.description ?? ''}
                                 onChange={(e) =>
                                   updateSubtaskDetail(index, 'description', e.target.value)
                                 }
@@ -393,24 +370,22 @@ export const CreateTask = () => {
                               />
                             </div>
 
-                            <div className="space-y-6">
+                            <div className="space-y-2">
                               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                Due date
-                                <span className="ml-1.5 normal-case font-normal">Optional</span>
+                                Due date <span className="normal-case font-normal">— Optional</span>
                               </label>
                               <DatePicker
-                                value={detail.dueDate}
+                                value={s.dueDate}
                                 onChange={(d) => updateSubtaskDetail(index, 'dueDate', d)}
                               />
                             </div>
 
-                            <div className="space-y-6">
+                            <div className="space-y-2">
                               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                Tags
-                                <span className="ml-1.5 normal-case font-normal">Optional</span>
+                                Tags <span className="normal-case font-normal">— Optional</span>
                               </label>
                               <TagPicker
-                                selected={detail.tags ?? []}
+                                selected={s.tags ?? []}
                                 onToggle={(tag) => toggleSubtaskTag(index, tag)}
                               />
                             </div>
@@ -464,7 +439,6 @@ export const CreateTask = () => {
                   </button>
                 ))}
               </div>
-
               {frequency === 'custom' && (
                 <div className="flex gap-1.5">
                   {DAY_OPTIONS.map((day) => (
@@ -488,7 +462,7 @@ export const CreateTask = () => {
           )}
 
           <DialogFooter className="flex-row gap-2 sm:justify-end pt-1">
-            <Button type="button" variant="ghost" onClick={() => close()}>
+            <Button type="button" variant="ghost" onClick={handleClose}>
               Cancel
             </Button>
             <Button disabled={isLoading} className="bg-primary px-8">
