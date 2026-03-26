@@ -68,8 +68,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
   const isDeleted = task.status === 'deleted'
   const isRecurring = task.type === 'recurring'
 
-  const isPending =
-    softDelete.isPending || deleteTask.isPending || restoreTask.isPending || toggleSubtask.isPending
+  const isPending = softDelete.isPending || deleteTask.isPending || restoreTask.isPending
 
   const subtasks = task.subtasks ?? []
   const completedSubtasks = subtasks.filter((s) => s.done).length
@@ -203,7 +202,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                       <Checkbox
                         id={`subtask-${task.id}-${index}`}
                         checked={subtask.done ?? false}
-                        disabled={isDeleted || isPending || isCompleted}
+                        disabled={isDeleted || toggleSubtask.isPending || isCompleted}
                         onCheckedChange={() =>
                           toggleSubtask.mutate({ taskId: task.id, subtaskIndex: index })
                         }
