@@ -9,6 +9,7 @@ import {
   restoreTask,
   editTask,
   toggleSubtask,
+  deleteSubtask,
 } from './actions'
 
 export const tasksAPI = {
@@ -22,4 +23,5 @@ export const tasksAPI = {
   restore: restoreTask,
   edit: editTask,
   toggleSubtask,
+  deleteSubtask,
 }

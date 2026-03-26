@@ -7,6 +7,7 @@ import { useSoftDelete } from '@/hooks/tasks/use-soft-delete'
 import { useDeleteTask } from '@/hooks/tasks/use-delete-task'
 import { useRestoreTask } from '@/hooks/tasks/use-restore-task'
 import { useToggleSubtask } from '@/hooks/tasks/use-toggle-subtasks'
+import { useDeleteSubtask } from '@/hooks/tasks/use-delete-subtask'
 import type { Task } from '@/payload-types'
 import { Button } from '../ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -51,7 +52,6 @@ const TAG_STYLES: Record<string, string> = {
   finance: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
   learning: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
 }
-
 const TAG_LABELS: Record<string, string> = {
   urgent: 'Urgent',
   work: 'Work',
@@ -60,7 +60,6 @@ const TAG_LABELS: Record<string, string> = {
   finance: 'Finance',
   learning: 'Learning',
 }
-
 const TAG_OPTIONS = [
   { value: 'urgent', label: '🔴 Urgent' },
   { value: 'work', label: '💼 Work' },
@@ -69,7 +68,6 @@ const TAG_OPTIONS = [
   { value: 'finance', label: '💰 Finance' },
   { value: 'learning', label: '📚 Learning' },
 ]
-
 const DAY_OPTIONS = [
   { value: 'mon', label: 'Mo' },
   { value: 'tue', label: 'Tu' },
@@ -179,6 +177,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
   const deleteTask = useDeleteTask()
   const restoreTask = useRestoreTask()
   const toggleSubtask = useToggleSubtask()
+  const deleteSubtask = useDeleteSubtask()
 
   const [editTags, setEditTags] = useState<TaskTag[]>([])
   const [editDueDate, setEditDueDate] = useState<Date | undefined>(undefined)
@@ -188,6 +187,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
   const [editSubtasks, setEditSubtasks] = useState<EditSubtask[]>([])
   const [subtaskInput, setSubtaskInput] = useState('')
   const [expandedSubtask, setExpandedSubtask] = useState<number | null>(null)
+  const [expandedViewSubtask, setExpandedViewSubtask] = useState<number | null>(null)
 
   const isActive = task.status === 'active'
   const isCompleted = task.status === 'completed'
@@ -298,7 +298,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
         <div className="flex-1 min-w-0">
           {isEditing ? (
             <div className="space-y-4">
-              {/* Type */}
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -328,7 +327,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 </button>
               </div>
 
-              {/* Title */}
               <input
                 autoFocus
                 className="w-full bg-transparent text-base font-semibold outline-none border-b border-primary/30 focus:border-primary transition-colors pb-1"
@@ -338,7 +336,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 placeholder="Task title"
               />
 
-              {/* Description */}
               <textarea
                 className="w-full bg-muted/30 p-3 rounded-xl text-sm outline-none resize-none min-h-[72px] border border-border/40 focus:border-primary/30 transition-colors"
                 value={draft.description}
@@ -346,7 +343,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 placeholder="Add a description..."
               />
 
-              {/* Due date */}
               {editType === 'simple' && (
                 <div className="space-y-1.5">
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -356,7 +352,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 </div>
               )}
 
-              {/* Tags */}
               <div className="space-y-1.5">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Tags
@@ -380,7 +375,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 </div>
               </div>
 
-              {/* Recurrence */}
               {editType === 'recurring' && (
                 <div className="space-y-2.5 rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
                   <p className="text-xs font-semibold uppercase tracking-widest text-violet-600 dark:text-violet-400">
@@ -425,25 +419,21 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 </div>
               )}
 
-              {/* ── Subtasks éditables avec expansion ── */}
               <div className="space-y-1.5">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Subtasks
                 </p>
-
                 {editSubtasks.length > 0 && (
                   <div className="space-y-1.5 mb-2">
                     {editSubtasks.map((s, i) => {
                       const isExpanded = expandedSubtask === i
                       const hasDetails = s.description || s.dueDate || (s.tags?.length ?? 0) > 0
-
                       return (
                         <div
                           key={i}
                           className="rounded-xl border border-border/50 overflow-hidden"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          {/* Header */}
                           <div className="flex items-center gap-2 px-3 py-2 bg-muted/20">
                             <Checkbox checked={s.done} disabled className="h-3.5 w-3.5 shrink-0" />
                             <input
@@ -479,8 +469,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                               <X className="h-3.5 w-3.5" />
                             </button>
                           </div>
-
-                          {/* Expansion */}
                           {isExpanded && (
                             <div className="px-3 pb-3 pt-2.5 space-y-3.5 border-t border-border/40 bg-background/60">
                               <div className="space-y-1.5">
@@ -491,11 +479,10 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                                 <Textarea
                                   value={s.description ?? ''}
                                   onChange={(e) => updateSubtask(i, 'description', e.target.value)}
-                                  placeholder="Add details to this subtask..."
+                                  placeholder="Add details..."
                                   className="h-16 resize-none text-xs"
                                 />
                               </div>
-
                               <div className="space-y-1.5">
                                 <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
                                   Due date{' '}
@@ -506,7 +493,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                                   onChange={(d) => updateSubtask(i, 'dueDate', d)}
                                 />
                               </div>
-
                               <div className="space-y-1.5">
                                 <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
                                   Tags <span className="normal-case font-normal">— Optional</span>
@@ -536,8 +522,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                     })}
                   </div>
                 )}
-
-                {/* Nouvelle subtask */}
                 <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                   <input
                     value={subtaskInput}
@@ -562,7 +546,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 </div>
               </div>
 
-              {/* Save / Cancel */}
               <div className="flex items-center gap-2 pt-1">
                 <Button size="sm" className="h-8 px-3 text-xs gap-1.5" onClick={handleSaveEdit}>
                   <CheckIcon className="h-3.5 w-3.5" />
@@ -580,7 +563,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
               </div>
             </div>
           ) : (
-            /* ── VIEW MODE ── */
             <div className="space-y-2 py-0.5">
               <div className="flex items-center gap-2 flex-wrap">
                 <span
@@ -643,46 +625,138 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                       {completedSubtasks}/{subtasks.length}
                     </span>
                   </div>
-                  {subtasks.map((subtask, index) => (
-                    <div
-                      key={subtask.id ?? index}
-                      className="flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-muted/30 transition-colors"
-                    >
-                      <Checkbox
-                        id={`subtask-${task.id}-${index}`}
-                        checked={subtask.done ?? false}
-                        disabled={
-                          isDeleted ||
-                          isCompleted ||
-                          (toggleSubtask.isPending &&
-                            toggleSubtask.variables?.taskId === task.id &&
-                            toggleSubtask.variables?.subtaskIndex === index)
-                        }
-                        onCheckedChange={() =>
-                          toggleSubtask.mutate({ taskId: task.id, subtaskIndex: index })
-                        }
-                        className="h-3.5 w-3.5"
-                      />
-                      <label
-                        htmlFor={`subtask-${task.id}-${index}`}
-                        className={cn(
-                          'text-sm cursor-pointer transition-colors',
-                          subtask.done
-                            ? 'line-through text-muted-foreground/50'
-                            : 'text-muted-foreground',
-                        )}
+
+                  {subtasks.map((subtask, index) => {
+                    const subtaskTags = (subtask.tags ?? []) as string[]
+                    const hasSubtaskDetails =
+                      subtask.description || subtask.dueDate || subtaskTags.length > 0
+                    const isViewExpanded = expandedViewSubtask === index
+
+                    return (
+                      <div
+                        key={subtask.id ?? index}
+                        className="rounded-lg border border-border/30 overflow-hidden"
                       >
-                        {subtask.title}
-                      </label>
-                    </div>
-                  ))}
+                        <div className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted/20 transition-colors">
+                          <Checkbox
+                            id={`subtask-${task.id}-${index}`}
+                            checked={subtask.done ?? false}
+                            disabled={
+                              isDeleted ||
+                              isCompleted ||
+                              (toggleSubtask.isPending &&
+                                toggleSubtask.variables?.taskId === task.id &&
+                                toggleSubtask.variables?.subtaskIndex === index)
+                            }
+                            onCheckedChange={() =>
+                              toggleSubtask.mutate({ taskId: task.id, subtaskIndex: index })
+                            }
+                            className="h-3.5 w-3.5 shrink-0"
+                          />
+                          <label
+                            htmlFor={`subtask-${task.id}-${index}`}
+                            className={cn(
+                              'flex-1 text-sm cursor-pointer transition-colors',
+                              subtask.done
+                                ? 'line-through text-muted-foreground/50'
+                                : 'text-muted-foreground',
+                            )}
+                          >
+                            {subtask.title}
+                          </label>
+
+                          {hasSubtaskDetails && !isViewExpanded && (
+                            <Tag className="h-2.5 w-2.5 shrink-0 text-violet-500/50" />
+                          )}
+
+                          {hasSubtaskDetails && (
+                            <button
+                              type="button"
+                              onClick={() => setExpandedViewSubtask(isViewExpanded ? null : index)}
+                              className="text-muted-foreground/30 hover:text-muted-foreground transition-colors"
+                            >
+                              {isViewExpanded ? (
+                                <ChevronUp className="h-3 w-3" />
+                              ) : (
+                                <ChevronDown className="h-3 w-3" />
+                              )}
+                            </button>
+                          )}
+
+                          {!isDeleted && !isCompleted && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="text-muted-foreground/30 hover:text-destructive transition-colors"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <TrashIcon className="h-3.5 w-3.5" />
+                                </button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete this subtask?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will permanently delete <strong>{subtask.title}</strong>.
+                                    This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() =>
+                                      deleteSubtask.mutate({ taskId: task.id, subtaskIndex: index })
+                                    }
+                                    variant="destructive"
+                                  >
+                                    Delete permanently
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </div>
+
+                        {isViewExpanded && (
+                          <div className="px-3 pb-2.5 pt-1.5 space-y-1.5 border-t border-border/30 bg-muted/10">
+                            {subtask.description && (
+                              <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                                {subtask.description}
+                              </p>
+                            )}
+                            {(subtask.dueDate || subtaskTags.length > 0) && (
+                              <div className="flex flex-wrap items-center gap-1">
+                                {subtask.dueDate && (
+                                  <DueDateBadge
+                                    dateString={subtask.dueDate}
+                                    completed={subtask.done ?? false}
+                                  />
+                                )}
+                                {subtaskTags.map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className={cn(
+                                      'rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                                      TAG_STYLES[tag] ?? 'bg-muted text-muted-foreground',
+                                    )}
+                                  >
+                                    {TAG_LABELS[tag] ?? tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {/* Actions */}
         {!isEditing && (
           <div className="flex items-center self-start gap-0.5 shrink-0">
             {isActive && (

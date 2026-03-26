@@ -228,3 +228,31 @@ export const toggleSubtask = async (taskId: number, subtaskIndex: number) => {
     return err('Error while toggling subtask')
   }
 }
+
+export const deleteSubtask = async (taskId: number, subtaskIndex: number) => {
+  try {
+    const payload = await getPayload({ config })
+    const task = await payload.findByID({ collection: 'tasks', id: taskId })
+
+    type Subtask = NonNullable<Task['subtasks']>[number]
+    const subtasks = (task.subtasks ?? []) as Subtask[]
+    const updatedSubtasks = subtasks.filter((_, i) => i !== subtaskIndex)
+
+    const wasCompleted = task.status === 'completed'
+    const newStatus = wasCompleted && updatedSubtasks.length === 0 ? 'active' : task.status
+
+    await payload.update({
+      collection: 'tasks',
+      id: taskId,
+      data: {
+        subtasks: updatedSubtasks,
+        ...(newStatus !== task.status && { status: newStatus }),
+      },
+    })
+
+    revalidatePath('/')
+    return ok({ subtasks: updatedSubtasks, status: newStatus })
+  } catch {
+    return err('Error while deleting subtask')
+  }
+}
