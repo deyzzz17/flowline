@@ -32,7 +32,7 @@ export const useTask = () => {
   const saveEdit = async (id: number) => {
     if (editingId !== id) return
     try {
-      editMutation.mutate({ id, draft })
+      await editMutation.mutateAsync({ id, draft })
       stopEditing()
       return true
     } catch {
@@ -40,13 +40,8 @@ export const useTask = () => {
     }
   }
 
-  const toggleStatus = async (id: number, currentStatus: 'active' | 'completed') => {
-    try {
-      toggleMutation.mutate({ id, status: currentStatus })
-      return true
-    } catch {
-      return false
-    }
+  const toggleStatus = (id: number, currentStatus: 'active' | 'completed') => {
+    toggleMutation.mutate({ id, status: currentStatus })
   }
 
   return {
