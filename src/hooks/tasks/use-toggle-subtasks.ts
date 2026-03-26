@@ -13,8 +13,7 @@ export function useToggleSubtask() {
     mutationFn: ({ taskId, subtaskIndex }: { taskId: number; subtaskIndex: number }) =>
       api.tasks.toggleSubtask(taskId, subtaskIndex),
 
-    onMutate: async ({ taskId, subtaskIndex }) => {
-      await queryClient.cancelQueries({ queryKey: ['tasks'] })
+    onMutate: ({ taskId, subtaskIndex }) => {
       const previous = queryClient.getQueryData<{ docs: Task[] }>(['tasks'])
 
       queryClient.setQueryData<{ docs: Task[] }>(['tasks'], (old) => ({
