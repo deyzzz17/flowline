@@ -203,7 +203,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                       <Checkbox
                         id={`subtask-${task.id}-${index}`}
                         checked={subtask.done ?? false}
-                        disabled={isDeleted || isPending}
+                        disabled={isDeleted || isPending || isCompleted}
                         onCheckedChange={() =>
                           toggleSubtask.mutate({ taskId: task.id, subtaskIndex: index })
                         }

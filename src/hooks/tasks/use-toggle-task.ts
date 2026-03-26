@@ -4,6 +4,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import type { Task } from '@/payload-types'
 
+type Subtask = NonNullable<Task['subtasks']>[number]
+
 export function useToggleTask() {
   const queryClient = useQueryClient()
 
@@ -22,15 +24,7 @@ export function useToggleTask() {
           ...old,
           docs: old.docs.map((task) => {
             if (task.id !== id) return task
-
-            let nextStatus: Task['status'] = 'active'
-
-            if (status === 'active') {
-              nextStatus = 'completed'
-            } else if (status === 'completed') {
-              nextStatus = 'active'
-            }
-
+            const nextStatus: Task['status'] = status === 'active' ? 'completed' : 'active'
             const hasSubtasks = (task.subtasks ?? []).length > 0
 
             return {
@@ -38,11 +32,7 @@ export function useToggleTask() {
               status: nextStatus,
               ...(nextStatus === 'active' &&
                 hasSubtasks && {
-                  subtasks: (task.subtasks ?? []).map((s) => ({ ...s, done: false })),
-                }),
-              ...(nextStatus !== 'active' &&
-                hasSubtasks && {
-                  subtasks: (task.subtasks ?? []).map((s) => ({ ...s, done: true })),
+                  subtasks: (task.subtasks ?? []).map((s: Subtask) => ({ ...s, done: false })),
                 }),
             }
           }),
