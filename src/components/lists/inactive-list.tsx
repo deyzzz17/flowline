@@ -12,9 +12,19 @@ export const InactiveList = ({ tasks }: InactiveListProps) => {
   const taskManager = useTask()
   return (
     <div className="grid gap-4 w-full">
-      {tasks.map((task) => (
-        <TaskCard key={task.id} task={task} taskManager={taskManager} />
-      ))}
+      {tasks.map((task) => {
+        const isEditing = taskManager.editingId === task.id
+        const isDisabled = taskManager.editingId !== undefined && !isEditing
+        return (
+          <TaskCard
+            key={task.id}
+            task={task}
+            isEditing={isEditing}
+            isDisabled={isDisabled}
+            taskManager={taskManager}
+          />
+        )
+      })}
     </div>
   )
 }

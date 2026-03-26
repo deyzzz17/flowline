@@ -162,7 +162,25 @@ export const toggleTaskStatus = async (id: number, currentStatus: 'active' | 'co
 
 export const restoreTask = async (id: number) => {
   try {
-    await updateTaskStatus(id, 'active')
+    const payload = await getPayload({ config })
+    const task = await payload.findByID({ collection: 'tasks', id })
+
+    let newStatus: 'active' | 'inactive' = 'active'
+
+    if (task.type === 'recurring') {
+      const recurrence = task.recurrence as {
+        frequency: 'daily' | 'custom'
+        days?: string[]
+      } | null
+
+      if (recurrence?.frequency === 'custom') {
+        const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+        const today = DAYS[new Date().getDay()]
+        newStatus = recurrence.days?.includes(today) ? 'active' : 'inactive'
+      }
+    }
+
+    await updateTaskStatus(id, newStatus)
     revalidatePath('/')
     return ok(true)
   } catch {
