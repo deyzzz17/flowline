@@ -16,18 +16,27 @@ import { Calendar } from '@/components/ui/calendar'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { PlusIcon } from '@heroicons/react/24/outline'
-import { AlertCircleIcon, Plus, X, RefreshCw, Circle, CalendarIcon } from 'lucide-react'
+import {
+  AlertCircleIcon,
+  Plus,
+  X,
+  RefreshCw,
+  CalendarIcon,
+  ChevronDown,
+  ChevronUp,
+  Tag,
+} from 'lucide-react'
 import { format } from 'date-fns'
 import { useManageForm } from '@/hooks/tasks/use-manage-form'
 import { useTaskCreation } from '@/hooks/tasks/use-task-creation'
 
 const TAG_OPTIONS = [
-  { value: 'urgent', label: 'Urgent' },
-  { value: 'work', label: 'Work' },
-  { value: 'personal', label: 'Personal' },
-  { value: 'health', label: 'Health' },
-  { value: 'finance', label: 'Finance' },
-  { value: 'learning', label: 'Learning' },
+  { value: 'urgent', label: '🔴 Urgent' },
+  { value: 'work', label: '💼 Work' },
+  { value: 'personal', label: '🙂 Personal' },
+  { value: 'health', label: '💪 Health' },
+  { value: 'finance', label: '💰 Finance' },
+  { value: 'learning', label: '📚 Learning' },
 ] as const
 
 const DAY_OPTIONS = [
@@ -39,6 +48,120 @@ const DAY_OPTIONS = [
   { value: 'sat', label: 'Sa' },
   { value: 'sun', label: 'Su' },
 ] as const
+
+type SubtaskDetail = {
+  title: string
+  done: boolean
+  description?: string
+  dueDate?: Date
+  tags?: string[]
+}
+
+const FormField = ({
+  label,
+  optional,
+  error,
+  children,
+}: {
+  label: string
+  optional?: boolean
+  error?: string
+  children: React.ReactNode
+}) => (
+  <div className="space-y-2.5">
+    <div className="flex items-center justify-between">
+      <label className="text-sm font-medium text-foreground">
+        {label}
+        {optional && (
+          <span className="ml-2 text-xs font-normal text-muted-foreground">Optional</span>
+        )}
+      </label>
+      {error && (
+        <p className="flex items-center gap-1 text-xs font-semibold text-destructive animate-in fade-in slide-in-from-right-1">
+          <AlertCircleIcon size={12} />
+          {error}
+        </p>
+      )}
+    </div>
+    {children}
+  </div>
+)
+
+const DatePicker = ({
+  value,
+  onChange,
+}: {
+  value: Date | undefined
+  onChange: (d: Date | undefined) => void
+}) => {
+  const [open, setOpen] = React.useState(false)
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            'flex h-10 w-full items-center gap-2.5 rounded-xl border border-border/60 bg-background px-3 text-sm transition-all hover:bg-muted',
+            !value && 'text-muted-foreground',
+          )}
+        >
+          <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <span className="flex-1 text-left">{value ? format(value, 'PPP') : 'Pick a date'}</span>
+          {value && (
+            <span
+              role="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onChange(undefined)
+              }}
+              className="text-muted-foreground/50 hover:text-foreground transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={value}
+          onSelect={(d) => {
+            onChange(d)
+            setOpen(false)
+          }}
+          disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+          autoFocus
+        />
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+const TagPicker = ({
+  selected,
+  onToggle,
+}: {
+  selected: string[]
+  onToggle: (tag: string) => void
+}) => (
+  <div className="flex flex-wrap gap-1.5">
+    {TAG_OPTIONS.map((tag) => (
+      <button
+        key={tag.value}
+        type="button"
+        onClick={() => onToggle(tag.value)}
+        className={cn(
+          'rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
+          selected.includes(tag.value)
+            ? 'border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400'
+            : 'border-border/60 bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
+        )}
+      >
+        {tag.label}
+      </button>
+    ))}
+  </div>
+)
 
 export const CreateTask = () => {
   const { isOpen, close, setIsOpen } = useManageForm()
@@ -66,13 +189,33 @@ export const CreateTask = () => {
   } = useTaskCreation()
 
   const [subtaskInput, setSubtaskInput] = React.useState('')
-  const [calendarOpen, setCalendarOpen] = React.useState(false)
+  const [expandedIndex, setExpandedIndex] = React.useState<number | null>(null)
+  const [subtaskDetails, setSubtaskDetails] = React.useState<
+    Record<number, Partial<SubtaskDetail>>
+  >({})
+
+  const isRecurring = type === 'recurring'
+
+  const updateSubtaskDetail = (index: number, field: keyof SubtaskDetail, value: unknown) => {
+    setSubtaskDetails((prev) => ({
+      ...prev,
+      [index]: { ...prev[index], [field]: value },
+    }))
+  }
+
+  const toggleSubtaskTag = (index: number, tag: string) => {
+    const current = subtaskDetails[index]?.tags ?? []
+    const updated = current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag]
+    updateSubtaskDetail(index, 'tags', updated)
+  }
 
   const handleOnSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const success = await saveTask()
     if (success) {
       setSubtaskInput('')
+      setExpandedIndex(null)
+      setSubtaskDetails({})
       close()
     }
   }
@@ -88,6 +231,20 @@ export const CreateTask = () => {
       e.preventDefault()
       handleAddSubtask()
     }
+  }
+
+  const handleRemoveSubtask = (index: number) => {
+    removeSubtask(index)
+    setExpandedIndex(null)
+    setSubtaskDetails((prev) => {
+      const next: Record<number, Partial<SubtaskDetail>> = {}
+      Object.entries(prev).forEach(([k, v]) => {
+        const i = parseInt(k)
+        if (i < index) next[i] = v
+        else if (i > index) next[i - 1] = v
+      })
+      return next
+    })
   }
 
   return (
@@ -111,7 +268,7 @@ export const CreateTask = () => {
           <DialogTitle>New Task</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleOnSubmit} className="space-y-5">
+        <form onSubmit={handleOnSubmit} className="space-y-6 pt-1">
           <div className="flex gap-2">
             <button
               type="button"
@@ -141,188 +298,171 @@ export const CreateTask = () => {
             </button>
           </div>
 
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label htmlFor="taskTitle" className="text-sm font-medium">
-                Title
-              </label>
-              {showError && (
-                <p className="flex items-center gap-1 text-xs font-semibold text-destructive animate-in fade-in slide-in-from-right-1">
-                  <AlertCircleIcon size={12} />
-                  Title is required
-                </p>
-              )}
-            </div>
+          <FormField label="Title" error={showError ? 'Title is required' : undefined}>
             <Input
               id="taskTitle"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="What needs to be done?"
               className={cn(
-                'transition-all',
+                'h-11 transition-all',
                 showError && 'border-destructive focus-visible:ring-destructive bg-destructive/5',
               )}
             />
-          </div>
+          </FormField>
 
-          <div className="space-y-1.5">
-            <label htmlFor="taskDescription" className="text-sm font-medium">
-              Description
-              <span className="ml-1.5 text-xs text-muted-foreground font-normal">Optional</span>
-            </label>
+          <FormField label="Description" optional>
             <Textarea
               id="taskDescription"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Add more details..."
-              className="h-20 resize-none"
+              className="h-24 resize-none"
             />
-          </div>
+          </FormField>
 
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              Due date
-              <span className="ml-1.5 text-xs text-muted-foreground font-normal">Optional</span>
-            </label>
-            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className={cn(
-                    'flex h-10 w-full items-center gap-2 rounded-xl border border-border/60 bg-background px-3 text-sm transition-all hover:bg-muted',
-                    !dueDate && 'text-muted-foreground',
-                  )}
-                >
-                  <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span className="flex-1 text-left">
-                    {dueDate ? format(dueDate, 'PPP') : 'Pick a date'}
-                  </span>
-                  {dueDate && (
-                    <span
-                      role="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setDueDate(undefined)
-                      }}
-                      className="text-muted-foreground/50 hover:text-foreground transition-colors"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </span>
-                  )}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={dueDate}
-                  onSelect={(date) => {
-                    setDueDate(date)
-                    setCalendarOpen(false)
-                  }}
-                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                  autoFocus
+          {!isRecurring && (
+            <FormField label="Due date" optional>
+              <DatePicker value={dueDate} onChange={setDueDate} />
+            </FormField>
+          )}
+
+          <FormField label="Tags" optional>
+            <TagPicker selected={tags as string[]} onToggle={toggleTag as (t: string) => void} />
+          </FormField>
+
+          <FormField label="Subtasks" optional>
+            <div className="space-y-2">
+              {subtasks.length > 0 && (
+                <div className="space-y-1.5">
+                  {subtasks.map((s, index) => {
+                    const isExpanded = expandedIndex === index
+                    const detail = subtaskDetails[index] ?? {}
+                    const hasDetails =
+                      detail.description || detail.dueDate || (detail.tags?.length ?? 0) > 0
+
+                    return (
+                      <div
+                        key={index}
+                        className="rounded-xl border border-border/50 overflow-hidden"
+                      >
+                        <div className="flex items-center gap-2 px-3 py-2.5 bg-muted/30">
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/40" />
+                          <span className="flex-1 text-sm text-foreground">{s.title}</span>
+
+                          {hasDetails && !isExpanded && (
+                            <span className="flex items-center gap-1 text-[10px] font-medium text-violet-500">
+                              <Tag className="h-2.5 w-2.5" />
+                            </span>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => setExpandedIndex(isExpanded ? null : index)}
+                            className="text-muted-foreground/50 hover:text-foreground transition-colors"
+                          >
+                            {isExpanded ? (
+                              <ChevronUp className="h-3.5 w-3.5" />
+                            ) : (
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSubtask(index)}
+                            className="text-muted-foreground/50 hover:text-destructive transition-colors"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+
+                        {isExpanded && (
+                          <div className="px-3 pb-3 pt-2 space-y-4 border-t border-border/40 bg-background/50">
+                            <div className="space-y-2">
+                              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                Description
+                                <span className="ml-1.5 normal-case font-normal">Optional</span>
+                              </label>
+                              <Textarea
+                                value={detail.description ?? ''}
+                                onChange={(e) =>
+                                  updateSubtaskDetail(index, 'description', e.target.value)
+                                }
+                                placeholder="Add details to this subtask..."
+                                className="h-16 resize-none text-sm"
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                Due date
+                                <span className="ml-1.5 normal-case font-normal">Optional</span>
+                              </label>
+                              <DatePicker
+                                value={detail.dueDate}
+                                onChange={(d) => updateSubtaskDetail(index, 'dueDate', d)}
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                Tags
+                                <span className="ml-1.5 normal-case font-normal">Optional</span>
+                              </label>
+                              <TagPicker
+                                selected={detail.tags ?? []}
+                                onToggle={(tag) => toggleSubtaskTag(index, tag)}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Input
+                  value={subtaskInput}
+                  onChange={(e) => setSubtaskInput(e.target.value)}
+                  onKeyDown={handleSubtaskKeyDown}
+                  placeholder="Add a subtask..."
+                  className="h-10 text-sm"
                 />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              Tags
-              <span className="ml-1.5 text-xs text-muted-foreground font-normal">Optional</span>
-            </label>
-            <div className="flex flex-wrap gap-1.5">
-              {TAG_OPTIONS.map((tag) => (
                 <button
-                  key={tag.value}
                   type="button"
-                  onClick={() => toggleTag(tag.value as never)}
-                  className={cn(
-                    'rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
-                    tags.includes(tag.value as never)
-                      ? 'border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                      : 'border-border/60 bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
-                  )}
+                  onClick={handleAddSubtask}
+                  disabled={!subtaskInput.trim()}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-background text-muted-foreground transition-all hover:bg-muted hover:text-foreground disabled:opacity-40"
                 >
-                  {tag.label}
+                  <Plus className="h-4 w-4" />
                 </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              Subtasks
-              <span className="ml-1.5 text-xs text-muted-foreground font-normal">Optional</span>
-            </label>
-
-            {subtasks.length > 0 && (
-              <div className="space-y-1 mb-2">
-                {subtasks.map((s, i) => (
-                  <div key={i} className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2">
-                    <Circle className="h-3 w-3 shrink-0 text-muted-foreground/40" />
-                    <span className="flex-1 text-sm text-foreground">{s.title}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeSubtask(i)}
-                      className="text-muted-foreground/50 transition-colors hover:text-destructive"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
               </div>
-            )}
-
-            <div className="flex gap-2">
-              <Input
-                value={subtaskInput}
-                onChange={(e) => setSubtaskInput(e.target.value)}
-                onKeyDown={handleSubtaskKeyDown}
-                placeholder="Add a subtask..."
-                className="h-9 text-sm"
-              />
-              <button
-                type="button"
-                onClick={handleAddSubtask}
-                disabled={!subtaskInput.trim()}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-background text-muted-foreground transition-all hover:bg-muted hover:text-foreground disabled:opacity-40"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
             </div>
-          </div>
+          </FormField>
 
-          {type === 'recurring' && (
-            <div className="space-y-3 rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-400">
+          {isRecurring && (
+            <div className="space-y-4 rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-violet-600 dark:text-violet-400">
                 Recurrence
               </p>
               <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setFrequency('daily')}
-                  className={cn(
-                    'flex-1 rounded-lg border py-2 text-xs font-medium transition-all',
-                    frequency === 'daily'
-                      ? 'border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                      : 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
-                  )}
-                >
-                  Every day
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFrequency('custom')}
-                  className={cn(
-                    'flex-1 rounded-lg border py-2 text-xs font-medium transition-all',
-                    frequency === 'custom'
-                      ? 'border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                      : 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
-                  )}
-                >
-                  Custom days
-                </button>
+                {['daily', 'custom'].map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setFrequency(f as never)}
+                    className={cn(
+                      'flex-1 rounded-lg border py-2.5 text-xs font-medium transition-all',
+                      frequency === f
+                        ? 'border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                        : 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
+                    )}
+                  >
+                    {f === 'daily' ? 'Every day' : 'Custom days'}
+                  </button>
+                ))}
               </div>
 
               {frequency === 'custom' && (
@@ -333,7 +473,7 @@ export const CreateTask = () => {
                       type="button"
                       onClick={() => toggleDay(day.value as never)}
                       className={cn(
-                        'flex-1 rounded-lg border py-1.5 text-xs font-semibold transition-all',
+                        'flex-1 rounded-lg border py-2 text-xs font-semibold transition-all',
                         days.includes(day.value as never)
                           ? 'border-violet-500/40 bg-violet-500/15 text-violet-600 dark:text-violet-400'
                           : 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
@@ -347,7 +487,7 @@ export const CreateTask = () => {
             </div>
           )}
 
-          <DialogFooter className="flex-row gap-2 sm:justify-end pt-2">
+          <DialogFooter className="flex-row gap-2 sm:justify-end pt-1">
             <Button type="button" variant="ghost" onClick={() => close()}>
               Cancel
             </Button>
