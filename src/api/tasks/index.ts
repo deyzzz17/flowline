@@ -15,7 +15,7 @@ import {
 
 export const tasksAPI = {
   create: createTask,
-  list: listTasks,
+  list: (page = 1) => listTasks(page),
   updateStatus: updateTaskStatus,
   delete: deleteTask,
   softDelete: softDeleteTask,
