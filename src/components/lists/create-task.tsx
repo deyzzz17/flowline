@@ -35,12 +35,12 @@ import { DatePicker } from './date-picker'
 import { FormField } from './form-field'
 
 const TAG_OPTIONS = [
-  { value: 'urgent', label: '🔴 Urgent' },
-  { value: 'work', label: '💼 Work' },
-  { value: 'personal', label: '🙂 Personal' },
-  { value: 'health', label: '💪 Health' },
-  { value: 'finance', label: '💰 Finance' },
-  { value: 'learning', label: '📚 Learning' },
+  { value: 'urgent', label: 'Urgent' },
+  { value: 'work', label: 'Work' },
+  { value: 'personal', label: 'Personal' },
+  { value: 'health', label: 'Health' },
+  { value: 'finance', label: 'Finance' },
+  { value: 'learning', label: 'Learning' },
 ] as const
 
 const DAY_OPTIONS = [
