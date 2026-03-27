@@ -17,6 +17,17 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { PlusIcon } from '@heroicons/react/24/outline'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import {
   AlertCircleIcon,
   Plus,
   X,
@@ -53,12 +64,15 @@ const DAY_OPTIONS = [
   { value: 'sun', label: 'Su' },
 ] as const
 
-// Convertit #rrggbb → rgba(r,g,b,alpha)
 function hexToRgba(hex: string, alpha: number) {
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
-  return `rgba(${r},${g},${b},${alpha})`
+  try {
+    const r = parseInt(hex.slice(1, 3), 16)
+    const g = parseInt(hex.slice(3, 5), 16)
+    const b = parseInt(hex.slice(5, 7), 16)
+    return `rgba(${r},${g},${b},${alpha})`
+  } catch {
+    return `rgba(139,92,246,${alpha})`
+  }
 }
 
 const FormField = ({
@@ -185,6 +199,11 @@ export const CreateTask = () => {
       queryClient.invalidateQueries({ queryKey: ['user-tags'] })
       if (result.ok) toggleCustomTag(String(result.value.id))
     },
+  })
+
+  const deleteTagMutation = useMutation({
+    mutationFn: (id: number) => api.tags.delete(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['user-tags'] }),
   })
 
   const [showNewTag, setShowNewTag] = React.useState(false)
@@ -355,23 +374,57 @@ export const CreateTask = () => {
                   {userTags.map((tag) => {
                     const isSelected = customTags.includes(String(tag.id))
                     return (
-                      <button
-                        key={tag.id}
-                        type="button"
-                        onClick={() => toggleCustomTag(String(tag.id))}
-                        className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all"
-                        style={{
-                          backgroundColor: hexToRgba(tag.color, isSelected ? 0.15 : 0.06),
-                          borderColor: hexToRgba(tag.color, isSelected ? 0.5 : 0.2),
-                          color: tag.color,
-                        }}
-                      >
-                        <span
-                          className="h-1.5 w-1.5 rounded-full shrink-0"
-                          style={{ backgroundColor: tag.color }}
-                        />
-                        {tag.name}
-                      </button>
+                      <div key={tag.id} className="flex items-center group">
+                        <button
+                          type="button"
+                          onClick={() => toggleCustomTag(String(tag.id))}
+                          className="flex items-center gap-1.5 rounded-l-full border-y border-l px-2.5 py-1 text-xs font-medium transition-all"
+                          style={{
+                            backgroundColor: hexToRgba(tag.color, isSelected ? 0.15 : 0.06),
+                            borderColor: hexToRgba(tag.color, isSelected ? 0.5 : 0.2),
+                            color: tag.color,
+                          }}
+                        >
+                          <span
+                            className="h-1.5 w-1.5 rounded-full shrink-0"
+                            style={{ backgroundColor: tag.color }}
+                          />
+                          {tag.name}
+                        </button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <button
+                              type="button"
+                              className="flex items-center justify-center h-full rounded-r-full border-y border-r px-1.5 py-1 transition-all opacity-0 group-hover:opacity-100"
+                              style={{
+                                backgroundColor: hexToRgba(tag.color, isSelected ? 0.15 : 0.06),
+                                borderColor: hexToRgba(tag.color, isSelected ? 0.5 : 0.2),
+                                color: tag.color,
+                              }}
+                            >
+                              <X className="h-2.5 w-2.5" />
+                            </button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete this tag?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete the tag <strong>{tag.name}</strong> and
+                                remove it from all tasks. This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deleteTagMutation.mutate(tag.id)}
+                                variant="destructive"
+                              >
+                                Delete tag
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     )
                   })}
                 </div>
@@ -485,7 +538,6 @@ export const CreateTask = () => {
                   {subtasks.map((s, index) => {
                     const isExpanded = expandedIndex === index
                     const hasDetails = s.description || s.dueDate || (s.tags?.length ?? 0) > 0
-
                     return (
                       <div
                         key={index}
@@ -619,7 +671,6 @@ export const CreateTask = () => {
                   </button>
                 ))}
               </div>
-
               {frequency === 'custom' && (
                 <div className="flex gap-1.5">
                   {DAY_OPTIONS.map((day) => (
