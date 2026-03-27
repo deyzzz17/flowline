@@ -4,6 +4,9 @@ import { useState } from 'react'
 import { Task } from '@/payload-types'
 import { useToggleTask } from './use-toggle-task'
 import { useEditTask } from './use-edit-task'
+import { TaskTag } from '@/types/task-tag'
+import { RecurrenceDay } from '@/types/recurrence-day'
+import { EditSubtask } from '@/types/edit-subtask'
 
 type EditDraft = {
   title?: string
@@ -19,6 +22,19 @@ type EditDraft = {
 export const useTask = () => {
   const [editingId, setEditingId] = useState<number | undefined>(undefined)
   const [draft, setDraft] = useState({ title: '', description: '' })
+  const [editTags, setEditTags] = useState<TaskTag[]>([])
+  const [editCustomTags, setEditCustomTags] = useState<string[]>([])
+  const [editDueDate, setEditDueDate] = useState<Date | undefined>(undefined)
+  const [editType, setEditType] = useState<Task['type']>('simple')
+  const [editFrequency, setEditFrequency] = useState<'daily' | 'custom'>('daily')
+  const [editDays, setEditDays] = useState<RecurrenceDay[]>([])
+  const [editSubtasks, setEditSubtasks] = useState<EditSubtask[]>([])
+  const [subtaskInput, setSubtaskInput] = useState('')
+  const [expandedSubtask, setExpandedSubtask] = useState<number | null>(null)
+  const [expandedViewSubtask, setExpandedViewSubtask] = useState<number | null>(null)
+  const [showNewTag, setShowNewTag] = useState(false)
+  const [newTagName, setNewTagName] = useState('')
+  const [newTagColor, setNewTagColor] = useState('#8b5cf6')
 
   const toggleMutation = useToggleTask()
   const editMutation = useEditTask()
@@ -70,5 +86,31 @@ export const useTask = () => {
     updateDraft,
     saveEdit,
     draft,
+    editTags,
+    setEditTags,
+    editCustomTags,
+    setEditCustomTags,
+    editDays,
+    setEditDays,
+    editDueDate,
+    setEditDueDate,
+    editType,
+    setEditType,
+    editFrequency,
+    setEditFrequency,
+    editSubtasks,
+    setEditSubtasks,
+    subtaskInput,
+    setSubtaskInput,
+    expandedSubtask,
+    setExpandedSubtask,
+    expandedViewSubtask,
+    setExpandedViewSubtask,
+    showNewTag,
+    setShowNewTag,
+    newTagName,
+    setNewTagName,
+    newTagColor,
+    setNewTagColor,
   }
 }

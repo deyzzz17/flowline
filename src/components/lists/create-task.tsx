@@ -11,8 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Calendar } from '@/components/ui/calendar'
+
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { PlusIcon } from '@heroicons/react/24/outline'
@@ -27,23 +26,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import {
-  AlertCircleIcon,
-  Plus,
-  X,
-  RefreshCw,
-  CalendarIcon,
-  ChevronDown,
-  ChevronUp,
-  Tag,
-  Check,
-  Loader2,
-} from 'lucide-react'
-import { format } from 'date-fns'
+import { Plus, RefreshCw, ChevronDown, ChevronUp, Tag, Check, Loader2, X } from 'lucide-react'
 import { useManageForm } from '@/hooks/tasks/use-manage-form'
 import { useTaskCreation } from '@/hooks/tasks/use-task-creation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
+import { DatePicker } from './date-picker'
+import { FormField } from './form-field'
 
 const TAG_OPTIONS = [
   { value: 'urgent', label: '🔴 Urgent' },
@@ -75,86 +64,6 @@ function hexToRgba(hex: string, alpha: number) {
   }
 }
 
-const FormField = ({
-  label,
-  optional,
-  error,
-  children,
-}: {
-  label: string
-  optional?: boolean
-  error?: string
-  children: React.ReactNode
-}) => (
-  <div className="space-y-2.5">
-    <div className="flex items-center justify-between">
-      <label className="text-sm font-medium text-foreground">
-        {label}
-        {optional && (
-          <span className="ml-2 text-xs font-normal text-muted-foreground">Optional</span>
-        )}
-      </label>
-      {error && (
-        <p className="flex items-center gap-1 text-xs font-semibold text-destructive animate-in fade-in slide-in-from-right-1">
-          <AlertCircleIcon size={12} />
-          {error}
-        </p>
-      )}
-    </div>
-    {children}
-  </div>
-)
-
-const DatePicker = ({
-  value,
-  onChange,
-}: {
-  value: Date | undefined
-  onChange: (d: Date | undefined) => void
-}) => {
-  const [open, setOpen] = React.useState(false)
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            'flex h-10 w-full items-center gap-2.5 rounded-xl border border-border/60 bg-background px-3 text-sm transition-all hover:bg-muted',
-            !value && 'text-muted-foreground',
-          )}
-        >
-          <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <span className="flex-1 text-left">{value ? format(value, 'PPP') : 'Pick a date'}</span>
-          {value && (
-            <span
-              role="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                onChange(undefined)
-              }}
-              className="text-muted-foreground/50 hover:text-foreground transition-colors"
-            >
-              <X className="h-3.5 w-3.5" />
-            </span>
-          )}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          mode="single"
-          selected={value}
-          onSelect={(d) => {
-            onChange(d)
-            setOpen(false)
-          }}
-          disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
-          autoFocus
-        />
-      </PopoverContent>
-    </Popover>
-  )
-}
-
 export const CreateTask = () => {
   const { isOpen, close, setIsOpen } = useManageForm()
   const {
@@ -183,6 +92,16 @@ export const CreateTask = () => {
     dueDate,
     setDueDate,
     resetForm,
+    showNewTag,
+    setShowNewTag,
+    newTagName,
+    setNewTagName,
+    newTagColor,
+    setNewTagColor,
+    subtaskInput,
+    setSubtaskInput,
+    expandedIndex,
+    setExpandedIndex,
   } = useTaskCreation()
 
   const queryClient = useQueryClient()
@@ -205,13 +124,6 @@ export const CreateTask = () => {
     mutationFn: (id: number) => api.tags.delete(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['user-tags'] }),
   })
-
-  const [showNewTag, setShowNewTag] = React.useState(false)
-  const [newTagName, setNewTagName] = React.useState('')
-  const [newTagColor, setNewTagColor] = React.useState('#8b5cf6')
-
-  const [subtaskInput, setSubtaskInput] = React.useState('')
-  const [expandedIndex, setExpandedIndex] = React.useState<number | null>(null)
 
   const isRecurring = type === 'recurring'
 

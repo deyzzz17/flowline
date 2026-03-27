@@ -29,6 +29,11 @@ export const useTaskCreation = () => {
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined)
   const [showError, setShowError] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [showNewTag, setShowNewTag] = useState(false)
+  const [newTagName, setNewTagName] = useState('')
+  const [newTagColor, setNewTagColor] = useState('#8b5cf6')
+  const [subtaskInput, setSubtaskInput] = useState('')
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
 
   const isInvalid = title.trim() === ''
 
@@ -147,5 +152,15 @@ export const useTaskCreation = () => {
     setDueDate,
     saveTask,
     resetForm,
+    showNewTag,
+    setShowNewTag,
+    newTagName,
+    setNewTagName,
+    newTagColor,
+    setNewTagColor,
+    subtaskInput,
+    setSubtaskInput,
+    expandedIndex,
+    setExpandedIndex,
   }
 }

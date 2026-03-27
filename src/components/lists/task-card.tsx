@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { Checkbox } from '../ui/checkbox'
 import { useTask } from '@/hooks/tasks/use-task'
 import { useSoftDelete } from '@/hooks/tasks/use-soft-delete'
@@ -10,8 +9,6 @@ import { useToggleSubtask } from '@/hooks/tasks/use-toggle-subtasks'
 import { useDeleteSubtask } from '@/hooks/tasks/use-delete-subtask'
 import type { Task } from '@/payload-types'
 import { Button } from '../ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Calendar } from '@/components/ui/calendar'
 import { Textarea } from '../ui/textarea'
 import { Input } from '../ui/input'
 import {
@@ -32,22 +29,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import {
-  RefreshCw,
-  CalendarIcon,
-  Plus,
-  X,
-  AlertCircle,
-  ChevronDown,
-  ChevronUp,
-  Tag,
-  Check,
-  Loader2,
-} from 'lucide-react'
+import { RefreshCw, Plus, X, ChevronDown, ChevronUp, Tag, Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { format, isPast, isToday, isTomorrow } from 'date-fns'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
+import { InlineDatePicker } from './inline-date-picker'
+import { DueDateBadge } from './due-date-badge'
+import { TaskTag } from '@/types/task-tag'
+import { RecurrenceDay } from '@/types/recurrence-day'
+import { EditSubtask } from '@/types/edit-subtask'
 
 function hexToRgba(hex: string, alpha: number) {
   try {
@@ -77,12 +67,12 @@ const TAG_LABELS: Record<string, string> = {
   learning: 'Learning',
 }
 const TAG_OPTIONS = [
-  { value: 'urgent', label: '🔴 Urgent' },
-  { value: 'work', label: '💼 Work' },
-  { value: 'personal', label: '🙂 Personal' },
-  { value: 'health', label: '💪 Health' },
-  { value: 'finance', label: '💰 Finance' },
-  { value: 'learning', label: '📚 Learning' },
+  { value: 'urgent', label: 'Urgent' },
+  { value: 'work', label: 'Work' },
+  { value: 'personal', label: 'Personal' },
+  { value: 'health', label: 'Health' },
+  { value: 'finance', label: 'Finance' },
+  { value: 'learning', label: 'Learning' },
 ]
 const DAY_OPTIONS = [
   { value: 'mon', label: 'Mo' },
@@ -103,90 +93,6 @@ const DAY_FULL: Record<string, string> = {
   sun: 'Sun',
 }
 
-type TaskTag = NonNullable<Task['tags']>[number]
-type RecurrenceDay = NonNullable<NonNullable<Task['recurrence']>['days']>[number]
-type EditSubtask = {
-  title: string
-  done: boolean
-  description?: string
-  dueDate?: Date
-  tags?: string[]
-}
-
-function DueDateBadge({ dateString, completed }: { dateString: string; completed: boolean }) {
-  const date = new Date(dateString)
-  const overdue = !completed && isPast(date) && !isToday(date)
-  const dueToday = isToday(date)
-  const dueTomorrow = isTomorrow(date)
-  const label = dueToday ? 'Today' : dueTomorrow ? 'Tomorrow' : format(date, 'MMM d')
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold',
-        overdue
-          ? 'bg-red-500/10 text-red-600 dark:text-red-400'
-          : dueToday
-            ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-            : 'bg-muted text-muted-foreground',
-      )}
-    >
-      {overdue && <AlertCircle className="h-2.5 w-2.5" />}
-      <CalendarIcon className="h-2.5 w-2.5" />
-      {label}
-    </span>
-  )
-}
-
-function InlineDatePicker({
-  value,
-  onChange,
-}: {
-  value: Date | undefined
-  onChange: (d: Date | undefined) => void
-}) {
-  const [open, setOpen] = useState(false)
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            'flex h-9 w-full items-center gap-2 rounded-lg border border-border/60 bg-background px-3 text-xs transition-all hover:bg-muted',
-            !value && 'text-muted-foreground',
-          )}
-        >
-          <CalendarIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <span className="flex-1 text-left">{value ? format(value, 'PPP') : 'No due date'}</span>
-          {value && (
-            <span
-              role="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                onChange(undefined)
-              }}
-              className="text-muted-foreground/50 hover:text-foreground transition-colors"
-            >
-              <X className="h-3 w-3" />
-            </span>
-          )}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          mode="single"
-          selected={value}
-          onSelect={(d) => {
-            onChange(d)
-            setOpen(false)
-          }}
-          disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
-          autoFocus
-        />
-      </PopoverContent>
-    </Popover>
-  )
-}
-
 interface TaskCardProps {
   task: Task
   isEditing?: boolean
@@ -195,11 +101,41 @@ interface TaskCardProps {
 }
 
 export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardProps) => {
-  console.log('task.tags:', task.tags)
-  console.log('task.customTags:', task.customTags)
-
-  const { toggleStatus, isUpdating, startEditing, stopEditing, saveEdit, draft, updateDraft } =
-    taskManager
+  const {
+    toggleStatus,
+    isUpdating,
+    startEditing,
+    stopEditing,
+    saveEdit,
+    draft,
+    updateDraft,
+    editTags,
+    setEditTags,
+    editCustomTags,
+    setEditCustomTags,
+    editDays,
+    setEditDays,
+    editDueDate,
+    setEditDueDate,
+    editType,
+    setEditType,
+    editFrequency,
+    setEditFrequency,
+    editSubtasks,
+    setEditSubtasks,
+    subtaskInput,
+    setSubtaskInput,
+    expandedSubtask,
+    setExpandedSubtask,
+    expandedViewSubtask,
+    setExpandedViewSubtask,
+    showNewTag,
+    setShowNewTag,
+    newTagName,
+    setNewTagName,
+    newTagColor,
+    setNewTagColor,
+  } = taskManager
 
   const softDelete = useSoftDelete()
   const deleteTask = useDeleteTask()
@@ -227,21 +163,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
       if (result.ok) toggleEditCustomTag(String(result.value.id))
     },
   })
-
-  const [editTags, setEditTags] = useState<TaskTag[]>([])
-  const [editCustomTags, setEditCustomTags] = useState<string[]>([])
-  const [editDueDate, setEditDueDate] = useState<Date | undefined>(undefined)
-  const [editType, setEditType] = useState<Task['type']>('simple')
-  const [editFrequency, setEditFrequency] = useState<'daily' | 'custom'>('daily')
-  const [editDays, setEditDays] = useState<RecurrenceDay[]>([])
-  const [editSubtasks, setEditSubtasks] = useState<EditSubtask[]>([])
-  const [subtaskInput, setSubtaskInput] = useState('')
-  const [expandedSubtask, setExpandedSubtask] = useState<number | null>(null)
-  const [expandedViewSubtask, setExpandedViewSubtask] = useState<number | null>(null)
-
-  const [showNewTag, setShowNewTag] = useState(false)
-  const [newTagName, setNewTagName] = useState('')
-  const [newTagColor, setNewTagColor] = useState('#8b5cf6')
 
   const isActive = task.status === 'active'
   const isCompleted = task.status === 'completed'
