@@ -22,6 +22,7 @@ export const useTaskCreation = () => {
   const [description, setDescription] = useState('')
   const [type, setType] = useState<TaskType>('simple')
   const [tags, setTags] = useState<TaskTag[]>([])
+  const [customTags, setCustomTags] = useState<string[]>([])
   const [subtasks, setSubtasks] = useState<SubtaskDetail[]>([])
   const [frequency, setFrequency] = useState<RecurrenceFrequency>('daily')
   const [days, setDays] = useState<RecurrenceDay[]>([])
@@ -38,6 +39,12 @@ export const useTaskCreation = () => {
 
   const toggleTag = (tag: TaskTag) => {
     setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
+  }
+
+  const toggleCustomTag = (tagId: string) => {
+    setCustomTags((prev) =>
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId],
+    )
   }
 
   const toggleDay = (day: RecurrenceDay) => {
@@ -68,6 +75,7 @@ export const useTaskCreation = () => {
     setDescription('')
     setType('simple')
     setTags([])
+    setCustomTags([])
     setSubtasks([])
     setFrequency('daily')
     setDays([])
@@ -87,6 +95,7 @@ export const useTaskCreation = () => {
       description,
       type,
       tags,
+      customTags: customTags.map((id) => ({ tagId: id })),
       dueDate: dueDate ? dueDate.toISOString() : null,
       subtasks: subtasks.map((s) => ({
         title: s.title,
@@ -123,6 +132,8 @@ export const useTaskCreation = () => {
     setType,
     tags,
     toggleTag,
+    customTags,
+    toggleCustomTag,
     subtasks,
     addSubtask,
     removeSubtask,

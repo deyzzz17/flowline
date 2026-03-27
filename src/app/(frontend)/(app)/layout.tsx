@@ -3,17 +3,36 @@ import { ModeToggle } from '@/components/theme/mode-toggle'
 import { FlowlineLogo } from '@/components/header/flowline-logo'
 import { Sidebar } from '@/components/dashboard/sidebar'
 import { MobileSidebarTrigger } from '@/components/dashboard/mobile-side-bar-trigger'
-
 import Link from 'next/link'
 import { UserDropdown } from '@/components/dashboard/user-dropdown'
 import { Providers } from '../../../components/providers/providers'
 import { UserProvider } from '@/contexts/user-context'
 import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
+import { cookies } from 'next/headers'
+import { api } from '@/api'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({ headers: await headers() })
   const user = session?.user
+
+  const cookieStore = await cookies()
+  const lastSync = cookieStore.get('tasks_last_sync')?.value
+  const userTimezone = user?.timezone ?? 'UTC'
+  const today = new Intl.DateTimeFormat('en-US', {
+    timeZone: userTimezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
+
+  if (lastSync !== today && user?.id) {
+    await api.tasks.syncTasks()
+    cookieStore.set('tasks_last_sync', today, {
+      httpOnly: true,
+      maxAge: 60 * 60 * 24,
+    })
+  }
 
   return (
     <>
@@ -34,7 +53,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                     Flowline
                   </span>
                 </Link>
-
                 <div className="flex items-center gap-2 sm:gap-3">
                   <ModeToggle />
                   <div className="mx-1 hidden h-5 w-px bg-border sm:block" />
@@ -43,7 +61,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 </div>
               </div>
             </header>
-
             <div className="flex flex-1 overflow-hidden">
               <Sidebar />
               <main className="flex-1 overflow-y-auto">{children}</main>

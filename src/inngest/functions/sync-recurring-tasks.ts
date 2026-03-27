@@ -2,6 +2,7 @@ import { inngest } from '@/lib/inngest'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { Pool } from 'pg'
+import { Task } from '@/payload-types'
 
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
 
@@ -53,10 +54,9 @@ export const syncRecurringTasks = inngest.createFunction(
       if (recurringTasks.length === 0) return { updated: 0 }
 
       const userIds = [...new Set(recurringTasks.map((t) => t.userId as string))]
-
-      const pool = new Pool({ connectionString: process.env.DATABASE_URL })
       const userTimezones: Record<string, string> = {}
 
+      const pool = new Pool({ connectionString: process.env.DATABASE_URL })
       try {
         const { rows } = await pool.query('SELECT id, timezone FROM "user" WHERE id = ANY($1)', [
           userIds,
@@ -84,21 +84,29 @@ export const syncRecurringTasks = inngest.createFunction(
         if (!recurrence) continue
 
         const todayForUser = getTodayInTimezone(timezone)
-        let shouldBeActive = false
+        const shouldBeActive =
+          recurrence.frequency === 'daily' || (recurrence.days?.includes(todayForUser) ?? false)
 
-        if (recurrence.frequency === 'daily') {
-          shouldBeActive = true
-        } else if (recurrence.frequency === 'custom') {
-          shouldBeActive = recurrence.days?.includes(todayForUser) ?? false
-        }
+        const subtasks = (task.subtasks ?? []) as NonNullable<Task['subtasks']>
 
-        const newStatus = shouldBeActive ? 'active' : 'inactive'
-
-        if (task.status !== 'completed' && task.status !== newStatus) {
+        if (shouldBeActive && (task.status === 'inactive' || task.status === 'completed')) {
           await payload.update({
             collection: 'tasks',
             id: task.id,
-            data: { status: newStatus },
+            data: {
+              status: 'active',
+              subtasks: subtasks.map((s) => ({ ...s, done: false })),
+            },
+          })
+          updated++
+        } else if (!shouldBeActive && (task.status === 'active' || task.status === 'completed')) {
+          await payload.update({
+            collection: 'tasks',
+            id: task.id,
+            data: {
+              status: 'inactive',
+              subtasks: subtasks.map((s) => ({ ...s, done: false })),
+            },
           })
           updated++
         }

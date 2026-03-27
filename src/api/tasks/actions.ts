@@ -15,16 +15,22 @@ type CreateTaskInput = {
   description?: string
   type?: Task['type']
   tags?: Task['tags']
+  customTags?: { tagId: string }[]
   subtasks?: Task['subtasks']
   recurrence?: Task['recurrence']
   dueDate?: string | null
 }
 
 type EditTaskInput = Partial<
-  Pick<Task, 'title' | 'description' | 'tags' | 'subtasks' | 'recurrence' | 'dueDate'>
+  Pick<
+    Task,
+    'title' | 'description' | 'tags' | 'customTags' | 'subtasks' | 'recurrence' | 'dueDate'
+  >
 >
 
 type Subtask = NonNullable<Task['subtasks']>[number]
+
+const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
 
 const getSession = async () => {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -44,7 +50,6 @@ export const createTask = async (task: CreateTaskInput) => {
     const payload = await getPayload({ config })
     let initialStatus: 'active' | 'inactive' = 'active'
     if (task.type === 'recurring' && task.recurrence?.frequency === 'custom') {
-      const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
       const today = DAYS[new Date().getDay()]
       initialStatus = task.recurrence.days?.includes(today as never) ? 'active' : 'inactive'
     }
@@ -57,6 +62,7 @@ export const createTask = async (task: CreateTaskInput) => {
         status: initialStatus,
         type: task.type ?? 'simple',
         tags: task.tags ?? [],
+        customTags: task.customTags ?? [],
         subtasks: task.subtasks ?? [],
         ...(task.recurrence && { recurrence: task.recurrence }),
         ...(task.dueDate !== undefined && { dueDate: task.dueDate }),
@@ -71,10 +77,7 @@ export const createTask = async (task: CreateTaskInput) => {
   }
 }
 
-export const listTasks = async (
-  page = 1,
-  status?: 'active' | 'completed' | 'deleted' | 'inactive',
-) => {
+export const listTasks = async (status?: 'active' | 'completed' | 'deleted' | 'inactive') => {
   const userId = await getSession()
   if (!userId) return { docs: [] }
 
@@ -84,7 +87,6 @@ export const listTasks = async (
     collection: 'tasks',
     sort: '-createdAt',
     limit: 0,
-    page,
     where: {
       and: [{ userId: { equals: userId } }, ...(status ? [{ status: { equals: status } }] : [])],
     },
@@ -174,7 +176,6 @@ export const restoreTask = async (id: number) => {
       } | null
 
       if (recurrence?.frequency === 'custom') {
-        const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
         const today = DAYS[new Date().getDay()]
         newStatus = recurrence.days?.includes(today) ? 'active' : 'inactive'
       }
@@ -203,6 +204,7 @@ export const editTask = async (id: number, draft: EditTaskInput) => {
         title: finalTitle,
         ...(draft.description !== undefined && { description: draft.description }),
         ...(draft.tags !== undefined && { tags: draft.tags }),
+        ...(draft.customTags !== undefined && { customTags: draft.customTags }),
         ...(draft.subtasks !== undefined && { subtasks: draft.subtasks }),
         ...(draft.recurrence !== undefined && { recurrence: draft.recurrence }),
         ...(draft.dueDate !== undefined && { dueDate: draft.dueDate }),
@@ -271,5 +273,63 @@ export const deleteSubtask = async (taskId: number, subtaskIndex: number) => {
     return ok({ subtasks: updatedSubtasks, status: newStatus })
   } catch {
     return err('Error while deleting subtask')
+  }
+}
+
+export const syncRecurringTasksForUser = async () => {
+  try {
+    const userId = await getSession()
+    if (!userId) return
+
+    const payload = await getPayload({ config })
+    const today = DAYS[new Date().getDay()]
+
+    const { docs } = await payload.find({
+      collection: 'tasks',
+      where: {
+        and: [
+          { userId: { equals: userId } },
+          { type: { equals: 'recurring' } },
+          { status: { not_equals: 'deleted' } },
+        ],
+      },
+      limit: 0,
+    })
+
+    for (const task of docs) {
+      const recurrence = task.recurrence as {
+        frequency: 'daily' | 'custom'
+        days?: string[]
+      } | null
+
+      if (!recurrence) continue
+
+      const shouldBeActive =
+        recurrence.frequency === 'daily' || (recurrence.days?.includes(today) ?? false)
+
+      const subtasks = (task.subtasks ?? []) as NonNullable<Task['subtasks']>
+
+      if (shouldBeActive && (task.status === 'inactive' || task.status === 'completed')) {
+        await payload.update({
+          collection: 'tasks',
+          id: task.id,
+          data: {
+            status: 'active',
+            subtasks: subtasks.map((s) => ({ ...s, done: false })),
+          },
+        })
+      } else if (!shouldBeActive && (task.status === 'active' || task.status === 'completed')) {
+        await payload.update({
+          collection: 'tasks',
+          id: task.id,
+          data: {
+            status: 'inactive',
+            subtasks: subtasks.map((s) => ({ ...s, done: false })),
+          },
+        })
+      }
+    }
+  } catch (e) {
+    console.error('syncRecurringTasksForUser error:', e)
   }
 }

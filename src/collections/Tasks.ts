@@ -62,6 +62,19 @@ export const Tasks: CollectionConfig = {
     },
 
     {
+      name: 'customTags',
+      type: 'array',
+      required: false,
+      fields: [
+        {
+          name: 'tagId',
+          type: 'text',
+          required: true,
+        },
+      ],
+    },
+
+    {
       name: 'subtasks',
       type: 'array',
       required: false,

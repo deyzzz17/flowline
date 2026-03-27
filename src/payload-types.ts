@@ -70,6 +70,7 @@ export interface Config {
     admins: Admin;
     media: Media;
     tasks: Task;
+    'user-tags': UserTag;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -80,6 +81,7 @@ export interface Config {
     admins: AdminsSelect<false> | AdminsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     tasks: TasksSelect<false> | TasksSelect<true>;
+    'user-tags': UserTagsSelect<false> | UserTagsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -175,6 +177,12 @@ export interface Task {
   userId: string;
   type: 'simple' | 'recurring';
   tags?: ('urgent' | 'work' | 'personal' | 'health' | 'finance' | 'learning')[] | null;
+  customTags?:
+    | {
+        tagId: string;
+        id?: string | null;
+      }[]
+    | null;
   subtasks?:
     | {
         title: string;
@@ -190,6 +198,18 @@ export interface Task {
     days?: ('mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun')[] | null;
   };
   dueDate?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "user-tags".
+ */
+export interface UserTag {
+  id: number;
+  name: string;
+  color: string;
+  userId: string;
   updatedAt: string;
   createdAt: string;
 }
@@ -228,6 +248,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'tasks';
         value: number | Task;
+      } | null)
+    | ({
+        relationTo: 'user-tags';
+        value: number | UserTag;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -322,6 +346,12 @@ export interface TasksSelect<T extends boolean = true> {
   userId?: T;
   type?: T;
   tags?: T;
+  customTags?:
+    | T
+    | {
+        tagId?: T;
+        id?: T;
+      };
   subtasks?:
     | T
     | {
@@ -339,6 +369,17 @@ export interface TasksSelect<T extends boolean = true> {
         days?: T;
       };
   dueDate?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "user-tags_select".
+ */
+export interface UserTagsSelect<T extends boolean = true> {
+  name?: T;
+  color?: T;
+  userId?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -9,6 +9,7 @@ type EditDraft = {
   title?: string
   description?: string
   tags?: Task['tags']
+  customTags?: { tagId: string }[]
   dueDate?: string | null
   type?: Task['type']
   recurrence?: Task['recurrence']

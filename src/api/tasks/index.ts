@@ -10,11 +10,12 @@ import {
   editTask,
   toggleSubtask,
   deleteSubtask,
+  syncRecurringTasksForUser,
 } from './actions'
 
 export const tasksAPI = {
   create: createTask,
-  list: (page = 1) => listTasks(page),
+  list: listTasks,
   updateStatus: updateTaskStatus,
   delete: deleteTask,
   softDelete: softDeleteTask,
@@ -24,4 +25,5 @@ export const tasksAPI = {
   edit: editTask,
   toggleSubtask,
   deleteSubtask,
+  syncTasks: syncRecurringTasksForUser,
 }

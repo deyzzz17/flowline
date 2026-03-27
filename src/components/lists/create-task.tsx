@@ -25,10 +25,27 @@ import {
   ChevronDown,
   ChevronUp,
   Tag,
+  Check,
+  Loader2,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { useManageForm } from '@/hooks/tasks/use-manage-form'
 import { useTaskCreation } from '@/hooks/tasks/use-task-creation'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { api } from '@/api'
+
+const PRESET_COLORS = [
+  '#ef4444',
+  '#f97316',
+  '#eab308',
+  '#22c55e',
+  '#06b6d4',
+  '#3b82f6',
+  '#8b5cf6',
+  '#ec4899',
+  '#64748b',
+  '#14b8a6',
+]
 
 const TAG_OPTIONS = [
   { value: 'urgent', label: '🔴 Urgent' },
@@ -129,32 +146,6 @@ const DatePicker = ({
   )
 }
 
-const TagPicker = ({
-  selected,
-  onToggle,
-}: {
-  selected: string[]
-  onToggle: (tag: string) => void
-}) => (
-  <div className="flex flex-wrap gap-1.5">
-    {TAG_OPTIONS.map((tag) => (
-      <button
-        key={tag.value}
-        type="button"
-        onClick={() => onToggle(tag.value)}
-        className={cn(
-          'rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
-          selected.includes(tag.value)
-            ? 'border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400'
-            : 'border-border/60 bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
-        )}
-      >
-        {tag.label}
-      </button>
-    ))}
-  </div>
-)
-
 export const CreateTask = () => {
   const { isOpen, close, setIsOpen } = useManageForm()
   const {
@@ -169,6 +160,8 @@ export const CreateTask = () => {
     setType,
     tags,
     toggleTag,
+    customTags,
+    toggleCustomTag,
     subtasks,
     addSubtask,
     removeSubtask,
@@ -183,10 +176,41 @@ export const CreateTask = () => {
     resetForm,
   } = useTaskCreation()
 
+  const queryClient = useQueryClient()
+
+  const { data: userTagsData } = useQuery({
+    queryKey: ['user-tags'],
+    queryFn: () => api.tags.tags(),
+  })
+  const userTags = userTagsData?.docs ?? []
+
+  const createTagMutation = useMutation({
+    mutationFn: (data: { name: string; color: string }) => api.tags.create(data),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['user-tags'] })
+      if (result.ok) toggleCustomTag(String(result.value.id))
+    },
+  })
+
+  const [showNewTag, setShowNewTag] = React.useState(false)
+  const [newTagName, setNewTagName] = React.useState('')
+  const [newTagColor, setNewTagColor] = React.useState(PRESET_COLORS[0])
+  const [customColorInput, setCustomColorInput] = React.useState('')
+
   const [subtaskInput, setSubtaskInput] = React.useState('')
   const [expandedIndex, setExpandedIndex] = React.useState<number | null>(null)
 
   const isRecurring = type === 'recurring'
+
+  const handleCreateTag = async () => {
+    if (!newTagName.trim()) return
+    const color = customColorInput.match(/^#[0-9a-fA-F]{6}$/) ? customColorInput : newTagColor
+    await createTagMutation.mutateAsync({ name: newTagName.trim(), color })
+    setNewTagName('')
+    setCustomColorInput('')
+    setNewTagColor(PRESET_COLORS[0])
+    setShowNewTag(false)
+  }
 
   const handleOnSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -194,6 +218,7 @@ export const CreateTask = () => {
     if (success) {
       setSubtaskInput('')
       setExpandedIndex(null)
+      setShowNewTag(false)
       close()
     }
   }
@@ -221,6 +246,9 @@ export const CreateTask = () => {
     resetForm()
     setSubtaskInput('')
     setExpandedIndex(null)
+    setShowNewTag(false)
+    setNewTagName('')
+    setCustomColorInput('')
     close()
   }
 
@@ -311,7 +339,159 @@ export const CreateTask = () => {
           )}
 
           <FormField label="Tags" optional>
-            <TagPicker selected={tags as string[]} onToggle={toggleTag as (t: string) => void} />
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-1.5">
+                {TAG_OPTIONS.map((tag) => (
+                  <button
+                    key={tag.value}
+                    type="button"
+                    onClick={() => toggleTag(tag.value as never)}
+                    className={cn(
+                      'rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
+                      (tags as string[]).includes(tag.value)
+                        ? 'border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                        : 'border-border/60 bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
+                    )}
+                  >
+                    {tag.label}
+                  </button>
+                ))}
+              </div>
+
+              {userTags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {userTags.map((tag) => {
+                    const isSelected = customTags.includes(String(tag.id))
+                    return (
+                      <button
+                        key={tag.id}
+                        type="button"
+                        onClick={() => toggleCustomTag(String(tag.id))}
+                        className={cn(
+                          'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
+                          isSelected
+                            ? 'border-transparent text-white'
+                            : 'border-border/60 bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
+                        )}
+                        style={
+                          isSelected ? { backgroundColor: tag.color, borderColor: tag.color } : {}
+                        }
+                      >
+                        <span
+                          className="h-1.5 w-1.5 rounded-full shrink-0"
+                          style={{ backgroundColor: isSelected ? 'white' : tag.color }}
+                        />
+                        {tag.name}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              {showNewTag ? (
+                <div className="rounded-xl border border-border/50 bg-muted/20 p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold text-foreground">New tag</p>
+                    <button
+                      type="button"
+                      onClick={() => setShowNewTag(false)}
+                      className="text-muted-foreground/50 hover:text-foreground transition-colors"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+
+                  <Input
+                    value={newTagName}
+                    onChange={(e) => setNewTagName(e.target.value)}
+                    placeholder="Tag name..."
+                    className="h-8 text-sm"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        handleCreateTag()
+                      }
+                    }}
+                  />
+
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                      Color
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {PRESET_COLORS.map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          onClick={() => {
+                            setNewTagColor(color)
+                            setCustomColorInput('')
+                          }}
+                          className="h-6 w-6 rounded-full border-2 transition-all flex items-center justify-center"
+                          style={{
+                            backgroundColor: color,
+                            borderColor:
+                              newTagColor === color && !customColorInput ? 'white' : 'transparent',
+                            boxShadow:
+                              newTagColor === color && !customColorInput
+                                ? `0 0 0 2px ${color}`
+                                : 'none',
+                          }}
+                        >
+                          {newTagColor === color && !customColorInput && (
+                            <Check className="h-3 w-3 text-white" strokeWidth={3} />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-6 w-6 rounded-full border border-border/60 shrink-0"
+                        style={{
+                          backgroundColor: customColorInput.match(/^#[0-9a-fA-F]{6}$/)
+                            ? customColorInput
+                            : 'transparent',
+                        }}
+                      />
+                      <Input
+                        value={customColorInput}
+                        onChange={(e) => setCustomColorInput(e.target.value)}
+                        placeholder="#3b82f6"
+                        className="h-7 text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleCreateTag}
+                    disabled={!newTagName.trim() || createTagMutation.isPending}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-foreground px-3 py-1.5 text-xs font-semibold text-background transition-all hover:bg-foreground/80 disabled:opacity-40"
+                  >
+                    {createTagMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-3 w-3" />
+                        Create tag
+                      </>
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowNewTag(true)}
+                  className="flex items-center gap-1.5 rounded-full border border-dashed border-border/60 px-2.5 py-1 text-xs text-muted-foreground transition-all hover:border-border hover:text-foreground"
+                >
+                  <Tag className="h-3 w-3" />
+                  New tag
+                </button>
+              )}
+            </div>
           </FormField>
 
           <FormField label="Subtasks" optional>
@@ -387,10 +567,23 @@ export const CreateTask = () => {
                               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                                 Tags <span className="normal-case font-normal">— Optional</span>
                               </label>
-                              <TagPicker
-                                selected={s.tags ?? []}
-                                onToggle={(tag) => toggleSubtaskTag(index, tag)}
-                              />
+                              <div className="flex flex-wrap gap-1.5">
+                                {TAG_OPTIONS.map((tag) => (
+                                  <button
+                                    key={tag.value}
+                                    type="button"
+                                    onClick={() => toggleSubtaskTag(index, tag.value)}
+                                    className={cn(
+                                      'rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
+                                      (s.tags ?? []).includes(tag.value)
+                                        ? 'border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                                        : 'border-border/60 bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
+                                    )}
+                                  >
+                                    {tag.label}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
                           </div>
                         )}
@@ -442,6 +635,7 @@ export const CreateTask = () => {
                   </button>
                 ))}
               </div>
+
               {frequency === 'custom' && (
                 <div className="flex gap-1.5">
                   {DAY_OPTIONS.map((day) => (

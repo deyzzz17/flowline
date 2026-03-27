@@ -23,7 +23,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </div>
       </header>
 
-      <main className="h-[calc(100dvh-4rem)] w-full overflow-hidden">{children}</main>
+      <main className="h-[calc(100dvh-4rem)] w-full">{children}</main>
     </>
   )
 }

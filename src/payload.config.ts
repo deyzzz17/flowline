@@ -8,6 +8,7 @@ import sharp from 'sharp'
 import { Admins } from './collections/Admins'
 import { Media } from './collections/Media'
 import { Tasks } from './collections/Tasks'
+import { UserTags } from './collections/UserTags'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -19,7 +20,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Admins, Media, Tasks],
+  collections: [Admins, Media, Tasks, UserTags],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {
