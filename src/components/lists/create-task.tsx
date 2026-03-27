@@ -395,7 +395,7 @@ export const CreateTask = () => {
                           <AlertDialogTrigger asChild>
                             <button
                               type="button"
-                              className="flex items-center justify-center h-full rounded-r-full border-y border-r px-1.5 py-1 transition-all opacity-0 group-hover:opacity-100"
+                              className="flex items-center justify-center h-full rounded-r-full border-y border-r px-1.5 py-1 opacity-100"
                               style={{
                                 backgroundColor: hexToRgba(tag.color, isSelected ? 0.15 : 0.06),
                                 borderColor: hexToRgba(tag.color, isSelected ? 0.5 : 0.2),
