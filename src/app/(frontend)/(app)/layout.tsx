@@ -9,29 +9,14 @@ import { Providers } from '../../../components/providers/providers'
 import { UserProvider } from '@/contexts/user-context'
 import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
-import { cookies } from 'next/headers'
-import { api } from '@/api'
+import { syncRecurringTasksForUser } from '@/api/tasks/actions'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({ headers: await headers() })
   const user = session?.user
 
-  const cookieStore = await cookies()
-  const lastSync = cookieStore.get('tasks_last_sync')?.value
-  const userTimezone = user?.timezone ?? 'UTC'
-  const today = new Intl.DateTimeFormat('en-US', {
-    timeZone: userTimezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date())
-
-  if (lastSync !== today && user?.id) {
-    await api.tasks.syncTasks()
-    cookieStore.set('tasks_last_sync', today, {
-      httpOnly: true,
-      maxAge: 60 * 60 * 24,
-    })
+  if (user?.id) {
+    await syncRecurringTasksForUser()
   }
 
   return (

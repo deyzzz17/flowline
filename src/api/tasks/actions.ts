@@ -7,7 +7,7 @@ import config from '@/payload.config'
 import { revalidatePath } from 'next/cache'
 import { ok, err } from '@/types/result'
 import { auth } from '@/lib/auth'
-import { headers } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { Task } from '@/payload-types'
 
 type CreateTaskInput = {
@@ -336,4 +336,21 @@ export const syncRecurringTasksForUser = async () => {
   } catch (e) {
     console.error('syncRecurringTasksForUser error:', e)
   }
+}
+
+export const syncIfNeeded = async (userTimezone: string) => {
+  const cookieStore = await cookies()
+
+  const today = new Intl.DateTimeFormat('en-US', {
+    timeZone: userTimezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
+
+  const lastSync = cookieStore.get('tasks_last_sync')?.value
+  if (lastSync === today) return
+
+  await syncRecurringTasksForUser()
+  cookieStore.set('tasks_last_sync', today, { httpOnly: true, maxAge: 60 * 60 * 24 })
 }
