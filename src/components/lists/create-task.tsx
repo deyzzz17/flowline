@@ -34,19 +34,6 @@ import { useTaskCreation } from '@/hooks/tasks/use-task-creation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 
-const PRESET_COLORS = [
-  '#ef4444',
-  '#f97316',
-  '#eab308',
-  '#22c55e',
-  '#06b6d4',
-  '#3b82f6',
-  '#8b5cf6',
-  '#ec4899',
-  '#64748b',
-  '#14b8a6',
-]
-
 const TAG_OPTIONS = [
   { value: 'urgent', label: '🔴 Urgent' },
   { value: 'work', label: '💼 Work' },
@@ -65,6 +52,14 @@ const DAY_OPTIONS = [
   { value: 'sat', label: 'Sa' },
   { value: 'sun', label: 'Su' },
 ] as const
+
+// Convertit #rrggbb → rgba(r,g,b,alpha)
+function hexToRgba(hex: string, alpha: number) {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return `rgba(${r},${g},${b},${alpha})`
+}
 
 const FormField = ({
   label,
@@ -194,8 +189,7 @@ export const CreateTask = () => {
 
   const [showNewTag, setShowNewTag] = React.useState(false)
   const [newTagName, setNewTagName] = React.useState('')
-  const [newTagColor, setNewTagColor] = React.useState(PRESET_COLORS[0])
-  const [customColorInput, setCustomColorInput] = React.useState('')
+  const [newTagColor, setNewTagColor] = React.useState('#8b5cf6')
 
   const [subtaskInput, setSubtaskInput] = React.useState('')
   const [expandedIndex, setExpandedIndex] = React.useState<number | null>(null)
@@ -204,11 +198,9 @@ export const CreateTask = () => {
 
   const handleCreateTag = async () => {
     if (!newTagName.trim()) return
-    const color = customColorInput.match(/^#[0-9a-fA-F]{6}$/) ? customColorInput : newTagColor
-    await createTagMutation.mutateAsync({ name: newTagName.trim(), color })
+    await createTagMutation.mutateAsync({ name: newTagName.trim(), color: newTagColor })
     setNewTagName('')
-    setCustomColorInput('')
-    setNewTagColor(PRESET_COLORS[0])
+    setNewTagColor('#8b5cf6')
     setShowNewTag(false)
   }
 
@@ -248,7 +240,7 @@ export const CreateTask = () => {
     setExpandedIndex(null)
     setShowNewTag(false)
     setNewTagName('')
-    setCustomColorInput('')
+    setNewTagColor('#8b5cf6')
     close()
   }
 
@@ -367,19 +359,16 @@ export const CreateTask = () => {
                         key={tag.id}
                         type="button"
                         onClick={() => toggleCustomTag(String(tag.id))}
-                        className={cn(
-                          'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
-                          isSelected
-                            ? 'border-transparent text-white'
-                            : 'border-border/60 bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
-                        )}
-                        style={
-                          isSelected ? { backgroundColor: tag.color, borderColor: tag.color } : {}
-                        }
+                        className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all"
+                        style={{
+                          backgroundColor: hexToRgba(tag.color, isSelected ? 0.15 : 0.06),
+                          borderColor: hexToRgba(tag.color, isSelected ? 0.5 : 0.2),
+                          color: tag.color,
+                        }}
                       >
                         <span
                           className="h-1.5 w-1.5 rounded-full shrink-0"
-                          style={{ backgroundColor: isSelected ? 'white' : tag.color }}
+                          style={{ backgroundColor: tag.color }}
                         />
                         {tag.name}
                       </button>
@@ -414,51 +403,46 @@ export const CreateTask = () => {
                     }}
                   />
 
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
                       Color
                     </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {PRESET_COLORS.map((color) => (
-                        <button
-                          key={color}
-                          type="button"
-                          onClick={() => {
-                            setNewTagColor(color)
-                            setCustomColorInput('')
-                          }}
-                          className="h-6 w-6 rounded-full border-2 transition-all flex items-center justify-center"
-                          style={{
-                            backgroundColor: color,
-                            borderColor:
-                              newTagColor === color && !customColorInput ? 'white' : 'transparent',
-                            boxShadow:
-                              newTagColor === color && !customColorInput
-                                ? `0 0 0 2px ${color}`
-                                : 'none',
-                          }}
-                        >
-                          {newTagColor === color && !customColorInput && (
-                            <Check className="h-3 w-3 text-white" strokeWidth={3} />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <div
+                          className="h-9 w-9 rounded-lg border border-border/60 cursor-pointer overflow-hidden"
+                          style={{ backgroundColor: newTagColor }}
+                        />
+                        <input
+                          type="color"
+                          value={newTagColor}
+                          onChange={(e) => setNewTagColor(e.target.value)}
+                          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                        />
+                      </div>
+                      <div className="flex-1 flex items-center gap-2 rounded-lg border border-border/60 bg-background px-3 h-9">
+                        <span
+                          className="h-3 w-3 rounded-full shrink-0"
+                          style={{ backgroundColor: newTagColor }}
+                        />
+                        <span className="text-xs font-mono text-muted-foreground flex-1">
+                          {newTagColor}
+                        </span>
+                      </div>
                       <div
-                        className="h-6 w-6 rounded-full border border-border/60 shrink-0"
+                        className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium shrink-0"
                         style={{
-                          backgroundColor: customColorInput.match(/^#[0-9a-fA-F]{6}$/)
-                            ? customColorInput
-                            : 'transparent',
+                          backgroundColor: hexToRgba(newTagColor, 0.12),
+                          borderColor: hexToRgba(newTagColor, 0.35),
+                          color: newTagColor,
                         }}
-                      />
-                      <Input
-                        value={customColorInput}
-                        onChange={(e) => setCustomColorInput(e.target.value)}
-                        placeholder="#3b82f6"
-                        className="h-7 text-xs font-mono"
-                      />
+                      >
+                        <span
+                          className="h-1.5 w-1.5 rounded-full"
+                          style={{ backgroundColor: newTagColor }}
+                        />
+                        {newTagName || 'Preview'}
+                      </div>
                     </div>
                   </div>
 

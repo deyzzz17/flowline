@@ -43,6 +43,20 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format, isPast, isToday, isTomorrow } from 'date-fns'
+import { useQuery } from '@tanstack/react-query'
+import { api } from '@/api'
+
+// Convertit #rrggbb → rgba(r,g,b,alpha)
+function hexToRgba(hex: string, alpha: number) {
+  try {
+    const r = parseInt(hex.slice(1, 3), 16)
+    const g = parseInt(hex.slice(3, 5), 16)
+    const b = parseInt(hex.slice(5, 7), 16)
+    return `rgba(${r},${g},${b},${alpha})`
+  } catch {
+    return `rgba(139,92,246,${alpha})`
+  }
+}
 
 const TAG_STYLES: Record<string, string> = {
   urgent: 'bg-red-500/10 text-red-600 dark:text-red-400',
@@ -188,7 +202,14 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
   const toggleSubtask = useToggleSubtask()
   const deleteSubtask = useDeleteSubtask()
 
+  const { data: userTagsData } = useQuery({
+    queryKey: ['user-tags'],
+    queryFn: () => api.tags.tags(),
+  })
+  const userTags = userTagsData?.docs ?? []
+
   const [editTags, setEditTags] = useState<TaskTag[]>([])
+  const [editCustomTags, setEditCustomTags] = useState<string[]>([])
   const [editDueDate, setEditDueDate] = useState<Date | undefined>(undefined)
   const [editType, setEditType] = useState<Task['type']>('simple')
   const [editFrequency, setEditFrequency] = useState<'daily' | 'custom'>('daily')
@@ -210,12 +231,14 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
   const hasSubtasks = subtasks.length > 0
   const subtaskProgress = hasSubtasks ? Math.round((completedSubtasks / subtasks.length) * 100) : 0
   const tags = (task.tags ?? []) as string[]
+  const taskCustomTags = (task.customTags ?? []) as { tagId: string; id?: string }[]
 
   const recurrenceDays = (task.recurrence?.days ?? []) as string[]
   const isDaily = task.recurrence?.frequency === 'daily'
 
   const handleStartEditing = () => {
     setEditTags((task.tags ?? []) as TaskTag[])
+    setEditCustomTags(taskCustomTags.map((t) => t.tagId))
     setEditDueDate(task.dueDate ? new Date(task.dueDate) : undefined)
     setEditType(task.type ?? 'simple')
     setEditFrequency((task.recurrence?.frequency as 'daily' | 'custom') ?? 'daily')
@@ -235,6 +258,11 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
 
   const toggleEditTag = (tag: TaskTag) =>
     setEditTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
+
+  const toggleEditCustomTag = (tagId: string) =>
+    setEditCustomTags((prev) =>
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId],
+    )
 
   const toggleEditDay = (day: RecurrenceDay) =>
     setEditDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]))
@@ -267,6 +295,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
   const handleSaveEdit = () => {
     saveEdit(task.id, {
       tags: editTags,
+      customTags: editCustomTags.map((id) => ({ tagId: id })),
       dueDate: editDueDate ? editDueDate.toISOString() : null,
       type: editType,
       recurrence:
@@ -371,10 +400,11 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 </div>
               )}
 
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Tags
                 </p>
+
                 <div className="flex flex-wrap gap-1.5">
                   {TAG_OPTIONS.map((tag) => (
                     <button
@@ -392,6 +422,33 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                     </button>
                   ))}
                 </div>
+
+                {userTags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {userTags.map((tag) => {
+                      const isSelected = editCustomTags.includes(String(tag.id))
+                      return (
+                        <button
+                          key={tag.id}
+                          type="button"
+                          onClick={() => toggleEditCustomTag(String(tag.id))}
+                          className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all"
+                          style={{
+                            backgroundColor: hexToRgba(tag.color, isSelected ? 0.15 : 0.06),
+                            borderColor: hexToRgba(tag.color, isSelected ? 0.5 : 0.2),
+                            color: tag.color,
+                          }}
+                        >
+                          <span
+                            className="h-1.5 w-1.5 rounded-full shrink-0"
+                            style={{ backgroundColor: tag.color }}
+                          />
+                          {tag.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
 
               {editType === 'recurring' && (
@@ -652,11 +709,12 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 </p>
               )}
 
-              {(tags.length > 0 || task.dueDate) && (
+              {(tags.length > 0 || task.dueDate || taskCustomTags.length > 0) && (
                 <div className="flex flex-wrap items-center gap-1.5">
                   {task.dueDate && (
                     <DueDateBadge dateString={task.dueDate} completed={isCompleted} />
                   )}
+
                   {tags.map((tag) => (
                     <span
                       key={tag}
@@ -668,6 +726,28 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                       {TAG_LABELS[tag] ?? tag}
                     </span>
                   ))}
+
+                  {taskCustomTags.map(({ tagId }) => {
+                    const found = userTags.find((t) => String(t.id) === tagId)
+                    if (!found) return null
+                    return (
+                      <span
+                        key={tagId}
+                        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                        style={{
+                          backgroundColor: hexToRgba(found.color, 0.12),
+                          color: found.color,
+                          border: `1px solid ${hexToRgba(found.color, 0.3)}`,
+                        }}
+                      >
+                        <span
+                          className="h-1.5 w-1.5 rounded-full shrink-0"
+                          style={{ backgroundColor: found.color }}
+                        />
+                        {found.name}
+                      </span>
+                    )
+                  })}
                 </div>
               )}
 
