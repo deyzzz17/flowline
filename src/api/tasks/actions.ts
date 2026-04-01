@@ -71,7 +71,8 @@ export const createTask = async (task: CreateTaskInput) => {
 
     revalidatePath('/')
     return ok(newTask)
-  } catch {
+  } catch (e) {
+    console.error('createTask error:', e)
     return err('Error while creating the task')
   }
 }
