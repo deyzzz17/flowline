@@ -32,14 +32,15 @@ export const TasksClient = () => {
 
   return (
     <Tabs defaultValue="todo" className="w-full">
-      <div className="mb-8 flex items-center justify-between gap-4">
+      <div className="mb-8">
+        {/* TabsList pleine largeur sur mobile, auto sur desktop */}
         <TabsList className="h-10 w-full rounded-xl bg-muted/60 p-1 sm:w-auto">
           <TabsTrigger
             value="todo"
             className="flex-1 sm:flex-none gap-1.5 rounded-lg px-2 sm:px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
           >
-            <ClipboardList className="h-3.5 w-3.5" />
-            To do
+            <ClipboardList className="h-3.5 w-3.5 shrink-0" />
+            <span className="hidden xs:inline sm:inline">To do</span>
             {todoTasks.length > 0 && (
               <span className="ml-0.5 rounded-full bg-violet-500/15 px-1.5 py-px text-[10px] font-bold text-violet-600 dark:text-violet-400">
                 {todoTasks.length}
@@ -50,15 +51,15 @@ export const TasksClient = () => {
             value="achieved"
             className="flex-1 sm:flex-none gap-1.5 rounded-lg px-2 sm:px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
           >
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            Achieved
+            <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+            <span className="hidden xs:inline sm:inline">Achieved</span>
           </TabsTrigger>
           <TabsTrigger
             value="inactive"
             className="flex-1 sm:flex-none gap-1.5 rounded-lg px-2 sm:px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
           >
-            <PauseCircle className="h-3.5 w-3.5" />
-            Inactive
+            <PauseCircle className="h-3.5 w-3.5 shrink-0" />
+            <span className="hidden xs:inline sm:inline">Inactive</span>
             {inactiveTasks.length > 0 && (
               <span className="ml-0.5 rounded-full bg-muted px-1.5 py-px text-[10px] font-bold text-muted-foreground">
                 {inactiveTasks.length}
@@ -69,8 +70,8 @@ export const TasksClient = () => {
             value="trashed"
             className="flex-1 sm:flex-none gap-1.5 rounded-lg px-2 sm:px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
           >
-            <Trash2 className="h-3.5 w-3.5" />
-            Trash
+            <Trash2 className="h-3.5 w-3.5 shrink-0" />
+            <span className="hidden xs:inline sm:inline">Trash</span>
           </TabsTrigger>
         </TabsList>
       </div>
