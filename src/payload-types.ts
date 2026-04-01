@@ -177,12 +177,7 @@ export interface Task {
   userId: string;
   type: 'simple' | 'recurring';
   tags?: ('urgent' | 'work' | 'personal' | 'health' | 'finance' | 'learning')[] | null;
-  customTags?:
-    | {
-        tagId: string;
-        id?: string | null;
-      }[]
-    | null;
+  customTags?: (number | UserTag)[] | null;
   subtasks?:
     | {
         title: string;
@@ -346,12 +341,7 @@ export interface TasksSelect<T extends boolean = true> {
   userId?: T;
   type?: T;
   tags?: T;
-  customTags?:
-    | T
-    | {
-        tagId?: T;
-        id?: T;
-      };
+  customTags?: T;
   subtasks?:
     | T
     | {

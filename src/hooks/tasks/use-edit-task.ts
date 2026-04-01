@@ -8,7 +8,7 @@ type EditDraft = {
   title?: string
   description?: string
   tags?: Task['tags']
-  customTags?: { tagId: string }[]
+  customTags?: number[]
   dueDate?: string | null
   type?: Task['type']
   recurrence?: Task['recurrence']
@@ -33,7 +33,6 @@ export const useEditTask = () => {
                 title: draft.title?.trim() ? draft.title : task.title,
                 description: draft.description ?? task.description,
                 tags: draft.tags ?? task.tags,
-                customTags: draft.customTags !== undefined ? draft.customTags : task.customTags,
                 dueDate: draft.dueDate !== undefined ? draft.dueDate : task.dueDate,
                 type: draft.type ?? task.type,
                 recurrence: draft.recurrence !== undefined ? draft.recurrence : task.recurrence,

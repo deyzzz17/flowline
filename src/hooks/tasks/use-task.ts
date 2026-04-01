@@ -12,7 +12,7 @@ type EditDraft = {
   title?: string
   description?: string
   tags?: Task['tags']
-  customTags?: { tagId: string }[]
+  customTags?: number[] // IDs directs pour Payload relationship
   dueDate?: string | null
   type?: Task['type']
   recurrence?: Task['recurrence']
@@ -23,7 +23,7 @@ export const useTask = () => {
   const [editingId, setEditingId] = useState<number | undefined>(undefined)
   const [draft, setDraft] = useState({ title: '', description: '' })
   const [editTags, setEditTags] = useState<TaskTag[]>([])
-  const [editCustomTags, setEditCustomTags] = useState<string[]>([])
+  const [editCustomTags, setEditCustomTags] = useState<string[]>([]) // string[] en interne pour le UI
   const [editDueDate, setEditDueDate] = useState<Date | undefined>(undefined)
   const [editType, setEditType] = useState<Task['type']>('simple')
   const [editFrequency, setEditFrequency] = useState<'daily' | 'custom'>('daily')

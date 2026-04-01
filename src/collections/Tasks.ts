@@ -63,15 +63,10 @@ export const Tasks: CollectionConfig = {
 
     {
       name: 'customTags',
-      type: 'array',
+      type: 'relationship',
+      relationTo: 'user-tags',
+      hasMany: true,
       required: false,
-      fields: [
-        {
-          name: 'tagId',
-          type: 'text',
-          required: true,
-        },
-      ],
     },
 
     {
@@ -142,3 +137,4 @@ export const Tasks: CollectionConfig = {
     },
   ],
 }
+

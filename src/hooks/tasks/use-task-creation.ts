@@ -100,7 +100,7 @@ export const useTaskCreation = () => {
       description,
       type,
       tags,
-      customTags: customTags.map((id) => ({ tagId: id })),
+      customTags: customTags.map((id) => parseInt(id)),
       dueDate: dueDate ? dueDate.toISOString() : null,
       subtasks: subtasks.map((s) => ({
         title: s.title,

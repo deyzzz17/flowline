@@ -176,14 +176,15 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
   const hasSubtasks = subtasks.length > 0
   const subtaskProgress = hasSubtasks ? Math.round((completedSubtasks / subtasks.length) * 100) : 0
   const tags = (task.tags ?? []) as string[]
-  const taskCustomTags = (task.customTags ?? []) as { tagId: string; id?: string }[]
+  type UserTag = { id: number; name: string; color: string }
+  const taskCustomTags = (task.customTags ?? []) as UserTag[]
 
   const recurrenceDays = (task.recurrence?.days ?? []) as string[]
   const isDaily = task.recurrence?.frequency === 'daily'
 
   const handleStartEditing = () => {
     setEditTags((task.tags ?? []) as TaskTag[])
-    setEditCustomTags(taskCustomTags.map((t) => t.tagId))
+    setEditCustomTags(taskCustomTags.map((t) => String(t.id)))
     setEditDueDate(task.dueDate ? new Date(task.dueDate) : undefined)
     setEditType(task.type ?? 'simple')
     setEditFrequency((task.recurrence?.frequency as 'daily' | 'custom') ?? 'daily')
@@ -251,7 +252,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
   const handleSaveEdit = () => {
     saveEdit(task.id, {
       tags: editTags,
-      customTags: editCustomTags.map((id) => ({ tagId: id })),
+      customTags: editCustomTags.map((id) => parseInt(id)),
       dueDate: editDueDate ? editDueDate.toISOString() : null,
       type: editType,
       recurrence:
@@ -817,27 +818,23 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                       {TAG_LABELS[tag] ?? tag}
                     </span>
                   ))}
-                  {taskCustomTags.map(({ tagId }) => {
-                    const found = userTags.find((t) => String(t.id) === tagId)
-                    if (!found) return null
-                    return (
+                  {taskCustomTags.map((tag) => (
+                    <span
+                      key={tag.id}
+                      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                      style={{
+                        backgroundColor: hexToRgba(tag.color, 0.12),
+                        color: tag.color,
+                        border: `1px solid ${hexToRgba(tag.color, 0.3)}`,
+                      }}
+                    >
                       <span
-                        key={tagId}
-                        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                        style={{
-                          backgroundColor: hexToRgba(found.color, 0.12),
-                          color: found.color,
-                          border: `1px solid ${hexToRgba(found.color, 0.3)}`,
-                        }}
-                      >
-                        <span
-                          className="h-1.5 w-1.5 rounded-full shrink-0"
-                          style={{ backgroundColor: found.color }}
-                        />
-                        {found.name}
-                      </span>
-                    )
-                  })}
+                        className="h-1.5 w-1.5 rounded-full shrink-0"
+                        style={{ backgroundColor: tag.color }}
+                      />
+                      {tag.name}
+                    </span>
+                  ))}
                 </div>
               )}
 
