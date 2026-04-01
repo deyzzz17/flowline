@@ -13,16 +13,14 @@ export const ListHeader = () => {
   const todoTasks = allTasks.filter((t) => t.status === 'active')
   const achievedTasks = allTasks.filter((t) => t.status === 'completed')
   const trashedTasks = allTasks.filter((t) => t.status === 'deleted')
-  const nonDeletedTasks = allTasks.filter((t) => t.status !== 'deleted')
+  const inactiveTasks = allTasks.filter((t) => t.status !== 'deleted' || 'inactive')
   const completionRate =
-    nonDeletedTasks.length > 0
-      ? Math.round((achievedTasks.length / nonDeletedTasks.length) * 100)
-      : 0
+    inactiveTasks.length > 0 ? Math.round((achievedTasks.length / inactiveTasks.length) * 100) : 0
 
   return (
     <section className="mb-8 mt-10">
       <div className="flex items-end justify-between gap-4">
-        <div>
+        <div className="flex-1 min-w-0">
           <p className="mb-1 text-xl font-semibold uppercase text-violet-600 dark:text-violet-400">
             My workspace
           </p>
@@ -32,12 +30,26 @@ export const ListHeader = () => {
               ? 'No tasks yet, create your first one below.'
               : `${todoTasks.length} active · ${achievedTasks.length} completed · ${trashedTasks.length} trashed`}
           </p>
+
+          {inactiveTasks.length > 0 && (
+            <div className="mt-3 flex items-center gap-3 sm:hidden">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-violet-500 transition-all duration-700"
+                  style={{ width: `${completionRate}%` }}
+                />
+              </div>
+              <span className="text-xs font-semibold shrink-0 text-violet-600 dark:text-violet-400">
+                {completionRate}%
+              </span>
+            </div>
+          )}
         </div>
 
-        {nonDeletedTasks.length > 0 && (
+        {inactiveTasks.length > 0 && (
           <div className="hidden flex-col items-end gap-1.5 sm:flex">
             <span className="text-xs text-muted-foreground">
-              {achievedTasks.length}/{nonDeletedTasks.length} done
+              {achievedTasks.length}/{inactiveTasks.length} done
             </span>
             <div className="h-1.5 w-32 overflow-hidden rounded-full bg-muted">
               <div
