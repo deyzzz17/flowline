@@ -33,10 +33,10 @@ export const TasksClient = () => {
   return (
     <Tabs defaultValue="todo" className="w-full">
       <div className="mb-8 flex items-center justify-between gap-4">
-        <TabsList className="h-10 rounded-xl bg-muted/60 p-1">
+        <TabsList className="h-10 w-full rounded-xl bg-muted/60 p-1 sm:w-auto">
           <TabsTrigger
             value="todo"
-            className="gap-1.5 rounded-lg px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            className="flex-1 sm:flex-none gap-1.5 rounded-lg px-2 sm:px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
           >
             <ClipboardList className="h-3.5 w-3.5" />
             To do
@@ -48,14 +48,14 @@ export const TasksClient = () => {
           </TabsTrigger>
           <TabsTrigger
             value="achieved"
-            className="gap-1.5 rounded-lg px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            className="flex-1 sm:flex-none gap-1.5 rounded-lg px-2 sm:px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
           >
             <CheckCircle2 className="h-3.5 w-3.5" />
             Achieved
           </TabsTrigger>
           <TabsTrigger
             value="inactive"
-            className="gap-1.5 rounded-lg px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            className="flex-1 sm:flex-none gap-1.5 rounded-lg px-2 sm:px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
           >
             <PauseCircle className="h-3.5 w-3.5" />
             Inactive
@@ -67,7 +67,7 @@ export const TasksClient = () => {
           </TabsTrigger>
           <TabsTrigger
             value="trashed"
-            className="gap-1.5 rounded-lg px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            className="flex-1 sm:flex-none gap-1.5 rounded-lg px-2 sm:px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
           >
             <Trash2 className="h-3.5 w-3.5" />
             Trash

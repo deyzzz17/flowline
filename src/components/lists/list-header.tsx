@@ -13,7 +13,7 @@ export const ListHeader = () => {
   const todoTasks = allTasks.filter((t) => t.status === 'active')
   const achievedTasks = allTasks.filter((t) => t.status === 'completed')
   const trashedTasks = allTasks.filter((t) => t.status === 'deleted')
-  const inactiveTasks = allTasks.filter((t) => t.status !== 'deleted' || 'inactive')
+  const inactiveTasks = allTasks.filter((t) => t.status !== 'deleted' && t.status !== 'inactive')
   const completionRate =
     inactiveTasks.length > 0 ? Math.round((achievedTasks.length / inactiveTasks.length) * 100) : 0
 
