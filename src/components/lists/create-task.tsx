@@ -255,11 +255,9 @@ export const CreateTask = () => {
             />
           </FormField>
 
-          {!isRecurring && (
-            <FormField label="Due date" optional>
-              <DatePicker value={dueDate} onChange={setDueDate} />
-            </FormField>
-          )}
+          <FormField label="Due date" optional>
+            <DatePicker value={dueDate} onChange={setDueDate} />
+          </FormField>
 
           <FormField label="Tags" optional>
             <div className="space-y-3">
@@ -482,7 +480,7 @@ export const CreateTask = () => {
                         </div>
 
                         {isExpanded && (
-                          <div className="px-3 pb-3 pt-2.5 space-y-4 border-t border-border/40 bg-background/50">
+                          <div className="px-3 pb-3 pt-2.5 space-y-3.5 border-t border-border/40 bg-background/50">
                             <div className="space-y-2">
                               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                                 Description{' '}
@@ -498,20 +496,17 @@ export const CreateTask = () => {
                               />
                             </div>
 
-                            {!isRecurring && (
-                              <div className="space-y-2">
-                                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                  Due date{' '}
-                                  <span className="normal-case font-normal">— Optional</span>
-                                </label>
-                                <DatePicker
-                                  value={s.dueDate}
-                                  onChange={(d) => updateSubtaskDetail(index, 'dueDate', d)}
-                                />
-                              </div>
-                            )}
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                Due date <span className="normal-case font-normal">— Optional</span>
+                              </label>
+                              <DatePicker
+                                value={s.dueDate}
+                                onChange={(d) => updateSubtaskDetail(index, 'dueDate', d)}
+                              />
+                            </div>
 
-                            <div className="space-y-2">
+                            <div className="space-y-1.5">
                               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                                 Tags <span className="normal-case font-normal">— Optional</span>
                               </label>

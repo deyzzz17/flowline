@@ -652,18 +652,16 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                                   className="h-16 resize-none text-xs"
                                 />
                               </div>
-                              {!isRecurring && (
-                                <div className="space-y-1.5">
-                                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                                    Due date{' '}
-                                    <span className="normal-case font-normal">— Optional</span>
-                                  </p>
-                                  <InlineDatePicker
-                                    value={s.dueDate}
-                                    onChange={(d) => updateSubtask(i, 'dueDate', d)}
-                                  />
-                                </div>
-                              )}
+                              <div className="space-y-1.5">
+                                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                                  Due date{' '}
+                                  <span className="normal-case font-normal">— Optional</span>
+                                </p>
+                                <InlineDatePicker
+                                  value={s.dueDate}
+                                  onChange={(d) => updateSubtask(i, 'dueDate', d)}
+                                />
+                              </div>
                               <div className="space-y-1.5">
                                 <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
                                   Tags <span className="normal-case font-normal">— Optional</span>
