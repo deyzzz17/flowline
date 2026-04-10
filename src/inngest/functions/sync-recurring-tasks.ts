@@ -89,7 +89,7 @@ export const syncRecurringTasks = inngest.createFunction(
 
         const subtasks = (task.subtasks ?? []) as NonNullable<Task['subtasks']>
 
-        if (shouldBeActive && (task.status === 'inactive' || task.status === 'completed')) {
+        if (shouldBeActive && task.status === 'inactive') {
           await payload.update({
             collection: 'tasks',
             id: task.id,
