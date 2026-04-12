@@ -641,7 +641,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                               <div className="space-y-1.5">
                                 <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
                                   Description{' '}
-                                  <span className="normal-case font-normal">— Optional</span>
+                                  <span className="normal-case font-normal"> Optional</span>
                                 </p>
                                 <Textarea
                                   value={s.description ?? ''}
@@ -653,7 +653,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                               <div className="space-y-1.5">
                                 <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
                                   Due date{' '}
-                                  <span className="normal-case font-normal">— Optional</span>
+                                  <span className="normal-case font-normal"> Optional</span>
                                 </p>
                                 <InlineDatePicker
                                   value={s.dueDate}
@@ -662,7 +662,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                               </div>
                               <div className="space-y-1.5">
                                 <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                                  Tags <span className="normal-case font-normal">— Optional</span>
+                                  Tags <span className="normal-case font-normal"> Optional</span>
                                 </p>
                                 <div className="flex flex-wrap gap-1.5">
                                   {TAG_OPTIONS.map((tag) => (
@@ -740,7 +740,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
 
               <div className="flex items-center gap-2 pt-1">
                 <Button size="sm" className="h-8 px-3 text-xs gap-1.5" onClick={handleSaveEdit}>
-                  <CheckIcon className="h-3.5 w-3.5" />
                   Save
                 </Button>
                 <Button
@@ -749,7 +748,6 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                   className="h-8 px-3 text-xs text-muted-foreground"
                   onClick={stopEditing}
                 >
-                  <XMarkIcon className="h-3.5 w-3.5 mr-1" />
                   Cancel
                 </Button>
               </div>
