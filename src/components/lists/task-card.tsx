@@ -680,6 +680,31 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                                       {tag.label}
                                     </button>
                                   ))}
+                                  {userTags.map((tag) => {
+                                    const isSelected = (s.tags ?? []).includes(String(tag.id))
+                                    return (
+                                      <button
+                                        key={tag.id}
+                                        type="button"
+                                        onClick={() => toggleSubtaskTag(i, String(tag.id))}
+                                        className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-all"
+                                        style={{
+                                          backgroundColor: hexToRgba(
+                                            tag.color,
+                                            isSelected ? 0.15 : 0.06,
+                                          ),
+                                          borderColor: hexToRgba(tag.color, isSelected ? 0.5 : 0.2),
+                                          color: tag.color,
+                                        }}
+                                      >
+                                        <span
+                                          className="h-1.5 w-1.5 rounded-full shrink-0"
+                                          style={{ backgroundColor: tag.color }}
+                                        />
+                                        {tag.name}
+                                      </button>
+                                    )
+                                  })}
                                 </div>
                               </div>
                             </div>
