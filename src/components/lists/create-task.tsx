@@ -484,7 +484,7 @@ export const CreateTask = () => {
                             <div className="space-y-3">
                               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                                 Description{' '}
-                                <span className="normal-case font-normal">— Optional</span>
+                                <span className="normal-case font-normal"> Optional</span>
                               </label>
                               <Textarea
                                 value={s.description ?? ''}
@@ -498,7 +498,7 @@ export const CreateTask = () => {
 
                             <div className="space-y-3">
                               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                Due date <span className="normal-case font-normal">— Optional</span>
+                                Due date <span className="normal-case font-normal"> Optional</span>
                               </label>
                               <div className="mt-1">
                                 <DatePicker
@@ -510,7 +510,7 @@ export const CreateTask = () => {
 
                             <div className="space-y-3">
                               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                Tags <span className="normal-case font-normal">— Optional</span>
+                                Tags <span className="normal-case font-normal"> Optional</span>
                               </label>
                               <div className="mt-1 flex flex-wrap gap-1.5">
                                 {TAG_OPTIONS.map((tag) => (
