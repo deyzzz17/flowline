@@ -481,7 +481,7 @@ export const CreateTask = () => {
 
                         {isExpanded && (
                           <div className="px-4 pb-4 pt-3 space-y-5 border-t border-border/40 bg-background/50">
-                            <div className="space-y-2.5">
+                            <div className="space-y-3">
                               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                                 Description{' '}
                                 <span className="normal-case font-normal">— Optional</span>
@@ -492,25 +492,27 @@ export const CreateTask = () => {
                                   updateSubtaskDetail(index, 'description', e.target.value)
                                 }
                                 placeholder="Add details to this subtask..."
-                                className="h-20 resize-none text-sm"
+                                className="mt-1 h-20 resize-none text-sm"
                               />
                             </div>
 
-                            <div className="space-y-2.5">
+                            <div className="space-y-3">
                               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                                 Due date <span className="normal-case font-normal">— Optional</span>
                               </label>
-                              <DatePicker
-                                value={s.dueDate}
-                                onChange={(d) => updateSubtaskDetail(index, 'dueDate', d)}
-                              />
+                              <div className="mt-1">
+                                <DatePicker
+                                  value={s.dueDate}
+                                  onChange={(d) => updateSubtaskDetail(index, 'dueDate', d)}
+                                />
+                              </div>
                             </div>
 
-                            <div className="space-y-2.5">
+                            <div className="space-y-3">
                               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                                 Tags <span className="normal-case font-normal">— Optional</span>
                               </label>
-                              <div className="flex flex-wrap gap-1.5">
+                              <div className="mt-1 flex flex-wrap gap-1.5">
                                 {TAG_OPTIONS.map((tag) => (
                                   <button
                                     key={tag.value}
@@ -601,107 +603,6 @@ export const CreateTask = () => {
                                       )
                                     })}
                                   </div>
-                                )}
-
-                                {showNewTag ? (
-                                  <div className="rounded-xl border border-border/50 bg-muted/20 p-3 space-y-3">
-                                    <div className="flex items-center justify-between">
-                                      <p className="text-xs font-semibold text-foreground">
-                                        New tag
-                                      </p>
-                                      <button
-                                        type="button"
-                                        onClick={() => setShowNewTag(false)}
-                                        className="text-muted-foreground/50 hover:text-foreground transition-colors"
-                                      >
-                                        <X className="h-3.5 w-3.5" />
-                                      </button>
-                                    </div>
-
-                                    <Input
-                                      value={newTagName}
-                                      onChange={(e) => setNewTagName(e.target.value)}
-                                      placeholder="Tag name..."
-                                      className="h-8 text-sm"
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                          e.preventDefault()
-                                          handleCreateTag()
-                                        }
-                                      }}
-                                    />
-
-                                    <div className="space-y-1.5">
-                                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                                        Color
-                                      </p>
-                                      <div className="flex items-center gap-3">
-                                        <div className="relative">
-                                          <div
-                                            className="h-9 w-9 rounded-lg border border-border/60 cursor-pointer overflow-hidden"
-                                            style={{ backgroundColor: newTagColor }}
-                                          />
-                                          <input
-                                            type="color"
-                                            value={newTagColor}
-                                            onChange={(e) => setNewTagColor(e.target.value)}
-                                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                                          />
-                                        </div>
-                                        <div className="flex-1 flex items-center gap-2 rounded-lg border border-border/60 bg-background px-3 h-9">
-                                          <span
-                                            className="h-3 w-3 rounded-full shrink-0"
-                                            style={{ backgroundColor: newTagColor }}
-                                          />
-                                          <span className="text-xs font-mono text-muted-foreground flex-1">
-                                            {newTagColor}
-                                          </span>
-                                        </div>
-                                        <div
-                                          className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium shrink-0"
-                                          style={{
-                                            backgroundColor: hexToRgba(newTagColor, 0.12),
-                                            borderColor: hexToRgba(newTagColor, 0.35),
-                                            color: newTagColor,
-                                          }}
-                                        >
-                                          <span
-                                            className="h-1.5 w-1.5 rounded-full"
-                                            style={{ backgroundColor: newTagColor }}
-                                          />
-                                          {newTagName || 'Preview'}
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    <button
-                                      type="button"
-                                      onClick={handleCreateTag}
-                                      disabled={!newTagName.trim() || createTagMutation.isPending}
-                                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-foreground px-3 py-1.5 text-xs font-semibold text-background transition-all hover:bg-foreground/80 disabled:opacity-40"
-                                    >
-                                      {createTagMutation.isPending ? (
-                                        <>
-                                          <Loader2 className="h-3 w-3 animate-spin" />
-                                          Creating...
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Check className="h-3 w-3" />
-                                          Create tag
-                                        </>
-                                      )}
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => setShowNewTag(true)}
-                                    className="flex items-center gap-1.5 rounded-full border border-dashed border-border/60 px-2.5 py-1 text-xs text-muted-foreground transition-all hover:border-border hover:text-foreground"
-                                  >
-                                    <Tag className="h-3 w-3" />
-                                    New tag
-                                  </button>
                                 )}
                               </div>
                             </div>
