@@ -348,14 +348,12 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
                 placeholder="Add a description..."
               />
 
-              {editType === 'simple' && (
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Due date
-                  </p>
-                  <InlineDatePicker value={editDueDate} onChange={setEditDueDate} />
-                </div>
-              )}
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Due date
+                </p>
+                <InlineDatePicker value={editDueDate} onChange={setEditDueDate} />
+              </div>
 
               <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">

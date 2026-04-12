@@ -2,7 +2,7 @@ import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query
 import { api } from '@/api'
 import { TasksClient } from '@/components/lists/tasks-client'
 import { ListHeader } from '@/components/lists/list-header'
-import { requireAuth } from '@/lib/require-auth'
+import { ProtectedRoute } from '@/components/route/protected-route'
 
 export default async function TasksPage() {
   const queryClient = new QueryClient()
@@ -23,10 +23,4 @@ export default async function TasksPage() {
       </div>
     </ProtectedRoute>
   )
-}
-
-const ProtectedRoute = async ({ children }: { children: React.ReactNode }) => {
-  await requireAuth()
-
-  return children
 }
