@@ -34,7 +34,14 @@ export const Tasks: CollectionConfig = {
       required: true,
       index: true,
     },
-
+    {
+      name: 'list',
+      type: 'relationship',
+      relationTo: 'lists',
+      required: false,
+      index: true,
+    },
+    
     {
       name: 'type',
       type: 'select',

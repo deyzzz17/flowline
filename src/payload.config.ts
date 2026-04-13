@@ -9,6 +9,7 @@ import { Admins } from './collections/Admins'
 import { Media } from './collections/Media'
 import { Tasks } from './collections/Tasks'
 import { UserTags } from './collections/UserTags'
+import { Lists } from './collections/Lists'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -20,7 +21,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Admins, Media, Tasks, UserTags],
+  collections: [Admins, Media, Tasks, UserTags, Lists],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {

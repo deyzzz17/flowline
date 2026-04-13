@@ -71,6 +71,7 @@ export interface Config {
     media: Media;
     tasks: Task;
     'user-tags': UserTag;
+    lists: List;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -82,6 +83,7 @@ export interface Config {
     media: MediaSelect<false> | MediaSelect<true>;
     tasks: TasksSelect<false> | TasksSelect<true>;
     'user-tags': UserTagsSelect<false> | UserTagsSelect<true>;
+    lists: ListsSelect<false> | ListsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -175,6 +177,7 @@ export interface Task {
   description?: string | null;
   status: 'active' | 'completed' | 'deleted' | 'inactive';
   userId: string;
+  list?: (number | null) | List;
   type: 'simple' | 'recurring';
   tags?: ('urgent' | 'work' | 'personal' | 'health' | 'finance' | 'learning')[] | null;
   customTags?: (number | UserTag)[] | null;
@@ -193,6 +196,25 @@ export interface Task {
     days?: ('mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun')[] | null;
   };
   dueDate?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "lists".
+ */
+export interface List {
+  id: number;
+  name: string;
+  userId: string;
+  category?: {
+    name?: string | null;
+    color?: string | null;
+  };
+  /**
+   * La liste Todo par défaut créée automatiquement à l'inscription
+   */
+  isDefault?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -247,6 +269,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'user-tags';
         value: number | UserTag;
+      } | null)
+    | ({
+        relationTo: 'lists';
+        value: number | List;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -339,6 +365,7 @@ export interface TasksSelect<T extends boolean = true> {
   description?: T;
   status?: T;
   userId?: T;
+  list?: T;
   type?: T;
   tags?: T;
   customTags?: T;
@@ -370,6 +397,23 @@ export interface UserTagsSelect<T extends boolean = true> {
   name?: T;
   color?: T;
   userId?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "lists_select".
+ */
+export interface ListsSelect<T extends boolean = true> {
+  name?: T;
+  userId?: T;
+  category?:
+    | T
+    | {
+        name?: T;
+        color?: T;
+      };
+  isDefault?: T;
   updatedAt?: T;
   createdAt?: T;
 }
