@@ -17,7 +17,7 @@ export const Lists: CollectionConfig = {
       required: false,
       index: true,
       admin: {
-        readOnly: true,
+        readOnly: false,
         description: 'Auto-generated from name',
       },
     },
