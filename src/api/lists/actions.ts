@@ -161,17 +161,35 @@ export const createDefaultList = async () => {
       limit: 1,
     })
 
-    if (existing.docs.length > 0) return ok(existing.docs[0])
+    let defaultList = existing.docs[0]
 
-    const defaultList = await payload.create({
-      collection: 'lists',
-      data: {
-        name: 'Todo',
-        userId,
-        isDefault: true,
-        category: { name: 'Personal', color: '#8b5cf6' },
+    if (!defaultList) {
+      defaultList = await payload.create({
+        collection: 'lists',
+        data: {
+          name: 'Todo',
+          userId,
+          isDefault: true,
+          category: { name: 'Personal', color: '#8b5cf6' },
+        },
+      })
+    }
+
+    const { docs: unassignedTasks } = await payload.find({
+      collection: 'tasks',
+      where: {
+        and: [{ userId: { equals: userId } }, { list: { exists: false } }],
       },
+      limit: 0,
     })
+
+    for (const task of unassignedTasks) {
+      await payload.update({
+        collection: 'tasks',
+        id: task.id,
+        data: { list: defaultList.id },
+      })
+    }
 
     return ok(defaultList)
   } catch {
