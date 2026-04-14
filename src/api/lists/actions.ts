@@ -196,3 +196,16 @@ export const createDefaultList = async () => {
     return err('Error while creating default list')
   }
 }
+
+export const getListBySlug = async (slug: string) => {
+  const userId = await getSession()
+  if (!userId) return err('Not authenticated')
+  const payload = await getPayload({ config })
+  const { docs } = await payload.find({
+    collection: 'lists',
+    where: { and: [{ userId: { equals: userId } }, { slug: { equals: slug } }] },
+    limit: 1,
+  })
+  if (!docs[0]) return err('List not found')
+  return ok(docs[0])
+}

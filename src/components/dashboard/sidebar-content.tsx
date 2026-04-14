@@ -61,7 +61,7 @@ export const SidebarContent = ({ onNavigate }: SidebarContentProps) => {
 
               {defaultList && (
                 <ListNavItem
-                  href={`/lists/${defaultList.id}`}
+                  href={`/lists/${defaultList.slug}`}
                   label={defaultList.name}
                   color={defaultList.category?.color ?? '#8b5cf6'}
                   onNavigate={onNavigate}
@@ -71,7 +71,7 @@ export const SidebarContent = ({ onNavigate }: SidebarContentProps) => {
               {customLists.map((list) => (
                 <ListNavItem
                   key={list.id}
-                  href={`/lists/${list.id}`}
+                  href={`/lists/${list.slug}`}
                   label={list.name}
                   color={list.category?.color ?? '#8b5cf6'}
                   onNavigate={onNavigate}

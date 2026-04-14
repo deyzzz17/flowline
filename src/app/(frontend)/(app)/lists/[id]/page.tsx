@@ -5,20 +5,19 @@ import { ProtectedRoute } from '@/components/route/protected-route'
 import { notFound } from 'next/navigation'
 
 interface ListPageProps {
-  params: Promise<{ id: string }>
+  params: Promise<{ slug: string }>
 }
 
 export default async function ListPage({ params }: ListPageProps) {
-  const { id } = await params
-  const listId = parseInt(id)
+  const { slug } = await params
 
-  if (isNaN(listId)) notFound()
-
-  const listResult = await api.lists.getById(listId)
+  const listResult = await api.lists.slug(slug)
   if (!listResult.ok) notFound()
 
-  const queryClient = new QueryClient()
+  const list = listResult.value
+  const listId = list.id
 
+  const queryClient = new QueryClient()
   await queryClient.prefetchQuery({
     queryKey: ['tasks', listId],
     queryFn: () => api.tasks.list(1, listId),
@@ -29,7 +28,7 @@ export default async function ListPage({ params }: ListPageProps) {
       <div className="relative mx-auto max-w-screen-2xl px-4 pb-16 sm:px-6 lg:px-10">
         <div className="relative z-10">
           <HydrationBoundary state={dehydrate(queryClient)}>
-            <ListClient list={listResult.value} />
+            <ListClient list={list} />
           </HydrationBoundary>
         </div>
       </div>

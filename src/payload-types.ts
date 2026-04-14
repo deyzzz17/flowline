@@ -206,6 +206,10 @@ export interface Task {
 export interface List {
   id: number;
   name: string;
+  /**
+   * Auto-generated from name
+   */
+  slug?: string | null;
   userId: string;
   category?: {
     name?: string | null;
@@ -406,6 +410,7 @@ export interface UserTagsSelect<T extends boolean = true> {
  */
 export interface ListsSelect<T extends boolean = true> {
   name?: T;
+  slug?: T;
   userId?: T;
   category?:
     | T
