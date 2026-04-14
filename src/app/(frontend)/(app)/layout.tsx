@@ -10,6 +10,7 @@ import { UserProvider } from '@/contexts/user-context'
 import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { syncRecurringTasksForUser } from '@/api/tasks/actions'
+import { createDefaultList } from '@/api/lists/actions'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -17,6 +18,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   if (user?.id) {
     await syncRecurringTasksForUser()
+    try {
+      await createDefaultList()
+    } catch {}
   }
 
   return (
