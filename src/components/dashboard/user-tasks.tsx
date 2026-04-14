@@ -33,7 +33,7 @@ export const DashboardTasks = ({ tasks, completedCount, totalCount }: DashboardT
             </div>
           )}
           <Link
-            href="/lists"
+            href="/lists/today"
             className="flex items-center gap-1 text-xs font-medium text-violet-600 transition-colors hover:text-violet-500 dark:text-violet-400"
           >
             View all <ArrowRight className="h-3 w-3" />
