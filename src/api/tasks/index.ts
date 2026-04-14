@@ -2,6 +2,8 @@ import {
   createTask,
   deleteTask,
   listTasks,
+  listTasksToday,
+  listTasksRecurring,
   updateTaskStatus,
   softDeleteTask,
   moveToTrash,
@@ -15,7 +17,9 @@ import {
 
 export const tasksAPI = {
   create: createTask,
-  list: (page = 1) => listTasks(page),
+  list: (page = 1, listId?: number) => listTasks(page, undefined, listId),
+  listToday: listTasksToday,
+  listRecurring: listTasksRecurring,
   updateStatus: updateTaskStatus,
   delete: deleteTask,
   softDelete: softDeleteTask,

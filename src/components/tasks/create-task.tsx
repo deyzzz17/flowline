@@ -11,7 +11,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { PlusIcon } from '@heroicons/react/24/outline'
@@ -64,7 +63,11 @@ function hexToRgba(hex: string, alpha: number) {
   }
 }
 
-export const CreateTask = () => {
+interface CreateTaskProps {
+  listId?: number
+}
+
+export const CreateTask = ({ listId }: CreateTaskProps) => {
   const { isOpen, close, setIsOpen } = useManageForm()
   const {
     title,
@@ -137,7 +140,7 @@ export const CreateTask = () => {
 
   const handleOnSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const success = await saveTask()
+    const success = await saveTask(listId)
     if (success) {
       setSubtaskInput('')
       setExpandedIndex(null)
@@ -352,7 +355,6 @@ export const CreateTask = () => {
                       <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
-
                   <Input
                     value={newTagName}
                     onChange={(e) => setNewTagName(e.target.value)}
@@ -365,7 +367,6 @@ export const CreateTask = () => {
                       }
                     }}
                   />
-
                   <div className="space-y-1.5">
                     <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
                       Color
@@ -408,7 +409,6 @@ export const CreateTask = () => {
                       </div>
                     </div>
                   </div>
-
                   <button
                     type="button"
                     onClick={handleCreateTag}
@@ -478,13 +478,12 @@ export const CreateTask = () => {
                             <X className="h-3.5 w-3.5" />
                           </button>
                         </div>
-
                         {isExpanded && (
                           <div className="px-4 pb-4 pt-3 space-y-5 border-t border-border/40 bg-background/50">
                             <div className="space-y-3">
                               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                                 Description{' '}
-                                <span className="normal-case font-normal"> Optional</span>
+                                <span className="normal-case font-normal">Optional</span>
                               </label>
                               <Textarea
                                 value={s.description ?? ''}
@@ -495,10 +494,9 @@ export const CreateTask = () => {
                                 className="mt-1 h-20 resize-none text-sm"
                               />
                             </div>
-
                             <div className="space-y-3">
                               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                Due date <span className="normal-case font-normal"> Optional</span>
+                                Due date <span className="normal-case font-normal">Optional</span>
                               </label>
                               <div className="mt-1">
                                 <DatePicker
@@ -507,10 +505,9 @@ export const CreateTask = () => {
                                 />
                               </div>
                             </div>
-
                             <div className="space-y-3">
                               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                Tags <span className="normal-case font-normal"> Optional</span>
+                                Tags <span className="normal-case font-normal">Optional</span>
                               </label>
                               <div className="mt-1 flex flex-wrap gap-1.5">
                                 {TAG_OPTIONS.map((tag) => (
@@ -528,82 +525,6 @@ export const CreateTask = () => {
                                     {tag.label}
                                   </button>
                                 ))}
-
-                                {userTags.length > 0 && (
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {userTags.map((tag) => {
-                                      const isSelected = customTags.includes(String(tag.id))
-                                      return (
-                                        <div key={tag.id} className="flex items-center group">
-                                          <button
-                                            type="button"
-                                            onClick={() => toggleCustomTag(String(tag.id))}
-                                            className="flex items-center gap-1.5 rounded-l-full border-y border-l px-2.5 py-1 text-xs font-medium transition-all"
-                                            style={{
-                                              backgroundColor: hexToRgba(
-                                                tag.color,
-                                                isSelected ? 0.15 : 0.06,
-                                              ),
-                                              borderColor: hexToRgba(
-                                                tag.color,
-                                                isSelected ? 0.5 : 0.2,
-                                              ),
-                                              color: tag.color,
-                                            }}
-                                          >
-                                            <span
-                                              className="h-1.5 w-1.5 rounded-full shrink-0"
-                                              style={{ backgroundColor: tag.color }}
-                                            />
-                                            {tag.name}
-                                          </button>
-                                          <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                              <button
-                                                type="button"
-                                                className="flex items-center justify-center h-full rounded-r-full border-y border-r px-1.5 py-1 opacity-100"
-                                                style={{
-                                                  backgroundColor: hexToRgba(
-                                                    tag.color,
-                                                    isSelected ? 0.15 : 0.06,
-                                                  ),
-                                                  borderColor: hexToRgba(
-                                                    tag.color,
-                                                    isSelected ? 0.5 : 0.2,
-                                                  ),
-                                                  color: tag.color,
-                                                }}
-                                              >
-                                                <X className="h-2.5 w-2.5" />
-                                              </button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                              <AlertDialogHeader>
-                                                <AlertDialogTitle>
-                                                  Delete this tag?
-                                                </AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                  This will permanently delete the tag{' '}
-                                                  <strong>{tag.name}</strong> and remove it from all
-                                                  tasks. This action cannot be undone.
-                                                </AlertDialogDescription>
-                                              </AlertDialogHeader>
-                                              <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction
-                                                  onClick={() => deleteTagMutation.mutate(tag.id)}
-                                                  variant="destructive"
-                                                >
-                                                  Delete tag
-                                                </AlertDialogAction>
-                                              </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                          </AlertDialog>
-                                        </div>
-                                      )
-                                    })}
-                                  </div>
-                                )}
                               </div>
                             </div>
                           </div>
@@ -613,7 +534,6 @@ export const CreateTask = () => {
                   })}
                 </div>
               )}
-
               <div className="flex gap-2">
                 <Input
                   value={subtaskInput}

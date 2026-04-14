@@ -1,4 +1,5 @@
 import { authAPI } from './authentification'
+import { listsAPI } from './lists'
 import { profileAPI } from './profile'
 import { tagsAPI } from './tags'
 import { tasksAPI } from './tasks'
@@ -8,4 +9,5 @@ export const api = {
   authentifications: authAPI,
   profile: profileAPI,
   tags: tagsAPI,
+  lists: listsAPI,
 }

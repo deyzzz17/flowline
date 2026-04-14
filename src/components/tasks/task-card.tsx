@@ -11,13 +11,7 @@ import type { Task } from '@/payload-types'
 import { Button } from '../ui/button'
 import { Textarea } from '../ui/textarea'
 import { Input } from '../ui/input'
-import {
-  TrashIcon,
-  ArrowPathIcon,
-  PencilSquareIcon,
-  CheckIcon,
-  XMarkIcon,
-} from '@heroicons/react/24/outline'
+import { TrashIcon, ArrowPathIcon, PencilSquareIcon } from '@heroicons/react/24/outline'
 import {
   AlertDialog,
   AlertDialogAction,

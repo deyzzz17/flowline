@@ -19,12 +19,14 @@ type CreateTaskInput = {
   subtasks?: Task['subtasks']
   recurrence?: Task['recurrence']
   dueDate?: string | null
+  listId?: number | null
 }
 
 type EditTaskInput = Partial<
   Pick<Task, 'title' | 'description' | 'tags' | 'subtasks' | 'recurrence' | 'dueDate'>
 > & {
   customTags?: number[]
+  listId?: number | null
 }
 
 type Subtask = NonNullable<Task['subtasks']>[number]
@@ -65,6 +67,7 @@ export const createTask = async (task: CreateTaskInput) => {
         subtasks: task.subtasks ?? [],
         ...(task.recurrence && { recurrence: task.recurrence }),
         ...(task.dueDate !== undefined && { dueDate: task.dueDate }),
+        ...(task.listId !== undefined && task.listId !== null && { list: task.listId }),
         userId,
       },
     })
@@ -79,6 +82,7 @@ export const createTask = async (task: CreateTaskInput) => {
 export const listTasks = async (
   page = 1,
   status?: 'active' | 'completed' | 'deleted' | 'inactive',
+  listId?: number,
 ) => {
   const userId = await getSession()
   if (!userId) return { docs: [] }
@@ -91,7 +95,83 @@ export const listTasks = async (
     limit: 0,
     page,
     where: {
-      and: [{ userId: { equals: userId } }, ...(status ? [{ status: { equals: status } }] : [])],
+      and: [
+        { userId: { equals: userId } },
+        ...(status ? [{ status: { equals: status } }] : []),
+        ...(listId !== undefined ? [{ list: { equals: listId } }] : []),
+      ],
+    },
+  })
+}
+
+export const listTasksToday = async () => {
+  const userId = await getSession()
+  if (!userId) return { docs: [] }
+
+  const payload = await getPayload({ config })
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const tomorrow = new Date(today)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+
+  const todayDay = DAYS[new Date().getDay()]
+
+  const dueTodayTasks = await payload.find({
+    collection: 'tasks',
+    sort: '-createdAt',
+    limit: 0,
+    where: {
+      and: [
+        { userId: { equals: userId } },
+        { status: { not_equals: 'deleted' } },
+        { dueDate: { greater_than_equal: today.toISOString() } },
+        { dueDate: { less_than: tomorrow.toISOString() } },
+      ],
+    },
+  })
+  
+  const recurringTasks = await payload.find({
+    collection: 'tasks',
+    sort: '-createdAt',
+    limit: 0,
+    where: {
+      and: [
+        { userId: { equals: userId } },
+        { type: { equals: 'recurring' } },
+        { status: { in: ['active', 'completed'] } },
+      ],
+    },
+  })
+
+  const recurringToday = recurringTasks.docs.filter((task) => {
+    const recurrence = task.recurrence as { frequency: 'daily' | 'custom'; days?: string[] } | null
+    if (!recurrence) return false
+    return recurrence.frequency === 'daily' || (recurrence.days?.includes(todayDay) ?? false)
+  })
+
+  const dueTodayIds = new Set(dueTodayTasks.docs.map((t) => t.id))
+  const merged = [...dueTodayTasks.docs, ...recurringToday.filter((t) => !dueTodayIds.has(t.id))]
+
+  return { docs: merged }
+}
+
+export const listTasksRecurring = async () => {
+  const userId = await getSession()
+  if (!userId) return { docs: [] }
+
+  const payload = await getPayload({ config })
+
+  return await payload.find({
+    collection: 'tasks',
+    sort: '-createdAt',
+    limit: 0,
+    where: {
+      and: [
+        { userId: { equals: userId } },
+        { type: { equals: 'recurring' } },
+        { status: { not_equals: 'deleted' } },
+      ],
     },
   })
 }
@@ -211,6 +291,7 @@ export const editTask = async (id: number, draft: EditTaskInput) => {
         ...(draft.subtasks !== undefined && { subtasks: draft.subtasks }),
         ...(draft.recurrence !== undefined && { recurrence: draft.recurrence }),
         ...(draft.dueDate !== undefined && { dueDate: draft.dueDate }),
+        ...(draft.listId !== undefined && { list: draft.listId }),
       },
     })
 

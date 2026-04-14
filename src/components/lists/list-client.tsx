@@ -1,0 +1,321 @@
+'use client'
+
+import { useQuery } from '@tanstack/react-query'
+import { api } from '@/api'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TodoList } from '@/components/tasks/todo-list'
+import { AchievedList } from '@/components/tasks/achieved-list'
+import { InactiveList } from '@/components/tasks/inactive-list'
+import { Trash } from '@/components/tasks/trash-list'
+import { CreateTask } from '@/components/tasks/create-task'
+import {
+  CheckCircle2,
+  CheckCircleIcon,
+  ClipboardList,
+  ListTodo,
+  Sparkles,
+  Trash2,
+  PauseCircle,
+} from 'lucide-react'
+import type { List } from '@/payload-types'
+
+interface ListClientProps {
+  list: List
+}
+
+export const ListClient = ({ list }: ListClientProps) => {
+  const { data } = useQuery({
+    queryKey: ['tasks', list.id],
+    queryFn: () => api.tasks.list(1, list.id),
+  })
+
+  const allTasks = data?.docs ?? []
+  const todoTasks = allTasks.filter((t) => t.status === 'active')
+  const achievedTasks = allTasks.filter((t) => t.status === 'completed')
+  const inactiveTasks = allTasks.filter((t) => t.status === 'inactive')
+  const trashedTasks = allTasks.filter((t) => t.status === 'deleted')
+
+  const activePlusDone = allTasks.filter((t) => t.status === 'active' || t.status === 'completed')
+  const completionRate =
+    activePlusDone.length > 0 ? Math.round((achievedTasks.length / activePlusDone.length) * 100) : 0
+
+  const categoryColor = list.category?.color ?? '#8b5cf6'
+
+  return (
+    <>
+      <section className="mb-8 mt-10">
+        <div className="flex items-end justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="mb-1 flex items-center gap-2">
+              <span
+                className="h-2.5 w-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: categoryColor }}
+              />
+              <p className="text-xl font-semibold uppercase" style={{ color: categoryColor }}>
+                {list.category?.name ?? 'List'}
+              </p>
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">{list.name}</h1>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              {allTasks.length === 0
+                ? 'No tasks yet, create your first one below.'
+                : `${todoTasks.length} active · ${achievedTasks.length} completed · ${trashedTasks.length} trashed`}
+            </p>
+            {activePlusDone.length > 0 && (
+              <div className="mt-3 flex items-center gap-3 sm:hidden">
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{ width: `${completionRate}%`, backgroundColor: categoryColor }}
+                  />
+                </div>
+                <span className="text-xs font-semibold shrink-0" style={{ color: categoryColor }}>
+                  {completionRate}%
+                </span>
+              </div>
+            )}
+          </div>
+          {activePlusDone.length > 0 && (
+            <div className="hidden flex-col items-end gap-1.5 sm:flex">
+              <span className="text-xs text-muted-foreground">
+                {achievedTasks.length}/{activePlusDone.length} done
+              </span>
+              <div className="h-1.5 w-32 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{ width: `${completionRate}%`, backgroundColor: categoryColor }}
+                />
+              </div>
+              <span className="text-xs font-semibold" style={{ color: categoryColor }}>
+                {completionRate}%
+              </span>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <Tabs defaultValue="todo" className="w-full">
+        <div className="mb-8">
+          <TabsList className="h-10 w-full rounded-xl bg-muted/60 p-1 sm:w-auto">
+            <TabsTrigger
+              value="todo"
+              className="flex-1 sm:flex-none gap-1.5 rounded-lg px-2 sm:px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            >
+              <ClipboardList className="h-3.5 w-3.5 shrink-0" />
+              <span className="hidden xs:inline sm:inline">To do</span>
+              {todoTasks.length > 0 && (
+                <span className="ml-0.5 rounded-full bg-violet-500/15 px-1.5 py-px text-[10px] font-bold text-violet-600 dark:text-violet-400">
+                  {todoTasks.length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="achieved"
+              className="flex-1 sm:flex-none gap-1.5 rounded-lg px-2 sm:px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+              <span className="hidden xs:inline sm:inline">Achieved</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="inactive"
+              className="flex-1 sm:flex-none gap-1.5 rounded-lg px-2 sm:px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            >
+              <PauseCircle className="h-3.5 w-3.5 shrink-0" />
+              <span className="hidden xs:inline sm:inline">Inactive</span>
+              {inactiveTasks.length > 0 && (
+                <span className="ml-0.5 rounded-full bg-muted px-1.5 py-px text-[10px] font-bold text-muted-foreground">
+                  {inactiveTasks.length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="trashed"
+              className="flex-1 sm:flex-none gap-1.5 rounded-lg px-2 sm:px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            >
+              <Trash2 className="h-3.5 w-3.5 shrink-0" />
+              <span className="hidden xs:inline sm:inline">Trash</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="todo" className="outline-none">
+          <div className="space-y-6">
+            <div className="flex items-end justify-between">
+              <div>
+                <h2 className="text-lg font-semibold tracking-tight text-foreground">To do</h2>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {todoTasks.length === 0
+                    ? 'Your list is clear, add something to get started.'
+                    : `${todoTasks.length} task${todoTasks.length !== 1 ? 's' : ''} remaining.`}
+                </p>
+              </div>
+              <CreateTask listId={list.id} />
+            </div>
+            <div className="rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm">
+              <div className="flex items-center justify-between border-b border-border/50 px-5 py-3.5">
+                <div className="flex items-center gap-2">
+                  <ListTodo className="h-3.5 w-3.5 text-violet-500 dark:text-violet-400" />
+                  <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
+                    In progress
+                  </span>
+                </div>
+                <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
+                  {todoTasks.length}
+                </span>
+              </div>
+              <div className="p-5">
+                {todoTasks.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
+                      <Sparkles className="h-5 w-5 text-muted-foreground/40" />
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground">All clear</p>
+                    <p className="mt-1 text-xs text-muted-foreground/60">
+                      Create a task above to get started.
+                    </p>
+                  </div>
+                ) : (
+                  <TodoList tasks={todoTasks} />
+                )}
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="achieved" className="outline-none">
+          <div className="space-y-6">
+            <div className="flex items-end justify-between">
+              <div>
+                <h2 className="text-lg font-semibold tracking-tight text-foreground">Completed</h2>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {achievedTasks.length === 0
+                    ? 'Nothing completed yet, keep going!'
+                    : `${achievedTasks.length} task${achievedTasks.length !== 1 ? 's' : ''} completed. Great work.`}
+                </p>
+              </div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400">
+                <CheckCircleIcon size={18} />
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm">
+              <div className="flex items-center justify-between border-b border-border/50 px-5 py-3.5">
+                <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
+                  Archive
+                </span>
+                <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                  {achievedTasks.length} completed
+                </span>
+              </div>
+              <div className="p-5">
+                {achievedTasks.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
+                      <CheckCircle2 className="h-5 w-5 text-muted-foreground/40" />
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground">Nothing here yet</p>
+                    <p className="mt-1 text-xs text-muted-foreground/60">
+                      Complete a task and it will show up here.
+                    </p>
+                  </div>
+                ) : (
+                  <AchievedList tasks={achievedTasks} />
+                )}
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="inactive" className="outline-none">
+          <div className="space-y-6">
+            <div className="flex items-end justify-between">
+              <div>
+                <h2 className="text-lg font-semibold tracking-tight text-foreground">Inactive</h2>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {inactiveTasks.length === 0
+                    ? 'No inactive recurring tasks.'
+                    : `${inactiveTasks.length} recurring task${inactiveTasks.length !== 1 ? 's' : ''} not scheduled for today.`}
+                </p>
+              </div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                <PauseCircle size={18} />
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm">
+              <div className="flex items-center justify-between border-b border-border/50 px-5 py-3.5">
+                <div className="flex items-center gap-2">
+                  <PauseCircle className="h-3.5 w-3.5 text-muted-foreground/60" />
+                  <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
+                    Sleeping
+                  </span>
+                </div>
+                <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
+                  {inactiveTasks.length}
+                </span>
+              </div>
+              <div className="p-5">
+                {inactiveTasks.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
+                      <PauseCircle className="h-5 w-5 text-muted-foreground/40" />
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      All recurring tasks are active
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground/60">
+                      Recurring tasks not scheduled for today appear here.
+                    </p>
+                  </div>
+                ) : (
+                  <InactiveList tasks={inactiveTasks} />
+                )}
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="trashed" className="outline-none">
+          <div className="space-y-6">
+            <div className="flex items-end justify-between">
+              <div>
+                <h2 className="text-lg font-semibold tracking-tight text-foreground">Trash</h2>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {trashedTasks.length === 0
+                    ? 'Nothing in the trash.'
+                    : `${trashedTasks.length} item${trashedTasks.length !== 1 ? 's' : ''} — permanently delete or restore.`}
+                </p>
+              </div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+                <Trash2 size={18} />
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm">
+              <div className="flex items-center justify-between border-b border-border/50 px-5 py-3.5">
+                <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
+                  Delete zone
+                </span>
+                <span className="rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-semibold text-destructive">
+                  {trashedTasks.length} item{trashedTasks.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="p-5">
+                {trashedTasks.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
+                      <Trash2 className="h-5 w-5 text-muted-foreground/40" />
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground">Trash is empty</p>
+                    <p className="mt-1 text-xs text-muted-foreground/60">
+                      Deleted tasks will appear here.
+                    </p>
+                  </div>
+                ) : (
+                  <Trash tasks={trashedTasks} />
+                )}
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </>
+  )
+}

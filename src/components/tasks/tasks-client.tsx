@@ -3,11 +3,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { TodoList } from '@/components/lists/todo-list'
-import { AchievedList } from '@/components/lists/achieved-list'
-import { InactiveList } from '@/components/lists/inactive-list'
-import { Trash } from '@/components/lists/trash-list'
-import { CreateTask } from '@/components/lists/create-task'
+import { TodoList } from '@/components/tasks/todo-list'
+import { AchievedList } from '@/components/tasks/achieved-list'
+import { InactiveList } from '@/components/tasks/inactive-list'
+import { Trash } from '@/components/tasks/trash-list'
+import { CreateTask } from '@/components/tasks/create-task'
 import {
   CheckCircle2,
   CheckCircleIcon,
@@ -17,8 +17,6 @@ import {
   Trash2,
   PauseCircle,
 } from 'lucide-react'
-
-
 
 export const TasksClient = () => {
   const { data } = useQuery({
@@ -34,8 +32,7 @@ export const TasksClient = () => {
 
   return (
     <Tabs defaultValue="todo" className="w-full">
-      <div className="mb-8">
-        {/* TabsList pleine largeur sur mobile, auto sur desktop */}
+      <div className="mb-8"> 
         <TabsList className="h-10 w-full rounded-xl bg-muted/60 p-1 sm:w-auto">
           <TabsTrigger
             value="todo"

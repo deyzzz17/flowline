@@ -88,7 +88,7 @@ export const useTaskCreation = () => {
     setShowError(false)
   }
 
-  const saveTask = async () => {
+  const saveTask = async (listId?: number) => {
     if (title.trim() === '') {
       setShowError(true)
       return false
@@ -102,6 +102,7 @@ export const useTaskCreation = () => {
       tags,
       customTags: customTags.map((id) => parseInt(id)),
       dueDate: dueDate ? dueDate.toISOString() : null,
+      ...(listId !== undefined && { listId }),
       subtasks: subtasks.map((s) => ({
         title: s.title,
         done: s.done,
