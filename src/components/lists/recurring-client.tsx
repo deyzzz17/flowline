@@ -84,6 +84,13 @@ export const RecurringClient = () => {
               <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
               <span className="hidden xs:inline sm:inline">Achieved</span>
             </TabsTrigger>
+            <TabsTrigger
+              value="trashed"
+              className="flex-1 sm:flex-none gap-1.5 rounded-lg px-2 sm:px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            >
+              <Trash2 className="h-3.5 w-3.5 shrink-0" />
+              <span className="hidden xs:inline sm:inline">Trash</span>
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -121,7 +128,7 @@ export const RecurringClient = () => {
                     </p>
                   </div>
                 ) : (
-                  <TodoList tasks={todoTasks} readOnly />
+                  <TodoList tasks={todoTasks} noEdit />
                 )}
               </div>
             </div>
@@ -162,7 +169,7 @@ export const RecurringClient = () => {
                     </p>
                   </div>
                 ) : (
-                  <InactiveList tasks={inactiveTasks} readOnly />
+                  <InactiveList tasks={inactiveTasks} noEdit />
                 )}
               </div>
             </div>

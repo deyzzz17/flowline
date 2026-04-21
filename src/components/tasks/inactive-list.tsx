@@ -6,10 +6,10 @@ import { useTask } from '@/hooks/tasks/use-task'
 
 interface InactiveListProps {
   tasks: Task[]
-  readOnly?: boolean
+  noEdit?: boolean
 }
 
-export const InactiveList = ({ tasks, readOnly }: InactiveListProps) => {
+export const InactiveList = ({ tasks, noEdit }: InactiveListProps) => {
   const taskManager = useTask()
   return (
     <div className="grid gap-4 w-full">
@@ -22,7 +22,7 @@ export const InactiveList = ({ tasks, readOnly }: InactiveListProps) => {
             task={task}
             isEditing={isEditing}
             isDisabled={isDisabled}
-            readOnly={readOnly}
+            noEdit={noEdit}
             taskManager={taskManager}
           />
         )

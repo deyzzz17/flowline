@@ -7,9 +7,10 @@ import { useTask } from '@/hooks/tasks/use-task'
 interface TodoListProps {
   tasks: Task[]
   readOnly?: boolean
+  noEdit?: boolean
 }
 
-export const TodoList = ({ tasks, readOnly }: TodoListProps) => {
+export const TodoList = ({ tasks, readOnly, noEdit }: TodoListProps) => {
   const taskManager = useTask()
 
   return (
@@ -24,6 +25,7 @@ export const TodoList = ({ tasks, readOnly }: TodoListProps) => {
             isEditing={isEditing}
             isDisabled={isDisabled}
             readOnly={readOnly}
+            noEdit={noEdit}
             taskManager={taskManager}
           />
         )
