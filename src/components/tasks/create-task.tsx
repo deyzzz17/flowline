@@ -283,8 +283,8 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
                   >
                     <span
                       className={cn(
-                        'absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform',
-                        autoDeleteOnDueDate ? 'translate-x-4' : 'translate-x-0.5',
+                        'absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform',
+                        autoDeleteOnDueDate ? 'translate-x-4' : 'translate-x-0',
                       )}
                     />
                   </div>
