@@ -15,7 +15,7 @@ export const useDeleteList = (list: List) => {
       if (!result.ok) return
       queryClient.invalidateQueries({ queryKey: ['lists'] })
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
-      router.push('/dashboard')
+      router.push('/lists/today')
     },
   })
 
