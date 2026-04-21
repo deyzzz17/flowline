@@ -12,7 +12,7 @@ type EditDraft = {
   title?: string
   description?: string
   tags?: Task['tags']
-  customTags?: number[] // IDs directs pour Payload relationship
+  customTags?: number[]
   dueDate?: string | null
   type?: Task['type']
   recurrence?: Task['recurrence']

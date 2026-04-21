@@ -41,7 +41,7 @@ export const useRestoreTask = () => {
           if (!old) return old
           const withoutTask = old.docs.filter((t) => t.id !== id)
           const key = queryKey as string[]
-          const isGeneralQuery = key.length === 1 
+          const isGeneralQuery = key.length === 1
           const isListQuery = key.length === 2 && typeof key[1] === 'number'
           const isTodayQuery = key[1] === 'today'
           const isRecurringQuery = key[1] === 'recurring'
@@ -67,7 +67,13 @@ export const useRestoreTask = () => {
       })
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      const queries = queryClient.getQueriesData({ queryKey: ['tasks'] })
+      queries.forEach(([queryKey]) => {
+        const key = queryKey as string[]
+        if (key[1] !== 'recurring') {
+          queryClient.invalidateQueries({ queryKey: key })
+        }
+      })
     },
   })
 }

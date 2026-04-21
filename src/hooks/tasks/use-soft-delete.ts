@@ -29,8 +29,14 @@ export const useSoftDelete = () => {
         queryClient.setQueryData(queryKey as string[], data)
       })
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    onSettled: (_data, _error, _id) => {
+      const queries = queryClient.getQueriesData({ queryKey: ['tasks'] })
+      queries.forEach(([queryKey]) => {
+        const key = queryKey as string[]
+        if (key[1] !== 'recurring') {
+          queryClient.invalidateQueries({ queryKey: key })
+        }
+      })
     },
   })
 }
