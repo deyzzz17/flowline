@@ -126,7 +126,7 @@ export const TodayClient = () => {
                     </p>
                   </div>
                 ) : (
-                  <TodoList tasks={todoTasks} />
+                  <TodoList tasks={todoTasks} readOnly />
                 )}
               </div>
             </div>
@@ -164,7 +164,7 @@ export const TodayClient = () => {
                     </p>
                   </div>
                 ) : (
-                  <AchievedList tasks={achievedTasks} />
+                  <AchievedList tasks={achievedTasks} readOnly />
                 )}
               </div>
             </div>

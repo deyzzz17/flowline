@@ -118,7 +118,7 @@ export const RecurringClient = () => {
                     </p>
                   </div>
                 ) : (
-                  <TodoList tasks={todoTasks} />
+                  <TodoList tasks={todoTasks} readOnly />
                 )}
               </div>
             </div>
@@ -159,7 +159,7 @@ export const RecurringClient = () => {
                     </p>
                   </div>
                 ) : (
-                  <InactiveList tasks={inactiveTasks} />
+                  <InactiveList tasks={inactiveTasks} readOnly />
                 )}
               </div>
             </div>
@@ -197,7 +197,7 @@ export const RecurringClient = () => {
                     </p>
                   </div>
                 ) : (
-                  <AchievedList tasks={achievedTasks} />
+                  <AchievedList tasks={achievedTasks} readOnly />
                 )}
               </div>
             </div>
