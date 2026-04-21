@@ -360,7 +360,7 @@ export const TaskCard = ({
                 placeholder="Add a description..."
               />
 
-              <div className="space-y-2.5">
+              <div className="space-y-2.5" onClick={(e) => e.stopPropagation()}>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Due date
                 </p>
@@ -385,8 +385,8 @@ export const TaskCard = ({
                     >
                       <span
                         className={cn(
-                          'absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform',
-                          editAutoDelete ? 'translate-x-4' : 'translate-x-0.5',
+                          'absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform',
+                          editAutoDelete ? 'translate-x-4' : 'translate-x-0',
                         )}
                       />
                     </div>
@@ -415,6 +415,7 @@ export const TaskCard = ({
                     </button>
                   ))}
                 </div>
+
                 {userTags.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
                     {userTags.map((tag) => {
@@ -481,6 +482,7 @@ export const TaskCard = ({
                     })}
                   </div>
                 )}
+
                 {showNewTag ? (
                   <div className="rounded-xl border border-border/50 bg-muted/20 p-3 space-y-3">
                     <div className="flex items-center justify-between">
