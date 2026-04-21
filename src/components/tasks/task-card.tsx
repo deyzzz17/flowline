@@ -99,6 +99,7 @@ interface TaskCardProps {
   isDisabled?: boolean
   readOnly?: boolean
   noEdit?: boolean
+  showListBadge?: boolean
   taskManager: ReturnType<typeof useTask>
 }
 
@@ -108,6 +109,7 @@ export const TaskCard = ({
   isDisabled,
   readOnly,
   noEdit,
+  showListBadge,
   taskManager,
 }: TaskCardProps) => {
   const {
@@ -191,6 +193,11 @@ export const TaskCard = ({
   const recurrenceDays = (task.recurrence?.days ?? []) as string[]
   const isDaily = task.recurrence?.frequency === 'daily'
   const daysLeft = isDeleted && task.trashedAt ? getDaysLeft(task.trashedAt) : null
+
+  // Badge liste
+  type ListObj = { id: number; name: string; category?: { color?: string | null } | null }
+  const taskList =
+    showListBadge && task.list && typeof task.list === 'object' ? (task.list as ListObj) : null
 
   const handleStartEditing = () => {
     setEditTags((task.tags ?? []) as TaskTag[])
@@ -315,6 +322,7 @@ export const TaskCard = ({
         <div className="flex-1 min-w-0">
           {isEditing ? (
             <div className="space-y-4">
+              {/* Type toggle */}
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -344,6 +352,7 @@ export const TaskCard = ({
                 </button>
               </div>
 
+              {/* Title */}
               <input
                 autoFocus
                 className="w-full bg-transparent text-base font-semibold outline-none border-b border-primary/30 focus:border-primary transition-colors pb-1"
@@ -353,6 +362,7 @@ export const TaskCard = ({
                 placeholder="Task title"
               />
 
+              {/* Description */}
               <textarea
                 className="w-full bg-muted/30 p-3 rounded-xl text-sm outline-none resize-none min-h-18 border border-border/40 focus:border-primary/30 transition-colors"
                 value={draft.description}
@@ -360,6 +370,7 @@ export const TaskCard = ({
                 placeholder="Add a description..."
               />
 
+              {/* Due date + auto-delete */}
               <div className="space-y-2.5" onClick={(e) => e.stopPropagation()}>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Due date
@@ -394,6 +405,7 @@ export const TaskCard = ({
                 )}
               </div>
 
+              {/* Tags */}
               <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Tags
@@ -415,7 +427,6 @@ export const TaskCard = ({
                     </button>
                   ))}
                 </div>
-
                 {userTags.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
                     {userTags.map((tag) => {
@@ -482,7 +493,6 @@ export const TaskCard = ({
                     })}
                   </div>
                 )}
-
                 {showNewTag ? (
                   <div className="rounded-xl border border-border/50 bg-muted/20 p-3 space-y-3">
                     <div className="flex items-center justify-between">
@@ -580,6 +590,7 @@ export const TaskCard = ({
                 )}
               </div>
 
+              {/* Recurrence */}
               {editType === 'recurring' && (
                 <div className="space-y-2.5 rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
                   <p className="text-xs font-semibold uppercase tracking-widest text-violet-600 dark:text-violet-400">
@@ -624,6 +635,7 @@ export const TaskCard = ({
                 </div>
               )}
 
+              {/* Subtasks */}
               <div className="space-y-1.5">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Subtasks
@@ -775,6 +787,7 @@ export const TaskCard = ({
                 </div>
               </div>
 
+              {/* Save/Cancel */}
               <div className="flex items-center gap-2 pt-1">
                 <Button size="sm" className="h-8 px-3 text-xs gap-1.5" onClick={handleSaveEdit}>
                   Save
@@ -1055,8 +1068,28 @@ export const TaskCard = ({
           )}
         </div>
 
+        {/* Actions droite — badge liste + boutons edit/delete */}
         {!isEditing && !readOnly && (
-          <div className="flex items-center self-start gap-0.5 shrink-0">
+          <div className="flex items-center self-start gap-1 shrink-0 mt-0.5">
+            {/* Badge liste — uniquement si showListBadge */}
+            {taskList && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                style={{
+                  backgroundColor: hexToRgba(taskList.category?.color ?? '#8b5cf6', 0.1),
+                  color: taskList.category?.color ?? '#8b5cf6',
+                  border: `1px solid ${hexToRgba(taskList.category?.color ?? '#8b5cf6', 0.25)}`,
+                }}
+              >
+                <span
+                  className="h-1.5 w-1.5 rounded-full shrink-0"
+                  style={{ backgroundColor: taskList.category?.color ?? '#8b5cf6' }}
+                />
+                {taskList.name}
+              </span>
+            )}
+
+            {/* Boutons edit/delete */}
             {(isActive || isInactive) && !noEdit && (
               <Button
                 variant="ghost"

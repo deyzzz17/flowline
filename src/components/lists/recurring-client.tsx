@@ -128,7 +128,7 @@ export const RecurringClient = () => {
                     </p>
                   </div>
                 ) : (
-                  <TodoList tasks={todoTasks} noEdit />
+                  <TodoList tasks={todoTasks} noEdit showListBadge />
                 )}
               </div>
             </div>
@@ -169,7 +169,7 @@ export const RecurringClient = () => {
                     </p>
                   </div>
                 ) : (
-                  <InactiveList tasks={inactiveTasks} noEdit />
+                  <InactiveList tasks={inactiveTasks} noEdit showListBadge />
                 )}
               </div>
             </div>
@@ -207,7 +207,7 @@ export const RecurringClient = () => {
                     </p>
                   </div>
                 ) : (
-                  <AchievedList tasks={achievedTasks} readOnly />
+                  <AchievedList tasks={achievedTasks} readOnly showListBadge />
                 )}
               </div>
             </div>
@@ -250,7 +250,7 @@ export const RecurringClient = () => {
                     </p>
                   </div>
                 ) : (
-                  <Trash tasks={trashedTasks} />
+                  <Trash tasks={trashedTasks} showListBadge />
                 )}
               </div>
             </div>
