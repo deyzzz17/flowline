@@ -115,7 +115,7 @@ export const ListClient = ({ list }: ListClientProps) => {
   return (
     <>
       <section className="mb-8 mt-10">
-        <div className="flex items-end justify-between gap-4">
+        <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <div className="mb-1 flex items-center gap-2">
               <span
@@ -126,56 +126,7 @@ export const ListClient = ({ list }: ListClientProps) => {
                 {list.category?.name ?? 'List'}
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-bold tracking-tight text-foreground">{list.name}</h1>
-              <div className="flex items-center gap-0.5 mb-0.5">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                  onClick={handleOpen}
-                >
-                  <PencilSquareIcon className="h-4 w-4" />
-                </Button>
-                {!list.isDefault && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
-                        disabled={isDeleting}
-                      >
-                        {isDeleting ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <TrashIcon className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete this list?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will permanently delete <strong>{list.name}</strong> and all its
-                          tasks. This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={handleDelete}
-                          variant="destructive"
-                          disabled={isDeleting}
-                        >
-                          Delete list
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
-              </div>
-            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">{list.name}</h1>
             <p className="mt-1.5 text-sm text-muted-foreground">
               {allTasks.length === 0
                 ? 'No tasks yet, create your first one below.'
@@ -195,22 +146,71 @@ export const ListClient = ({ list }: ListClientProps) => {
               </div>
             )}
           </div>
-          {activePlusDone.length > 0 && (
-            <div className="hidden flex-col items-end gap-1.5 sm:flex">
-              <span className="text-xs text-muted-foreground">
-                {achievedTasks.length}/{activePlusDone.length} done
-              </span>
-              <div className="h-1.5 w-32 overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full transition-all duration-700"
-                  style={{ width: `${completionRate}%`, backgroundColor: categoryColor }}
-                />
-              </div>
-              <span className="text-xs font-semibold" style={{ color: categoryColor }}>
-                {completionRate}%
-              </span>
+
+          <div className="hidden sm:flex flex-col items-end gap-2">
+            <div className="flex items-center gap-0.5">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                onClick={handleOpen}
+              >
+                <PencilSquareIcon className="h-4 w-4" />
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <TrashIcon className="h-4 w-4" />
+                    )}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete this list?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete <strong>{list.name}</strong> and all its tasks.
+                      This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDelete}
+                      variant="destructive"
+                      disabled={isDeleting}
+                    >
+                      Delete list
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
-          )}
+
+            {activePlusDone.length > 0 && (
+              <>
+                <span className="text-xs text-muted-foreground">
+                  {achievedTasks.length}/{activePlusDone.length} done
+                </span>
+                <div className="h-1.5 w-32 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{ width: `${completionRate}%`, backgroundColor: categoryColor }}
+                  />
+                </div>
+                <span className="text-xs font-semibold" style={{ color: categoryColor }}>
+                  {completionRate}%
+                </span>
+              </>
+            )}
+          </div>
         </div>
       </section>
 

@@ -121,7 +121,6 @@ export const deleteList = async (id: number) => {
     const list = await payload.findByID({ collection: 'lists', id })
 
     if (list.userId !== userId) return err('Not authorized')
-    if (list.isDefault) return err('Cannot delete the default list')
 
     const { docs: tasks } = await payload.find({
       collection: 'tasks',
