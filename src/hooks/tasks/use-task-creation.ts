@@ -27,6 +27,7 @@ export const useTaskCreation = () => {
   const [frequency, setFrequency] = useState<RecurrenceFrequency>('daily')
   const [days, setDays] = useState<RecurrenceDay[]>([])
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined)
+  const [autoDeleteOnDueDate, setAutoDeleteOnDueDate] = useState(false)
   const [showError, setShowError] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [showNewTag, setShowNewTag] = useState(false)
@@ -85,6 +86,7 @@ export const useTaskCreation = () => {
     setFrequency('daily')
     setDays([])
     setDueDate(undefined)
+    setAutoDeleteOnDueDate(false)
     setShowError(false)
   }
 
@@ -102,6 +104,7 @@ export const useTaskCreation = () => {
       tags,
       customTags: customTags.map((id) => parseInt(id)),
       dueDate: dueDate ? dueDate.toISOString() : null,
+      autoDeleteOnDueDate,
       ...(listId !== undefined && { listId }),
       subtasks: subtasks.map((s) => ({
         title: s.title,
@@ -151,6 +154,8 @@ export const useTaskCreation = () => {
     toggleDay,
     dueDate,
     setDueDate,
+    autoDeleteOnDueDate,
+    setAutoDeleteOnDueDate,
     saveTask,
     resetForm,
     showNewTag,

@@ -44,6 +44,12 @@ function hexToRgba(hex: string, alpha: number) {
   }
 }
 
+function getDaysLeft(trashedAt: string): number {
+  const diffMs = Date.now() - new Date(trashedAt).getTime()
+  const daysUsed = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  return Math.max(0, 15 - daysUsed)
+}
+
 const TAG_STYLES: Record<string, string> = {
   urgent: 'bg-red-500/10 text-red-600 dark:text-red-400',
   work: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
@@ -184,6 +190,9 @@ export const TaskCard = ({
 
   const recurrenceDays = (task.recurrence?.days ?? []) as string[]
   const isDaily = task.recurrence?.frequency === 'daily'
+
+  // Badge jours restants avant suppression définitive
+  const daysLeft = isDeleted && task.trashedAt ? getDaysLeft(task.trashedAt) : null
 
   const handleStartEditing = () => {
     setEditTags((task.tags ?? []) as TaskTag[])
@@ -362,7 +371,6 @@ export const TaskCard = ({
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Tags
                 </p>
-
                 <div className="flex flex-wrap gap-1.5">
                   {TAG_OPTIONS.map((tag) => (
                     <button
@@ -644,7 +652,7 @@ export const TaskCard = ({
                               <div className="space-y-1.5">
                                 <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
                                   Description{' '}
-                                  <span className="normal-case font-normal"> Optional</span>
+                                  <span className="normal-case font-normal">Optional</span>
                                 </p>
                                 <Textarea
                                   value={s.description ?? ''}
@@ -655,8 +663,7 @@ export const TaskCard = ({
                               </div>
                               <div className="space-y-1.5">
                                 <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                                  Due date{' '}
-                                  <span className="normal-case font-normal"> Optional</span>
+                                  Due date <span className="normal-case font-normal">Optional</span>
                                 </p>
                                 <InlineDatePicker
                                   value={s.dueDate}
@@ -665,7 +672,7 @@ export const TaskCard = ({
                               </div>
                               <div className="space-y-1.5">
                                 <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                                  Tags <span className="normal-case font-normal"> Optional</span>
+                                  Tags <span className="normal-case font-normal">Optional</span>
                                 </p>
                                 <div className="flex flex-wrap gap-1.5">
                                   {TAG_OPTIONS.map((tag) => (
@@ -824,7 +831,10 @@ export const TaskCard = ({
                 </p>
               )}
 
-              {(tags.length > 0 || task.dueDate || taskCustomTags.length > 0) && (
+              {(tags.length > 0 ||
+                task.dueDate ||
+                taskCustomTags.length > 0 ||
+                daysLeft !== null) && (
                 <div className="flex flex-wrap items-center gap-1.5">
                   {task.dueDate && (
                     <DueDateBadge dateString={task.dueDate} completed={isCompleted} />
@@ -857,6 +867,22 @@ export const TaskCard = ({
                       {tag.name}
                     </span>
                   ))}
+                  {daysLeft !== null && (
+                    <span
+                      className={cn(
+                        'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                        daysLeft === 0
+                          ? 'bg-destructive/15 text-destructive'
+                          : daysLeft <= 2
+                            ? 'bg-destructive/10 text-destructive'
+                            : daysLeft <= 5
+                              ? 'bg-orange-500/10 text-orange-500 dark:text-orange-400'
+                              : 'bg-muted text-muted-foreground',
+                      )}
+                    >
+                      {daysLeft === 0 ? 'Deletes today' : `${daysLeft}d left`}
+                    </span>
+                  )}
                 </div>
               )}
 

@@ -138,6 +138,15 @@ export const Tasks: CollectionConfig = {
       required: false,
     },
     {
+      name: 'autoDeleteOnDueDate',
+      type: 'checkbox',
+      defaultValue: false,
+      required: false,
+      admin: {
+        description: 'Automatically move to trash when the due date is passed.',
+      },
+    },
+    {
       name: 'trashedAt',
       type: 'date',
       required: false,

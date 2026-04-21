@@ -19,6 +19,7 @@ type CreateTaskInput = {
   subtasks?: Task['subtasks']
   recurrence?: Task['recurrence']
   dueDate?: string | null
+  autoDeleteOnDueDate?: boolean
   listId?: number | null
 }
 
@@ -26,6 +27,7 @@ type EditTaskInput = Partial<
   Pick<Task, 'title' | 'description' | 'tags' | 'subtasks' | 'recurrence' | 'dueDate'>
 > & {
   customTags?: number[]
+  autoDeleteOnDueDate?: boolean
   listId?: number | null
 }
 
@@ -67,6 +69,7 @@ export const createTask = async (task: CreateTaskInput) => {
         subtasks: task.subtasks ?? [],
         ...(task.recurrence && { recurrence: task.recurrence }),
         ...(task.dueDate !== undefined && { dueDate: task.dueDate }),
+        autoDeleteOnDueDate: task.autoDeleteOnDueDate ?? false,
         ...(task.listId !== undefined && task.listId !== null && { list: task.listId }),
         userId,
       },
@@ -196,6 +199,24 @@ export const deleteTask = async (id: number) => {
   return await payload.delete({ collection: 'tasks', id })
 }
 
+export const softDeleteTask = async (taskId: number) => {
+  try {
+    const payload = await getPayload({ config })
+    await payload.update({
+      collection: 'tasks',
+      id: taskId,
+      data: {
+        status: 'deleted',
+        trashedAt: new Date().toISOString(),
+      },
+    })
+    revalidatePath('/')
+    return ok(true)
+  } catch {
+    return err('Error while soft deleting the task')
+  }
+}
+
 export const moveToTrash = async (id: number) => {
   try {
     await deleteTask(id)
@@ -232,24 +253,6 @@ export const toggleTaskStatus = async (id: number, currentStatus: 'active' | 'co
     return ok(true)
   } catch {
     return err('Error while updating the task')
-  }
-}
-
-export const softDeleteTask = async (taskId: number) => {
-  try {
-    const payload = await getPayload({ config })
-    await payload.update({
-      collection: 'tasks',
-      id: taskId,
-      data: {
-        status: 'deleted',
-        trashedAt: new Date().toISOString(),
-      },
-    })
-    revalidatePath('/')
-    return ok(true)
-  } catch {
-    return err('Error while soft deleting the task')
   }
 }
 
@@ -306,6 +309,9 @@ export const editTask = async (id: number, draft: EditTaskInput) => {
         ...(draft.subtasks !== undefined && { subtasks: draft.subtasks }),
         ...(draft.recurrence !== undefined && { recurrence: draft.recurrence }),
         ...(draft.dueDate !== undefined && { dueDate: draft.dueDate }),
+        ...(draft.autoDeleteOnDueDate !== undefined && {
+          autoDeleteOnDueDate: draft.autoDeleteOnDueDate,
+        }),
         ...(draft.listId !== undefined && { list: draft.listId }),
       },
     })

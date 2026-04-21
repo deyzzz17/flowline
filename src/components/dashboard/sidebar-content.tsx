@@ -8,22 +8,61 @@ import { api } from '@/api'
 import { useActiveNav } from '@/hooks/dashboard/use-active-nav'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
+import type { Task } from '@/payload-types'
 
 interface SidebarContentProps {
   onNavigate?: () => void
 }
 
+function getListUrgency(tasks: Task[]): 'red' | 'orange' | null {
+  const now = Date.now()
+  const oneDayMs = 24 * 60 * 60 * 1000
+  const twoDaysMs = 2 * oneDayMs
+
+  let hasOrange = false
+
+  for (const task of tasks) {
+    if (task.status !== 'active' || !task.dueDate) continue
+    const diff = new Date(task.dueDate).getTime() - now
+    if (diff <= 0) continue // déjà dépassée
+    if (diff <= oneDayMs) return 'red'
+    if (diff <= twoDaysMs) hasOrange = true
+  }
+
+  return hasOrange ? 'orange' : null
+}
+
 export const SidebarContent = ({ onNavigate }: SidebarContentProps) => {
   const [listsOpen, setListsOpen] = useState(true)
 
-  const { data } = useQuery({
+  const { data: listsData } = useQuery({
     queryKey: ['lists'],
     queryFn: () => api.lists.list(),
   })
 
-  const lists = data?.docs ?? []
+  const { data: tasksData } = useQuery({
+    queryKey: ['tasks'],
+    queryFn: () => api.tasks.list(),
+  })
+
+  const lists = listsData?.docs ?? []
+  const allTasks = (tasksData?.docs ?? []) as Task[]
   const defaultList = lists.find((l) => l.isDefault)
   const customLists = lists.filter((l) => !l.isDefault)
+
+  const tasksByList = allTasks.reduce<Record<number, Task[]>>((acc, task) => {
+    const listId =
+      typeof task.list === 'object' && task.list !== null
+        ? (task.list as { id: number }).id
+        : typeof task.list === 'number'
+          ? task.list
+          : null
+    if (listId !== null) {
+      if (!acc[listId]) acc[listId] = []
+      acc[listId].push(task)
+    }
+    return acc
+  }, {})
 
   return (
     <div className="flex flex-1 flex-col p-3">
@@ -64,6 +103,7 @@ export const SidebarContent = ({ onNavigate }: SidebarContentProps) => {
                   href={`/lists/${defaultList.slug}`}
                   label={defaultList.name}
                   color={defaultList.category?.color ?? '#8b5cf6'}
+                  urgency={getListUrgency(tasksByList[defaultList.id] ?? [])}
                   onNavigate={onNavigate}
                 />
               )}
@@ -74,12 +114,13 @@ export const SidebarContent = ({ onNavigate }: SidebarContentProps) => {
                   href={`/lists/${list.slug}`}
                   label={list.name}
                   color={list.category?.color ?? '#8b5cf6'}
+                  urgency={getListUrgency(tasksByList[list.id] ?? [])}
                   onNavigate={onNavigate}
                 />
               ))}
 
               <Link
-                href="/lists/new-list"
+                href="/lists/new"
                 onClick={onNavigate}
                 className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/60 transition-all duration-200 hover:bg-muted hover:text-foreground"
               >
@@ -98,11 +139,13 @@ function ListNavItem({
   href,
   label,
   color,
+  urgency,
   onNavigate,
 }: {
   href: string
   label: string
   color: string
+  urgency: 'red' | 'orange' | null
   onNavigate?: () => void
 }) {
   const isActive = useActiveNav(href)
@@ -119,7 +162,15 @@ function ListNavItem({
       )}
     >
       <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
-      {label}
+      <span className="flex-1 truncate">{label}</span>
+      {urgency && (
+        <span
+          className={cn(
+            'h-2 w-2 shrink-0 rounded-full',
+            urgency === 'red' ? 'bg-destructive' : 'bg-orange-500',
+          )}
+        />
+      )}
     </Link>
   )
 }
