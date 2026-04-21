@@ -46,7 +46,7 @@ export const DatePicker = ({
           selected={value}
           onSelect={(d) => {
             onChange(d)
-            change()
+            change(false)
           }}
           disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
           autoFocus
