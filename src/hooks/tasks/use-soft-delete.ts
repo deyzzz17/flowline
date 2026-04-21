@@ -4,29 +4,31 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 export const useSoftDelete = () => {
   const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: (id: number) => api.tasks.softDelete(id),
-
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ['tasks'] })
 
-      const previous = queryClient.getQueryData<{ docs: Task[] }>(['tasks'])
+      const queries = queryClient.getQueriesData<{ docs: Task[] }>({ queryKey: ['tasks'] })
+      const previousData = queries.map(([queryKey, data]) => ({ queryKey, data }))
 
-      queryClient.setQueryData<{ docs: Task[] }>(['tasks'], (old) => ({
-        ...old!,
-        docs: old!.docs.map((task) => (task.id === id ? { ...task, status: 'deleted' } : task)),
-      }))
+      queries.forEach(([queryKey]) => {
+        queryClient.setQueryData<{ docs: Task[] }>(queryKey as string[], (old) => {
+          if (!old) return old
+          return {
+            ...old,
+            docs: old.docs.map((task) => (task.id === id ? { ...task, status: 'deleted' } : task)),
+          }
+        })
+      })
 
-      return { previous }
+      return { previousData }
     },
-
     onError: (_err, _vars, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(['tasks'], context.previous)
-      }
+      context?.previousData?.forEach(({ queryKey, data }) => {
+        queryClient.setQueryData(queryKey as string[], data)
+      })
     },
-
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
     },
