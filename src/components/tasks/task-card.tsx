@@ -91,10 +91,11 @@ interface TaskCardProps {
   task: Task
   isEditing?: boolean
   isDisabled?: boolean
+  readOnly?: boolean
   taskManager: ReturnType<typeof useTask>
 }
 
-export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardProps) => {
+export const TaskCard = ({ task, isEditing, isDisabled, readOnly, taskManager }: TaskCardProps) => {
   const {
     toggleStatus,
     isUpdating,
@@ -994,7 +995,7 @@ export const TaskCard = ({ task, isEditing, isDisabled, taskManager }: TaskCardP
           )}
         </div>
 
-        {!isEditing && (
+        {!isEditing && !readOnly && (
           <div className="flex items-center self-start gap-0.5 shrink-0">
             {(isActive || isInactive) && (
               <Button

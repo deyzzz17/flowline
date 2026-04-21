@@ -23,6 +23,7 @@ export const TodoList = ({ tasks, readOnly }: TodoListProps) => {
             task={task}
             isEditing={isEditing}
             isDisabled={isDisabled}
+            readOnly={readOnly}
             taskManager={taskManager}
           />
         )

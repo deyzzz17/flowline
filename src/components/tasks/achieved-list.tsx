@@ -15,7 +15,7 @@ export const AchievedList = ({ tasks, readOnly }: AchievedListProps) => {
   return (
     <div className="grid gap-4 w-full">
       {tasks.map((task) => (
-        <TaskCard key={task.id} task={task} isDisabled={readOnly} taskManager={taskManager} />
+        <TaskCard key={task.id} task={task} readOnly={readOnly} taskManager={taskManager} />
       ))}
     </div>
   )
