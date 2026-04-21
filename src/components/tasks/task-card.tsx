@@ -126,6 +126,8 @@ export const TaskCard = ({
     setEditDays,
     editDueDate,
     setEditDueDate,
+    editAutoDelete,
+    setEditAutoDelete,
     editType,
     setEditType,
     editFrequency,
@@ -151,7 +153,6 @@ export const TaskCard = ({
   const restoreTask = useRestoreTask()
   const toggleSubtask = useToggleSubtask()
   const deleteSubtask = useDeleteSubtask()
-
   const queryClient = useQueryClient()
 
   const { data: userTagsData } = useQuery({
@@ -187,17 +188,15 @@ export const TaskCard = ({
   const tags = (task.tags ?? []) as string[]
   type UserTag = { id: number; name: string; color: string }
   const taskCustomTags = (task.customTags ?? []) as UserTag[]
-
   const recurrenceDays = (task.recurrence?.days ?? []) as string[]
   const isDaily = task.recurrence?.frequency === 'daily'
-
-  // Badge jours restants avant suppression définitive
   const daysLeft = isDeleted && task.trashedAt ? getDaysLeft(task.trashedAt) : null
 
   const handleStartEditing = () => {
     setEditTags((task.tags ?? []) as TaskTag[])
     setEditCustomTags(taskCustomTags.map((t) => String(t.id)))
     setEditDueDate(task.dueDate ? new Date(task.dueDate) : undefined)
+    setEditAutoDelete(task.autoDeleteOnDueDate ?? false)
     setEditType(task.type ?? 'simple')
     setEditFrequency((task.recurrence?.frequency as 'daily' | 'custom') ?? 'daily')
     setEditDays((task.recurrence?.days ?? []) as RecurrenceDay[])
@@ -266,6 +265,7 @@ export const TaskCard = ({
       tags: editTags,
       customTags: editCustomTags.map((id) => parseInt(id)),
       dueDate: editDueDate ? editDueDate.toISOString() : null,
+      autoDeleteOnDueDate: editAutoDelete,
       type: editType,
       recurrence:
         editType === 'recurring'
@@ -360,11 +360,38 @@ export const TaskCard = ({
                 placeholder="Add a description..."
               />
 
-              <div className="space-y-1.5">
+              <div className="space-y-2.5">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Due date
                 </p>
                 <InlineDatePicker value={editDueDate} onChange={setEditDueDate} />
+                {editDueDate && (
+                  <button
+                    type="button"
+                    onClick={() => setEditAutoDelete(!editAutoDelete)}
+                    className="flex w-full items-center justify-between rounded-xl border border-border/50 bg-muted/20 px-4 py-3 transition-all hover:bg-muted/40"
+                  >
+                    <div className="text-left">
+                      <p className="text-sm font-medium text-foreground">Auto-delete on due date</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Move to trash automatically when the due date passes
+                      </p>
+                    </div>
+                    <div
+                      className={cn(
+                        'relative ml-4 h-5 w-9 shrink-0 rounded-full transition-colors',
+                        editAutoDelete ? 'bg-violet-500' : 'bg-muted-foreground/30',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform',
+                          editAutoDelete ? 'translate-x-4' : 'translate-x-0.5',
+                        )}
+                      />
+                    </div>
+                  </button>
+                )}
               </div>
 
               <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
@@ -388,7 +415,6 @@ export const TaskCard = ({
                     </button>
                   ))}
                 </div>
-
                 {userTags.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
                     {userTags.map((tag) => {
@@ -431,7 +457,7 @@ export const TaskCard = ({
                                 <AlertDialogTitle>Delete this tag?</AlertDialogTitle>
                                 <AlertDialogDescription>
                                   This will permanently delete the tag <strong>{tag.name}</strong>{' '}
-                                  and remove it from all tasks. This action cannot be undone.
+                                  and remove it from all tasks.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
@@ -455,7 +481,6 @@ export const TaskCard = ({
                     })}
                   </div>
                 )}
-
                 {showNewTag ? (
                   <div className="rounded-xl border border-border/50 bg-muted/20 p-3 space-y-3">
                     <div className="flex items-center justify-between">
@@ -972,7 +997,6 @@ export const TaskCard = ({
                                   <AlertDialogTitle>Delete this subtask?</AlertDialogTitle>
                                   <AlertDialogDescription>
                                     This will permanently delete <strong>{subtask.title}</strong>.
-                                    This action cannot be undone.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>

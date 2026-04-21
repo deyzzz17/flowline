@@ -94,6 +94,8 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
     toggleDay,
     dueDate,
     setDueDate,
+    autoDeleteOnDueDate,
+    setAutoDeleteOnDueDate,
     resetForm,
     showNewTag,
     setShowNewTag,
@@ -259,7 +261,36 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
           </FormField>
 
           <FormField label="Due date" optional>
-            <DatePicker value={dueDate} onChange={setDueDate} />
+            <div className="space-y-2.5">
+              <DatePicker value={dueDate} onChange={setDueDate} />
+              {dueDate && (
+                <button
+                  type="button"
+                  onClick={() => setAutoDeleteOnDueDate(!autoDeleteOnDueDate)}
+                  className="flex w-full items-center justify-between rounded-xl border border-border/50 bg-muted/20 px-4 py-3 transition-all hover:bg-muted/40"
+                >
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-foreground">Auto-delete on due date</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Move to trash automatically when the due date passes
+                    </p>
+                  </div>
+                  <div
+                    className={cn(
+                      'relative ml-4 h-5 w-9 shrink-0 rounded-full transition-colors',
+                      autoDeleteOnDueDate ? 'bg-violet-500' : 'bg-muted-foreground/30',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform',
+                        autoDeleteOnDueDate ? 'translate-x-4' : 'translate-x-0.5',
+                      )}
+                    />
+                  </div>
+                </button>
+              )}
+            </div>
           </FormField>
 
           <FormField label="Tags" optional>

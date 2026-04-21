@@ -1,5 +1,4 @@
 'use client'
-
 import { useState } from 'react'
 import { Task } from '@/payload-types'
 import { useToggleTask } from './use-toggle-task'
@@ -14,6 +13,7 @@ type EditDraft = {
   tags?: Task['tags']
   customTags?: number[]
   dueDate?: string | null
+  autoDeleteOnDueDate?: boolean
   type?: Task['type']
   recurrence?: Task['recurrence']
   subtasks?: { title: string; done: boolean }[]
@@ -23,8 +23,9 @@ export const useTask = () => {
   const [editingId, setEditingId] = useState<number | undefined>(undefined)
   const [draft, setDraft] = useState({ title: '', description: '' })
   const [editTags, setEditTags] = useState<TaskTag[]>([])
-  const [editCustomTags, setEditCustomTags] = useState<string[]>([]) // string[] en interne pour le UI
+  const [editCustomTags, setEditCustomTags] = useState<string[]>([])
   const [editDueDate, setEditDueDate] = useState<Date | undefined>(undefined)
+  const [editAutoDelete, setEditAutoDelete] = useState(false)
   const [editType, setEditType] = useState<Task['type']>('simple')
   const [editFrequency, setEditFrequency] = useState<'daily' | 'custom'>('daily')
   const [editDays, setEditDays] = useState<RecurrenceDay[]>([])
@@ -41,10 +42,7 @@ export const useTask = () => {
 
   const startEditing = (task: Task) => {
     setEditingId(task.id)
-    setDraft({
-      title: task.title,
-      description: task.description ?? '',
-    })
+    setDraft({ title: task.title, description: task.description ?? '' })
   }
 
   const stopEditing = () => {
@@ -59,13 +57,7 @@ export const useTask = () => {
   const saveEdit = async (id: number, extraFields?: Omit<EditDraft, 'title' | 'description'>) => {
     if (editingId !== id) return
     try {
-      await editMutation.mutateAsync({
-        id,
-        draft: {
-          ...draft,
-          ...extraFields,
-        },
-      })
+      await editMutation.mutateAsync({ id, draft: { ...draft, ...extraFields } })
       stopEditing()
       return true
     } catch {
@@ -94,6 +86,8 @@ export const useTask = () => {
     setEditDays,
     editDueDate,
     setEditDueDate,
+    editAutoDelete,
+    setEditAutoDelete,
     editType,
     setEditType,
     editFrequency,
