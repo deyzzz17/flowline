@@ -130,11 +130,7 @@ export const deleteList = async (id: number) => {
     })
 
     for (const task of tasks) {
-      await payload.update({
-        collection: 'tasks',
-        id: task.id,
-        data: { list: null },
-      })
+      await payload.delete({ collection: 'tasks', id: task.id })
     }
 
     await payload.delete({ collection: 'lists', id })

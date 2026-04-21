@@ -8,16 +8,69 @@ import { AchievedList } from '@/components/tasks/achieved-list'
 import { InactiveList } from '@/components/tasks/inactive-list'
 import { Trash } from '@/components/tasks/trash-list'
 import { CreateTask } from '@/components/tasks/create-task'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline'
 import {
   CheckCircle2,
   CheckCircleIcon,
   ClipboardList,
   ListTodo,
+  Loader2,
+  Check,
   Sparkles,
   Trash2,
   PauseCircle,
 } from 'lucide-react'
+import { useEditList } from '@/hooks/lists/use-edit-list'
+import { useDeleteList } from '@/hooks/lists/use-delete-list'
+import { cn } from '@/lib/utils'
 import type { List } from '@/payload-types'
+
+function hexToRgba(hex: string, alpha: number) {
+  try {
+    const r = parseInt(hex.slice(1, 3), 16)
+    const g = parseInt(hex.slice(3, 5), 16)
+    const b = parseInt(hex.slice(5, 7), 16)
+    return `rgba(${r},${g},${b},${alpha})`
+  } catch {
+    return `rgba(139,92,246,${alpha})`
+  }
+}
+
+const PRESET_COLORS = [
+  '#8b5cf6',
+  '#6366f1',
+  '#3b82f6',
+  '#0ea5e9',
+  '#10b981',
+  '#84cc16',
+  '#f59e0b',
+  '#ef4444',
+  '#ec4899',
+  '#f97316',
+  '#14b8a6',
+  '#64748b',
+]
 
 interface ListClientProps {
   list: List
@@ -41,6 +94,24 @@ export const ListClient = ({ list }: ListClientProps) => {
 
   const categoryColor = list.category?.color ?? '#8b5cf6'
 
+  const {
+    editOpen,
+    setEditOpen,
+    name,
+    setName,
+    categoryName,
+    setCategoryName,
+    color,
+    setColor,
+    editError,
+    setEditError,
+    handleOpen,
+    handleSubmit,
+    isPending: isEditing,
+  } = useEditList(list)
+
+  const { handleDelete, isPending: isDeleting } = useDeleteList(list)
+
   return (
     <>
       <section className="mb-8 mt-10">
@@ -55,7 +126,56 @@ export const ListClient = ({ list }: ListClientProps) => {
                 {list.category?.name ?? 'List'}
               </p>
             </div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">{list.name}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold tracking-tight text-foreground">{list.name}</h1>
+              <div className="flex items-center gap-0.5 mb-0.5">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                  onClick={handleOpen}
+                >
+                  <PencilSquareIcon className="h-4 w-4" />
+                </Button>
+                {!list.isDefault && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
+                        disabled={isDeleting}
+                      >
+                        {isDeleting ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <TrashIcon className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete this list?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete <strong>{list.name}</strong> and all its
+                          tasks. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleDelete}
+                          variant="destructive"
+                          disabled={isDeleting}
+                        >
+                          Delete list
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+              </div>
+            </div>
             <p className="mt-1.5 text-sm text-muted-foreground">
               {allTasks.length === 0
                 ? 'No tasks yet, create your first one below.'
@@ -93,6 +213,112 @@ export const ListClient = ({ list }: ListClientProps) => {
           )}
         </div>
       </section>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit list</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-5 pt-1">
+            {editError && <p className="text-sm text-destructive">{editError}</p>}
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">
+                Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="edit-name"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value)
+                  setEditError(null)
+                }}
+                placeholder="List name..."
+                className={cn('h-11', editError && !name.trim() && 'border-destructive')}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-category">
+                Category{' '}
+                <span className="text-xs font-normal text-muted-foreground ml-1">Optional</span>
+              </Label>
+              <Input
+                id="edit-category"
+                value={categoryName}
+                onChange={(e) => setCategoryName(e.target.value)}
+                placeholder="e.g. Work, Health..."
+                className="h-11"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Color</Label>
+              <div className="flex flex-wrap gap-2">
+                {PRESET_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setColor(c)}
+                    className={cn(
+                      'h-7 w-7 rounded-full transition-all',
+                      color === c
+                        ? 'ring-2 ring-offset-2 ring-offset-background scale-110'
+                        : 'hover:scale-105',
+                    )}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+                <div className="relative">
+                  <div
+                    className="h-7 w-7 rounded-full border-2 border-dashed border-border/60 cursor-pointer"
+                    style={{
+                      backgroundColor: PRESET_COLORS.includes(color) ? 'transparent' : color,
+                    }}
+                  />
+                  <input
+                    type="color"
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full rounded-full"
+                  />
+                </div>
+              </div>
+              <div
+                className="inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm font-medium mt-1"
+                style={{
+                  backgroundColor: hexToRgba(color, 0.1),
+                  borderColor: hexToRgba(color, 0.3),
+                  color,
+                }}
+              >
+                <span
+                  className="h-2 w-2 rounded-full shrink-0"
+                  style={{ backgroundColor: color }}
+                />
+                {name || 'Preview'}
+                {categoryName && <span className="text-xs opacity-70">· {categoryName}</span>}
+              </div>
+            </div>
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="ghost" onClick={() => setEditOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isEditing || !name.trim()} className="gap-2">
+                {isEditing ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-3.5 w-3.5" />
+                    Save changes
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Tabs defaultValue="todo" className="w-full">
         <div className="mb-8">
