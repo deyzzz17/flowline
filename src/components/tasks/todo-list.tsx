@@ -15,8 +15,8 @@ export const TodoList = ({ tasks, readOnly }: TodoListProps) => {
   return (
     <div className="grid gap-4 w-full">
       {tasks.map((task) => {
-        const isEditing = !readOnly && taskManager.editingId === task.id
-        const isDisabled = readOnly || (taskManager.editingId !== undefined && !isEditing)
+        const isEditing = taskManager.editingId === task.id
+        const isDisabled = taskManager.editingId !== undefined && !isEditing
         return (
           <TaskCard
             key={task.id}
