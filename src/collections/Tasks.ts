@@ -41,7 +41,6 @@ export const Tasks: CollectionConfig = {
       required: false,
       index: true,
     },
-    
     {
       name: 'type',
       type: 'select',
@@ -52,7 +51,6 @@ export const Tasks: CollectionConfig = {
       ],
       required: true,
     },
-
     {
       name: 'tags',
       type: 'select',
@@ -67,7 +65,6 @@ export const Tasks: CollectionConfig = {
         { label: 'Learning', value: 'learning' },
       ],
     },
-
     {
       name: 'customTags',
       type: 'relationship',
@@ -75,7 +72,6 @@ export const Tasks: CollectionConfig = {
       hasMany: true,
       required: false,
     },
-
     {
       name: 'subtasks',
       type: 'array',
@@ -100,7 +96,6 @@ export const Tasks: CollectionConfig = {
         },
       ],
     },
-
     {
       name: 'recurrence',
       type: 'group',
@@ -142,6 +137,15 @@ export const Tasks: CollectionConfig = {
       type: 'date',
       required: false,
     },
+    {
+      name: 'trashedAt',
+      type: 'date',
+      required: false,
+      index: true,
+      admin: {
+        description: 'Date when the task was soft deleted. Used for auto-cleanup after 15 days.',
+        readOnly: true,
+      },
+    },
   ],
 }
-

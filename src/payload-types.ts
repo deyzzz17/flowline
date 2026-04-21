@@ -196,6 +196,10 @@ export interface Task {
     days?: ('mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun')[] | null;
   };
   dueDate?: string | null;
+  /**
+   * Date when the task was soft deleted. Used for auto-cleanup after 15 days.
+   */
+  trashedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -390,6 +394,7 @@ export interface TasksSelect<T extends boolean = true> {
         days?: T;
       };
   dueDate?: T;
+  trashedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

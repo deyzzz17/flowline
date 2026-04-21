@@ -117,16 +117,16 @@ export const ListClient = ({ list }: ListClientProps) => {
       <section className="mb-8 mt-10">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">{list.name}</h1>
             <div className="mb-1 flex items-center gap-2">
               <span
-                className="h-1.5 w-1.5 rounded-full shrink-0"
+                className="h-2.5 w-2.5 rounded-full shrink-0"
                 style={{ backgroundColor: categoryColor }}
               />
               <p className="text-xl font-semibold uppercase" style={{ color: categoryColor }}>
                 {list.category?.name ?? 'List'}
               </p>
             </div>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">{list.name}</h1>
             <p className="mt-1.5 text-sm text-muted-foreground">
               {allTasks.length === 0
                 ? 'No tasks yet, create your first one below.'

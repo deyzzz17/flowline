@@ -130,7 +130,7 @@ export const listTasksToday = async () => {
       ],
     },
   })
-  
+
   const recurringTasks = await payload.find({
     collection: 'tasks',
     sort: '-createdAt',
@@ -196,16 +196,6 @@ export const deleteTask = async (id: number) => {
   return await payload.delete({ collection: 'tasks', id })
 }
 
-export const softDeleteTask = async (taskId: number) => {
-  try {
-    await updateTaskStatus(taskId, 'deleted')
-    revalidatePath('/')
-    return ok(true)
-  } catch {
-    return err('Error while soft deleting the task')
-  }
-}
-
 export const moveToTrash = async (id: number) => {
   try {
     await deleteTask(id)
@@ -245,6 +235,24 @@ export const toggleTaskStatus = async (id: number, currentStatus: 'active' | 'co
   }
 }
 
+export const softDeleteTask = async (taskId: number) => {
+  try {
+    const payload = await getPayload({ config })
+    await payload.update({
+      collection: 'tasks',
+      id: taskId,
+      data: {
+        status: 'deleted',
+        trashedAt: new Date().toISOString(),
+      },
+    })
+    revalidatePath('/')
+    return ok(true)
+  } catch {
+    return err('Error while soft deleting the task')
+  }
+}
+
 export const restoreTask = async (id: number) => {
   try {
     const payload = await getPayload({ config })
@@ -264,7 +272,14 @@ export const restoreTask = async (id: number) => {
       }
     }
 
-    await updateTaskStatus(id, newStatus)
+    await payload.update({
+      collection: 'tasks',
+      id,
+      data: {
+        status: newStatus,
+        trashedAt: null,
+      },
+    })
     revalidatePath('/')
     return ok(true)
   } catch {
