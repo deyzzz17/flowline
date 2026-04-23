@@ -170,11 +170,7 @@ export const listTasksRecurring = async () => {
     sort: '-createdAt',
     limit: 0,
     where: {
-      and: [
-        { userId: { equals: userId } },
-        { type: { equals: 'recurring' } },
-        { status: { not_equals: 'deleted' } },
-      ],
+      and: [{ userId: { equals: userId } }, { type: { equals: 'recurring' } }],
     },
   })
 }
