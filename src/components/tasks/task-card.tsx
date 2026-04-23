@@ -296,7 +296,7 @@ export const TaskCard = ({
 
       <div
         className={cn(
-          'relative z-20 flex items-start gap-3 p-4 sm:gap-3 sm:p-4 rounded-xl border bg-background transition-all',
+          'relative z-20 flex items-start gap-2 p-3 sm:gap-3 sm:p-4 rounded-xl border bg-background transition-all',
           isEditing ? 'ring-2 ring-primary shadow-md border-transparent' : 'hover:bg-accent/50',
           isDisabled ? 'opacity-40 grayscale pointer-events-none' : 'opacity-100',
           isInactive && !isEditing && 'opacity-60',
@@ -809,7 +809,7 @@ export const TaskCard = ({
                 />
                 <label
                   className={cn(
-                    'text-base font-semibold transition-colors leading-snug',
+                    'text-base font-semibold transition-colors leading-snug min-w-0',
                     isCompleted
                       ? 'line-through text-muted-foreground/60'
                       : isInactive
@@ -1083,7 +1083,7 @@ export const TaskCard = ({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground hover:text-primary"
                 onClick={handleStartEditing}
                 disabled={isDisabled}
               >
@@ -1095,7 +1095,7 @@ export const TaskCard = ({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-primary hover:rotate-180 transition-transform"
+                  className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground hover:text-primary hover:rotate-180 transition-transform"
                   onClick={() => restoreTask.mutate(task.id)}
                   disabled={isPending}
                 >
