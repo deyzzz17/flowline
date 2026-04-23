@@ -116,7 +116,7 @@ export const RecurringClient = () => {
                   {todoTasks.length}
                 </span>
               </div>
-              <div className="p-5">
+              <div className="p-3 sm:p-5">
                 {todoTasks.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 text-center">
                     <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
@@ -157,7 +157,7 @@ export const RecurringClient = () => {
                   {inactiveTasks.length}
                 </span>
               </div>
-              <div className="p-5">
+              <div className="p-3 sm:p-5">
                 {inactiveTasks.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 text-center">
                     <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
@@ -195,7 +195,7 @@ export const RecurringClient = () => {
                   {achievedTasks.length} completed
                 </span>
               </div>
-              <div className="p-5">
+              <div className="p-3 sm:p-5">
                 {achievedTasks.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 text-center">
                     <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
@@ -238,7 +238,7 @@ export const RecurringClient = () => {
                   {trashedTasks.length} item{trashedTasks.length !== 1 ? 's' : ''}
                 </span>
               </div>
-              <div className="p-5">
+              <div className="p-3 sm:p-5">
                 {trashedTasks.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 text-center">
                     <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">

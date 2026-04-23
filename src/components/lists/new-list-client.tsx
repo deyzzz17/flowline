@@ -6,8 +6,7 @@ import { api } from '@/api'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { AlertCircle, Check, Loader2, ArrowLeft } from 'lucide-react'
-import Link from 'next/link'
+import { AlertCircle, Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCreateList } from '@/hooks/lists/use-create-list'
 
@@ -79,13 +78,6 @@ export const NewListClient = () => {
   return (
     <div className="mx-auto max-w-lg mt-10">
       <div className="mb-8">
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground mb-6"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Back
-        </Link>
         <p className="mb-1 text-xl font-semibold uppercase text-violet-600 dark:text-violet-400">
           Lists
         </p>

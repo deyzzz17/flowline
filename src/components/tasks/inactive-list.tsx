@@ -13,7 +13,7 @@ interface InactiveListProps {
 export const InactiveList = ({ tasks, readOnly, noEdit, showListBadge }: InactiveListProps) => {
   const taskManager = useTask()
   return (
-    <div className="grid gap-4 w-full">
+    <div className="grid gap-3 sm:gap-4 w-full">
       {tasks.map((task) => (
         <TaskCard
           key={task.id}

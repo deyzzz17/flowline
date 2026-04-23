@@ -114,7 +114,7 @@ export const TodayClient = () => {
                   {todoTasks.length}
                 </span>
               </div>
-              <div className="p-5">
+              <div className="p-3 sm:p-5">
                 {todoTasks.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 text-center">
                     <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
@@ -152,7 +152,7 @@ export const TodayClient = () => {
                   {achievedTasks.length} completed
                 </span>
               </div>
-              <div className="p-5">
+              <div className="p-3 sm:p-5">
                 {achievedTasks.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 text-center">
                     <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">

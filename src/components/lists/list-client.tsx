@@ -132,19 +132,6 @@ export const ListClient = ({ list }: ListClientProps) => {
                 ? 'No tasks yet, create your first one below.'
                 : `${todoTasks.length} active · ${achievedTasks.length} completed · ${trashedTasks.length} trashed`}
             </p>
-            {activePlusDone.length > 0 && (
-              <div className="mt-3 flex items-center gap-3 sm:hidden">
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full transition-all duration-700"
-                    style={{ width: `${completionRate}%`, backgroundColor: categoryColor }}
-                  />
-                </div>
-                <span className="text-xs font-semibold shrink-0" style={{ color: categoryColor }}>
-                  {completionRate}%
-                </span>
-              </div>
-            )}
           </div>
 
           <div className="flex flex-col items-end gap-2">
@@ -389,7 +376,7 @@ export const ListClient = ({ list }: ListClientProps) => {
                   {todoTasks.length}
                 </span>
               </div>
-              <div className="p-5">
+              <div className="p-3 sm:p-5">
                 {todoTasks.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 text-center">
                     <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
@@ -432,7 +419,7 @@ export const ListClient = ({ list }: ListClientProps) => {
                   {achievedTasks.length} completed
                 </span>
               </div>
-              <div className="p-5">
+              <div className="p-3 sm:p-5">
                 {achievedTasks.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 text-center">
                     <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
@@ -478,7 +465,7 @@ export const ListClient = ({ list }: ListClientProps) => {
                   {inactiveTasks.length}
                 </span>
               </div>
-              <div className="p-5">
+              <div className="p-3 sm:p-5">
                 {inactiveTasks.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 text-center">
                     <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
@@ -523,7 +510,7 @@ export const ListClient = ({ list }: ListClientProps) => {
                   {trashedTasks.length} item{trashedTasks.length !== 1 ? 's' : ''}
                 </span>
               </div>
-              <div className="p-5">
+              <div className="p-3 sm:p-5">
                 {trashedTasks.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 text-center">
                     <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
