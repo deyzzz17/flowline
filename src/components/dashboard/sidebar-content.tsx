@@ -120,7 +120,7 @@ export const SidebarContent = ({ onNavigate }: SidebarContentProps) => {
               ))}
 
               <Link
-                href="/lists/new"
+                href="/lists/new-list"
                 onClick={onNavigate}
                 className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/60 transition-all duration-200 hover:bg-muted hover:text-foreground"
               >
