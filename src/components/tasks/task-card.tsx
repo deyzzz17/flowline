@@ -32,6 +32,8 @@ import { DueDateBadge } from './due-date-badge'
 import { TaskTag } from '@/types/task-tag'
 import { RecurrenceDay } from '@/types/recurrence-day'
 import { EditSubtask } from '@/types/edit-subtask'
+import { MentionTextarea } from './mention-textarea'
+import { MentionRenderer } from './mention-renderer'
 
 function hexToRgba(hex: string, alpha: number) {
   try {
@@ -363,11 +365,11 @@ export const TaskCard = ({
                 placeholder="Task title"
               />
 
-              <textarea
-                className="w-full bg-muted/30 p-3 rounded-xl text-sm outline-none resize-none min-h-18 border border-border/40 focus:border-primary/30 transition-colors"
+              <MentionTextarea
                 value={draft.description}
-                onChange={(e) => updateDraft({ description: e.target.value })}
+                onChange={(v) => updateDraft({ description: v })}
                 placeholder="Add a description..."
+                minHeight="min-h-[72px]"
               />
 
               <div className="space-y-2.5" onClick={(e) => e.stopPropagation()}>
@@ -865,11 +867,7 @@ export const TaskCard = ({
                 </div>
               )}
 
-              {task.description && (
-                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                  {task.description}
-                </p>
-              )}
+              {task.description && <MentionRenderer text={task.description} />}
 
               {(tags.length > 0 ||
                 task.dueDate ||
@@ -1011,16 +1009,13 @@ export const TaskCard = ({
                                 if (e.key === 'Enter') handleSaveSubtaskEdit()
                               }}
                             />
-                            <textarea
+                            <MentionTextarea
                               value={subtaskEditDraft.description}
-                              onChange={(e) =>
-                                setSubtaskEditDraft((prev) => ({
-                                  ...prev,
-                                  description: e.target.value,
-                                }))
+                              onChange={(v) =>
+                                setSubtaskEditDraft((prev) => ({ ...prev, description: v }))
                               }
                               placeholder="Description..."
-                              className="w-full bg-muted/30 p-2 rounded-lg text-xs outline-none resize-none h-14 border border-border/40 focus:border-primary/30 transition-colors"
+                              minHeight="min-h-[56px]"
                             />
                             <InlineDatePicker
                               value={subtaskEditDraft.dueDate}
@@ -1170,9 +1165,7 @@ export const TaskCard = ({
                             {isViewExpanded && (
                               <div className="px-3 pb-2.5 pt-1.5 space-y-1.5 border-t border-border/30 bg-muted/10">
                                 {subtask.description && (
-                                  <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                                    {subtask.description}
-                                  </p>
+                                  <MentionRenderer text={subtask.description} className="text-xs" />
                                 )}
                                 {(subtask.dueDate || subtaskTags.length > 0) && (
                                   <div className="flex flex-wrap items-center gap-1">

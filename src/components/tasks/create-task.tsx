@@ -32,6 +32,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import { DatePicker } from './date-picker'
 import { FormField } from './form-field'
+import { MentionTextarea } from './mention-textarea'
 
 const TAG_OPTIONS = [
   { value: 'urgent', label: 'Urgent' },
@@ -251,12 +252,11 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
           </FormField>
 
           <FormField label="Description" optional>
-            <Textarea
-              id="taskDescription"
+            <MentionTextarea
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={setDescription}
               placeholder="Add more details..."
-              className="h-24 resize-none"
+              minHeight="min-h-[96px]"
             />
           </FormField>
 
