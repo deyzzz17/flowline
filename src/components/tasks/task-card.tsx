@@ -34,6 +34,8 @@ import { RecurrenceDay } from '@/types/recurrence-day'
 import { EditSubtask } from '@/types/edit-subtask'
 import { MentionTextarea } from './mention-textarea'
 import { MentionRenderer } from './mention-renderer'
+import { toast } from 'sonner'
+import { format } from 'date-fns'
 
 function hexToRgba(hex: string, alpha: number) {
   try {
@@ -709,8 +711,22 @@ export const TaskCard = ({
                                   Due date <span className="normal-case font-normal">Optional</span>
                                 </p>
                                 <InlineDatePicker
-                                  value={s.dueDate}
-                                  onChange={(d) => updateSubtask(i, 'dueDate', d)}
+                                  value={editDueDate}
+                                  onChange={(d) => {
+                                    if (d) {
+                                      const conflicting = editSubtasks.find(
+                                        (s) => s.dueDate && s.dueDate > d,
+                                      )
+                                      if (conflicting) {
+                                        toast.error('Due date conflict', {
+                                          description: `The parent task's due date cannot be before a subtask's due date (${format(conflicting.dueDate!, 'PPP')}).`,
+                                          className: 'border-destructive/30',
+                                        })
+                                        return
+                                      }
+                                    }
+                                    setEditDueDate(d)
+                                  }}
                                 />
                               </div>
                               <div className="space-y-1.5">
@@ -1029,9 +1045,18 @@ export const TaskCard = ({
                             />
                             <InlineDatePicker
                               value={subtaskEditDraft.dueDate}
-                              onChange={(d) =>
+                              onChange={(d) => {
+                                const parentDueDate = task.dueDate
+                                  ? new Date(task.dueDate)
+                                  : undefined
+                                if (d && parentDueDate && d > parentDueDate) {
+                                  toast.error('Due date conflict', {
+                                    description: `A subtask cannot have a due date after the parent task's due date (${format(parentDueDate, 'PPP')}).`,
+                                  })
+                                  return
+                                }
                                 setSubtaskEditDraft((prev) => ({ ...prev, dueDate: d }))
-                              }
+                              }}
                             />
                             <div className="flex flex-wrap gap-1">
                               {TAG_OPTIONS.map((tag) => (

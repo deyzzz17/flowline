@@ -11,6 +11,7 @@ import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { syncRecurringTasksForUser } from '@/api/tasks/actions'
 import { createDefaultList } from '@/api/lists/actions'
+import { Toaster } from '@/components/ui/sonner'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -33,6 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             image: user?.image ?? null,
           }}
         >
+          <Toaster position="bottom-right" />
           <div className="flex h-screen flex-col overflow-hidden">
             <header className="z-50 w-full shrink-0 border-b border-border/60 bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/60">
               <div className="flex h-16 items-center justify-between px-4 sm:px-6">

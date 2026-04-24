@@ -12,7 +12,6 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { PlusIcon } from '@heroicons/react/24/outline'
 import {
   AlertDialog,
@@ -33,6 +32,8 @@ import { api } from '@/api'
 import { DatePicker } from './date-picker'
 import { FormField } from './form-field'
 import { MentionTextarea } from './mention-textarea'
+import { toast } from 'sonner'
+import { format } from 'date-fns'
 
 const TAG_OPTIONS = [
   { value: 'urgent', label: 'Urgent' },
@@ -139,6 +140,29 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
     setNewTagName('')
     setNewTagColor('#8b5cf6')
     setShowNewTag(false)
+  }
+
+  const handleSetDueDate = (d: Date | undefined) => {
+    if (d) {
+      const conflicting = subtasks.find((s) => s.dueDate && s.dueDate > d)
+      if (conflicting) {
+        toast.error('Due date conflict', {
+          description: `The parent task's due date cannot be before a subtask's due date (${format(conflicting.dueDate!, 'PPP')}).`,
+        })
+        return
+      }
+    }
+    setDueDate(d)
+  }
+
+  const handleSetSubtaskDueDate = (index: number, d: Date | undefined) => {
+    if (d && dueDate && d > dueDate) {
+      toast.error('Due date conflict', {
+        description: `A subtask cannot have a due date after the parent task's due date (${format(dueDate, 'PPP')}).`,
+      })
+      return
+    }
+    updateSubtaskDetail(index, 'dueDate', d)
   }
 
   const handleOnSubmit = async (e: React.FormEvent) => {
@@ -262,7 +286,7 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
 
           <FormField label="Due date" optional>
             <div className="space-y-2.5">
-              <DatePicker value={dueDate} onChange={setDueDate} />
+              <DatePicker value={dueDate} onChange={handleSetDueDate} />
               {dueDate && (
                 <button
                   type="button"
@@ -521,13 +545,11 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
                                 Description{' '}
                                 <span className="normal-case font-normal">Optional</span>
                               </label>
-                              <Textarea
+                              <MentionTextarea
                                 value={s.description ?? ''}
-                                onChange={(e) =>
-                                  updateSubtaskDetail(index, 'description', e.target.value)
-                                }
+                                onChange={(v) => updateSubtaskDetail(index, 'description', v)}
                                 placeholder="Add details to this subtask..."
-                                className="mt-1 h-20 resize-none text-sm"
+                                minHeight="min-h-[80px]"
                               />
                             </div>
                             <div className="space-y-3">
@@ -537,7 +559,7 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
                               <div className="mt-1">
                                 <DatePicker
                                   value={s.dueDate}
-                                  onChange={(d) => updateSubtaskDetail(index, 'dueDate', d)}
+                                  onChange={(d) => handleSetSubtaskDueDate(index, d)}
                                 />
                               </div>
                             </div>
