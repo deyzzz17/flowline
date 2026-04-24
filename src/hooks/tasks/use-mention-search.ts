@@ -13,14 +13,20 @@ export interface MentionSuggestion {
   parentTitle?: string
 }
 
+interface DropdownPos {
+  top: number
+  left: number
+  above: boolean
+}
+
 interface UseMentionSearchReturn {
   mentionSearch: string | null
   mentionStart: number
   selectedIndex: number
   setSelectedIndex: (i: number) => void
-  dropdownPos: { top: number; left: number }
+  dropdownPos: DropdownPos
   filtered: MentionSuggestion[]
-  openMention: (search: string, start: number, pos: { top: number; left: number }) => void
+  openMention: (search: string, start: number, pos: DropdownPos) => void
   closeMention: () => void
   insertMention: (
     suggestion: MentionSuggestion,
@@ -34,7 +40,7 @@ export function useMentionSearch(): UseMentionSearchReturn {
   const [mentionSearch, setMentionSearch] = useState<string | null>(null)
   const [mentionStart, setMentionStart] = useState(-1)
   const [selectedIndex, setSelectedIndex] = useState(0)
-  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 })
+  const [dropdownPos, setDropdownPos] = useState<DropdownPos>({ top: 0, left: 0, above: false })
 
   const { data } = useQuery({
     queryKey: ['tasks'],
@@ -83,15 +89,12 @@ export function useMentionSearch(): UseMentionSearchReturn {
           .slice(0, 6)
       : []
 
-  const openMention = useCallback(
-    (search: string, start: number, pos: { top: number; left: number }) => {
-      setMentionSearch(search)
-      setMentionStart(start)
-      setDropdownPos(pos)
-      setSelectedIndex(0)
-    },
-    [],
-  )
+  const openMention = useCallback((search: string, start: number, pos: DropdownPos) => {
+    setMentionSearch(search)
+    setMentionStart(start)
+    setDropdownPos(pos)
+    setSelectedIndex(0)
+  }, [])
 
   const closeMention = useCallback(() => {
     setMentionSearch(null)

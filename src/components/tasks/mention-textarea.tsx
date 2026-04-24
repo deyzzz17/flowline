@@ -4,10 +4,6 @@ import { useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { useMentionSearch } from '@/hooks/tasks/use-mention-search'
 
-// Format de stockage : @[Titre de la tâche](taskId)
-// Ex: "Voir aussi @[Do 50 push-ups](42) dans ce contexte"
-
-// Utilitaire exporté pour parser les mentions dans la vue
 export function parseMentions(
   text: string,
 ): Array<{ type: 'text' | 'mention'; content: string; taskId?: number }> {
@@ -31,38 +27,38 @@ export function parseMentions(
   return parts
 }
 
-// Calcule la position du dropdown à partir de la position du @ dans le textarea
 function getCaretPosition(
   textarea: HTMLTextAreaElement,
   atIndex: number,
-): { top: number; left: number } {
+): { top: number; left: number; above: boolean } {
   const mirror = document.createElement('div')
   const style = window.getComputedStyle(textarea)
 
   mirror.style.cssText = `
     position: absolute; visibility: hidden; white-space: pre-wrap;
     word-wrap: break-word; overflow: hidden;
-    font: ${style.font};
-    padding: ${style.padding};
-    border: ${style.border};
-    width: ${style.width};
-    line-height: ${style.lineHeight};
-    box-sizing: border-box;
+    font: ${style.font}; padding: ${style.padding};
+    border: ${style.border}; width: ${style.width};
+    line-height: ${style.lineHeight}; box-sizing: border-box;
   `
 
   mirror.textContent = textarea.value.slice(0, atIndex)
   const span = document.createElement('span')
   span.textContent = '@'
   mirror.appendChild(span)
-
   document.body.appendChild(mirror)
-  const textareaRect = textarea.getBoundingClientRect()
+
   const spanRect = span.getBoundingClientRect()
   document.body.removeChild(mirror)
 
+  const dropdownHeight = 250
+  const spaceBelow = window.innerHeight - spanRect.bottom
+  const above = spaceBelow < dropdownHeight
+
   return {
-    top: spanRect.bottom - textareaRect.top + textarea.scrollTop + 4,
-    left: Math.max(0, Math.min(spanRect.left - textareaRect.left, textarea.offsetWidth - 260)),
+    top: above ? spanRect.top - dropdownHeight - 4 : spanRect.bottom + 4,
+    left: Math.max(8, Math.min(spanRect.left, window.innerWidth - 268)),
+    above,
   }
 }
 
@@ -169,7 +165,7 @@ export const MentionTextarea = ({
       {mentionSearch !== null && filtered.length > 0 && (
         <div
           data-mention-dropdown
-          className="absolute z-50 w-64 rounded-xl border border-border/60 bg-popover shadow-lg overflow-hidden"
+          className="fixed z-200 w-64 rounded-xl border border-border/60 bg-popover shadow-lg overflow-hidden"
           style={{ top: dropdownPos.top, left: dropdownPos.left }}
         >
           <div className="px-3 py-1.5 border-b border-border/40">
@@ -232,7 +228,7 @@ export const MentionTextarea = ({
       {mentionSearch !== null && filtered.length === 0 && mentionSearch.length > 0 && (
         <div
           data-mention-dropdown
-          className="absolute z-50 w-56 rounded-xl border border-border/60 bg-popover shadow-lg px-3 py-2.5"
+          className="fixed z-[200] w-56 rounded-xl border border-border/60 bg-popover shadow-lg px-3 py-2.5"
           style={{ top: dropdownPos.top, left: dropdownPos.left }}
         >
           <p className="text-xs text-muted-foreground">
