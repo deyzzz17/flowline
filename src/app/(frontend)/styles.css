@@ -126,3 +126,9 @@
     @apply font-sans;
   }
 }
+
+.sonner-toast[data-type='error'] {
+  background-color: hsl(var(--destructive) / 0.1) !important;
+  border-color: hsl(var(--destructive) / 0.3) !important;
+  color: hsl(var(--destructive)) !important;
+}
