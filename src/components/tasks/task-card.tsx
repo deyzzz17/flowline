@@ -955,7 +955,7 @@ export const TaskCard = ({
                       setExpandedViewSubtask(null)
                     }
 
-                    const handleSaveSubtaskEdit = () => {
+                    const handleSaveSubtaskEdit = async () => {
                       const updatedSubtasks = subtasks.map((s, i) =>
                         i === index
                           ? {
@@ -969,12 +969,16 @@ export const TaskCard = ({
                             }
                           : s,
                       )
-                      saveEdit(task.id, {
+                      await api.tasks.edit(task.id, {
                         subtasks: updatedSubtasks.map((s) => ({
                           title: s.title,
                           done: s.done ?? false,
+                          description: s.description ?? '',
+                          dueDate: s.dueDate ?? null,
+                          tags: (s.tags ?? []) as NonNullable<Task['subtasks']>[number]['tags'],
                         })),
                       })
+                      queryClient.invalidateQueries({ queryKey: ['tasks'] })
                       setEditingSubtaskIndex(null)
                     }
                     return (
