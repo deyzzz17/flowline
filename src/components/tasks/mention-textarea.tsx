@@ -93,7 +93,6 @@ export const MentionTextarea = ({
     mentionSearch,
     selectedIndex,
     setSelectedIndex,
-    dropdownPos,
     filtered,
     openMention,
     closeMention,
@@ -175,8 +174,7 @@ export const MentionTextarea = ({
       {mentionSearch !== null && filtered.length > 0 && (
         <div
           data-mention-dropdown
-          className="fixed z-200 w-64 rounded-xl border border-border/60 bg-popover shadow-lg overflow-hidden"
-          style={{ top: dropdownPos.top, left: dropdownPos.left }}
+          className="absolute left-0 right-0 top-full mt-1 z-50 w-full max-w-64 rounded-xl border border-border/60 bg-popover shadow-lg overflow-hidden"
         >
           <div className="px-3 py-1.5 border-b border-border/40">
             <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
@@ -238,8 +236,7 @@ export const MentionTextarea = ({
       {mentionSearch !== null && filtered.length === 0 && mentionSearch.length > 0 && (
         <div
           data-mention-dropdown
-          className="fixed z-200 w-56 rounded-xl border border-border/60 bg-popover shadow-lg px-3 py-2.5"
-          style={{ top: dropdownPos.top, left: dropdownPos.left }}
+          className="absolute left-0 top-full mt-1 z-50 w-56 rounded-xl border border-border/60 bg-popover shadow-lg px-3 py-2.5"
         >
           <p className="text-xs text-muted-foreground">
             No tasks found for &quot;{mentionSearch}&quot;
