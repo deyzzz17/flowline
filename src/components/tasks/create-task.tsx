@@ -322,17 +322,22 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
                         <button
                           type="button"
                           onClick={() => toggleCustomTag(String(tag.id))}
-                          className="flex items-center gap-1.5 rounded-l-full border-y border-l px-2.5 py-1 text-xs font-medium transition-all"
-                          style={{
-                            backgroundColor: hexToRgba(tag.color, isSelected ? 0.15 : 0.06),
-                            borderColor: hexToRgba(tag.color, isSelected ? 0.5 : 0.2),
-                            color: tag.color,
-                          }}
+                          className={cn(
+                            'flex items-center gap-1.5 rounded-l-full border-y border-l px-2.5 py-1 text-xs font-medium transition-all',
+                            isSelected
+                              ? ''
+                              : 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
+                          )}
+                          style={
+                            isSelected
+                              ? {
+                                  backgroundColor: hexToRgba(tag.color, 0.15),
+                                  borderColor: hexToRgba(tag.color, 0.5),
+                                  color: tag.color,
+                                }
+                              : undefined
+                          }
                         >
-                          <span
-                            className="h-1.5 w-1.5 rounded-full shrink-0"
-                            style={{ backgroundColor: tag.color }}
-                          />
                           {tag.name}
                         </button>
                         <AlertDialog>
@@ -340,11 +345,15 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
                             <button
                               type="button"
                               className="flex items-center justify-center h-full rounded-r-full border-y border-r px-1.5 py-1 opacity-100"
-                              style={{
-                                backgroundColor: hexToRgba(tag.color, isSelected ? 0.15 : 0.06),
-                                borderColor: hexToRgba(tag.color, isSelected ? 0.5 : 0.2),
-                                color: tag.color,
-                              }}
+                              style={
+                                isSelected
+                                  ? {
+                                      backgroundColor: hexToRgba(tag.color, 0.15),
+                                      borderColor: hexToRgba(tag.color, 0.5),
+                                      color: tag.color,
+                                    }
+                                  : undefined
+                              }
                             >
                               <X className="h-2.5 w-2.5" />
                             </button>
@@ -432,10 +441,6 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
                           color: newTagColor,
                         }}
                       >
-                        <span
-                          className="h-1.5 w-1.5 rounded-full"
-                          style={{ backgroundColor: newTagColor }}
-                        />
                         {newTagName || 'Preview'}
                       </div>
                     </div>

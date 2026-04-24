@@ -142,13 +142,14 @@ export const NewListClient = () => {
                   onClick={() => setColor(c)}
                   className={cn(
                     'h-8 w-8 rounded-full transition-all',
-                    color === c
-                      ? 'ring-2 ring-offset-2 ring-offset-background scale-110'
-                      : 'hover:scale-105',
+                    color === c ? 'scale-110' : 'hover:scale-105',
                   )}
                   style={{
                     backgroundColor: c,
-                    ...(color === c && { ringColor: c }),
+                    ...(color === c && {
+                      outline: `3px solid ${c}`,
+                      outlineOffset: '2px',
+                    }),
                   }}
                 />
               ))}
