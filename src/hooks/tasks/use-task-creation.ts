@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { api } from '@/api'
 import type { Task } from '@/payload-types'
+import { toast } from 'sonner'
 
 type TaskType = NonNullable<Task['type']>
 type TaskTag = NonNullable<Task['tags']>[number]
@@ -124,8 +125,14 @@ export const useTaskCreation = () => {
 
     if (result.ok) {
       resetForm()
+      toast.info('Task created', {
+        description: `Your task has been successfully created.`,
+      })
       return true
     }
+    toast.error('Failed to create the task', {
+      description: `Something went wrong while creating the task. Please try again.`,
+    })
     return false
   }
 

@@ -6,6 +6,7 @@ import { useEditTask } from './use-edit-task'
 import { TaskTag } from '@/types/task-tag'
 import { RecurrenceDay } from '@/types/recurrence-day'
 import { EditSubtask } from '@/types/edit-subtask'
+import { toast } from 'sonner'
 
 type EditDraft = {
   title?: string
@@ -66,8 +67,14 @@ export const useTask = () => {
     try {
       await editMutation.mutateAsync({ id, draft: { ...draft, ...extraFields } })
       stopEditing()
+      toast.info('Task updated', {
+        description: `The changes you made have been successfully applied.`,
+      })
       return true
     } catch {
+      toast.error('Failed to update the task', {
+        description: `Something went wrong while updating the task. Please try again.`,
+      })
       return false
     }
   }

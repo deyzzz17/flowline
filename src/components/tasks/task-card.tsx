@@ -492,6 +492,9 @@ export const TaskCard = ({
                                     setEditCustomTags((prev) =>
                                       prev.filter((id) => id !== String(tag.id)),
                                     )
+                                    toast.info('Tag successfully removed', {
+                                      description: `This tag has been removed from your list of custom tags.`,
+                                    })
                                   }}
                                   variant="destructive"
                                 >
@@ -1177,12 +1180,15 @@ export const TaskCard = ({
                                     <AlertDialogFooter>
                                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                                       <AlertDialogAction
-                                        onClick={() =>
+                                        onClick={() => {
                                           deleteSubtask.mutate({
                                             taskId: task.id,
                                             subtaskIndex: index,
                                           })
-                                        }
+                                          toast.info('Subtask successfully removed', {
+                                            description: `This subtask has been removed from your list of subtasks.`,
+                                          })
+                                        }}
                                         variant="destructive"
                                       >
                                         Delete permanently
@@ -1300,7 +1306,12 @@ export const TaskCard = ({
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction
-                        onClick={() => deleteTask.mutate(task.id)}
+                        onClick={() => {
+                          deleteTask.mutate(task.id)
+                          toast.info('Task successfully removed', {
+                            description: `This task has been removed from your list.`,
+                          })
+                        }}
                         variant="destructive"
                       >
                         Delete permanently

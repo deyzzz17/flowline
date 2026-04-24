@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { AlertCircle, Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCreateList } from '@/hooks/lists/use-create-list'
+import { toast } from 'sonner'
 
 function hexToRgba(hex: string, alpha: number) {
   try {
@@ -57,11 +58,16 @@ export const NewListClient = () => {
         setError(result.error ?? 'Error while creating the list.')
         return
       }
+      toast.info('List created', {
+        description: `Your list is successfully created.`,
+      })
       queryClient.invalidateQueries({ queryKey: ['lists'] })
       router.push(`/lists/${result.value.slug}`)
     },
     onError: () => {
-      setError('Error while creating the list.')
+      toast.error('Error while creating the list', {
+        description: `Something went wrong while creating the list. Please try again.`,
+      })
     },
   })
 
