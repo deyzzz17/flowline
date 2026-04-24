@@ -1177,8 +1177,11 @@ export const TaskCard = ({
                                 {subtask.description && (
                                   <MentionRenderer
                                     text={subtask.description}
-                                    className="text-xs"
-                                    currentListSlug={list.slug}
+                                    currentListSlug={
+                                      task.list && typeof task.list === 'object'
+                                        ? (task.list as { slug: string }).slug
+                                        : undefined
+                                    }
                                   />
                                 )}
                                 {(subtask.dueDate || subtaskTags.length > 0) && (
