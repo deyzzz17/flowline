@@ -36,6 +36,13 @@ export const useTask = () => {
   const [showNewTag, setShowNewTag] = useState(false)
   const [newTagName, setNewTagName] = useState('')
   const [newTagColor, setNewTagColor] = useState('#8b5cf6')
+  const [editingSubtaskIndex, setEditingSubtaskIndex] = useState<number | null>(null)
+  const [subtaskEditDraft, setSubtaskEditDraft] = useState<{
+    title: string
+    description: string
+    dueDate: Date | undefined
+    tags: string[]
+  }>({ title: '', description: '', dueDate: undefined, tags: [] })
 
   const toggleMutation = useToggleTask()
   const editMutation = useEditTask()
@@ -106,5 +113,9 @@ export const useTask = () => {
     setNewTagName,
     newTagColor,
     setNewTagColor,
+    editingSubtaskIndex,
+    setEditingSubtaskIndex,
+    subtaskEditDraft,
+    setSubtaskEditDraft,
   }
 }

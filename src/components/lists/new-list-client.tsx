@@ -58,7 +58,7 @@ export const NewListClient = () => {
         return
       }
       queryClient.invalidateQueries({ queryKey: ['lists'] })
-      router.push(`/lists/${result.value.id}`)
+      router.push(`/lists/${result.value.slug}`)
     },
     onError: () => {
       setError('Error while creating the list.')

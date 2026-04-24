@@ -24,7 +24,6 @@ function getListUrgency(tasks: Task[]): 'red' | 'orange' | null {
   for (const task of tasks) {
     if (task.status !== 'active' || !task.dueDate) continue
     const diff = new Date(task.dueDate).getTime() - now
-    if (diff <= 0) continue // déjà dépassée
     if (diff <= oneDayMs) return 'red'
     if (diff <= twoDaysMs) hasOrange = true
   }
@@ -43,6 +42,7 @@ export const SidebarContent = ({ onNavigate }: SidebarContentProps) => {
   const { data: tasksData } = useQuery({
     queryKey: ['tasks'],
     queryFn: () => api.tasks.list(),
+    staleTime: 0,
   })
 
   const lists = listsData?.docs ?? []
@@ -166,7 +166,7 @@ function ListNavItem({
       {urgency && (
         <span
           className={cn(
-            'h-2 w-2 shrink-0 rounded-full',
+            'size-1.5 shrink-0 rounded-full',
             urgency === 'red' ? 'bg-destructive' : 'bg-orange-500',
           )}
         />

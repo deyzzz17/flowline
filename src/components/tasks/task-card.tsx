@@ -148,6 +148,10 @@ export const TaskCard = ({
     setNewTagName,
     newTagColor,
     setNewTagColor,
+    editingSubtaskIndex,
+    setEditingSubtaskIndex,
+    subtaskEditDraft,
+    setSubtaskEditDraft,
   } = taskManager
 
   const softDelete = useSoftDelete()
@@ -194,7 +198,6 @@ export const TaskCard = ({
   const isDaily = task.recurrence?.frequency === 'daily'
   const daysLeft = isDeleted && task.trashedAt ? getDaysLeft(task.trashedAt) : null
 
-  // Badge liste
   type ListObj = { id: number; name: string; category?: { color?: string | null } | null }
   const taskList =
     showListBadge && task.list && typeof task.list === 'object' ? (task.list as ListObj) : null
@@ -939,117 +942,253 @@ export const TaskCard = ({
                     const hasSubtaskDetails =
                       subtask.description || subtask.dueDate || subtaskTags.length > 0
                     const isViewExpanded = expandedViewSubtask === index
+                    const isEditingThisSubtask = editingSubtaskIndex === index
+
+                    const handleStartSubtaskEdit = () => {
+                      setSubtaskEditDraft({
+                        title: subtask.title,
+                        description: subtask.description ?? '',
+                        dueDate: subtask.dueDate ? new Date(subtask.dueDate) : undefined,
+                        tags: subtaskTags,
+                      })
+                      setEditingSubtaskIndex(index)
+                      setExpandedViewSubtask(null)
+                    }
+
+                    const handleSaveSubtaskEdit = () => {
+                      const updatedSubtasks = subtasks.map((s, i) =>
+                        i === index
+                          ? {
+                              ...s,
+                              title: subtaskEditDraft.title.trim() || s.title,
+                              description: subtaskEditDraft.description,
+                              dueDate: subtaskEditDraft.dueDate?.toISOString() ?? null,
+                              tags: subtaskEditDraft.tags as NonNullable<
+                                Task['subtasks']
+                              >[number]['tags'],
+                            }
+                          : s,
+                      )
+                      saveEdit(task.id, {
+                        subtasks: updatedSubtasks.map((s) => ({
+                          title: s.title,
+                          done: s.done ?? false,
+                        })),
+                      })
+                      setEditingSubtaskIndex(null)
+                    }
                     return (
                       <div
                         key={subtask.id ?? index}
                         className="rounded-lg border border-border/30 overflow-hidden"
                       >
-                        <div className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted/20 transition-colors">
-                          <Checkbox
-                            id={`subtask-${task.id}-${index}`}
-                            checked={subtask.done ?? false}
-                            disabled={
-                              isDeleted ||
-                              isCompleted ||
-                              isInactive ||
-                              (toggleSubtask.isPending &&
-                                toggleSubtask.variables?.taskId === task.id &&
-                                toggleSubtask.variables?.subtaskIndex === index)
-                            }
-                            onCheckedChange={() =>
-                              toggleSubtask.mutate({ taskId: task.id, subtaskIndex: index })
-                            }
-                            className="h-3.5 w-3.5 shrink-0"
-                          />
-                          <label
-                            htmlFor={`subtask-${task.id}-${index}`}
-                            className={cn(
-                              'flex-1 text-sm cursor-pointer transition-colors',
-                              subtask.done
-                                ? 'line-through text-muted-foreground/50'
-                                : 'text-muted-foreground',
-                            )}
+                        {isEditingThisSubtask ? (
+                          <div
+                            className="px-3 py-2.5 space-y-2.5 bg-muted/10"
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            {subtask.title}
-                          </label>
-                          {hasSubtaskDetails && !isViewExpanded && (
-                            <Tag className="h-2.5 w-2.5 shrink-0 text-violet-500/50" />
-                          )}
-                          {hasSubtaskDetails && (
-                            <button
-                              type="button"
-                              onClick={() => setExpandedViewSubtask(isViewExpanded ? null : index)}
-                              className="text-muted-foreground/30 hover:text-muted-foreground transition-colors"
-                            >
-                              {isViewExpanded ? (
-                                <ChevronUp className="h-3 w-3" />
-                              ) : (
-                                <ChevronDown className="h-3 w-3" />
+                            <input
+                              autoFocus
+                              value={subtaskEditDraft.title}
+                              onChange={(e) =>
+                                setSubtaskEditDraft((prev) => ({
+                                  ...prev,
+                                  title: e.target.value,
+                                }))
+                              }
+                              className="w-full bg-transparent text-sm font-medium outline-none border-b border-primary/30 focus:border-primary transition-colors pb-0.5"
+                              placeholder="Subtask title"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveSubtaskEdit()
+                              }}
+                            />
+                            <textarea
+                              value={subtaskEditDraft.description}
+                              onChange={(e) =>
+                                setSubtaskEditDraft((prev) => ({
+                                  ...prev,
+                                  description: e.target.value,
+                                }))
+                              }
+                              placeholder="Description..."
+                              className="w-full bg-muted/30 p-2 rounded-lg text-xs outline-none resize-none h-14 border border-border/40 focus:border-primary/30 transition-colors"
+                            />
+                            <InlineDatePicker
+                              value={subtaskEditDraft.dueDate}
+                              onChange={(d) =>
+                                setSubtaskEditDraft((prev) => ({ ...prev, dueDate: d }))
+                              }
+                            />
+                            <div className="flex flex-wrap gap-1">
+                              {TAG_OPTIONS.map((tag) => (
+                                <button
+                                  key={tag.value}
+                                  type="button"
+                                  onClick={() =>
+                                    setSubtaskEditDraft((prev) => ({
+                                      ...prev,
+                                      tags: prev.tags.includes(tag.value)
+                                        ? prev.tags.filter((t) => t !== tag.value)
+                                        : [...prev.tags, tag.value],
+                                    }))
+                                  }
+                                  className={cn(
+                                    'rounded-full border px-2 py-0.5 text-[10px] font-medium transition-all',
+                                    subtaskEditDraft.tags.includes(tag.value)
+                                      ? 'border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                                      : 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
+                                  )}
+                                >
+                                  {tag.label}
+                                </button>
+                              ))}
+                            </div>
+                            <div className="flex gap-2 pt-0.5">
+                              <Button
+                                size="sm"
+                                className="h-7 px-3 text-xs"
+                                onClick={handleSaveSubtaskEdit}
+                              >
+                                Save
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-3 text-xs text-muted-foreground"
+                                onClick={() => setEditingSubtaskIndex(null)}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted/20 transition-colors">
+                              <Checkbox
+                                id={`subtask-${task.id}-${index}`}
+                                checked={subtask.done ?? false}
+                                disabled={
+                                  isDeleted ||
+                                  isCompleted ||
+                                  isInactive ||
+                                  (toggleSubtask.isPending &&
+                                    toggleSubtask.variables?.taskId === task.id &&
+                                    toggleSubtask.variables?.subtaskIndex === index)
+                                }
+                                onCheckedChange={() =>
+                                  toggleSubtask.mutate({ taskId: task.id, subtaskIndex: index })
+                                }
+                                className="h-3.5 w-3.5 shrink-0"
+                              />
+                              <label
+                                htmlFor={`subtask-${task.id}-${index}`}
+                                className={cn(
+                                  'flex-1 text-sm cursor-pointer transition-colors',
+                                  subtask.done
+                                    ? 'line-through text-muted-foreground/50'
+                                    : 'text-muted-foreground',
+                                )}
+                              >
+                                {subtask.title}
+                              </label>
+                              {hasSubtaskDetails && !isViewExpanded && (
+                                <Tag className="h-2.5 w-2.5 shrink-0 text-violet-500/50" />
                               )}
-                            </button>
-                          )}
-                          {!isDeleted && !isCompleted && (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
+                              {hasSubtaskDetails && (
                                 <button
                                   type="button"
-                                  className="text-muted-foreground/30 hover:text-destructive transition-colors"
-                                  onClick={(e) => e.stopPropagation()}
+                                  onClick={() =>
+                                    setExpandedViewSubtask(isViewExpanded ? null : index)
+                                  }
+                                  className="text-muted-foreground/30 hover:text-muted-foreground transition-colors"
                                 >
-                                  <TrashIcon className="h-3.5 w-3.5" />
+                                  {isViewExpanded ? (
+                                    <ChevronUp className="h-3 w-3" />
+                                  ) : (
+                                    <ChevronDown className="h-3 w-3" />
+                                  )}
                                 </button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete this subtask?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    This will permanently delete <strong>{subtask.title}</strong>.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() =>
-                                      deleteSubtask.mutate({ taskId: task.id, subtaskIndex: index })
-                                    }
-                                    variant="destructive"
-                                  >
-                                    Delete permanently
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          )}
-                        </div>
-                        {isViewExpanded && (
-                          <div className="px-3 pb-2.5 pt-1.5 space-y-1.5 border-t border-border/30 bg-muted/10">
-                            {subtask.description && (
-                              <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                                {subtask.description}
-                              </p>
-                            )}
-                            {(subtask.dueDate || subtaskTags.length > 0) && (
-                              <div className="flex flex-wrap items-center gap-1">
-                                {subtask.dueDate && (
-                                  <DueDateBadge
-                                    dateString={subtask.dueDate}
-                                    completed={subtask.done ?? false}
-                                  />
+                              )}
+                              {!isDeleted && !isCompleted && (
+                                <button
+                                  type="button"
+                                  className="text-muted-foreground/30 hover:text-primary transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleStartSubtaskEdit()
+                                  }}
+                                >
+                                  <PencilSquareIcon className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                              {!isDeleted && !isCompleted && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <button
+                                      type="button"
+                                      className="text-muted-foreground/30 hover:text-destructive transition-colors"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <TrashIcon className="h-3.5 w-3.5" />
+                                    </button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete this subtask?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        This will permanently delete{' '}
+                                        <strong>{subtask.title}</strong>.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() =>
+                                          deleteSubtask.mutate({
+                                            taskId: task.id,
+                                            subtaskIndex: index,
+                                          })
+                                        }
+                                        variant="destructive"
+                                      >
+                                        Delete permanently
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
+                            </div>
+                            {isViewExpanded && (
+                              <div className="px-3 pb-2.5 pt-1.5 space-y-1.5 border-t border-border/30 bg-muted/10">
+                                {subtask.description && (
+                                  <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                                    {subtask.description}
+                                  </p>
                                 )}
-                                {subtaskTags.map((tag) => (
-                                  <span
-                                    key={tag}
-                                    className={cn(
-                                      'rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                                      TAG_STYLES[tag] ?? 'bg-muted text-muted-foreground',
+                                {(subtask.dueDate || subtaskTags.length > 0) && (
+                                  <div className="flex flex-wrap items-center gap-1">
+                                    {subtask.dueDate && (
+                                      <DueDateBadge
+                                        dateString={subtask.dueDate}
+                                        completed={subtask.done ?? false}
+                                      />
                                     )}
-                                  >
-                                    {TAG_LABELS[tag] ?? tag}
-                                  </span>
-                                ))}
+                                    {subtaskTags.map((tag) => (
+                                      <span
+                                        key={tag}
+                                        className={cn(
+                                          'rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                                          TAG_STYLES[tag] ?? 'bg-muted text-muted-foreground',
+                                        )}
+                                      >
+                                        {TAG_LABELS[tag] ?? tag}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             )}
-                          </div>
+                          </>
                         )}
                       </div>
                     )
