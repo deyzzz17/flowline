@@ -713,11 +713,18 @@ export const TaskCard = ({
                                 <InlineDatePicker
                                   value={editDueDate}
                                   onChange={(d) => {
-                                    setEditDueDate(d)
-                                    if (d)
-                                      toast.info('Parent due date updated', {
-                                        description: `Due date set to ${format(d, 'PPP')}.`,
-                                      })
+                                    if (d) {
+                                      const conflicting = editSubtasks.find(
+                                        (s) => s.dueDate && s.dueDate > d,
+                                      )
+                                      if (conflicting) {
+                                        setEditDueDate(d)
+                                        if (d)
+                                          toast.info('Parent due date updated', {
+                                            description: `Due date set to ${format(d, 'PPP')}.`,
+                                          })
+                                      }
+                                    }
                                   }}
                                 />
                               </div>
@@ -1038,11 +1045,12 @@ export const TaskCard = ({
                             <InlineDatePicker
                               value={subtaskEditDraft.dueDate}
                               onChange={(d) => {
-                                setSubtaskEditDraft((prev) => ({ ...prev, dueDate: d }))
-                                if (d)
+                                if (d && editDueDate && d > editDueDate) {
                                   toast.info('Subtask due date updated', {
                                     description: `Due date set to ${format(d, 'PPP')}.`,
                                   })
+                                  setSubtaskEditDraft((prev) => ({ ...prev, dueDate: d }))
+                                }
                               }}
                             />
                             <div className="flex flex-wrap gap-1">
