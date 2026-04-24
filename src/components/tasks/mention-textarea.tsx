@@ -31,15 +31,25 @@ function getCaretPosition(
   textarea: HTMLTextAreaElement,
   atIndex: number,
 ): { top: number; left: number; above: boolean } {
-  const mirror = document.createElement('div')
+  const textareaRect = textarea.getBoundingClientRect()
   const style = window.getComputedStyle(textarea)
 
+  const mirror = document.createElement('div')
   mirror.style.cssText = `
-    position: absolute; visibility: hidden; white-space: pre-wrap;
-    word-wrap: break-word; overflow: hidden;
-    font: ${style.font}; padding: ${style.padding};
-    border: ${style.border}; width: ${style.width};
-    line-height: ${style.lineHeight}; box-sizing: border-box;
+    position: fixed;
+    top: ${textareaRect.top}px;
+    left: ${textareaRect.left}px;
+    width: ${textareaRect.width}px;
+    height: ${textareaRect.height}px;
+    visibility: hidden;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow: hidden;
+    font: ${style.font};
+    padding: ${style.padding};
+    border: ${style.border};
+    line-height: ${style.lineHeight};
+    box-sizing: border-box;
   `
 
   mirror.textContent = textarea.value.slice(0, atIndex)
@@ -228,7 +238,7 @@ export const MentionTextarea = ({
       {mentionSearch !== null && filtered.length === 0 && mentionSearch.length > 0 && (
         <div
           data-mention-dropdown
-          className="fixed z-[200] w-56 rounded-xl border border-border/60 bg-popover shadow-lg px-3 py-2.5"
+          className="fixed z-200 w-56 rounded-xl border border-border/60 bg-popover shadow-lg px-3 py-2.5"
           style={{ top: dropdownPos.top, left: dropdownPos.left }}
         >
           <p className="text-xs text-muted-foreground">

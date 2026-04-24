@@ -300,6 +300,7 @@ export const TaskCard = ({
       {isEditing && <div className="fixed inset-0 z-10 cursor-default" onClick={handleSaveEdit} />}
 
       <div
+        data-task-id={task.id}
         className={cn(
           'relative z-20 flex items-start gap-2 p-3 sm:gap-3 sm:p-4 rounded-xl border bg-background transition-all',
           isEditing ? 'ring-2 ring-primary shadow-md border-transparent' : 'hover:bg-accent/50',
@@ -867,7 +868,16 @@ export const TaskCard = ({
                 </div>
               )}
 
-              {task.description && <MentionRenderer text={task.description} />}
+              {task.description && (
+                <MentionRenderer
+                  text={task.description}
+                  currentListSlug={
+                    task.list && typeof task.list === 'object'
+                      ? (task.list as { slug: string }).slug
+                      : undefined
+                  }
+                />
+              )}
 
               {(tags.length > 0 ||
                 task.dueDate ||
@@ -1165,7 +1175,11 @@ export const TaskCard = ({
                             {isViewExpanded && (
                               <div className="px-3 pb-2.5 pt-1.5 space-y-1.5 border-t border-border/30 bg-muted/10">
                                 {subtask.description && (
-                                  <MentionRenderer text={subtask.description} className="text-xs" />
+                                  <MentionRenderer
+                                    text={subtask.description}
+                                    className="text-xs"
+                                    currentListSlug={list.slug}
+                                  />
                                 )}
                                 {(subtask.dueDate || subtaskTags.length > 0) && (
                                   <div className="flex flex-wrap items-center gap-1">
