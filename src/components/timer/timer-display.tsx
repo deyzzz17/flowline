@@ -30,7 +30,7 @@ export function TimerDisplay({
       <div className="flex items-baseline gap-0.5 tabular-nums">
         {showHours && (
           <>
-            <span className="text-7xl font-extralight tracking-tighter text-foreground leading-none">
+            <span className="text-5xl sm:text-7xl font-extralight tracking-tighter text-foreground leading-none">
               {pad(hours)}
             </span>
             <span className="mx-1 text-2xl font-light text-muted-foreground/40 leading-none">
@@ -38,7 +38,7 @@ export function TimerDisplay({
             </span>
           </>
         )}
-        <span className="text-7xl font-extralight tracking-tighter text-foreground leading-none">
+        <span className="text-5xl sm:text-7xl font-extralight tracking-tighter text-foreground leading-none">
           {pad(minutes)}
         </span>
         <span className="mx-1 text-2xl font-light text-muted-foreground/40 leading-none">:</span>

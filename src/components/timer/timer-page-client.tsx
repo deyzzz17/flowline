@@ -65,13 +65,15 @@ export function TimerPageClient() {
 
       <div className="relative flex flex-1 flex-col items-center justify-center gap-10 px-6">
         <div className="relative flex items-center justify-center">
-          <TimerRing
-            progress={progress}
-            isFreeMode={isFreeMode}
-            isRunning={isRunning}
-            size={420}
-            strokeWidth={16}
-          />
+          <div className="w-70 h-70 sm:w-105 sm:h-105">
+            <TimerRing
+              progress={progress}
+              isFreeMode={isFreeMode}
+              isRunning={isRunning}
+              size={420}
+              strokeWidth={16}
+            />
+          </div>
 
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-8">
             <TimerDisplay

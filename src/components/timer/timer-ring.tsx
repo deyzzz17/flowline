@@ -25,7 +25,7 @@ export function TimerRing({
       width={size}
       height={size}
       viewBox={`0 0 ${size} ${size}`}
-      className="-rotate-90"
+      className="-rotate-90 size-full"
       style={{ filter: 'drop-shadow(0 0 24px oklch(0.59 0.2 277 / 0.15))' }}
     >
       <circle
