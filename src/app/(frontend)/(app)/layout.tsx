@@ -12,6 +12,7 @@ import { headers } from 'next/headers'
 import { syncRecurringTasksForUser } from '@/api/tasks/actions'
 import { createDefaultList } from '@/api/lists/actions'
 import { Toaster } from '@/components/ui/sonner'
+import { NotificationsMenu } from '@/components/header/notifications-menu'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -45,6 +46,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                   </span>
                 </Link>
                 <div className="flex items-center gap-2 sm:gap-3">
+                  <NotificationsMenu />
                   <ModeToggle />
                   <div className="mx-1 hidden h-5 w-px bg-border sm:block" />
                   <MobileSidebarTrigger />
