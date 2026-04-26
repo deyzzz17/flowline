@@ -11,36 +11,37 @@ interface TimerControlsProps {
   onCustomize: () => void
 }
 
-export const TimerControls = ({
+export function TimerControls({
   isRunning,
   hasStarted,
   onToggle,
   onReset,
   onCustomize,
-}: TimerControlsProps) => {
+}: TimerControlsProps) {
   return (
-    <div className="flex flex-col items-center gap-4 mt-2">
-      <div className="flex items-center gap-4">
-        {hasStarted && (
-          <button
-            type="button"
-            onClick={onReset}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-border/60 bg-background text-muted-foreground transition-all hover:bg-muted hover:text-foreground hover:scale-105"
-            aria-label="Reset"
-          >
-            <RotateCcw className="h-4 w-4" />
-          </button>
-        )}
+    <div className="flex flex-col items-center gap-5">
+      <div className="flex items-center gap-5">
+        <button
+          type="button"
+          onClick={onReset}
+          aria-label="Reset"
+          className={cn(
+            'flex h-10 w-10 items-center justify-center rounded-full border border-border/50 bg-background/80 text-muted-foreground backdrop-blur-sm transition-all duration-200 hover:border-border hover:bg-muted hover:text-foreground',
+            hasStarted ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none',
+          )}
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+        </button>
 
         <button
           type="button"
           onClick={onToggle}
-          className={cn(
-            'flex h-14 w-14 items-center justify-center rounded-full transition-all duration-200 hover:scale-105 active:scale-95',
-            'bg-violet-600 text-white shadow-lg shadow-violet-500/25 hover:bg-violet-500',
-          )}
           aria-label={isRunning ? 'Pause' : 'Start'}
+          className="group relative flex h-16 w-16 items-center justify-center rounded-full bg-violet-600 text-white shadow-xl shadow-violet-500/20 transition-all duration-200 hover:scale-105 hover:bg-violet-500 hover:shadow-violet-500/30 active:scale-95"
         >
+          {!isRunning && (
+            <span className="absolute inset-0 animate-ping rounded-full bg-violet-500 opacity-10" />
+          )}
           {isRunning ? (
             <Pause className="h-5 w-5 fill-current" />
           ) : (
@@ -48,14 +49,15 @@ export const TimerControls = ({
           )}
         </button>
 
-        {!hasStarted && <div className="h-11 w-11" />}
+        <div className="h-10 w-10" />
       </div>
+
       <button
         type="button"
         onClick={onCustomize}
-        className="flex items-center gap-2 rounded-full border border-border/50 bg-background px-4 py-2 text-xs font-medium text-muted-foreground transition-all hover:bg-muted hover:text-foreground hover:border-border"
+        className="flex items-center gap-2 rounded-full border border-border/40 bg-background/60 px-4 py-2 text-xs font-medium text-muted-foreground backdrop-blur-sm transition-all duration-200 hover:border-border/70 hover:bg-muted hover:text-foreground"
       >
-        <SlidersHorizontal className="h-3.5 w-3.5" />
+        <SlidersHorizontal className="h-3 w-3" />
         Customize
       </button>
     </div>

@@ -12,38 +12,39 @@ function pad(n: number) {
   return String(n).padStart(2, '0')
 }
 
-export const TimerDisplay = ({
+export function TimerDisplay({
   hours,
   minutes,
   seconds,
   isFreeMode,
   isRunning,
-}: TimerDisplayProps) => {
-  const showHours = hours > 0 || isFreeMode
+}: TimerDisplayProps) {
+  const showHours = hours > 0
 
   return (
-    <div className="flex flex-col items-center select-none">
-      <span className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/60">
+    <div className="flex flex-col items-center gap-3 select-none">
+      <span className="rounded-full border border-border/40 bg-background/60 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground/70 backdrop-blur-sm">
         {isRunning ? 'Focusing' : isFreeMode ? 'Free timer' : 'Ready'}
       </span>
 
-      <div className="flex items-end gap-1 tabular-nums">
+      <div className="flex items-baseline gap-0.5 tabular-nums">
         {showHours && (
           <>
-            <span className="text-6xl font-thin tracking-tighter text-foreground leading-none">
+            <span className="text-7xl font-extralight tracking-tighter text-foreground leading-none">
               {pad(hours)}
             </span>
-            <span className="mb-2 text-2xl font-thin text-muted-foreground/60 leading-none">h</span>
+            <span className="mx-1 text-2xl font-light text-muted-foreground/40 leading-none">
+              :
+            </span>
           </>
         )}
-        <span className="text-6xl font-thin tracking-tighter text-foreground leading-none">
+        <span className="text-7xl font-extralight tracking-tighter text-foreground leading-none">
           {pad(minutes)}
         </span>
-        <span className="mb-2 text-2xl font-thin text-muted-foreground/60 leading-none">m</span>
-        <span className="text-6xl font-thin tracking-tighter text-foreground leading-none">
+        <span className="mx-1 text-2xl font-light text-muted-foreground/40 leading-none">:</span>
+        <span className="text-7xl font-extralight tracking-tighter text-foreground leading-none">
           {pad(seconds)}
         </span>
-        <span className="mb-2 text-2xl font-thin text-muted-foreground/60 leading-none">s</span>
       </div>
     </div>
   )
