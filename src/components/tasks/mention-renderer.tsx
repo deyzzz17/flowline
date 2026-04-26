@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
 import { parseMentions } from './mention-textarea'
 import { cn } from '@/lib/utils'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface MentionRendererProps {
   text: string
@@ -17,7 +18,6 @@ export const MentionRenderer = ({ text, className, currentListSlug }: MentionRen
   const router = useRouter()
   const parts = parseMentions(text)
   const hasMentions = parts.some((p) => p.type === 'mention')
-
   const [highlightedId, setHighlightedId] = useState<number | null>(null)
 
   const { data } = useQuery({
@@ -27,19 +27,24 @@ export const MentionRenderer = ({ text, className, currentListSlug }: MentionRen
     staleTime: 30_000,
   })
 
-  const handleMentionClick = (taskId: number) => {
-    if (!data?.docs) return
+  const resolveTask = (taskId: number) => {
+    if (!data?.docs) return { task: null, resolvedId: taskId }
 
-    let targetTask = data.docs.find((t) => t.id === taskId)
+    let task = data.docs.find((t) => t.id === taskId) ?? null
     let resolvedId = taskId
 
-    if (!targetTask) {
+    if (!task) {
       const parentId = Math.floor(taskId / 10000)
-      targetTask = data.docs.find((t) => t.id === parentId)
+      task = data.docs.find((t) => t.id === parentId) ?? null
       resolvedId = parentId
     }
 
-    if (!targetTask) return
+    return { task, resolvedId }
+  }
+
+  const handleMentionClick = (taskId: number) => {
+    const { task: targetTask, resolvedId } = resolveTask(taskId)
+    if (!targetTask || targetTask.status === 'deleted') return
 
     type ListObj = { slug: string }
     const list =
@@ -50,7 +55,6 @@ export const MentionRenderer = ({ text, className, currentListSlug }: MentionRen
     if (isSameList || !list?.slug) {
       const el = document.querySelector(`[data-task-id="${resolvedId}"]`) as HTMLElement | null
       if (!el) return
-
       el.scrollIntoView({ behavior: 'smooth', block: 'center' })
       setHighlightedId(resolvedId)
       setTimeout(() => setHighlightedId(null), 3000)
@@ -89,25 +93,48 @@ export const MentionRenderer = ({ text, className, currentListSlug }: MentionRen
   }
 
   return (
-    <p
-      className={cn('text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap', className)}
-    >
-      {parts.map((part, i) => {
-        if (part.type === 'text') {
-          return <span key={i}>{part.content}</span>
-        }
+    <TooltipProvider delayDuration={300}>
+      <p
+        className={cn(
+          'text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap',
+          className,
+        )}
+      >
+        {parts.map((part, i) => {
+          if (part.type === 'text') {
+            return <span key={i}>{part.content}</span>
+          }
 
-        return (
-          <button
-            key={i}
-            type="button"
-            onClick={() => part.taskId && handleMentionClick(part.taskId)}
-            className="inline-flex items-center gap-1 rounded-md bg-violet-500/10 px-1.5 py-0.5 text-xs font-medium text-violet-600 dark:text-violet-400 hover:bg-violet-500/20 transition-colors cursor-pointer"
-          >
-            @{part.content}
-          </button>
-        )
-      })}
-    </p>
+          const { task: resolvedTask } = part.taskId ? resolveTask(part.taskId) : { task: null }
+          const isDeleted = !resolvedTask || resolvedTask.status === 'deleted'
+
+          if (isDeleted) {
+            return (
+              <Tooltip key={i}>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex items-center gap-1 rounded-md bg-destructive/10 px-1.5 py-0.5 text-xs font-medium text-destructive/70 line-through cursor-not-allowed">
+                    @{part.content}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  This task has been deleted
+                </TooltipContent>
+              </Tooltip>
+            )
+          }
+
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => part.taskId && handleMentionClick(part.taskId)}
+              className="inline-flex items-center gap-1 rounded-md bg-violet-500/10 px-1.5 py-0.5 text-xs font-medium text-violet-600 dark:text-violet-400 hover:bg-violet-500/20 transition-colors cursor-pointer"
+            >
+              @{part.content}
+            </button>
+          )
+        })}
+      </p>
+    </TooltipProvider>
   )
 }
