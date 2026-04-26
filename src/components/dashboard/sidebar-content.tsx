@@ -16,11 +16,11 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
 import { useActiveNav } from '@/hooks/dashboard/use-active-nav'
-import { useSidebarFooter } from '@/hooks/dashboard/use-sidebar-footer'
+import { useSidebarFooter } from '@/hooks/sidebar/use-sidebar-footer'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import type { Task } from '@/payload-types'
-import { SidebarNewsletter } from '../support/sidebar-newsletter'
+import { SidebarNewsletter } from './sidebar-newsletter'
 import { FeedbackDialog } from '../support/feedback-dialog'
 
 interface SidebarContentProps {
