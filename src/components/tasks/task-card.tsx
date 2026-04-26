@@ -1186,6 +1186,23 @@ export const TaskCard = ({
                                   <PencilSquareIcon className="h-3.5 w-3.5" />
                                 </button>
                               )}
+                              {subtask.dueDate &&
+                                !subtask.done &&
+                                !isDeleted &&
+                                (() => {
+                                  const diff = new Date(subtask.dueDate).getTime() - Date.now()
+                                  const oneDayMs = 24 * 60 * 60 * 1000
+                                  const twoDaysMs = 2 * oneDayMs
+                                  if (diff > twoDaysMs) return null
+                                  return (
+                                    <span
+                                      className={cn(
+                                        'h-1.5 w-1.5 shrink-0 rounded-full',
+                                        diff <= oneDayMs ? 'bg-destructive' : 'bg-orange-500',
+                                      )}
+                                    />
+                                  )
+                                })()}
                               {!isDeleted && !isCompleted && (
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>

@@ -20,7 +20,7 @@ export const autoDeleteExpiredTasks = inngest.createFunction(
         where: {
           and: [
             { autoDeleteOnDueDate: { equals: true } },
-            { status: { in: ['active', 'inactive'] } },
+            { status: { in: ['active', 'inactive', 'completed'] } },
             { dueDate: { less_than: now } },
           ],
         },
