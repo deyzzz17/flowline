@@ -27,8 +27,23 @@ export function TimerPageClient() {
     <div className="relative flex min-h-[calc(100vh-4rem)] flex-col overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
         <div
-          className="absolute left-1/2 top-1/2 h-175 w-175 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.035] dark:opacity-[0.05] blur-[120px]"
-          style={{ background: 'oklch(0.62 0.2 277)' }}
+          className="absolute left-1/2 top-1/2 h-150 w-150 -translate-x-1/2 -translate-y-1/2 rounded-full blur-[100px]"
+          style={{
+            background:
+              'radial-gradient(circle, oklch(0.62 0.2 277 / 0.12) 0%, oklch(0.62 0.2 277 / 0.04) 50%, transparent 70%)',
+          }}
+        />
+        <div
+          className="absolute left-1/2 top-2/3 h-100 w-100 -translate-x-1/2 -translate-y-1/2 rounded-full blur-[80px]"
+          style={{
+            background: 'radial-gradient(circle, oklch(0.55 0.22 290 / 0.08) 0%, transparent 65%)',
+          }}
+        />
+        <div
+          className="absolute left-1/2 top-0 h-75 w-75 -translate-x-1/2 rounded-full blur-[90px]"
+          style={{
+            background: 'radial-gradient(ellipse, oklch(0.65 0.18 270 / 0.06) 0%, transparent 70%)',
+          }}
         />
       </div>
 
