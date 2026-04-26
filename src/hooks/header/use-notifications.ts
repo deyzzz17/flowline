@@ -72,15 +72,23 @@ function buildNotifications(tasks: Task[]): TaskNotification[] {
 export const useNotifications = () => {
   const [open, setOpen] = useState(false)
   const readIdsRef = useRef<Set<string>>(new Set())
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
   const [, forceUpdate] = useState(0)
 
   const { data } = useQuery({
     queryKey: ['tasks'],
     queryFn: () => api.tasks.list(),
     staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: 30_000,
   })
 
-  const notifications = useMemo(() => buildNotifications((data?.docs ?? []) as Task[]), [data])
+  const allNotifications = useMemo(() => buildNotifications((data?.docs ?? []) as Task[]), [data])
+
+  const notifications = useMemo(
+    () => allNotifications.filter((n) => !dismissedIds.has(n.id)),
+    [allNotifications, dismissedIds],
+  )
 
   const hasUnread = notifications.some((n) => !readIdsRef.current.has(n.id))
 
@@ -92,11 +100,25 @@ export const useNotifications = () => {
     }
   }
 
+  const dismiss = (id: string) => {
+    setDismissedIds((prev) => new Set([...prev, id]))
+    readIdsRef.current.add(id)
+  }
+
+  const dismissAll = () => {
+    const allIds = new Set(notifications.map((n) => n.id))
+    setDismissedIds((prev) => new Set([...prev, ...allIds]))
+    notifications.forEach((n) => readIdsRef.current.add(n.id))
+    forceUpdate((c) => c + 1)
+  }
+
   return {
     open,
     setOpen: handleOpen,
     notifications,
     hasUnread,
     count: notifications.length,
+    dismiss,
+    dismissAll,
   }
 }
