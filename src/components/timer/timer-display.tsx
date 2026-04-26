@@ -42,7 +42,7 @@ export function TimerDisplay({
           {pad(minutes)}
         </span>
         <span className="mx-1 text-2xl font-light text-muted-foreground/40 leading-none">:</span>
-        <span className="text-7xl font-extralight tracking-tighter text-foreground leading-none">
+        <span className="text-7xl sm:text-7xl font-extralight tracking-tighter text-foreground leading-none">
           {pad(seconds)}
         </span>
       </div>
