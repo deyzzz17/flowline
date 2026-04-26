@@ -734,22 +734,21 @@ export const TaskCard = ({
                                   Due date <span className="normal-case font-normal">Optional</span>
                                 </p>
                                 <InlineDatePicker
-                                  value={editDueDate}
+                                  value={s.dueDate}
                                   onChange={(d) => {
-                                    if (d) {
-                                      const conflicting = editSubtasks.find(
-                                        (s) => s.dueDate && s.dueDate > d,
-                                      )
-                                      if (conflicting) {
-                                        toast.error('Due date conflict', {
-                                          description: `The parent task's due date cannot be before a subtask's due date (${format(conflicting.dueDate!, 'PPP')}).`,
-                                        })
-                                        return
-                                      }
+                                    if (
+                                      d &&
+                                      editDueDate &&
+                                      startOfDay(d) > startOfDay(editDueDate)
+                                    ) {
+                                      toast.error('Due date conflict', {
+                                        description: `A subtask cannot have a due date after the parent task's due date (${format(editDueDate, 'PPP')}).`,
+                                      })
+                                      return
                                     }
-                                    setEditDueDate(d)
+                                    updateSubtask(i, 'dueDate', d)
                                     if (d)
-                                      toast.info('Parent due date updated', {
+                                      toast.info('Subtask due date updated', {
                                         description: `Due date set to ${format(d, 'PPP')}.`,
                                       })
                                   }}

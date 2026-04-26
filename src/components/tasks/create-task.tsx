@@ -227,7 +227,7 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] my-4 overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New Task</DialogTitle>
         </DialogHeader>
