@@ -721,13 +721,17 @@ export const TaskCard = ({
                                         (s) => s.dueDate && s.dueDate > d,
                                       )
                                       if (conflicting) {
-                                        setEditDueDate(d)
-                                        if (d)
-                                          toast.info('Parent due date updated', {
-                                            description: `Due date set to ${format(d, 'PPP')}.`,
-                                          })
+                                        toast.error('Due date conflict', {
+                                          description: `The parent task's due date cannot be before a subtask's due date (${format(conflicting.dueDate!, 'PPP')}).`,
+                                        })
+                                        return
                                       }
                                     }
+                                    setEditDueDate(d)
+                                    if (d)
+                                      toast.info('Parent due date updated', {
+                                        description: `Due date set to ${format(d, 'PPP')}.`,
+                                      })
                                   }}
                                 />
                               </div>
@@ -1048,12 +1052,20 @@ export const TaskCard = ({
                             <InlineDatePicker
                               value={subtaskEditDraft.dueDate}
                               onChange={(d) => {
-                                if (d && editDueDate && d > editDueDate) {
+                                const parentDueDate = task.dueDate
+                                  ? new Date(task.dueDate)
+                                  : undefined
+                                if (d && parentDueDate && d > parentDueDate) {
+                                  toast.error('Due date conflict', {
+                                    description: `A subtask cannot have a due date after the parent task's due date (${format(parentDueDate, 'PPP')}).`,
+                                  })
+                                  return
+                                }
+                                setSubtaskEditDraft((prev) => ({ ...prev, dueDate: d }))
+                                if (d)
                                   toast.info('Subtask due date updated', {
                                     description: `Due date set to ${format(d, 'PPP')}.`,
                                   })
-                                  setSubtaskEditDraft((prev) => ({ ...prev, dueDate: d }))
-                                }
                               }}
                             />
                             <div className="flex flex-wrap gap-1">
