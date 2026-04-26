@@ -46,7 +46,7 @@ function getListUrgency(tasks: Task[]): 'red' | 'orange' | null {
 }
 
 export const SidebarContent = ({ onNavigate }: SidebarContentProps) => {
-  const [listsOpen, setListsOpen] = useState(true)
+  const [listsOpen, setListsOpen] = useState(false)
   const [timerOpen, setTimerOpen] = useState(false)
   const { feedbackOpen, setFeedbackOpen } = useSidebarFooter()
 
