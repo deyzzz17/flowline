@@ -10,6 +10,8 @@ import {
   ChevronRight,
   MessageSquare,
   HelpCircle,
+  Timer,
+  BarChart2,
 } from 'lucide-react'
 import { NavItem } from './nav-item'
 import { useState } from 'react'
@@ -31,7 +33,6 @@ function getListUrgency(tasks: Task[]): 'red' | 'orange' | null {
   const now = Date.now()
   const oneDayMs = 24 * 60 * 60 * 1000
   const twoDaysMs = 2 * oneDayMs
-
   let hasOrange = false
 
   for (const task of tasks) {
@@ -46,6 +47,7 @@ function getListUrgency(tasks: Task[]): 'red' | 'orange' | null {
 
 export const SidebarContent = ({ onNavigate }: SidebarContentProps) => {
   const [listsOpen, setListsOpen] = useState(true)
+  const [timerOpen, setTimerOpen] = useState(false)
   const { feedbackOpen, setFeedbackOpen } = useSidebarFooter()
 
   const { data: listsData } = useQuery({
@@ -83,7 +85,6 @@ export const SidebarContent = ({ onNavigate }: SidebarContentProps) => {
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
 
       <div className="flex flex-1 flex-col p-3">
-        {/* Navigation — scrollable */}
         <nav className="flex-1 space-y-1">
           <NavItem href="/dashboard" icon={Home} label="Home" onNavigate={onNavigate} />
 
@@ -148,13 +149,40 @@ export const SidebarContent = ({ onNavigate }: SidebarContentProps) => {
               </div>
             )}
           </div>
+
+          <div>
+            <button
+              type="button"
+              onClick={() => setTimerOpen((v) => !v)}
+              className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground"
+            >
+              <div className="flex items-center gap-3">
+                <Timer className="h-4 w-4 shrink-0" />
+                Timer
+              </div>
+              {timerOpen ? (
+                <ChevronDown className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronRight className="h-3.5 w-3.5" />
+              )}
+            </button>
+
+            {timerOpen && (
+              <div className="mt-0.5 ml-3 space-y-0.5 border-l border-border/50 pl-3">
+                <NavItem href="/timer" icon={Timer} label="Timer" onNavigate={onNavigate} />
+                <NavItem
+                  href="/timer/analytics"
+                  icon={BarChart2}
+                  label="Analytics"
+                  onNavigate={onNavigate}
+                />
+              </div>
+            )}
+          </div>
         </nav>
 
-        {/* Footer — newsletter + support/feedback, fixe en bas */}
         <div className="mt-4 space-y-1">
-          {/* Newsletter — s'affiche au-dessus du footer */}
           <SidebarNewsletter />
-
           <div className="border-t border-border/40 pt-2 space-y-0.5">
             <Link
               href="/support"
