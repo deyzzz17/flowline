@@ -13,6 +13,7 @@ import {
 import { signOut } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@/contexts/user-context'
+import { toast } from 'sonner'
 
 function getInitials(name: string | null | undefined): string {
   if (!name) return '?'
@@ -30,6 +31,9 @@ export const UserDropdown = () => {
 
   const handleSignOut = async () => {
     await signOut()
+    toast.info('Log out successfull', {
+      description: `You have been successfully logged out. See you soon.`,
+    })
     router.push('/sign-in')
   }
 

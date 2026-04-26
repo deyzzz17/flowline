@@ -272,6 +272,9 @@ export const TaskCard = ({
     setNewTagName('')
     setNewTagColor('#8b5cf6')
     setShowNewTag(false)
+    toast.info('New tag create', {
+      description: `Your new tag has been successfully added to your list of custom tags .`,
+    })
   }
 
   const handleSaveEdit = () => {

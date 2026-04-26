@@ -8,6 +8,7 @@ import { Input } from '../ui/input'
 import { cn } from '@/lib/utils'
 import { Button } from '../ui/button'
 import Link from 'next/link'
+import { toast } from 'sonner'
 
 export const SignUpForm = () => {
   const {
@@ -49,8 +50,16 @@ export const SignUpForm = () => {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!validate()) return
+    if (!validate()) {
+      toast.error('Sign in failed', {
+        description: `Something went wrong while you were signing in. Please check your email address or password.`,
+      })
+      return
+    }
     await handleSubmit(e)
+    toast.info('Sign in successfull', {
+      description: `Registration successful. You will be redirected to your account.`,
+    })
   }
 
   const clearField = (field: keyof typeof fieldErrors) =>

@@ -55,7 +55,10 @@ export const NewListClient = () => {
       }),
     onSuccess: (result) => {
       if (!result.ok) {
-        setError(result.error ?? 'Error while creating the list.')
+        setError(
+          result.error ??
+            'Error while creating the list. Make sure the name of your list doesn&apos;t already exist.',
+        )
         return
       }
       toast.info('List created', {

@@ -8,6 +8,7 @@ import { Label } from '../ui/label'
 import { AlertCircleIcon, Eye, EyeOff } from 'lucide-react'
 import Link from 'next/link'
 import { signInWithGoogle } from '@/lib/auth-client'
+import { toast } from 'sonner'
 
 export const SignInForm = () => {
   const {
@@ -34,8 +35,16 @@ export const SignInForm = () => {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!validate()) return
+    if (!validate()) {
+      toast.error('Login failed', {
+        description: `Something went wrong while you were logging in. Please check the information you have entered.`,
+      })
+      return
+    }
     await handleSubmit(e)
+    toast.info('Login successfull', {
+      description: `You have successfully logged in to your account.`,
+    })
   }
 
   return (
