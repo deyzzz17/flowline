@@ -4,10 +4,34 @@ import { Bell } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { useNotifications } from '@/hooks/header/use-notifications'
+import { useRouter, usePathname } from 'next/navigation'
 import { format } from 'date-fns'
+
+function highlightTask(taskId: number) {
+  const el = document.querySelector(`[data-task-id="${taskId}"]`) as HTMLElement | null
+  if (!el) return
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  el.classList.add('mention-highlighted')
+  setTimeout(() => el.classList.remove('mention-highlighted'), 3000)
+}
 
 export const NotificationsMenu = () => {
   const { open, setOpen, notifications, hasUnread, count } = useNotifications()
+  const router = useRouter()
+  const pathname = usePathname()
+
+  const handleNotifClick = (taskId: number, listSlug: string) => {
+    setOpen(false)
+    const targetPath = `/lists/${listSlug}`
+    const isSamePage = pathname === targetPath
+
+    if (isSamePage) {
+      highlightTask(taskId)
+    } else {
+      router.push(targetPath)
+      setTimeout(() => highlightTask(taskId), 700)
+    }
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -51,16 +75,13 @@ export const NotificationsMenu = () => {
               <button
                 key={notif.id}
                 type="button"
-                onClick={() => {
-                  setOpen(false)
-                }}
+                onClick={() => handleNotifClick(notif.taskId, notif.listSlug)}
                 className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50"
               >
                 <div
                   className="mt-0.5 h-2 w-2 shrink-0 rounded-full"
                   style={{ backgroundColor: notif.listColor }}
                 />
-
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-foreground truncate">
                     {notif.taskTitle}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
 import type { Task } from '@/payload-types'
@@ -12,6 +12,7 @@ export interface TaskNotification {
   taskId: number
   taskTitle: string
   listName: string
+  listSlug: string
   listColor: string
   level: NotificationLevel
   message: string
@@ -27,12 +28,15 @@ function buildNotifications(tasks: Task[]): TaskNotification[] {
   for (const task of tasks) {
     if (task.status !== 'active' || !task.dueDate) continue
 
-    type ListObj = { id: number; name: string; category?: { color?: string | null } | null }
+    type ListObj = {
+      id: number
+      name: string
+      slug: string
+      category?: { color?: string | null } | null
+    }
     const list = task.list && typeof task.list === 'object' ? (task.list as ListObj) : null
     if (!list) continue
 
-    const listName = list.name
-    const listColor = list.category?.color ?? '#8b5cf6'
     const diff = new Date(task.dueDate).getTime() - now
 
     if (diff > 0 && diff <= oneDayMs) {
@@ -40,22 +44,23 @@ function buildNotifications(tasks: Task[]): TaskNotification[] {
         id: `urgent-${task.id}`,
         taskId: task.id,
         taskTitle: task.title,
-        listName,
-        listColor,
+        listName: list.name,
+        listSlug: list.slug,
+        listColor: list.category?.color ?? '#8b5cf6',
         level: 'urgent',
-        message: `Expires tomorrow`,
+        message: 'Expires tomorrow',
         dueDate: task.dueDate,
       })
-    }
-    else if (diff > oneDayMs && diff <= twoDaysMs) {
+    } else if (diff > oneDayMs && diff <= twoDaysMs) {
       notifications.push({
         id: `warning-${task.id}`,
         taskId: task.id,
         taskTitle: task.title,
-        listName,
-        listColor,
+        listName: list.name,
+        listSlug: list.slug,
+        listColor: list.category?.color ?? '#8b5cf6',
         level: 'warning',
-        message: `Expires in 2 days`,
+        message: 'Expires in 2 days',
         dueDate: task.dueDate,
       })
     }
@@ -66,7 +71,8 @@ function buildNotifications(tasks: Task[]): TaskNotification[] {
 
 export const useNotifications = () => {
   const [open, setOpen] = useState(false)
-  const [hasBeenOpened, setHasBeenOpened] = useState(false)
+  const readIdsRef = useRef<Set<string>>(new Set())
+  const [, forceUpdate] = useState(0)
 
   const { data } = useQuery({
     queryKey: ['tasks'],
@@ -76,11 +82,14 @@ export const useNotifications = () => {
 
   const notifications = useMemo(() => buildNotifications((data?.docs ?? []) as Task[]), [data])
 
-  const hasUnread = notifications.length > 0 && !hasBeenOpened
+  const hasUnread = notifications.some((n) => !readIdsRef.current.has(n.id))
 
   const handleOpen = (value: boolean) => {
     setOpen(value)
-    if (value && !hasBeenOpened) setHasBeenOpened(true)
+    if (value) {
+      notifications.forEach((n) => readIdsRef.current.add(n.id))
+      forceUpdate((c) => c + 1)
+    }
   }
 
   return {
