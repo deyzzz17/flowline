@@ -1,7 +1,7 @@
 import { SupportClient } from '@/components/support/support-client'
 
 export const metadata = {
-  title: 'Support — Flowline',
+  title: 'Flowline Support',
   description: 'Get help and find answers to common questions.',
 }
 
