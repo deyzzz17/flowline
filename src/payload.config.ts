@@ -10,6 +10,7 @@ import { Media } from './collections/Media'
 import { Tasks } from './collections/Tasks'
 import { UserTags } from './collections/UserTags'
 import { Lists } from './collections/Lists'
+import { TimerCategories } from './collections/TimerCategories'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -21,7 +22,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Admins, Media, Tasks, UserTags, Lists],
+  collections: [Admins, Media, Tasks, UserTags, Lists, TimerCategories],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {

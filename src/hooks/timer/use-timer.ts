@@ -12,6 +12,7 @@ export const useTimer = () => {
   const [elapsed, setElapsed] = useState(0)
   const [isRunning, setIsRunning] = useState(false)
   const [hasStarted, setHasStarted] = useState(false)
+  const [customizeOpen, setCustomizeOpen] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const start = useCallback(() => {
@@ -56,5 +57,7 @@ export const useTimer = () => {
     seconds,
     toggle,
     reset,
+    customizeOpen,
+    setCustomizeOpen,
   }
 }

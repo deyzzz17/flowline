@@ -6,19 +6,28 @@ import { TimerRing } from './timer-ring'
 import { TimerDisplay } from './timer-display'
 import { TimerControls } from './timer-controls'
 import { useTimer } from '@/hooks/timer/use-timer'
+import { TimerCustomizeDialog } from './timer-customize-dialog'
 
 export function TimerPageClient() {
-  const { isRunning, hasStarted, hours, minutes, seconds, toggle, reset } = useTimer()
+  const {
+    isRunning,
+    hasStarted,
+    hours,
+    minutes,
+    seconds,
+    toggle,
+    reset,
+    customizeOpen,
+    setCustomizeOpen,
+  } = useTimer()
 
   const isFreeMode = true
   const progress = 1
 
-  const handleCustomize = () => {
-    /* TODO */
-  }
-
   return (
     <div className="relative flex min-h-[calc(100vh-4rem)] flex-col overflow-hidden">
+      <TimerCustomizeDialog open={customizeOpen} onOpenChange={setCustomizeOpen} />
+
       <div className="pointer-events-none absolute inset-0">
         <div
           className="absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[100px]"
@@ -82,7 +91,7 @@ export function TimerPageClient() {
               hasStarted={hasStarted}
               onToggle={toggle}
               onReset={reset}
-              onCustomize={handleCustomize}
+              onCustomize={() => setCustomizeOpen(true)}
             />
           </div>
         </div>

@@ -72,6 +72,7 @@ export interface Config {
     tasks: Task;
     'user-tags': UserTag;
     lists: List;
+    'timer-categories': TimerCategory;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -84,6 +85,7 @@ export interface Config {
     tasks: TasksSelect<false> | TasksSelect<true>;
     'user-tags': UserTagsSelect<false> | UserTagsSelect<true>;
     lists: ListsSelect<false> | ListsSelect<true>;
+    'timer-categories': TimerCategoriesSelect<false> | TimerCategoriesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -244,6 +246,22 @@ export interface UserTag {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "timer-categories".
+ */
+export interface TimerCategory {
+  id: number;
+  name: string;
+  color: string;
+  userId: string;
+  /**
+   * Default categories provided by the app
+   */
+  isDefault?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -285,6 +303,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'lists';
         value: number | List;
+      } | null)
+    | ({
+        relationTo: 'timer-categories';
+        value: number | TimerCategory;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -428,6 +450,18 @@ export interface ListsSelect<T extends boolean = true> {
         name?: T;
         color?: T;
       };
+  isDefault?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "timer-categories_select".
+ */
+export interface TimerCategoriesSelect<T extends boolean = true> {
+  name?: T;
+  color?: T;
+  userId?: T;
   isDefault?: T;
   updatedAt?: T;
   createdAt?: T;
