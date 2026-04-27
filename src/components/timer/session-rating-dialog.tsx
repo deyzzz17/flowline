@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Star, CheckCircle2, XCircle } from 'lucide-react'
+import { CheckCircle2, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
@@ -14,6 +14,47 @@ interface SessionRatingDialogProps {
   taskId?: number | null
   taskTitle?: string
   categoryName?: string
+}
+
+function StarIcon({ fill }: { fill: 'empty' | 'half' | 'full' }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-8 w-8 transition-all duration-100"
+      style={{
+        filter: fill !== 'empty' ? 'drop-shadow(0 1px 2px rgba(251,191,36,0.3))' : undefined,
+      }}
+    >
+      <defs>
+        <linearGradient id={`half-${fill}`} x1="0" x2="1" y1="0" y2="0">
+          <stop offset="50%" stopColor="#fbbf24" />
+          <stop offset="50%" stopColor="transparent" />
+        </linearGradient>
+      </defs>
+      <polygon
+        points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+        fill={fill === 'full' ? '#fbbf24' : fill === 'half' ? 'url(#half-gradient)' : 'none'}
+        stroke={fill === 'empty' ? '#94a3b8' : '#fbbf24'}
+        strokeOpacity={fill === 'empty' ? 0.4 : 1}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {fill === 'half' && (
+        <>
+          {/* Moitié gauche remplie */}
+          <clipPath id="half-clip">
+            <rect x="0" y="0" width="12" height="24" />
+          </clipPath>
+          <polygon
+            points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+            fill="#fbbf24"
+            clipPath="url(#half-clip)"
+          />
+        </>
+      )}
+    </svg>
+  )
 }
 
 export function SessionRatingDialog({
@@ -45,12 +86,35 @@ export function SessionRatingDialog({
 
   const hasTask = !!taskId && !!taskTitle
   const canSubmit = rating > 0 && (!hasTask || taskCompleted !== null)
-
   const displayValue = hovered > 0 ? hovered : rating
+
+  const getStarFill = (star: number): 'empty' | 'half' | 'full' => {
+    if (displayValue >= star) return 'full'
+    if (displayValue >= star - 0.5) return 'half'
+    return 'empty'
+  }
+
+  const ratingLabel =
+    displayValue === 0
+      ? '\u00a0'
+      : displayValue <= 1
+        ? 'Poor'
+        : displayValue <= 2
+          ? 'Fair'
+          : displayValue <= 3
+            ? 'Good'
+            : displayValue <= 4
+              ? 'Great'
+              : 'Excellent!'
 
   return (
     <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent
+        className="sm:max-w-sm"
+        style={{
+          marginLeft: 'clamp(0px, 8rem, 8rem)',
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="text-center text-base">Session complete 🎉</DialogTitle>
         </DialogHeader>
@@ -63,74 +127,38 @@ export function SessionRatingDialog({
             </p>
           )}
 
-          <div className="flex flex-col items-center gap-3">
+          <div className="flex flex-col items-center gap-2">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground/60">
               Rate your session
             </p>
-            <div className="flex items-center gap-1" onMouseLeave={() => setHovered(0)}>
-              {[1, 2, 3, 4, 5].map((star) => {
-                const fullValue = star
-                const halfValue = star - 0.5
-                const isFull = displayValue >= fullValue
-                const isHalf = !isFull && displayValue >= halfValue
-
-                return (
-                  <div key={star} className="relative flex h-9 w-9 items-center justify-center">
-                    <div
-                      className="absolute inset-y-0 left-0 w-1/2 cursor-pointer z-10"
-                      onMouseEnter={() => setHovered(halfValue)}
-                      onClick={() => setRating(halfValue)}
-                    />
-                    <div
-                      className="absolute inset-y-0 right-0 w-1/2 cursor-pointer z-10"
-                      onMouseEnter={() => setHovered(fullValue)}
-                      onClick={() => setRating(fullValue)}
-                    />
-
-                    <Star
-                      className={cn(
-                        'h-8 w-8 transition-all duration-100',
-                        isFull
-                          ? 'fill-amber-400 text-amber-400 scale-110'
-                          : 'fill-none text-muted-foreground/30',
-                      )}
-                    />
-
-                    {isHalf && (
-                      <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
-                        <div className="w-1/2 overflow-hidden">
-                          <Star className="h-8 w-8 fill-amber-400 text-amber-400 scale-110" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
+            <div className="flex items-center gap-0.5" onMouseLeave={() => setHovered(0)}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <div
+                  key={star}
+                  className="relative cursor-pointer p-1"
+                  onMouseMove={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect()
+                    const x = e.clientX - rect.left
+                    setHovered(x < rect.width / 2 ? star - 0.5 : star)
+                  }}
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect()
+                    const x = e.clientX - rect.left
+                    setRating(x < rect.width / 2 ? star - 0.5 : star)
+                  }}
+                >
+                  <StarIcon fill={getStarFill(star)} />
+                </div>
+              ))}
             </div>
-
-            <p className="h-4 text-xs text-muted-foreground/70">
-              {displayValue === 0
-                ? ''
-                : displayValue <= 1
-                  ? 'Poor'
-                  : displayValue <= 2
-                    ? 'Fair'
-                    : displayValue <= 3
-                      ? 'Good'
-                      : displayValue <= 4
-                        ? 'Great'
-                        : 'Excellent!'}
-            </p>
+            <p className="h-4 text-xs text-muted-foreground/70">{ratingLabel}</p>
           </div>
 
           {hasTask && (
             <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-3">
               <p className="text-sm text-center">
                 Did you complete{' '}
-                <span className="font-medium text-foreground truncate">
-                  &ldquo;{taskTitle}&rdquo;
-                </span>
-                ?
+                <span className="font-medium text-foreground">&ldquo;{taskTitle}&rdquo;</span>?
               </p>
               <div className="flex gap-2">
                 <button

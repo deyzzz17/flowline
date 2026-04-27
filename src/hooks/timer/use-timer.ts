@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
+import { useTimerSounds } from './use-timer-sounds'
 
 export type TimerPhase = 'work' | 'break' | 'free'
 
@@ -16,14 +17,11 @@ export interface SessionConfig {
 
 function buildState(totalElapsed: number, config: SessionConfig | null) {
   if (!config || config.sessionDuration === 0) {
-    const h = Math.floor(totalElapsed / 3600)
-    const m = Math.floor((totalElapsed % 3600) / 60)
-    const s = totalElapsed % 60
     return {
       phase: 'free' as TimerPhase,
-      displayHours: h,
-      displayMinutes: m,
-      displaySeconds: s,
+      displayHours: Math.floor(totalElapsed / 3600),
+      displayMinutes: Math.floor((totalElapsed % 3600) / 60),
+      displaySeconds: totalElapsed % 60,
       progress: 1,
       totalElapsed,
       sessionDuration: 0,
@@ -36,14 +34,11 @@ function buildState(totalElapsed: number, config: SessionConfig | null) {
   const remaining = Math.max(0, sessionDuration - totalElapsed)
 
   if (workDuration === 0) {
-    const h = Math.floor(remaining / 3600)
-    const m = Math.floor((remaining % 3600) / 60)
-    const s = remaining % 60
     return {
       phase: 'work' as TimerPhase,
-      displayHours: h,
-      displayMinutes: m,
-      displaySeconds: s,
+      displayHours: Math.floor(remaining / 3600),
+      displayMinutes: Math.floor((remaining % 3600) / 60),
+      displaySeconds: remaining % 60,
       progress: remaining / sessionDuration,
       totalElapsed,
       sessionDuration,
@@ -76,6 +71,13 @@ function buildState(totalElapsed: number, config: SessionConfig | null) {
   }
 }
 
+function getPhase(elapsed: number, config: SessionConfig): TimerPhase {
+  if (config.workDuration === 0) return 'work'
+  const cycleDuration = config.workDuration + config.breakDuration
+  const positionInCycle = elapsed % cycleDuration
+  return positionInCycle < config.workDuration ? 'work' : 'break'
+}
+
 export const useTimer = () => {
   const [totalElapsed, setTotalElapsed] = useState(0)
   const [isRunning, setIsRunning] = useState(false)
@@ -83,8 +85,12 @@ export const useTimer = () => {
   const [config, setConfig] = useState<SessionConfig | null>(null)
   const [customizeOpen, setCustomizeOpen] = useState(false)
   const [ratingOpen, setRatingOpen] = useState(false)
+
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const ratingTriggeredRef = useRef(false)
+  const lastPhaseRef = useRef<TimerPhase>('work')
+
+  const { playPhaseChange, playSessionEnd } = useTimerSounds()
 
   const isFreeMode = !config || config.sessionDuration === 0
 
@@ -95,13 +101,17 @@ export const useTimer = () => {
     }
   }, [])
 
-  const triggerFinish = useCallback((cfg: SessionConfig) => {
-    if (ratingTriggeredRef.current) return
-    ratingTriggeredRef.current = true
-    if (cfg.categoryName) {
-      setTimeout(() => setRatingOpen(true), 800)
-    }
-  }, [])
+  const triggerFinish = useCallback(
+    (cfg: SessionConfig) => {
+      if (ratingTriggeredRef.current) return
+      ratingTriggeredRef.current = true
+      playSessionEnd()
+      if (cfg.categoryName) {
+        setTimeout(() => setRatingOpen(true), 800)
+      }
+    },
+    [playSessionEnd],
+  )
 
   const pause = useCallback(() => {
     if (!isRunning) return
@@ -110,13 +120,26 @@ export const useTimer = () => {
   }, [isRunning, stopInterval])
 
   const toggle = useCallback(() => {
-    if (isRunning) pause()
-    else {
-      if (config) {
-        setIsRunning(true)
-        intervalRef.current = setInterval(() => {
-          setTotalElapsed((prev) => {
-            const next = prev + 1
+    if (isRunning) {
+      pause()
+    } else {
+      setIsRunning(true)
+      if (!hasStarted) setHasStarted(true)
+
+      intervalRef.current = setInterval(() => {
+        setTotalElapsed((prev) => {
+          const next = prev + 1
+
+          if (config) {
+            if (config.workDuration > 0) {
+              const prevPhase = getPhase(prev, config)
+              const nextPhase = getPhase(next, config)
+              if (prevPhase !== nextPhase) {
+                lastPhaseRef.current = nextPhase
+                playPhaseChange()
+              }
+            }
+
             if (config.sessionDuration > 0 && next >= config.sessionDuration) {
               clearInterval(intervalRef.current!)
               intervalRef.current = null
@@ -124,18 +147,13 @@ export const useTimer = () => {
               triggerFinish(config)
               return config.sessionDuration
             }
-            return next
-          })
-        }, 1000)
-      } else {
-        setIsRunning(true)
-        setHasStarted(true)
-        intervalRef.current = setInterval(() => {
-          setTotalElapsed((prev) => prev + 1)
-        }, 1000)
-      }
+          }
+
+          return next
+        })
+      }, 1000)
     }
-  }, [isRunning, config, pause, triggerFinish])
+  }, [isRunning, hasStarted, config, pause, playPhaseChange, triggerFinish])
 
   const reset = useCallback(() => {
     pause()
@@ -144,6 +162,7 @@ export const useTimer = () => {
     setConfig(null)
     setRatingOpen(false)
     ratingTriggeredRef.current = false
+    lastPhaseRef.current = 'work'
   }, [pause])
 
   const startWithConfig = useCallback(
@@ -154,11 +173,22 @@ export const useTimer = () => {
       setIsRunning(true)
       setConfig(sessionConfig)
       ratingTriggeredRef.current = false
+      lastPhaseRef.current = 'work'
 
       setTimeout(() => {
         intervalRef.current = setInterval(() => {
           setTotalElapsed((prev) => {
             const next = prev + 1
+
+            if (sessionConfig.workDuration > 0) {
+              const prevPhase = getPhase(prev, sessionConfig)
+              const nextPhase = getPhase(next, sessionConfig)
+              if (prevPhase !== nextPhase) {
+                lastPhaseRef.current = nextPhase
+                playPhaseChange()
+              }
+            }
+
             if (sessionConfig.sessionDuration > 0 && next >= sessionConfig.sessionDuration) {
               clearInterval(intervalRef.current!)
               intervalRef.current = null
@@ -166,12 +196,13 @@ export const useTimer = () => {
               triggerFinish(sessionConfig)
               return sessionConfig.sessionDuration
             }
+
             return next
           })
         }, 1000)
       }, 0)
     },
-    [stopInterval, triggerFinish],
+    [stopInterval, playPhaseChange, triggerFinish],
   )
 
   const derived = buildState(totalElapsed, config)

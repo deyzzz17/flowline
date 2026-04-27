@@ -32,9 +32,7 @@ export function TaskSelect({ tasks, value, onChange }: TaskSelectProps) {
 
   const selectedTask = tasks.find((t) => t.id === value) ?? null
 
-  const filtered = tasks.filter((t) =>
-    t.title.toLowerCase().includes(search.toLowerCase()),
-  )
+  const filtered = tasks.filter((t) => t.title.toLowerCase().includes(search.toLowerCase()))
 
   const handleTriggerClick = () => {
     if (open) {
@@ -51,7 +49,7 @@ export function TaskSelect({ tasks, value, onChange }: TaskSelectProps) {
     setOpen(false)
     setSearch('')
   }
-  
+
   const handleBlur = () => {
     setTimeout(() => {
       if (containerRef.current && !containerRef.current.contains(document.activeElement)) {
@@ -68,14 +66,18 @@ export function TaskSelect({ tasks, value, onChange }: TaskSelectProps) {
         onClick={handleTriggerClick}
         className={cn(
           'flex w-full items-center justify-between gap-2 rounded-xl border bg-background px-3 py-2.5 text-sm transition-all',
-          open ? 'border-primary/40 ring-1 ring-primary/20' : 'border-border/60 hover:border-border',
+          open
+            ? 'border-primary/40 ring-1 ring-primary/20'
+            : 'border-border/60 hover:border-border',
         )}
       >
         {selectedTask ? (
           <div className="flex flex-1 items-center gap-2 min-w-0">
             {(() => {
-              const list = selectedTask.list && typeof selectedTask.list === 'object'
-                ? (selectedTask.list as ListObj) : null
+              const list =
+                selectedTask.list && typeof selectedTask.list === 'object'
+                  ? (selectedTask.list as ListObj)
+                  : null
               const color = list?.category?.color ?? '#8b5cf6'
               return list ? (
                 <span
@@ -110,15 +112,17 @@ export function TaskSelect({ tasks, value, onChange }: TaskSelectProps) {
               <X className="h-3 w-3" />
             </span>
           )}
-          <ChevronDown className={cn(
-            'h-4 w-4 text-muted-foreground/50 transition-transform duration-200',
-            open && 'rotate-180',
-          )} />
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 text-muted-foreground/50 transition-transform duration-200',
+              open && 'rotate-180',
+            )}
+          />
         </div>
       </button>
 
       {open && (
-        <div className="absolute z-50 mt-1.5 w-full rounded-xl border border-border/60 bg-popover shadow-lg overflow-hidden">
+        <div className="absolute z-50 bottom-full mb-1.5 w-full rounded-xl border border-border/60 bg-popover shadow-lg overflow-hidden">
           <div className="flex items-center gap-2 border-b border-border/40 px-3 py-2">
             <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
             <input
@@ -152,8 +156,8 @@ export function TaskSelect({ tasks, value, onChange }: TaskSelectProps) {
               </p>
             ) : (
               filtered.map((task) => {
-                const list = task.list && typeof task.list === 'object'
-                  ? (task.list as ListObj) : null
+                const list =
+                  task.list && typeof task.list === 'object' ? (task.list as ListObj) : null
                 const color = list?.category?.color ?? '#8b5cf6'
                 const isSelected = task.id === value
 
