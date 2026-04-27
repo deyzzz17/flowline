@@ -25,6 +25,8 @@ import { cn } from '@/lib/utils'
 import { useTimerCustomize } from '@/hooks/timer/use-timer-customize'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
+import { DurationPicker, durationToSeconds, emptyDuration } from './duration-picker'
+import { DurationValue } from './duration-picker'
 
 function hexToRgba(hex: string, alpha: number) {
   try {
@@ -88,6 +90,30 @@ export const TimerCustomizeDialog = ({ open, onOpenChange }: TimerCustomizeDialo
   })
   const activeTasks = (tasksData?.docs ?? []).filter((t) => t.status === 'active')
 
+  const sessionDur: DurationValue = session.sessionDuration
+    ? {
+        hours: Math.floor(Number(session.sessionDuration) / 3600),
+        minutes: Math.floor((Number(session.sessionDuration) % 3600) / 60),
+        seconds: Number(session.sessionDuration) % 60,
+      }
+    : emptyDuration()
+
+  const workDur: DurationValue = session.workDuration
+    ? {
+        hours: Math.floor(Number(session.workDuration) / 3600),
+        minutes: Math.floor((Number(session.workDuration) % 3600) / 60),
+        seconds: Number(session.workDuration) % 60,
+      }
+    : emptyDuration()
+
+  const breakDur: DurationValue = session.breakDuration
+    ? {
+        hours: Math.floor(Number(session.breakDuration) / 3600),
+        minutes: Math.floor((Number(session.breakDuration) % 3600) / 60),
+        seconds: Number(session.breakDuration) % 60,
+      }
+    : emptyDuration()
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
@@ -99,7 +125,7 @@ export const TimerCustomizeDialog = ({ open, onOpenChange }: TimerCustomizeDialo
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6 pt-1">
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div className="flex items-center gap-2">
               <Clock className="h-3.5 w-3.5 text-muted-foreground/60" />
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
@@ -107,55 +133,33 @@ export const TimerCustomizeDialog = ({ open, onOpenChange }: TimerCustomizeDialo
               </p>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="session-duration" className="text-sm">
+            <div className="space-y-2">
+              <Label className="text-sm">
                 Session duration <span className="text-destructive">*</span>
               </Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="session-duration"
-                  type="number"
-                  min={1}
-                  value={session.sessionDuration}
-                  onChange={(e) =>
-                    update('sessionDuration', e.target.value === '' ? '' : Number(e.target.value))
-                  }
-                  placeholder="e.g. 90"
-                  className="h-10"
-                />
-                <span className="shrink-0 text-sm text-muted-foreground">min</span>
-              </div>
+              <DurationPicker
+                value={sessionDur}
+                onChange={(d) => update('sessionDuration', durationToSeconds(d) || '')}
+              />
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="work-duration" className="text-sm">
+            <div className="space-y-2">
+              <Label className="text-sm">
                 Work duration
                 <span className="ml-1.5 text-xs font-normal text-muted-foreground">Optional</span>
               </Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="work-duration"
-                  type="number"
-                  min={1}
-                  value={session.workDuration}
-                  onChange={(e) =>
-                    update('workDuration', e.target.value === '' ? '' : Number(e.target.value))
-                  }
-                  placeholder="e.g. 25"
-                  className={cn(
-                    'h-10',
-                    workExceedsSession && 'border-destructive focus-visible:ring-destructive',
-                  )}
-                />
-                <span className="shrink-0 text-sm text-muted-foreground">min</span>
-              </div>
+              <DurationPicker
+                value={workDur}
+                onChange={(d) => update('workDuration', durationToSeconds(d) || '')}
+                error={workExceedsSession}
+              />
               {workExceedsSession && (
                 <p className="text-xs text-destructive">Work duration exceeds session duration.</p>
               )}
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="break-duration" className="text-sm">
+            <div className="space-y-2">
+              <Label className="text-sm">
                 Break duration
                 {breakRequired ? (
                   <span className="ml-1.5 text-destructive text-xs">*</span>
@@ -163,23 +167,11 @@ export const TimerCustomizeDialog = ({ open, onOpenChange }: TimerCustomizeDialo
                   <span className="ml-1.5 text-xs font-normal text-muted-foreground">Optional</span>
                 )}
               </Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="break-duration"
-                  type="number"
-                  min={1}
-                  value={session.breakDuration}
-                  onChange={(e) =>
-                    update('breakDuration', e.target.value === '' ? '' : Number(e.target.value))
-                  }
-                  placeholder="e.g. 5"
-                  className={cn(
-                    'h-10',
-                    breakExceedsSession && 'border-destructive focus-visible:ring-destructive',
-                  )}
-                />
-                <span className="shrink-0 text-sm text-muted-foreground">min</span>
-              </div>
+              <DurationPicker
+                value={breakDur}
+                onChange={(d) => update('breakDuration', durationToSeconds(d) || '')}
+                error={breakExceedsSession}
+              />
               {breakRequired && (
                 <p className="text-xs text-muted-foreground">
                   Required because work time is shorter than session.
@@ -229,11 +221,19 @@ export const TimerCustomizeDialog = ({ open, onOpenChange }: TimerCustomizeDialo
                     {categories.map((cat) => {
                       const isSelected = session.categoryId === String(cat.id)
                       return (
-                        <div key={cat.id} className="flex items-center group">
+                        <div key={cat.id} className="flex items-center">
                           <button
                             type="button"
                             onClick={() => update('categoryId', isSelected ? '' : String(cat.id))}
-                            className="flex items-center gap-1.5 rounded-l-full border-y border-l px-2.5 py-1 text-xs font-medium transition-all"
+                            className={cn(
+                              'flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium transition-all',
+                              cat.isDefault
+                                ? 'rounded-full border'
+                                : 'rounded-l-full border-y border-l',
+                              isSelected
+                                ? ''
+                                : 'border-border/60 bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
+                            )}
                             style={
                               isSelected
                                 ? {
@@ -250,11 +250,17 @@ export const TimerCustomizeDialog = ({ open, onOpenChange }: TimerCustomizeDialo
                             />
                             {cat.name}
                           </button>
+
                           {!cat.isDefault && (
                             <button
                               type="button"
                               onClick={() => deleteCategoryMutation.mutate(cat.id)}
-                              className="flex items-center justify-center h-full rounded-r-full border-y border-r px-1.5 py-1 border-border/60 bg-background text-muted-foreground hover:text-destructive transition-colors"
+                              className={cn(
+                                'flex items-center justify-center h-full rounded-r-full border-y border-r px-1.5 py-1 transition-colors',
+                                isSelected
+                                  ? 'hover:text-white'
+                                  : 'border-border/60 bg-background text-muted-foreground hover:text-destructive',
+                              )}
                               style={
                                 isSelected
                                   ? {
@@ -267,9 +273,6 @@ export const TimerCustomizeDialog = ({ open, onOpenChange }: TimerCustomizeDialo
                             >
                               <X className="h-2.5 w-2.5" />
                             </button>
-                          )}
-                          {cat.isDefault && (
-                            <div className="flex items-center justify-center h-full rounded-r-full border-y border-r border-border/60 bg-background px-1.5 py-1" />
                           )}
                         </div>
                       )
