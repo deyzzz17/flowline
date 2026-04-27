@@ -1,24 +1,18 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
 import { BarChart2 } from 'lucide-react'
 import { TimerRing } from './timer-ring'
 import { TimerDisplay } from './timer-display'
 import { TimerControls } from './timer-controls'
+import { useTimer } from '@/hooks/timer/use-timer'
 
 export function TimerPageClient() {
-  const [isRunning] = useState(false)
-  const [hasStarted] = useState(false)
+  const { isRunning, hasStarted, hours, minutes, seconds, toggle, reset } = useTimer()
+
   const isFreeMode = true
   const progress = 1
 
-  const handleToggle = () => {
-    /* TODO */
-  }
-  const handleReset = () => {
-    /* TODO */
-  }
   const handleCustomize = () => {
     /* TODO */
   }
@@ -27,20 +21,20 @@ export function TimerPageClient() {
     <div className="relative flex min-h-[calc(100vh-4rem)] flex-col overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
         <div
-          className="absolute left-1/2 top-1/2 h-150 w-150 -translate-x-1/2 -translate-y-1/2 rounded-full blur-[100px]"
+          className="absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[100px]"
           style={{
             background:
               'radial-gradient(circle, oklch(0.62 0.2 277 / 0.12) 0%, oklch(0.62 0.2 277 / 0.04) 50%, transparent 70%)',
           }}
         />
         <div
-          className="absolute left-1/2 top-2/3 h-100 w-100 -translate-x-1/2 -translate-y-1/2 rounded-full blur-[80px]"
+          className="absolute left-1/2 top-2/3 h-[400px] w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[80px]"
           style={{
             background: 'radial-gradient(circle, oklch(0.55 0.22 290 / 0.08) 0%, transparent 65%)',
           }}
         />
         <div
-          className="absolute left-1/2 top-0 h-75 w-125 -translate-x-1/2 rounded-full blur-[90px]"
+          className="absolute left-1/2 top-0 h-[300px] w-[500px] -translate-x-1/2 rounded-full blur-[90px]"
           style={{
             background: 'radial-gradient(ellipse, oklch(0.65 0.18 270 / 0.06) 0%, transparent 70%)',
           }}
@@ -77,17 +71,17 @@ export function TimerPageClient() {
 
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 sm:gap-8">
             <TimerDisplay
-              hours={0}
-              minutes={0}
-              seconds={0}
+              hours={hours}
+              minutes={minutes}
+              seconds={seconds}
               isFreeMode={isFreeMode}
               isRunning={isRunning}
             />
             <TimerControls
               isRunning={isRunning}
               hasStarted={hasStarted}
-              onToggle={handleToggle}
-              onReset={handleReset}
+              onToggle={toggle}
+              onReset={reset}
               onCustomize={handleCustomize}
             />
           </div>
