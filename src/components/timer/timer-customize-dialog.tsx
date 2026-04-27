@@ -106,12 +106,15 @@ export const TimerCustomizeDialog = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!isValid) return
+    const selectedTask = activeTasks.find((t) => t.id === session.taskId)
     const config: SessionConfig = {
       sessionDuration: Number(session.sessionDuration),
       workDuration: Number(session.workDuration) || 0,
       breakDuration: Number(session.breakDuration) || 0,
       categoryName: selectedCategory?.name,
       subCategory: session.subCategory || undefined,
+      taskId: session.taskId,
+      taskTitle: selectedTask?.title,
     }
     onStart(config)
     reset()

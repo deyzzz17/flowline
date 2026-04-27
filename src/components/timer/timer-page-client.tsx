@@ -6,6 +6,7 @@ import { TimerRing } from './timer-ring'
 import { TimerDisplay } from './timer-display'
 import { TimerControls } from './timer-controls'
 import { TimerCustomizeDialog } from './timer-customize-dialog'
+import { SessionRatingDialog } from './session-rating-dialog'
 import { useTimer } from '@/hooks/timer/use-timer'
 import type { SessionConfig } from '@/hooks/timer/use-timer'
 
@@ -26,6 +27,8 @@ export function TimerPageClient() {
     config,
     customizeOpen,
     setCustomizeOpen,
+    ratingOpen,
+    setRatingOpen,
   } = useTimer()
 
   const handleStartSession = (sessionConfig: SessionConfig) => {
@@ -41,9 +44,21 @@ export function TimerPageClient() {
         onStart={handleStartSession}
       />
 
+      <SessionRatingDialog
+        open={ratingOpen}
+        onClose={(data) => {
+          setRatingOpen(false)
+          reset()
+          console.log('Session rated:', data)
+        }}
+        taskId={config?.taskId}
+        taskTitle={config?.taskTitle}
+        categoryName={config?.categoryName}
+      />
+
       <div className="pointer-events-none absolute inset-0">
         <div
-          className="absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[100px] transition-all duration-1000"
+          className="absolute left-1/2 top-1/2 h-150 w-150 -translate-x-1/2 -translate-y-1/2 rounded-full blur-[100px] transition-all duration-1000"
           style={{
             background:
               phase === 'break'
@@ -52,13 +67,13 @@ export function TimerPageClient() {
           }}
         />
         <div
-          className="absolute left-1/2 top-2/3 h-[400px] w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[80px]"
+          className="absolute left-1/2 top-2/3 h-100 w-100 -translate-x-1/2 -translate-y-1/2 rounded-full blur-[80px]"
           style={{
             background: 'radial-gradient(circle, oklch(0.55 0.22 290 / 0.08) 0%, transparent 65%)',
           }}
         />
         <div
-          className="absolute left-1/2 top-0 h-[300px] w-[500px] -translate-x-1/2 rounded-full blur-[90px]"
+          className="absolute left-1/2 top-0 h-75 w-125 -translate-x-1/2 rounded-full blur-[90px]"
           style={{
             background: 'radial-gradient(ellipse, oklch(0.65 0.18 270 / 0.06) 0%, transparent 70%)',
           }}
