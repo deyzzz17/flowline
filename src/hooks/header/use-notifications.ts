@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
 import type { Task } from '@/payload-types'
 
-export type NotificationLevel = 'warning' | 'urgent'
+export type NotificationLevel = 'today' | 'urgent' | 'warning'
 
 export interface TaskNotification {
   id: string
@@ -19,27 +19,49 @@ export interface TaskNotification {
   dueDate: string
 }
 
+function isSameCalendarDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  )
+}
+
+function startOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate())
+}
+
 function buildNotifications(tasks: Task[]): TaskNotification[] {
-  const now = Date.now()
-  const oneDayMs = 24 * 60 * 60 * 1000
-  const twoDaysMs = 2 * oneDayMs
+  const now = new Date()
+  const todayStart = startOfDay(now).getTime()
+  const tomorrowStart = todayStart + 24 * 60 * 60 * 1000
+  const twoDaysStart = todayStart + 2 * 24 * 60 * 60 * 1000
   const notifications: TaskNotification[] = []
 
   for (const task of tasks) {
     if (task.status !== 'active' || !task.dueDate) continue
 
-    type ListObj = {
-      id: number
-      name: string
-      slug: string
-      category?: { color?: string | null } | null
-    }
+    type ListObj = { id: number; name: string; slug: string; category?: { color?: string | null } | null }
     const list = task.list && typeof task.list === 'object' ? (task.list as ListObj) : null
     if (!list) continue
 
-    const diff = new Date(task.dueDate).getTime() - now
+    const dueDate = new Date(task.dueDate)
+    const dueDayStart = startOfDay(dueDate).getTime()
 
-    if (diff > 0 && diff <= oneDayMs) {
+    if (isSameCalendarDay(dueDate, now)) {
+      notifications.push({
+        id: `today-${task.id}`,
+        taskId: task.id,
+        taskTitle: task.title,
+        listName: list.name,
+        listSlug: list.slug,
+        listColor: list.category?.color ?? '#8b5cf6',
+        level: 'today',
+        message: 'Due today',
+        dueDate: task.dueDate,
+      })
+    }
+    else if (dueDayStart === tomorrowStart) {
       notifications.push({
         id: `urgent-${task.id}`,
         taskId: task.id,
@@ -48,10 +70,11 @@ function buildNotifications(tasks: Task[]): TaskNotification[] {
         listSlug: list.slug,
         listColor: list.category?.color ?? '#8b5cf6',
         level: 'urgent',
-        message: 'Expires tomorrow',
+        message: 'Due tomorrow',
         dueDate: task.dueDate,
       })
-    } else if (diff > oneDayMs && diff <= twoDaysMs) {
+    }
+    else if (dueDayStart === twoDaysStart) {
       notifications.push({
         id: `warning-${task.id}`,
         taskId: task.id,
@@ -60,13 +83,15 @@ function buildNotifications(tasks: Task[]): TaskNotification[] {
         listSlug: list.slug,
         listColor: list.category?.color ?? '#8b5cf6',
         level: 'warning',
-        message: 'Expires in 2 days',
+        message: 'Due in 2 days',
         dueDate: task.dueDate,
       })
     }
   }
 
-  return notifications.sort((a, b) => (a.level === 'urgent' && b.level !== 'urgent' ? -1 : 1))
+  // Trier : today en premier, puis urgent, puis warning
+  const order: Record<NotificationLevel, number> = { today: 0, urgent: 1, warning: 2 }
+  return notifications.sort((a, b) => order[a.level] - order[b.level])
 }
 
 export const useNotifications = () => {
@@ -83,7 +108,10 @@ export const useNotifications = () => {
     refetchInterval: 30_000,
   })
 
-  const allNotifications = useMemo(() => buildNotifications((data?.docs ?? []) as Task[]), [data])
+  const allNotifications = useMemo(
+    () => buildNotifications((data?.docs ?? []) as Task[]),
+    [data],
+  )
 
   const notifications = useMemo(
     () => allNotifications.filter((n) => !dismissedIds.has(n.id)),
