@@ -25,8 +25,9 @@ import { cn } from '@/lib/utils'
 import { useTimerCustomize } from '@/hooks/timer/use-timer-customize'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
-import { DurationPicker, durationToSeconds, emptyDuration } from './duration-picker'
-import { DurationValue } from './duration-picker'
+import { DurationPicker, durationToSeconds } from './duration-picker'
+import { TaskSelect } from './task-select'
+import type { SessionConfig } from '@/hooks/timer/use-timer'
 
 function hexToRgba(hex: string, alpha: number) {
   try {
@@ -57,9 +58,14 @@ const PRESET_COLORS = [
 interface TimerCustomizeDialogProps {
   open: boolean
   onOpenChange: (v: boolean) => void
+  onStart: (config: SessionConfig) => void
 }
 
-export const TimerCustomizeDialog = ({ open, onOpenChange }: TimerCustomizeDialogProps) => {
+export const TimerCustomizeDialog = ({
+  open,
+  onOpenChange,
+  onStart,
+}: TimerCustomizeDialogProps) => {
   const {
     session,
     update,
@@ -73,13 +79,13 @@ export const TimerCustomizeDialog = ({ open, onOpenChange }: TimerCustomizeDialo
     newCategoryColor,
     setNewCategoryColor,
     handleCreateCategory,
-    handleSubmit,
     deleteCategoryMutation,
     isValid,
     breakRequired,
     workExceedsSession,
     breakExceedsSession,
     createCategoryMutation,
+    reset,
   } = useTimerCustomize()
 
   const { data: tasksData } = useQuery({
@@ -90,32 +96,35 @@ export const TimerCustomizeDialog = ({ open, onOpenChange }: TimerCustomizeDialo
   })
   const activeTasks = (tasksData?.docs ?? []).filter((t) => t.status === 'active')
 
-  const sessionDur: DurationValue = session.sessionDuration
-    ? {
-        hours: Math.floor(Number(session.sessionDuration) / 3600),
-        minutes: Math.floor((Number(session.sessionDuration) % 3600) / 60),
-        seconds: Number(session.sessionDuration) % 60,
-      }
-    : emptyDuration()
+  const toDur = (val: number | '') => {
+    const s = val === '' ? 0 : Number(val)
+    return { hours: Math.floor(s / 3600), minutes: Math.floor((s % 3600) / 60), seconds: s % 60 }
+  }
 
-  const workDur: DurationValue = session.workDuration
-    ? {
-        hours: Math.floor(Number(session.workDuration) / 3600),
-        minutes: Math.floor((Number(session.workDuration) % 3600) / 60),
-        seconds: Number(session.workDuration) % 60,
-      }
-    : emptyDuration()
+  const selectedCategory = categories.find((c) => String(c.id) === session.categoryId)
 
-  const breakDur: DurationValue = session.breakDuration
-    ? {
-        hours: Math.floor(Number(session.breakDuration) / 3600),
-        minutes: Math.floor((Number(session.breakDuration) % 3600) / 60),
-        seconds: Number(session.breakDuration) % 60,
-      }
-    : emptyDuration()
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!isValid) return
+    const config: SessionConfig = {
+      sessionDuration: Number(session.sessionDuration),
+      workDuration: Number(session.workDuration) || 0,
+      breakDuration: Number(session.breakDuration) || 0,
+      categoryName: selectedCategory?.name,
+      subCategory: session.subCategory || undefined,
+    }
+    onStart(config)
+    reset()
+  }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) reset()
+        onOpenChange(v)
+      }}
+    >
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -138,7 +147,7 @@ export const TimerCustomizeDialog = ({ open, onOpenChange }: TimerCustomizeDialo
                 Session duration <span className="text-destructive">*</span>
               </Label>
               <DurationPicker
-                value={sessionDur}
+                value={toDur(session.sessionDuration)}
                 onChange={(d) => update('sessionDuration', durationToSeconds(d) || '')}
               />
             </div>
@@ -149,7 +158,7 @@ export const TimerCustomizeDialog = ({ open, onOpenChange }: TimerCustomizeDialo
                 <span className="ml-1.5 text-xs font-normal text-muted-foreground">Optional</span>
               </Label>
               <DurationPicker
-                value={workDur}
+                value={toDur(session.workDuration)}
                 onChange={(d) => update('workDuration', durationToSeconds(d) || '')}
                 error={workExceedsSession}
               />
@@ -168,7 +177,7 @@ export const TimerCustomizeDialog = ({ open, onOpenChange }: TimerCustomizeDialo
                 )}
               </Label>
               <DurationPicker
-                value={breakDur}
+                value={toDur(session.breakDuration)}
                 onChange={(d) => update('breakDuration', durationToSeconds(d) || '')}
                 error={breakExceedsSession}
               />
@@ -216,7 +225,6 @@ export const TimerCustomizeDialog = ({ open, onOpenChange }: TimerCustomizeDialo
                     <Tag className="h-3.5 w-3.5 text-muted-foreground/60" />
                     <Label className="text-sm">Category</Label>
                   </div>
-
                   <div className="flex flex-wrap gap-1.5">
                     {categories.map((cat) => {
                       const isSelected = session.categoryId === String(cat.id)
@@ -250,7 +258,6 @@ export const TimerCustomizeDialog = ({ open, onOpenChange }: TimerCustomizeDialo
                             />
                             {cat.name}
                           </button>
-
                           {!cat.isDefault && (
                             <button
                               type="button"
@@ -258,7 +265,7 @@ export const TimerCustomizeDialog = ({ open, onOpenChange }: TimerCustomizeDialo
                               className={cn(
                                 'flex items-center justify-center h-full rounded-r-full border-y border-r px-1.5 py-1 transition-colors',
                                 isSelected
-                                  ? 'hover:text-white'
+                                  ? ''
                                   : 'border-border/60 bg-background text-muted-foreground hover:text-destructive',
                               )}
                               style={
@@ -397,34 +404,31 @@ export const TimerCustomizeDialog = ({ open, onOpenChange }: TimerCustomizeDialo
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="task" className="text-sm">
+                  <Label className="text-sm">
                     Linked task
                     <span className="ml-1.5 text-xs font-normal text-muted-foreground">
                       Optional
                     </span>
                   </Label>
-                  <select
-                    id="task"
-                    value={session.taskId ?? ''}
-                    onChange={(e) =>
-                      update('taskId', e.target.value ? Number(e.target.value) : null)
-                    }
-                    className="w-full h-10 rounded-xl border border-border/60 bg-background px-3 text-sm text-foreground outline-none focus:border-primary/40 transition-colors"
-                  >
-                    <option value="">No task</option>
-                    {activeTasks.map((task) => (
-                      <option key={task.id} value={task.id}>
-                        {task.title}
-                      </option>
-                    ))}
-                  </select>
+                  <TaskSelect
+                    tasks={activeTasks}
+                    value={session.taskId}
+                    onChange={(id) => update('taskId', id)}
+                  />
                 </div>
               </div>
             )}
           </div>
 
           <DialogFooter className="pt-1">
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                reset()
+                onOpenChange(false)
+              }}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={!isValid} className="gap-2">

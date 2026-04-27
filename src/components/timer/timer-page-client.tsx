@@ -5,35 +5,50 @@ import { BarChart2 } from 'lucide-react'
 import { TimerRing } from './timer-ring'
 import { TimerDisplay } from './timer-display'
 import { TimerControls } from './timer-controls'
-import { useTimer } from '@/hooks/timer/use-timer'
 import { TimerCustomizeDialog } from './timer-customize-dialog'
+import { useTimer } from '@/hooks/timer/use-timer'
+import type { SessionConfig } from '@/hooks/timer/use-timer'
 
 export function TimerPageClient() {
   const {
     isRunning,
     hasStarted,
-    hours,
-    minutes,
-    seconds,
+    isFreeMode,
+    phase,
+    displayHours,
+    displayMinutes,
+    displaySeconds,
+    progress,
+    isFinished,
     toggle,
     reset,
+    startWithConfig,
+    config,
     customizeOpen,
     setCustomizeOpen,
   } = useTimer()
 
-  const isFreeMode = true
-  const progress = 1
+  const handleStartSession = (sessionConfig: SessionConfig) => {
+    setCustomizeOpen(false)
+    startWithConfig(sessionConfig)
+  }
 
   return (
     <div className="relative flex min-h-[calc(100vh-4rem)] flex-col overflow-hidden">
-      <TimerCustomizeDialog open={customizeOpen} onOpenChange={setCustomizeOpen} />
+      <TimerCustomizeDialog
+        open={customizeOpen}
+        onOpenChange={setCustomizeOpen}
+        onStart={handleStartSession}
+      />
 
       <div className="pointer-events-none absolute inset-0">
         <div
-          className="absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[100px]"
+          className="absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[100px] transition-all duration-1000"
           style={{
             background:
-              'radial-gradient(circle, oklch(0.62 0.2 277 / 0.12) 0%, oklch(0.62 0.2 277 / 0.04) 50%, transparent 70%)',
+              phase === 'break'
+                ? 'radial-gradient(circle, oklch(0.6 0.18 220 / 0.1) 0%, oklch(0.6 0.18 220 / 0.03) 50%, transparent 70%)'
+                : 'radial-gradient(circle, oklch(0.62 0.2 277 / 0.12) 0%, oklch(0.62 0.2 277 / 0.04) 50%, transparent 70%)',
           }}
         />
         <div
@@ -76,23 +91,43 @@ export function TimerPageClient() {
             height: 'clamp(260px, 70vmin, 420px)',
           }}
         >
-          <TimerRing progress={progress} isFreeMode={isFreeMode} isRunning={isRunning} />
+          <TimerRing
+            progress={progress}
+            isFreeMode={isFreeMode}
+            isRunning={isRunning}
+            phase={phase}
+          />
 
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 sm:gap-8">
             <TimerDisplay
-              hours={hours}
-              minutes={minutes}
-              seconds={seconds}
+              hours={displayHours}
+              minutes={displayMinutes}
+              seconds={displaySeconds}
               isFreeMode={isFreeMode}
               isRunning={isRunning}
+              isFinished={isFinished}
+              phase={phase}
+              categoryName={config?.categoryName}
+              subCategory={config?.subCategory}
             />
-            <TimerControls
-              isRunning={isRunning}
-              hasStarted={hasStarted}
-              onToggle={toggle}
-              onReset={reset}
-              onCustomize={() => setCustomizeOpen(true)}
-            />
+            {!isFinished && (
+              <TimerControls
+                isRunning={isRunning}
+                hasStarted={hasStarted}
+                onToggle={toggle}
+                onReset={reset}
+                onCustomize={() => setCustomizeOpen(true)}
+              />
+            )}
+            {isFinished && (
+              <button
+                type="button"
+                onClick={reset}
+                className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-xs font-medium text-emerald-600 dark:text-emerald-400 transition-all hover:bg-emerald-500/20"
+              >
+                Start new session
+              </button>
+            )}
           </div>
         </div>
       </div>
