@@ -3,17 +3,18 @@
 import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { CheckCircle2, XCircle } from 'lucide-react'
+import { CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
+import { createTimerSession } from '@/api/timer/actions'
+import type { SessionConfig } from '@/hooks/timer/use-timer'
 
 interface SessionRatingDialogProps {
   open: boolean
-  onClose: (data: { rating: number; taskCompleted: boolean | null }) => void
-  taskId?: number | null
-  taskTitle?: string
-  categoryName?: string
+  onClose: () => void
+  config: SessionConfig | null
+  totalElapsed: number 
 }
 
 function StarIcon({ fill }: { fill: 'empty' | 'half' | 'full' }) {
@@ -42,7 +43,6 @@ function StarIcon({ fill }: { fill: 'empty' | 'half' | 'full' }) {
       />
       {fill === 'half' && (
         <>
-          {/* Moitié gauche remplie */}
           <clipPath id="half-clip">
             <rect x="0" y="0" width="12" height="24" />
           </clipPath>
@@ -60,13 +60,13 @@ function StarIcon({ fill }: { fill: 'empty' | 'half' | 'full' }) {
 export function SessionRatingDialog({
   open,
   onClose,
-  taskId,
-  taskTitle,
-  categoryName,
+  config,
+  totalElapsed,
 }: SessionRatingDialogProps) {
   const [rating, setRating] = useState(0)
   const [hovered, setHovered] = useState(0)
   const [taskCompleted, setTaskCompleted] = useState<boolean | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
   const queryClient = useQueryClient()
 
   const completeTaskMutation = useMutation({
@@ -75,16 +75,36 @@ export function SessionRatingDialog({
   })
 
   const handleClose = async () => {
-    if (taskCompleted && taskId) {
-      await completeTaskMutation.mutateAsync(taskId)
+    if (!config) return
+    setIsSaving(true)
+
+    try {
+      if (taskCompleted && config.taskId) {
+        await completeTaskMutation.mutateAsync(config.taskId)
+      }
+      
+      await createTimerSession({
+        duration: totalElapsed,
+        categoryName: config.categoryName,
+        categoryColor: undefined,
+        subCategory: config.subCategory,
+        taskId: config.taskId,
+        taskTitle: config.taskTitle,
+        rating: rating > 0 ? rating : undefined,
+        taskCompleted: taskCompleted ?? false,
+      })
+    } catch {
+    } finally {
+      setIsSaving(false)
     }
-    onClose({ rating, taskCompleted })
+
     setRating(0)
     setHovered(0)
     setTaskCompleted(null)
+    onClose()
   }
 
-  const hasTask = !!taskId && !!taskTitle
+  const hasTask = !!config?.taskId && !!config?.taskTitle
   const canSubmit = rating > 0 && (!hasTask || taskCompleted !== null)
   const displayValue = hovered > 0 ? hovered : rating
 
@@ -109,21 +129,16 @@ export function SessionRatingDialog({
 
   return (
     <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent
-        className="sm:max-w-sm"
-        style={{
-          marginLeft: 'clamp(0px, 8rem, 8rem)',
-        }}
-      >
+      <DialogContent className="sm:max-w-sm" style={{ marginLeft: 'clamp(0px, 8rem, 8rem)' }}>
         <DialogHeader>
           <DialogTitle className="text-center text-base">Session complete 🎉</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6 py-2">
-          {categoryName && (
+          {config?.categoryName && (
             <p className="text-center text-sm text-muted-foreground">
-              How was your <span className="font-medium text-foreground">{categoryName}</span>{' '}
-              session?
+              How was your{' '}
+              <span className="font-medium text-foreground">{config.categoryName}</span> session?
             </p>
           )}
 
@@ -138,13 +153,11 @@ export function SessionRatingDialog({
                   className="relative cursor-pointer p-1"
                   onMouseMove={(e) => {
                     const rect = e.currentTarget.getBoundingClientRect()
-                    const x = e.clientX - rect.left
-                    setHovered(x < rect.width / 2 ? star - 0.5 : star)
+                    setHovered(e.clientX - rect.left < rect.width / 2 ? star - 0.5 : star)
                   }}
                   onClick={(e) => {
                     const rect = e.currentTarget.getBoundingClientRect()
-                    const x = e.clientX - rect.left
-                    setRating(x < rect.width / 2 ? star - 0.5 : star)
+                    setRating(e.clientX - rect.left < rect.width / 2 ? star - 0.5 : star)
                   }}
                 >
                   <StarIcon fill={getStarFill(star)} />
@@ -158,7 +171,10 @@ export function SessionRatingDialog({
             <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-3">
               <p className="text-sm text-center">
                 Did you complete{' '}
-                <span className="font-medium text-foreground">&ldquo;{taskTitle}&rdquo;</span>?
+                <span className="font-medium text-foreground">
+                  &ldquo;{config?.taskTitle}&rdquo;
+                </span>
+                ?
               </p>
               <div className="flex gap-2">
                 <button
@@ -193,10 +209,17 @@ export function SessionRatingDialog({
 
           <Button
             onClick={handleClose}
-            disabled={!canSubmit || completeTaskMutation.isPending}
+            disabled={!canSubmit || isSaving || completeTaskMutation.isPending}
             className="w-full"
           >
-            {completeTaskMutation.isPending ? 'Saving...' : 'Done'}
+            {isSaving ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />
+                Saving...
+              </>
+            ) : (
+              'Done'
+            )}
           </Button>
         </div>
       </DialogContent>

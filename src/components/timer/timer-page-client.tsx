@@ -21,6 +21,7 @@ export function TimerPageClient() {
     displaySeconds,
     progress,
     isFinished,
+    totalElapsed,
     toggle,
     reset,
     startWithConfig,
@@ -46,19 +47,17 @@ export function TimerPageClient() {
 
       <SessionRatingDialog
         open={ratingOpen}
-        onClose={(data) => {
+        onClose={() => {
           setRatingOpen(false)
           reset()
-          console.log('Session rated:', data)
         }}
-        taskId={config?.taskId}
-        taskTitle={config?.taskTitle}
-        categoryName={config?.categoryName}
+        config={config}
+        totalElapsed={totalElapsed}
       />
 
       <div className="pointer-events-none absolute inset-0">
         <div
-          className="absolute left-1/2 top-1/2 h-150 w-150 -translate-x-1/2 -translate-y-1/2 rounded-full blur-[100px] transition-all duration-1000"
+          className="absolute left-1/2 top-1/2 size-150 -translate-x-1/2 -translate-y-1/2 rounded-full blur-[100px] transition-all duration-1000"
           style={{
             background:
               phase === 'break'
@@ -67,7 +66,7 @@ export function TimerPageClient() {
           }}
         />
         <div
-          className="absolute left-1/2 top-2/3 h-100 w-100 -translate-x-1/2 -translate-y-1/2 rounded-full blur-[80px]"
+          className="absolute left-1/2 top-2/3 size-100 -translate-x-1/2 -translate-y-1/2 rounded-full blur-[80px]"
           style={{
             background: 'radial-gradient(circle, oklch(0.55 0.22 290 / 0.08) 0%, transparent 65%)',
           }}
@@ -90,7 +89,7 @@ export function TimerPageClient() {
           </h1>
         </div>
         <Link
-          href="/timer-analytics"
+          href="/timer/analytics"
           className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl border border-border/50 bg-background/60 text-muted-foreground backdrop-blur-sm transition-all hover:bg-muted hover:text-foreground hover:border-border"
           aria-label="Analytics"
         >
@@ -101,10 +100,7 @@ export function TimerPageClient() {
       <div className="relative flex flex-1 flex-col items-center justify-center px-6">
         <div
           className="relative"
-          style={{
-            width: 'clamp(260px, 70vmin, 420px)',
-            height: 'clamp(260px, 70vmin, 420px)',
-          }}
+          style={{ width: 'clamp(260px, 70vmin, 420px)', height: 'clamp(260px, 70vmin, 420px)' }}
         >
           <TimerRing
             progress={progress}
