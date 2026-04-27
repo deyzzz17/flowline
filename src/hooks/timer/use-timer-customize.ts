@@ -14,12 +14,11 @@ export interface TimerSession {
   taskId: number | null
 }
 
-function toMinutes(val: number | ''): number {
+function toSeconds(val: number | ''): number {
   return val === '' ? 0 : Number(val)
 }
 
 export const useTimerCustomize = () => {
-  const [open, setOpen] = useState(false)
   const [analyticsOpen, setAnalyticsOpen] = useState(false)
   const [showNewCategory, setShowNewCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
@@ -39,7 +38,7 @@ export const useTimerCustomize = () => {
   const { data: categoriesData } = useQuery({
     queryKey: ['timer-categories'],
     queryFn: () => timerAPI.categories.list(),
-    enabled: open,
+    staleTime: 60_000,
   })
   const categories = categoriesData?.docs ?? []
 
@@ -57,18 +56,18 @@ export const useTimerCustomize = () => {
     setSession((prev) => ({ ...prev, [field]: value }))
   }
 
-  const sessionMins = toMinutes(session.sessionDuration)
-  const workMins = toMinutes(session.workDuration)
-  const breakMins = toMinutes(session.breakDuration)
+  const sessionSecs = toSeconds(session.sessionDuration)
+  const workSecs = toSeconds(session.workDuration)
+  const breakSecs = toSeconds(session.breakDuration)
 
-  const workExceedsSession = workMins > 0 && sessionMins > 0 && workMins > sessionMins
-  const breakExceedsSession = breakMins > 0 && sessionMins > 0 && breakMins > sessionMins
-  const breakRequired = workMins > 0 && sessionMins > 0 && workMins < sessionMins
-  const breakMissing = breakRequired && breakMins === 0
+  const workExceedsSession = workSecs > 0 && sessionSecs > 0 && workSecs > sessionSecs
+  const breakExceedsSession = breakSecs > 0 && sessionSecs > 0 && breakSecs > sessionSecs
+  const breakRequired = workSecs > 0 && sessionSecs > 0 && workSecs < sessionSecs
+  const breakMissing = breakRequired && breakSecs === 0
   const subCategoryWithoutCategory = session.subCategory.trim() !== '' && session.categoryId === ''
 
   const isValid =
-    sessionMins > 0 &&
+    sessionSecs > 0 &&
     !workExceedsSession &&
     !breakExceedsSession &&
     !breakMissing &&
@@ -76,7 +75,6 @@ export const useTimerCustomize = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-
     if (workExceedsSession) {
       toast.error('Duration conflict', {
         description: 'Work duration cannot exceed the total session duration.',
@@ -101,8 +99,6 @@ export const useTimerCustomize = () => {
       })
       return
     }
-
-    setOpen(false)
     // TODO: passer la config au timer
   }
 
@@ -129,14 +125,10 @@ export const useTimerCustomize = () => {
     setShowNewCategory(false)
     setNewCategoryName('')
     setNewCategoryColor('#8b5cf6')
+    setAnalyticsOpen(false)
   }
 
   return {
-    open,
-    setOpen: (v: boolean) => {
-      if (!v) reset()
-      setOpen(v)
-    },
     session,
     update,
     analyticsOpen,
@@ -156,5 +148,6 @@ export const useTimerCustomize = () => {
     workExceedsSession,
     breakExceedsSession,
     createCategoryMutation,
+    reset,
   }
 }

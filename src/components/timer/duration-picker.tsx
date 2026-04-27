@@ -34,11 +34,11 @@ function Segment({
   error?: boolean
 }) {
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex flex-col items-center gap-0.5">
       <button
         type="button"
         onClick={onIncrement}
-        className="flex h-6 w-10 items-center justify-center rounded-lg text-muted-foreground/50 hover:bg-muted hover:text-foreground transition-colors text-xs"
+        className="flex h-5 w-8 items-center justify-center rounded text-[10px] text-muted-foreground/50 hover:bg-muted hover:text-foreground transition-colors"
       >
         ▲
       </button>
@@ -51,18 +51,18 @@ function Segment({
           if (!isNaN(n)) onChange(n)
         }}
         className={cn(
-          'h-10 w-10 rounded-xl border bg-background text-center text-lg font-light tabular-nums outline-none transition-all focus:border-primary/40',
+          'h-8 w-8 rounded-lg border bg-background text-center text-sm font-light tabular-nums outline-none transition-all focus:border-primary/40',
           error ? 'border-destructive' : 'border-border/60',
         )}
       />
       <button
         type="button"
         onClick={onDecrement}
-        className="flex h-6 w-10 items-center justify-center rounded-lg text-muted-foreground/50 hover:bg-muted hover:text-foreground transition-colors text-xs"
+        className="flex h-5 w-8 items-center justify-center rounded text-[10px] text-muted-foreground/50 hover:bg-muted hover:text-foreground transition-colors"
       >
         ▼
       </button>
-      <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/50">
+      <span className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground/50 mt-0.5">
         {label}
       </span>
     </div>
@@ -71,12 +71,12 @@ function Segment({
 
 export function DurationPicker({ value, onChange, error }: DurationPickerProps) {
   const set = (field: keyof DurationValue, v: number) => {
-    const clamped = field === 'hours' ? Math.min(v, 23) : Math.min(v, 59)
-    onChange({ ...value, [field]: Math.max(0, clamped) })
+    const max = field === 'hours' ? 23 : 59
+    onChange({ ...value, [field]: Math.max(0, Math.min(v, max)) })
   }
 
   return (
-    <div className="flex items-start gap-2">
+    <div className="flex items-start gap-1.5">
       <Segment
         value={value.hours}
         label="hrs"
@@ -85,7 +85,7 @@ export function DurationPicker({ value, onChange, error }: DurationPickerProps) 
         onChange={(v) => set('hours', v)}
         error={error}
       />
-      <span className="mt-3 text-lg font-light text-muted-foreground/40">:</span>
+      <span className="mt-2 text-sm font-light text-muted-foreground/40">:</span>
       <Segment
         value={value.minutes}
         label="min"
@@ -94,7 +94,7 @@ export function DurationPicker({ value, onChange, error }: DurationPickerProps) 
         onChange={(v) => set('minutes', v)}
         error={error}
       />
-      <span className="mt-3 text-lg font-light text-muted-foreground/40">:</span>
+      <span className="mt-2 text-sm font-light text-muted-foreground/40">:</span>
       <Segment
         value={value.seconds}
         label="sec"
@@ -119,4 +119,6 @@ export function secondsToDuration(s: number): DurationValue {
   }
 }
 
-export const emptyDuration = (): DurationValue => ({ hours: 0, minutes: 0, seconds: 0 })
+export function emptyDuration(): DurationValue {
+  return { hours: 0, minutes: 0, seconds: 0 }
+}
