@@ -56,8 +56,10 @@ export const NewListClient = () => {
     onSuccess: (result) => {
       if (!result.ok) {
         setError(
-          result.error ??
-            'Error while creating the list. Make sure the name of your list doesn&apos;t already exist.',
+          result.error?.toLowerCase().includes('duplicate') ||
+            result.error?.toLowerCase().includes('already')
+            ? 'A list with this name already exists. Please choose a different name.'
+            : 'Something went wrong while creating the list. Please try again.',
         )
         return
       }
