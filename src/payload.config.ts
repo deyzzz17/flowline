@@ -11,6 +11,7 @@ import { Tasks } from './collections/Tasks'
 import { UserTags } from './collections/UserTags'
 import { Lists } from './collections/Lists'
 import { TimerCategories } from './collections/TimerCategories'
+import { TimerSessions } from './collections/TimerSessions'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -22,7 +23,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Admins, Media, Tasks, UserTags, Lists, TimerCategories],
+  collections: [Admins, Media, Tasks, UserTags, Lists, TimerCategories, TimerSessions],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {

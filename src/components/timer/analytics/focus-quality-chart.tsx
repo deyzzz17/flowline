@@ -9,33 +9,14 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
-  Cell,
 } from 'recharts'
+import { EmptyState } from './empty-state'
 
 interface FocusDataPoint {
   name: string
-  rating: number
+  avgRating: number
   sessions: number
   color: string
-}
-
-const MOCK_DATA: FocusDataPoint[] = [
-  { name: 'Global', rating: 3.8, sessions: 42, color: '#8b5cf6' },
-  { name: 'Work', rating: 4.1, sessions: 18, color: '#6366f1' },
-  { name: 'Study', rating: 3.5, sessions: 12, color: '#0ea5e9' },
-  { name: 'Health', rating: 4.4, sessions: 6, color: '#10b981' },
-  { name: 'Personal', rating: 3.2, sessions: 3, color: '#f59e0b' },
-  { name: 'Creative', rating: 4.0, sessions: 7, color: '#ec4899' },
-]
-
-function StarDisplay({ value }: { value: number }) {
-  return (
-    <span className="text-[10px] text-amber-400">
-      {'★'.repeat(Math.floor(value))}
-      {value % 1 >= 0.5 ? '½' : ''}
-      {'☆'.repeat(5 - Math.ceil(value))}
-    </span>
-  )
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -44,20 +25,38 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return (
     <div className="rounded-xl border border-border/60 bg-popover px-3 py-2.5 shadow-lg text-xs space-y-1">
       <p className="font-semibold text-foreground">{label}</p>
-      <div className="flex items-center gap-1.5">
-        <StarDisplay value={d.rating} />
-        <span className="text-muted-foreground">{d.rating.toFixed(1)}/5</span>
-      </div>
-      <p className="text-muted-foreground">{d.sessions} sessions</p>
+      <p className="text-amber-400">{d.avgRating.toFixed(1)} ★</p>
+      <p className="text-muted-foreground">
+        {d.sessions} session{d.sessions > 1 ? 's' : ''}
+      </p>
     </div>
   )
 }
 
-export function FocusQualityChart() {
+interface FocusQualityChartProps {
+  global: { avgRating: number; sessions: number }
+  byCategory: { name: string; color: string; avgRating: number; sessions: number }[]
+}
+
+export function FocusQualityChart({ global: globalData, byCategory }: FocusQualityChartProps) {
+  if (globalData.sessions === 0) {
+    return <EmptyState message="Rate your sessions to see focus quality insights." />
+  }
+
+  const chartData: FocusDataPoint[] = [
+    {
+      name: 'Global',
+      avgRating: globalData.avgRating,
+      sessions: globalData.sessions,
+      color: '#8b5cf6',
+    },
+    ...byCategory,
+  ]
+
   return (
     <div className="space-y-4">
       <ResponsiveContainer width="100%" height={200}>
-        <BarChart data={MOCK_DATA} barSize={28} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
+        <BarChart data={chartData} barSize={28} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
           <CartesianGrid
             strokeDasharray="3 3"
             stroke="oklch(0.5 0.01 286 / 0.1)"
@@ -78,19 +77,34 @@ export function FocusQualityChart() {
           />
           <ReferenceLine y={3} stroke="oklch(0.5 0.01 286 / 0.2)" strokeDasharray="4 4" />
           <Tooltip content={<CustomTooltip />} cursor={{ fill: 'oklch(0.5 0.01 286 / 0.05)' }} />
-          <Bar dataKey="rating" radius={[6, 6, 0, 0]}>
-            {MOCK_DATA.map((entry, i) => (
-              <Cell key={i} fill={entry.color} fillOpacity={0.85} />
-            ))}
-          </Bar>
+          <Bar
+            dataKey="avgRating"
+            radius={[6, 6, 0, 0]}
+            shape={(props) => {
+              const { x, y, width, height, index } = props
+              const color = chartData[index]?.color ?? '#8b5cf6'
+              return (
+                <rect
+                  x={x}
+                  y={y}
+                  width={width}
+                  height={height}
+                  fill={color}
+                  fillOpacity={0.85}
+                  rx={6}
+                  ry={6}
+                />
+              )
+            }}
+          />
         </BarChart>
       </ResponsiveContainer>
 
       <div className="rounded-xl border border-border/50 overflow-hidden">
-        <div className="grid grid-cols-4 gap-0 border-b border-border/40 px-4 py-2 bg-muted/20">
-          {['Category', 'Avg rating', 'Sessions', 'Trend'].map((h) => (
+        <div className="grid grid-cols-4 border-b border-border/40 px-4 py-2 bg-muted/20">
+          {['Category', 'Avg rating', 'Sessions', ''].map((h, i) => (
             <p
-              key={h}
+              key={i}
               className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60"
             >
               {h}
@@ -98,10 +112,10 @@ export function FocusQualityChart() {
           ))}
         </div>
         <div className="divide-y divide-border/30">
-          {MOCK_DATA.map((d) => (
+          {chartData.map((d) => (
             <div
               key={d.name}
-              className="grid grid-cols-4 gap-0 px-4 py-2.5 items-center hover:bg-muted/20 transition-colors"
+              className="grid grid-cols-4 px-4 py-2.5 items-center hover:bg-muted/20 transition-colors"
             >
               <div className="flex items-center gap-2">
                 <span
@@ -111,11 +125,13 @@ export function FocusQualityChart() {
                 <span className="text-xs font-medium text-foreground">{d.name}</span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="text-xs font-semibold text-foreground">{d.rating.toFixed(1)}</span>
+                <span className="text-xs font-semibold text-foreground">
+                  {d.avgRating.toFixed(1)}
+                </span>
                 <span className="text-[10px] text-amber-400">★</span>
               </div>
               <span className="text-xs text-muted-foreground">{d.sessions}</span>
-              <span className="text-xs text-emerald-600 dark:text-emerald-400">↑ +0.2</span>
+              <span className="text-xs text-muted-foreground/40">—</span>
             </div>
           ))}
         </div>

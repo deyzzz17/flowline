@@ -73,6 +73,7 @@ export interface Config {
     'user-tags': UserTag;
     lists: List;
     'timer-categories': TimerCategory;
+    'timer-sessions': TimerSession;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -86,6 +87,7 @@ export interface Config {
     'user-tags': UserTagsSelect<false> | UserTagsSelect<true>;
     lists: ListsSelect<false> | ListsSelect<true>;
     'timer-categories': TimerCategoriesSelect<false> | TimerCategoriesSelect<true>;
+    'timer-sessions': TimerSessionsSelect<false> | TimerSessionsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -262,6 +264,31 @@ export interface TimerCategory {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "timer-sessions".
+ */
+export interface TimerSession {
+  id: number;
+  userId: string;
+  startedAt: string;
+  /**
+   * Duration in seconds
+   */
+  duration: number;
+  categoryName?: string | null;
+  categoryColor?: string | null;
+  subCategory?: string | null;
+  taskId?: number | null;
+  taskTitle?: string | null;
+  /**
+   * Session rating from 0 to 5 (0.5 increments)
+   */
+  rating?: number | null;
+  taskCompleted?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -307,6 +334,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'timer-categories';
         value: number | TimerCategory;
+      } | null)
+    | ({
+        relationTo: 'timer-sessions';
+        value: number | TimerSession;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -463,6 +494,24 @@ export interface TimerCategoriesSelect<T extends boolean = true> {
   color?: T;
   userId?: T;
   isDefault?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "timer-sessions_select".
+ */
+export interface TimerSessionsSelect<T extends boolean = true> {
+  userId?: T;
+  startedAt?: T;
+  duration?: T;
+  categoryName?: T;
+  categoryColor?: T;
+  subCategory?: T;
+  taskId?: T;
+  taskTitle?: T;
+  rating?: T;
+  taskCompleted?: T;
   updatedAt?: T;
   createdAt?: T;
 }
