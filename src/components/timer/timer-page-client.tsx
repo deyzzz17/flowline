@@ -40,42 +40,42 @@ export function TimerPageClient() {
           }}
         />
         <div
-          className="absolute left-1/2 top-0 h-75 w-75 -translate-x-1/2 rounded-full blur-[90px]"
+          className="absolute left-1/2 top-0 h-75 w-125 -translate-x-1/2 rounded-full blur-[90px]"
           style={{
             background: 'radial-gradient(ellipse, oklch(0.65 0.18 270 / 0.06) 0%, transparent 70%)',
           }}
         />
       </div>
 
-      <div className="relative flex items-center justify-between px-6 pt-8 sm:px-10">
+      <div className="relative flex items-center justify-between px-5 pt-6 sm:px-10 sm:pt-8">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-violet-600 dark:text-violet-400">
             Flowline
           </p>
-          <h1 className="text-lg font-semibold tracking-tight text-foreground">Focus session</h1>
+          <h1 className="text-base sm:text-lg font-semibold tracking-tight text-foreground">
+            Focus session
+          </h1>
         </div>
         <Link
           href="/timer/analytics"
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-border/50 bg-background/60 text-muted-foreground backdrop-blur-sm transition-all hover:bg-muted hover:text-foreground hover:border-border"
+          className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl border border-border/50 bg-background/60 text-muted-foreground backdrop-blur-sm transition-all hover:bg-muted hover:text-foreground hover:border-border"
           aria-label="Analytics"
         >
-          <BarChart2 className="h-4 w-4" />
+          <BarChart2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         </Link>
       </div>
 
-      <div className="relative flex flex-1 flex-col items-center justify-center gap-10 px-6">
-        <div className="relative flex items-center justify-center">
-          <div className="w-70 h-70 sm:w-105 sm:h-105">
-            <TimerRing
-              progress={progress}
-              isFreeMode={isFreeMode}
-              isRunning={isRunning}
-              size={420}
-              strokeWidth={16}
-            />
-          </div>
+      <div className="relative flex flex-1 flex-col items-center justify-center px-6">
+        <div
+          className="relative"
+          style={{
+            width: 'clamp(260px, 70vmin, 420px)',
+            height: 'clamp(260px, 70vmin, 420px)',
+          }}
+        >
+          <TimerRing progress={progress} isFreeMode={isFreeMode} isRunning={isRunning} />
 
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-8">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 sm:gap-8">
             <TimerDisplay
               hours={0}
               minutes={0}
@@ -94,32 +94,28 @@ export function TimerPageClient() {
         </div>
       </div>
 
-      <div className="relative px-6 pb-10 sm:px-10">
-        <div className="mx-auto flex max-w-sm flex-col items-center gap-3">
+      <div className="relative px-5 pb-8 sm:px-10 sm:pb-10">
+        <div className="mx-auto flex max-w-sm flex-col items-center gap-2.5 sm:gap-3">
           <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground/50">
             Today
           </p>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-5 sm:gap-6">
             {[
               { label: 'Sessions', value: '3' },
               { label: 'Focus time', value: '1h 24m' },
               { label: 'Longest', value: '45m' },
             ].map((stat) => (
               <div key={stat.label} className="flex flex-col items-center gap-0.5">
-                <span className="text-lg font-semibold tabular-nums text-foreground leading-none">
+                <span className="text-base sm:text-lg font-semibold tabular-nums text-foreground leading-none">
                   {stat.value}
                 </span>
                 <span className="text-[10px] text-muted-foreground/60">{stat.label}</span>
               </div>
             ))}
           </div>
-          <div className="flex items-center gap-1.5 mt-1">
-            {[...Array(3)].map((_, i) => (
-              <div
-                key={i}
-                className="h-1 rounded-full bg-violet-500/30"
-                style={{ width: [28, 16, 8][i] }}
-              />
+          <div className="flex items-center gap-1.5 mt-0.5">
+            {[28, 16, 8].map((w, i) => (
+              <div key={i} className="h-1 rounded-full bg-violet-500/30" style={{ width: w }} />
             ))}
           </div>
         </div>
