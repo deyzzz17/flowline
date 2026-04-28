@@ -74,6 +74,7 @@ export interface Config {
     lists: List;
     'timer-categories': TimerCategory;
     'timer-sessions': TimerSession;
+    'calendar-events': CalendarEvent;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -88,6 +89,7 @@ export interface Config {
     lists: ListsSelect<false> | ListsSelect<true>;
     'timer-categories': TimerCategoriesSelect<false> | TimerCategoriesSelect<true>;
     'timer-sessions': TimerSessionsSelect<false> | TimerSessionsSelect<true>;
+    'calendar-events': CalendarEventsSelect<false> | CalendarEventsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -289,6 +291,22 @@ export interface TimerSession {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "calendar-events".
+ */
+export interface CalendarEvent {
+  id: number;
+  userId: string;
+  title: string;
+  description?: string | null;
+  startDate: string;
+  endDate: string;
+  allDay?: boolean | null;
+  color?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -338,6 +356,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'timer-sessions';
         value: number | TimerSession;
+      } | null)
+    | ({
+        relationTo: 'calendar-events';
+        value: number | CalendarEvent;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -512,6 +534,21 @@ export interface TimerSessionsSelect<T extends boolean = true> {
   taskTitle?: T;
   rating?: T;
   taskCompleted?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "calendar-events_select".
+ */
+export interface CalendarEventsSelect<T extends boolean = true> {
+  userId?: T;
+  title?: T;
+  description?: T;
+  startDate?: T;
+  endDate?: T;
+  allDay?: T;
+  color?: T;
   updatedAt?: T;
   createdAt?: T;
 }

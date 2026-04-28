@@ -12,6 +12,7 @@ import {
   HelpCircle,
   Timer,
   BarChart2,
+  CalendarDays,
 } from 'lucide-react'
 import { NavItem } from './nav-item'
 import { useState } from 'react'
@@ -150,6 +151,8 @@ export const SidebarContent = ({ onNavigate }: SidebarContentProps) => {
             )}
           </div>
 
+          <NavItem href="/calendar" icon={CalendarDays} label="Calendar" onNavigate={onNavigate} />
+
           <div>
             <button
               type="button"
@@ -171,7 +174,7 @@ export const SidebarContent = ({ onNavigate }: SidebarContentProps) => {
               <div className="mt-0.5 ml-3 space-y-0.5 border-l border-border/50 pl-3">
                 <NavItem href="/timer" icon={Timer} label="Timer" onNavigate={onNavigate} />
                 <NavItem
-                  href="/timer-analytics"
+                  href="/timer/analytics"
                   icon={BarChart2}
                   label="Analytics"
                   onNavigate={onNavigate}

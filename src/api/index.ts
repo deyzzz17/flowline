@@ -4,6 +4,7 @@ import { profileAPI } from './profile'
 import { tagsAPI } from './tags'
 import { tasksAPI } from './tasks'
 import { timerAPI } from './timer'
+import { calendarAPI } from './calendar'
 
 export const api = {
   tasks: tasksAPI,
@@ -12,4 +13,5 @@ export const api = {
   tags: tagsAPI,
   lists: listsAPI,
   timer: timerAPI,
+  calendar: calendarAPI,
 }
