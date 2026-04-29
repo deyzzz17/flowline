@@ -84,6 +84,7 @@ export interface CreateSessionData {
   taskTitle?: string
   rating?: number
   taskCompleted?: boolean
+  startedAt?: string
 }
 
 export const createTimerSession = async (data: CreateSessionData) => {
@@ -96,7 +97,7 @@ export const createTimerSession = async (data: CreateSessionData) => {
       collection: 'timer-sessions',
       data: {
         userId,
-        startedAt: new Date().toISOString(),
+        startedAt: data.startedAt ?? new Date().toISOString(),
         duration: data.duration,
         categoryName: data.categoryName,
         categoryColor: data.categoryColor ?? '#8b5cf6',

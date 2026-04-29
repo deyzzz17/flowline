@@ -113,7 +113,9 @@ export const TimerCustomizeDialog = ({
       workDuration: Number(session.workDuration) || 0,
       breakDuration: Number(session.breakDuration) || 0,
       categoryName: selectedCategory?.name,
+      categoryColor: selectedCategory?.color,
       subCategory: session.subCategory || undefined,
+      subCategoryColor: session.subCategoryColor || undefined,
       taskId: session.taskId,
       taskTitle: selectedTask?.title,
     }
@@ -148,7 +150,8 @@ export const TimerCustomizeDialog = ({
 
             <div className="space-y-2">
               <Label className="text-sm">
-                Session duration <span className="text-destructive">*</span>
+                Session duration
+                <span className="ml-1.5 text-xs font-normal text-muted-foreground">Optional</span>
               </Label>
               <DurationPicker
                 value={toDur(session.sessionDuration)}
@@ -336,7 +339,7 @@ export const TimerCustomizeDialog = ({
                           ))}
                           <div className="relative">
                             <div
-                              className="h-6 w-6 rounded-full border-2 border-dashed border-border/60 cursor-pointer overflow-hidden"
+                              className="h-6 w-6 rounded-full border-2 border-dashed border-border/60 cursor-pointer"
                               style={{
                                 backgroundColor: PRESET_COLORS.includes(newCategoryColor)
                                   ? 'transparent'
@@ -383,27 +386,63 @@ export const TimerCustomizeDialog = ({
                   )}
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <Label htmlFor="sub-category" className="text-sm">
                     Sub-category
                     <span className="ml-1.5 text-xs font-normal text-muted-foreground">
                       Optional
                     </span>
                   </Label>
-                  <Input
-                    id="sub-category"
-                    value={session.subCategory}
-                    onChange={(e) => update('subCategory', e.target.value)}
-                    placeholder="e.g. Frontend, Cardio..."
-                    className={cn(
-                      'h-10',
-                      session.subCategory && !session.categoryId && 'border-destructive',
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="sub-category"
+                      value={session.subCategory}
+                      onChange={(e) => update('subCategory', e.target.value)}
+                      placeholder="e.g. Frontend, Cardio..."
+                      className={cn(
+                        'h-10 flex-1',
+                        session.subCategory && !session.categoryId && 'border-destructive',
+                      )}
+                    />
+                    {session.subCategory && (
+                      <div className="relative shrink-0">
+                        <div
+                          className="h-10 w-10 rounded-xl border border-border/60 cursor-pointer overflow-hidden"
+                          style={{ backgroundColor: session.subCategoryColor || '#8b5cf6' }}
+                          title="Sub-category color"
+                        />
+                        <input
+                          type="color"
+                          value={session.subCategoryColor || '#8b5cf6'}
+                          onChange={(e) => update('subCategoryColor', e.target.value)}
+                          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full rounded-xl"
+                        />
+                      </div>
                     )}
-                  />
+                  </div>
                   {session.subCategory && !session.categoryId && (
                     <p className="text-xs text-destructive">
                       A category is required for sub-category.
                     </p>
+                  )}
+                  {session.subCategory && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {PRESET_COLORS.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => update('subCategoryColor', c)}
+                          className="h-5 w-5 rounded-full transition-all hover:scale-110"
+                          style={{
+                            backgroundColor: c,
+                            ...((session.subCategoryColor || '#8b5cf6') === c && {
+                              outline: `2px solid ${c}`,
+                              outlineOffset: '2px',
+                            }),
+                          }}
+                        />
+                      ))}
+                    </div>
                   )}
                 </div>
 

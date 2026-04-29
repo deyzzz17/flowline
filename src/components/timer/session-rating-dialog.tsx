@@ -14,7 +14,7 @@ interface SessionRatingDialogProps {
   open: boolean
   onClose: () => void
   config: SessionConfig | null
-  totalElapsed: number 
+  totalElapsed: number
 }
 
 function StarIcon({ fill }: { fill: 'empty' | 'half' | 'full' }) {
@@ -82,7 +82,9 @@ export function SessionRatingDialog({
       if (taskCompleted && config.taskId) {
         await completeTaskMutation.mutateAsync(config.taskId)
       }
-      
+
+      const startedAt = new Date(Date.now() - totalElapsed * 1000).toISOString()
+
       await createTimerSession({
         duration: totalElapsed,
         categoryName: config.categoryName,
@@ -92,6 +94,7 @@ export function SessionRatingDialog({
         taskTitle: config.taskTitle,
         rating: rating > 0 ? rating : undefined,
         taskCompleted: taskCompleted ?? false,
+        startedAt,
       })
     } catch {
     } finally {

@@ -15,6 +15,7 @@ export interface TimerConfigItem {
   categoryName?: string
   categoryColor?: string
   subCategory?: string
+  subCategoryColor?: string
 }
 
 function formatSeconds(s: number): string {
@@ -40,7 +41,9 @@ export function configToSessionConfig(c: TimerConfigItem): SessionConfig {
     workDuration: c.workDuration ?? 0,
     breakDuration: c.breakDuration ?? 0,
     categoryName: c.categoryName,
+    categoryColor: c.categoryColor,
     subCategory: c.subCategory,
+    subCategoryColor: c.subCategoryColor,
   }
 }
 

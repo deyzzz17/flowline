@@ -10,7 +10,9 @@ export interface SessionConfig {
   workDuration: number
   breakDuration: number
   categoryName?: string
+  categoryColor?: string
   subCategory?: string
+  subCategoryColor?: string
   taskId?: number | null
   taskTitle?: string
 }

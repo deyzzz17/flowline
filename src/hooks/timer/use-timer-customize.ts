@@ -11,6 +11,7 @@ export interface TimerSession {
   breakDuration: number | ''
   categoryId: string
   subCategory: string
+  subCategoryColor: string
   taskId: number | null
 }
 
@@ -30,6 +31,7 @@ export const useTimerCustomize = () => {
     breakDuration: '',
     categoryId: '',
     subCategory: '',
+    subCategoryColor: '#8b5cf6',
     taskId: null,
   })
 
@@ -67,16 +69,12 @@ export const useTimerCustomize = () => {
   const subCategoryWithoutCategory = session.subCategory.trim() !== '' && session.categoryId === ''
 
   const isValid =
-    !workExceedsSession &&
-    !breakExceedsSession &&
-    !breakMissing &&
-    !subCategoryWithoutCategory
+    !workExceedsSession && !breakExceedsSession && !breakMissing && !subCategoryWithoutCategory
 
   const isFreeMode = sessionSecs === 0 && workSecs === 0 && breakSecs === 0
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-
     if (workExceedsSession) {
       toast.error('Duration conflict', {
         description: 'Work duration cannot exceed the total session duration.',
@@ -121,6 +119,7 @@ export const useTimerCustomize = () => {
       breakDuration: '',
       categoryId: '',
       subCategory: '',
+      subCategoryColor: '#8b5cf6',
       taskId: null,
     })
     setShowNewCategory(false)
