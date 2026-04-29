@@ -279,6 +279,12 @@ export const getTimerAnalytics = async (period: AnalyticsPeriod): Promise<Sessio
   })
   const categoryColorMap = new Map(userCategories.map((c) => [c.name, c.color]))
 
+  console.log('categoryColorMap:', Object.fromEntries(categoryColorMap))
+  console.log(
+    'session categories:',
+    sessions.map((s) => s.categoryName),
+  )
+
   const resolveColor = (categoryName: string, sessionColor?: string | null): string =>
     sessionColor ?? categoryColorMap.get(categoryName) ?? '#8b5cf6'
 
