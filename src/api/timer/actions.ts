@@ -422,6 +422,9 @@ export const getTimerAnalytics = async (period: AnalyticsPeriod): Promise<Sessio
     sessions: v.count,
   }))
 
+  console.log('seriesDefinitions:', JSON.stringify(seriesDefinitions, null, 2))
+  console.log('timeByCategory:', JSON.stringify(timeByCategory, null, 2))
+
   return {
     timeByCategory,
     timeBySubcategory,

@@ -13,6 +13,9 @@ interface TimeByCategoryChartProps {
 export function TimeByCategoryChart({ data, series }: TimeByCategoryChartProps) {
   const [chartType, setChartType] = useState<ChartType>('bar')
 
+  console.log('series prop:', series)
+  console.log('data prop:', data)
+
   return (
     <div className="space-y-3">
       <div className="flex justify-end">
