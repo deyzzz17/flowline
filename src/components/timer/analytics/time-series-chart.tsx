@@ -32,9 +32,12 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     <div className="rounded-xl border border-border/60 bg-popover px-3 py-2.5 shadow-lg text-xs space-y-1.5 min-w-[140px]">
       <p className="font-semibold text-foreground border-b border-border/40 pb-1.5">{label}</p>
       {nonZero.map((p: any) => (
-        <div key={p.dataKey} className="flex items-center justify-between gap-3">
+        <div key={String(p.dataKey)} className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+            <span
+              className="h-2 w-2 rounded-full shrink-0"
+              style={{ backgroundColor: p.fill ?? p.stroke ?? '#8b5cf6' }}
+            />
             <span className="text-muted-foreground truncate max-w-[80px]">{p.name}</span>
           </div>
           <span className="font-medium text-foreground tabular-nums">
@@ -112,14 +115,7 @@ export function TimeSeriesChart({
           tickLine={false}
           width={48}
         />
-        <Tooltip
-          content={<CustomTooltip />}
-          cursor={
-            chartType === 'bar'
-              ? { fill: 'oklch(0.5 0.01 286 / 0.05)' }
-              : { stroke: 'oklch(0.5 0.01 286 / 0.15)', strokeWidth: 1 }
-          }
-        />
+        <Tooltip content={<CustomTooltip />} cursor={false} />
         <Legend content={<CustomLegend />} />
 
         {filteredSeries.map((s) =>
@@ -128,10 +124,24 @@ export function TimeSeriesChart({
               key={s.key}
               dataKey={s.key}
               name={s.name}
-              fill={s.color}
-              fillOpacity={0.82}
               radius={[4, 4, 0, 0]}
               maxBarSize={32}
+              shape={(props: any) => {
+                const { x, y, width, height: h } = props
+                if (!h || h <= 0) return <g />
+                return (
+                  <rect
+                    x={x}
+                    y={y}
+                    width={width}
+                    height={h}
+                    fill={s.color}
+                    fillOpacity={0.85}
+                    rx={4}
+                    ry={4}
+                  />
+                )
+              }}
             />
           ) : (
             <Line

@@ -95,6 +95,7 @@ export function SessionRatingDialog({
         rating: rating > 0 ? rating : undefined,
         taskCompleted: taskCompleted ?? false,
         startedAt,
+        timezoneOffset: new Date().getTimezoneOffset(),
       })
     } catch {
     } finally {

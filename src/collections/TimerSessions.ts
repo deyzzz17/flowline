@@ -69,5 +69,11 @@ export const TimerSessions: CollectionConfig = {
       type: 'checkbox',
       required: false,
     },
+    {
+      name: 'timezoneOffset',
+      type: 'number',
+      required: false,
+      defaultValue: 0,
+    },
   ],
 }

@@ -289,6 +289,7 @@ export interface TimerSession {
    */
   rating?: number | null;
   taskCompleted?: boolean | null;
+  timezoneOffset?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -565,6 +566,7 @@ export interface TimerSessionsSelect<T extends boolean = true> {
   taskTitle?: T;
   rating?: T;
   taskCompleted?: T;
+  timezoneOffset?: T;
   updatedAt?: T;
   createdAt?: T;
 }

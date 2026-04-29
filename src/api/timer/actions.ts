@@ -85,6 +85,7 @@ export interface CreateSessionData {
   rating?: number
   taskCompleted?: boolean
   startedAt?: string
+  timezoneOffset?: number
 }
 
 export const createTimerSession = async (data: CreateSessionData) => {
@@ -107,6 +108,7 @@ export const createTimerSession = async (data: CreateSessionData) => {
         taskTitle: data.taskTitle,
         rating: data.rating,
         taskCompleted: data.taskCompleted ?? false,
+        timezoneOffset: data.timezoneOffset ?? 0,
       },
     })
     return ok(session)
@@ -234,17 +236,19 @@ function getTimeLabels(
   }
 }
 
-function getSessionKey(startedAt: string, period: AnalyticsPeriod): string {
-  const d = new Date(startedAt)
+function getSessionKey(startedAt: string, period: AnalyticsPeriod, timezoneOffset = 0): string {
+  const utcMs = new Date(startedAt).getTime()
+  const localMs = utcMs - timezoneOffset * 60 * 1000
+  const d = new Date(localMs)
   switch (period) {
     case 'day':
-      return String(d.getHours())
+      return String(d.getUTCHours())
     case 'week':
-      return String(d.getDay())
+      return String(d.getUTCDay())
     case 'month':
-      return String(d.getDate())
+      return String(d.getUTCDate())
     case 'year':
-      return String(d.getMonth())
+      return String(d.getUTCMonth())
   }
 }
 
@@ -282,19 +286,19 @@ export const getTimerAnalytics = async (period: AnalyticsPeriod): Promise<Sessio
   const subMap = new Map<string, { category: string; color: string; seconds: number }>()
   for (const s of sessions) {
     if (!s.subCategory || !s.categoryName) continue
-    const key = `${s.categoryName}::${s.subCategory}`
-    const existing = subMap.get(key)
+    const subKey = `${s.categoryName}::${s.subCategory}`
+    const existing = subMap.get(subKey)
     if (existing) existing.seconds += s.duration
     else
-      subMap.set(key, {
+      subMap.set(subKey, {
         category: s.categoryName,
-        color: s.subCategoryColor ?? s.categoryColor ?? '#8b5cf6',
+        color: (s as any).subCategoryColor ?? s.categoryColor ?? '#8b5cf6',
         seconds: s.duration,
       })
   }
   const timeBySubcategory = Array.from(subMap.entries())
-    .map(([key, v]) => ({
-      name: key.split('::')[1],
+    .map(([k, v]) => ({
+      name: k.split('::')[1],
       category: v.category,
       color: v.color,
       seconds: v.seconds,
@@ -327,12 +331,12 @@ export const getTimerAnalytics = async (period: AnalyticsPeriod): Promise<Sessio
       color: v.color,
       type: 'category' as const,
     })),
-    ...Array.from(subMap.entries()).map(([key, v]) => ({
-      key: `sub__${key}`,
-      name: key.split('::')[1],
+    ...Array.from(subMap.entries()).map(([k, v]) => ({
+      key: `sub__${k}`,
+      name: k.split('::')[1],
       color: v.color,
       type: 'subcategory' as const,
-      parentCategory: key.split('::')[0],
+      parentCategory: k.split('::')[0],
     })),
   ]
 
@@ -343,8 +347,10 @@ export const getTimerAnalytics = async (period: AnalyticsPeriod): Promise<Sessio
   }
 
   for (const s of sessions) {
-    const key = getSessionKey(s.startedAt, period)
-    const point = seriesMap.get(key)
+    // Utiliser timezoneOffset stocké par session pour corriger l'heure locale
+    const tzOffset = (s as any).timezoneOffset ?? 0
+    const sessionKey = getSessionKey(s.startedAt, period, tzOffset)
+    const point = seriesMap.get(sessionKey)
     if (!point) continue
     if (s.categoryName) {
       const catKey = `cat__${s.categoryName}`
@@ -398,21 +404,21 @@ export const getTimerAnalytics = async (period: AnalyticsPeriod): Promise<Sessio
   >()
   for (const s of ratedSessions) {
     if (!s.subCategory || !s.categoryName || !s.rating) continue
-    const key = `${s.categoryName}::${s.subCategory}`
-    const existing = qualityBySub.get(key)
+    const k = `${s.categoryName}::${s.subCategory}`
+    const existing = qualityBySub.get(k)
     if (existing) {
       existing.total += s.rating
       existing.count++
     } else
-      qualityBySub.set(key, {
+      qualityBySub.set(k, {
         category: s.categoryName,
-        color: s.subCategoryColor ?? s.categoryColor ?? '#8b5cf6',
+        color: (s as any).subCategoryColor ?? s.categoryColor ?? '#8b5cf6',
         total: s.rating,
         count: 1,
       })
   }
-  const bySubcategory = Array.from(qualityBySub.entries()).map(([key, v]) => ({
-    name: key.split('::')[1],
+  const bySubcategory = Array.from(qualityBySub.entries()).map(([k, v]) => ({
+    name: k.split('::')[1],
     category: v.category,
     color: v.color,
     avgRating: Math.round((v.total / v.count) * 10) / 10,
