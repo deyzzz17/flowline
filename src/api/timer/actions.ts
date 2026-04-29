@@ -297,8 +297,10 @@ export const getTimerAnalytics = async (period: AnalyticsPeriod): Promise<Sessio
     sessions.map((s) => s.categoryName),
   )
 
-  const resolveColor = (categoryName: string, sessionColor?: string | null): string =>
-    sessionColor ?? categoryColorMap.get(categoryName) ?? '#8b5cf6'
+  const resolveColor = (categoryName: string, sessionColor?: string | null): string => {
+    if (sessionColor && sessionColor !== '#8b5cf6') return sessionColor
+    return categoryColorMap.get(categoryName) ?? '#8b5cf6'
+  }
 
   const catMap = new Map<string, { color: string; seconds: number }>()
   for (const s of sessions) {

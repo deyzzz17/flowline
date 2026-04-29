@@ -88,8 +88,9 @@ export function SessionRatingDialog({
       await createTimerSession({
         duration: totalElapsed,
         categoryName: config.categoryName,
-        categoryColor: undefined,
+        categoryColor: config.categoryColor,
         subCategory: config.subCategory,
+        subCategoryColor: config.subCategoryColor,
         taskId: config.taskId,
         taskTitle: config.taskTitle,
         rating: rating > 0 ? rating : undefined,

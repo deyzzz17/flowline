@@ -115,13 +115,17 @@ export const useTimerConfigs = () => {
         workDuration: sessionConfig.workDuration,
         breakDuration: sessionConfig.breakDuration,
         categoryName: sessionConfig.categoryName,
+        categoryColor: sessionConfig.categoryColor,
         subCategory: sessionConfig.subCategory,
+        subCategoryColor: sessionConfig.subCategoryColor,
       }),
       sessionDuration: sessionConfig.sessionDuration,
       workDuration: sessionConfig.workDuration,
       breakDuration: sessionConfig.breakDuration,
       categoryName: sessionConfig.categoryName,
+      categoryColor: sessionConfig.categoryColor,
       subCategory: sessionConfig.subCategory,
+      subCategoryColor: sessionConfig.subCategoryColor,
     }
     saveMutation.mutate(configData)
   }
