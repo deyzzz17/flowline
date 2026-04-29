@@ -13,6 +13,7 @@ import { Lists } from './collections/Lists'
 import { TimerCategories } from './collections/TimerCategories'
 import { TimerSessions } from './collections/TimerSessions'
 import { CalendarEvents } from './collections/CalendarEvents'
+import { TimerConfigs } from './collections/TimerConfigs'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -32,6 +33,7 @@ export default buildConfig({
     Lists,
     TimerCategories,
     TimerSessions,
+    TimerConfigs,
     CalendarEvents,
   ],
   editor: lexicalEditor(),

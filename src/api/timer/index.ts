@@ -4,6 +4,9 @@ import {
   deleteTimerCategory,
   createTimerSession,
   getTimerAnalytics,
+  listTimerConfigs,
+  saveTimerConfig,
+  deleteTimerConfig,
 } from './actions'
 
 export const timerAPI = {
@@ -17,5 +20,10 @@ export const timerAPI = {
   },
   analytics: {
     get: getTimerAnalytics,
+  },
+  configs: {
+    list: listTimerConfigs,
+    save: saveTimerConfig,
+    delete: deleteTimerConfig,
   },
 }

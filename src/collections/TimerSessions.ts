@@ -41,6 +41,12 @@ export const TimerSessions: CollectionConfig = {
       required: false,
     },
     {
+      name: 'subCategoryColor',
+      type: 'text',
+      required: false,
+      defaultValue: '#8b5cf6',
+    },
+    {
       name: 'taskId',
       type: 'number',
       required: false,

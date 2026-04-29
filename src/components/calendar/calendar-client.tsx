@@ -32,27 +32,35 @@ function getHeaderTitle(date: Date, view: CalendarView): string {
       return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
     }
     case 'day':
-      return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+      return date.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      })
   }
 }
 
 export function CalendarClient() {
   const {
-    view, setView,
+    view,
+    setView,
     currentDate,
     navigate,
     getItemsForDate,
     selectedItem,
-    dialogOpen, setDialogOpen,
+    dialogOpen,
+    setDialogOpen,
     newEventDate,
-    openNewEvent, openEdit,
+    openNewEvent,
+    openEdit,
     moveEvent,
-    createMutation, updateMutation, deleteMutation,
+    createMutation,
+    updateMutation,
+    deleteMutation,
   } = useCalendar()
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-  )
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
@@ -80,20 +88,33 @@ export function CalendarClient() {
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <div className="flex flex-col h-[calc(100vh-4rem)]">
-
         <div className="flex items-center justify-between px-4 py-3 sm:px-6 border-b border-border/40 bg-background/95 backdrop-blur-sm">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate('prev')}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => navigate('prev')}
+              >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate('next')}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => navigate('next')}
+              >
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
 
-            <Button variant="outline" size="sm" onClick={() => navigate('today')}
-              className="h-8 text-xs">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('today')}
+              className="h-8 text-xs"
+            >
               Today
             </Button>
 
@@ -105,17 +126,27 @@ export function CalendarClient() {
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-0.5 rounded-xl border border-border/60 bg-muted/30 p-1">
               {(['month', 'week', 'day'] as CalendarView[]).map((v) => (
-                <button key={v} type="button" onClick={() => setView(v)}
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setView(v)}
                   className={cn(
                     'rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-150',
-                    view === v ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-                  )}>
+                    view === v
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
                   {VIEW_LABELS[v]}
                 </button>
               ))}
             </div>
 
-            <Button size="sm" onClick={() => openNewEvent(new Date())} className="h-8 gap-1.5 text-xs">
+            <Button
+              size="sm"
+              onClick={() => openNewEvent(new Date())}
+              className="h-8 gap-1.5 text-xs"
+            >
               <Plus className="h-3.5 w-3.5" />
               New event
             </Button>

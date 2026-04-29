@@ -74,6 +74,7 @@ export interface Config {
     lists: List;
     'timer-categories': TimerCategory;
     'timer-sessions': TimerSession;
+    'timer-configs': TimerConfig;
     'calendar-events': CalendarEvent;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
@@ -89,6 +90,7 @@ export interface Config {
     lists: ListsSelect<false> | ListsSelect<true>;
     'timer-categories': TimerCategoriesSelect<false> | TimerCategoriesSelect<true>;
     'timer-sessions': TimerSessionsSelect<false> | TimerSessionsSelect<true>;
+    'timer-configs': TimerConfigsSelect<false> | TimerConfigsSelect<true>;
     'calendar-events': CalendarEventsSelect<false> | CalendarEventsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -279,6 +281,7 @@ export interface TimerSession {
   categoryName?: string | null;
   categoryColor?: string | null;
   subCategory?: string | null;
+  subCategoryColor?: string | null;
   taskId?: number | null;
   taskTitle?: string | null;
   /**
@@ -286,6 +289,29 @@ export interface TimerSession {
    */
   rating?: number | null;
   taskCompleted?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "timer-configs".
+ */
+export interface TimerConfig {
+  id: number;
+  userId: string;
+  /**
+   * Auto-generated or user-defined label
+   */
+  name: string;
+  /**
+   * Seconds — 0 means free mode
+   */
+  sessionDuration?: number | null;
+  workDuration?: number | null;
+  breakDuration?: number | null;
+  categoryName?: string | null;
+  categoryColor?: string | null;
+  subCategory?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -356,6 +382,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'timer-sessions';
         value: number | TimerSession;
+      } | null)
+    | ({
+        relationTo: 'timer-configs';
+        value: number | TimerConfig;
       } | null)
     | ({
         relationTo: 'calendar-events';
@@ -530,10 +560,27 @@ export interface TimerSessionsSelect<T extends boolean = true> {
   categoryName?: T;
   categoryColor?: T;
   subCategory?: T;
+  subCategoryColor?: T;
   taskId?: T;
   taskTitle?: T;
   rating?: T;
   taskCompleted?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "timer-configs_select".
+ */
+export interface TimerConfigsSelect<T extends boolean = true> {
+  userId?: T;
+  name?: T;
+  sessionDuration?: T;
+  workDuration?: T;
+  breakDuration?: T;
+  categoryName?: T;
+  categoryColor?: T;
+  subCategory?: T;
   updatedAt?: T;
   createdAt?: T;
 }

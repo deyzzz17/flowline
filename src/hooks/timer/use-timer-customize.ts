@@ -67,14 +67,16 @@ export const useTimerCustomize = () => {
   const subCategoryWithoutCategory = session.subCategory.trim() !== '' && session.categoryId === ''
 
   const isValid =
-    sessionSecs > 0 &&
     !workExceedsSession &&
     !breakExceedsSession &&
     !breakMissing &&
     !subCategoryWithoutCategory
 
+  const isFreeMode = sessionSecs === 0 && workSecs === 0 && breakSecs === 0
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+
     if (workExceedsSession) {
       toast.error('Duration conflict', {
         description: 'Work duration cannot exceed the total session duration.',
@@ -99,7 +101,6 @@ export const useTimerCustomize = () => {
       })
       return
     }
-    // TODO: passer la config au timer
   }
 
   const handleCreateCategory = async () => {
@@ -144,6 +145,7 @@ export const useTimerCustomize = () => {
     handleSubmit,
     deleteCategoryMutation,
     isValid,
+    isFreeMode,
     breakRequired,
     workExceedsSession,
     breakExceedsSession,

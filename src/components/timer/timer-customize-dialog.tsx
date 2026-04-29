@@ -81,6 +81,7 @@ export const TimerCustomizeDialog = ({
     handleCreateCategory,
     deleteCategoryMutation,
     isValid,
+    isFreeMode,
     breakRequired,
     workExceedsSession,
     breakExceedsSession,
@@ -436,7 +437,7 @@ export const TimerCustomizeDialog = ({
             </Button>
             <Button type="submit" disabled={!isValid} className="gap-2">
               <Check className="h-3.5 w-3.5" />
-              Start session
+              {isFreeMode ? 'Start free timer' : 'Start session'}
             </Button>
           </DialogFooter>
         </form>

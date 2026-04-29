@@ -3,13 +3,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
-import {
-  listCalendarEvents,
-  createCalendarEvent,
-  updateCalendarEvent,
-  deleteCalendarEvent,
-  type CalendarEventData,
-} from '@/api/calendar/actions'
+import { type CalendarEventData } from '@/api/calendar/actions'
 import type { Task } from '@/payload-types'
 import { toast } from 'sonner'
 
@@ -80,7 +74,7 @@ export const useCalendar = () => {
 
   const { data: eventsData } = useQuery({
     queryKey: ['calendar-events', from.toISOString(), to.toISOString()],
-    queryFn: () => listCalendarEvents(from.toISOString(), to.toISOString()),
+    queryFn: () => api.calendar.list(from.toISOString(), to.toISOString()),
     staleTime: 30_000,
   })
 
@@ -125,7 +119,7 @@ export const useCalendar = () => {
   }, [tasksData])
 
   const createMutation = useMutation({
-    mutationFn: (data: CalendarEventData) => createCalendarEvent(data),
+    mutationFn: (data: CalendarEventData) => api.calendar.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
       toast.success('Event created')
@@ -136,7 +130,7 @@ export const useCalendar = () => {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<CalendarEventData> }) =>
-      updateCalendarEvent(id, data),
+      api.calendar.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
       toast.success('Event updated')
@@ -146,7 +140,7 @@ export const useCalendar = () => {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => deleteCalendarEvent(id),
+    mutationFn: (id: number) => api.calendar.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
       toast.success('Event deleted')

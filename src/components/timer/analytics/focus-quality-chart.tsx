@@ -1,8 +1,10 @@
 'use client'
 
+import { useState } from 'react'
 import {
-  BarChart,
+  ComposedChart,
   Bar,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -11,39 +13,61 @@ import {
   ReferenceLine,
 } from 'recharts'
 import { EmptyState } from './empty-state'
+import { ChartTypeToggle, type ChartType } from './chart-type-toggle'
+import { cn } from '@/lib/utils'
 
 interface FocusDataPoint {
   name: string
+  color: string
   avgRating: number
   sessions: number
-  color: string
+  parentCategory?: string
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
-  const d = payload[0].payload as FocusDataPoint
+  const nonZero = payload.filter((p: any) => (p.value as number) > 0)
+  if (!nonZero.length) return null
+
   return (
-    <div className="rounded-xl border border-border/60 bg-popover px-3 py-2.5 shadow-lg text-xs space-y-1">
-      <p className="font-semibold text-foreground">{label}</p>
-      <p className="text-amber-400">{d.avgRating.toFixed(1)} ★</p>
-      <p className="text-muted-foreground">
-        {d.sessions} session{d.sessions > 1 ? 's' : ''}
-      </p>
+    <div className="rounded-xl border border-border/60 bg-popover px-3 py-2.5 shadow-lg text-xs space-y-1.5 min-w-[140px]">
+      <p className="font-semibold text-foreground border-b border-border/40 pb-1.5">{label}</p>
+      {nonZero.map((p: any) => (
+        <div key={p.dataKey} className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+            <span className="text-muted-foreground">{p.name}</span>
+          </div>
+          <span className="font-medium text-foreground tabular-nums">
+            {(p.value as number).toFixed(1)} ★
+          </span>
+        </div>
+      ))}
     </div>
   )
 }
 
+type FocusView = 'category' | 'subcategory'
+
 interface FocusQualityChartProps {
   global: { avgRating: number; sessions: number }
-  byCategory: { name: string; color: string; avgRating: number; sessions: number }[]
+  byCategory: FocusDataPoint[]
+  bySubcategory: (FocusDataPoint & { parentCategory: string })[]
 }
 
-export function FocusQualityChart({ global: globalData, byCategory }: FocusQualityChartProps) {
+export function FocusQualityChart({
+  global: globalData,
+  byCategory,
+  bySubcategory,
+}: FocusQualityChartProps) {
+  const [chartType, setChartType] = useState<ChartType>('bar')
+  const [view, setView] = useState<FocusView>('category')
+
   if (globalData.sessions === 0) {
     return <EmptyState message="Rate your sessions to see focus quality insights." />
   }
 
-  const chartData: FocusDataPoint[] = [
+  const categoryChartData = [
     {
       name: 'Global',
       avgRating: globalData.avgRating,
@@ -53,89 +77,156 @@ export function FocusQualityChart({ global: globalData, byCategory }: FocusQuali
     ...byCategory,
   ]
 
+  const subcategoryChartData = bySubcategory.length > 0 ? bySubcategory : null
+
+  const currentData = view === 'category' ? categoryChartData : subcategoryChartData
+
   return (
     <div className="space-y-4">
-      <ResponsiveContainer width="100%" height={200}>
-        <BarChart data={chartData} barSize={28} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke="oklch(0.5 0.01 286 / 0.1)"
-            vertical={false}
-          />
-          <XAxis
-            dataKey="name"
-            tick={{ fontSize: 11, fill: 'oklch(0.55 0.016 286)' }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            domain={[0, 5]}
-            ticks={[1, 2, 3, 4, 5]}
-            tick={{ fontSize: 10, fill: 'oklch(0.55 0.016 286)' }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <ReferenceLine y={3} stroke="oklch(0.5 0.01 286 / 0.2)" strokeDasharray="4 4" />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'oklch(0.5 0.01 286 / 0.05)' }} />
-          <Bar
-            dataKey="avgRating"
-            radius={[6, 6, 0, 0]}
-            shape={(props) => {
-              const { x, y, width, height, index } = props
-              const color = chartData[index]?.color ?? '#8b5cf6'
-              return (
-                <rect
-                  x={x}
-                  y={y}
-                  width={width}
-                  height={height}
-                  fill={color}
-                  fillOpacity={0.85}
-                  rx={6}
-                  ry={6}
-                />
-              )
-            }}
-          />
-        </BarChart>
-      </ResponsiveContainer>
-
-      <div className="rounded-xl border border-border/50 overflow-hidden">
-        <div className="grid grid-cols-4 border-b border-border/40 px-4 py-2 bg-muted/20">
-          {['Category', 'Avg rating', 'Sessions', ''].map((h, i) => (
-            <p
-              key={i}
-              className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60"
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-0.5 rounded-xl border border-border/60 bg-muted/30 p-1">
+          {(['category', 'subcategory'] as FocusView[]).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setView(v)}
+              className={cn(
+                'rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-150 capitalize',
+                view === v
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
             >
-              {h}
-            </p>
+              {v === 'category' ? 'By category' : 'By sub-category'}
+            </button>
           ))}
         </div>
-        <div className="divide-y divide-border/30">
-          {chartData.map((d) => (
-            <div
-              key={d.name}
-              className="grid grid-cols-4 px-4 py-2.5 items-center hover:bg-muted/20 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <span
-                  className="h-2 w-2 rounded-full shrink-0"
-                  style={{ backgroundColor: d.color }}
-                />
-                <span className="text-xs font-medium text-foreground">{d.name}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-xs font-semibold text-foreground">
-                  {d.avgRating.toFixed(1)}
-                </span>
-                <span className="text-[10px] text-amber-400">★</span>
-              </div>
-              <span className="text-xs text-muted-foreground">{d.sessions}</span>
-              <span className="text-xs text-muted-foreground/40">—</span>
-            </div>
-          ))}
-        </div>
+        <ChartTypeToggle value={chartType} onChange={setChartType} />
       </div>
+
+      {!currentData || currentData.length === 0 ? (
+        <EmptyState
+          message={
+            view === 'subcategory'
+              ? 'No rated sessions with sub-categories yet.'
+              : 'Rate sessions to see insights.'
+          }
+        />
+      ) : (
+        <>
+          <ResponsiveContainer width="100%" height={200}>
+            <ComposedChart data={currentData} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="oklch(0.5 0.01 286 / 0.08)"
+                vertical={false}
+              />
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 11, fill: 'oklch(0.55 0.016 286)' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                domain={[0, 5]}
+                ticks={[1, 2, 3, 4, 5]}
+                tick={{ fontSize: 10, fill: 'oklch(0.55 0.016 286)' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <ReferenceLine y={3} stroke="oklch(0.5 0.01 286 / 0.2)" strokeDasharray="4 4" />
+              <Tooltip
+                content={<CustomTooltip />}
+                cursor={
+                  chartType === 'bar'
+                    ? { fill: 'oklch(0.5 0.01 286 / 0.05)' }
+                    : { stroke: 'oklch(0.5 0.01 286 / 0.15)', strokeWidth: 1 }
+                }
+              />
+
+              {chartType === 'bar' ? (
+                <Bar
+                  dataKey="avgRating"
+                  name="Avg rating"
+                  radius={[6, 6, 0, 0]}
+                  maxBarSize={32}
+                  shape={(props: any) => {
+                    const { x, y, width, height, index } = props
+                    const color = currentData[index]?.color ?? '#8b5cf6'
+                    return (
+                      <rect
+                        x={x}
+                        y={y}
+                        width={width}
+                        height={height}
+                        fill={color}
+                        fillOpacity={0.85}
+                        rx={6}
+                        ry={6}
+                      />
+                    )
+                  }}
+                />
+              ) : (
+                currentData.map((d) => (
+                  <Line
+                    key={d.name}
+                    dataKey="avgRating"
+                    name={d.name}
+                    stroke={d.color}
+                    strokeWidth={2}
+                    dot={{ fill: d.color, strokeWidth: 0, r: 3 }}
+                    activeDot={{ r: 5, fill: d.color, strokeWidth: 0 }}
+                    type="monotone"
+                  />
+                ))
+              )}
+            </ComposedChart>
+          </ResponsiveContainer>
+
+          <div className="rounded-xl border border-border/50 overflow-hidden">
+            <div className="grid grid-cols-4 border-b border-border/40 px-4 py-2 bg-muted/20">
+              {[
+                view === 'category' ? 'Category' : 'Sub-category',
+                'Avg rating',
+                'Sessions',
+                '',
+              ].map((h, i) => (
+                <p
+                  key={i}
+                  className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60"
+                >
+                  {h}
+                </p>
+              ))}
+            </div>
+            <div className="divide-y divide-border/30">
+              {currentData.map((d) => (
+                <div
+                  key={d.name}
+                  className="grid grid-cols-4 px-4 py-2.5 items-center hover:bg-muted/20 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="h-2 w-2 rounded-full shrink-0"
+                      style={{ backgroundColor: d.color }}
+                    />
+                    <span className="text-xs font-medium text-foreground truncate">{d.name}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs font-semibold text-foreground">
+                      {d.avgRating.toFixed(1)}
+                    </span>
+                    <span className="text-[10px] text-amber-400">★</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{d.sessions}</span>
+                  <span className="text-xs text-muted-foreground/40">—</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

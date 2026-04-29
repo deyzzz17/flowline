@@ -9,8 +9,7 @@ import { TimeByCategoryChart } from './time-by-category-chart'
 import { TimeBySubcategoryChart } from './time-by-subcategory-chart'
 import { DistributionChart } from './distribution-chart'
 import { FocusQualityChart } from './focus-quality-chart'
-import { api } from '@/api'
-import { SessionAnalytics } from '@/api/timer/actions'
+import { getTimerAnalytics, type SessionAnalytics } from '@/api/timer/actions'
 
 function formatSeconds(s: number): string {
   if (s === 0) return '—'
@@ -31,14 +30,13 @@ export function AnalyticsClient({ initialData, initialPeriod }: AnalyticsClientP
   const [data, setData] = useState<SessionAnalytics>(initialData)
   const [subcategoryData, setSubcategoryData] = useState<SessionAnalytics>(initialData)
   const [selectedDistCategory, setSelectedDistCategory] = useState<string | null>(null)
-  const [subcategoryFilter, setSubcategoryFilter] = useState('All')
   const [isPending, startTransition] = useTransition()
   const [isSubPending, startSubTransition] = useTransition()
 
   const handlePeriodChange = (p: TimePeriod) => {
     setPeriod(p)
     startTransition(async () => {
-      const fresh = await api.timer.analytics.get(p)
+      const fresh = await getTimerAnalytics(p)
       setData(fresh)
     })
   }
@@ -46,13 +44,13 @@ export function AnalyticsClient({ initialData, initialPeriod }: AnalyticsClientP
   const handleSubPeriodChange = (p: TimePeriod) => {
     setSubcategoryPeriod(p)
     startSubTransition(async () => {
-      const fresh = await api.timer.analytics.get(p)
+      const fresh = await getTimerAnalytics(p)
       setSubcategoryData(fresh)
     })
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 lg:px-10">
+    <div className="mx-auto max-w-screen-xl px-4 pb-16 pt-8 sm:px-6 lg:px-10">
       <div className="mb-10">
         <Link
           href="/timer"
@@ -107,7 +105,7 @@ export function AnalyticsClient({ initialData, initialPeriod }: AnalyticsClientP
           }
           sub={
             data.focusQuality.global.sessions > 0
-              ? `${data.focusQuality.global.sessions} rated sessions`
+              ? `${data.focusQuality.global.sessions} rated`
               : 'No ratings yet'
           }
           icon={Star}
@@ -122,7 +120,7 @@ export function AnalyticsClient({ initialData, initialPeriod }: AnalyticsClientP
             <div className="flex items-center justify-between border-b border-border/50 px-5 py-4">
               <div>
                 <p className="text-sm font-semibold text-foreground">Time by category</p>
-                <p className="text-xs text-muted-foreground/60 mt-0.5">Focus time per category</p>
+                <p className="text-xs text-muted-foreground/60 mt-0.5">Focus time over time</p>
               </div>
               <div className="flex items-center gap-2">
                 {isPending && (
@@ -132,7 +130,10 @@ export function AnalyticsClient({ initialData, initialPeriod }: AnalyticsClientP
               </div>
             </div>
             <div className="p-5">
-              <TimeByCategoryChart data={data.timeByCategory} />
+              <TimeByCategoryChart
+                data={data.timeSeries ?? []}
+                series={data.seriesDefinitions ?? []}
+              />
             </div>
           </div>
 
@@ -142,9 +143,7 @@ export function AnalyticsClient({ initialData, initialPeriod }: AnalyticsClientP
                 {selectedDistCategory ? `${selectedDistCategory} breakdown` : 'Time distribution'}
               </p>
               <p className="text-xs text-muted-foreground/60 mt-0.5">
-                {selectedDistCategory
-                  ? '← Click back to return'
-                  : 'Click to explore sub-categories'}
+                {selectedDistCategory ? 'Click back to return' : 'Click to explore sub-categories'}
               </p>
             </div>
             <div className="p-5">
@@ -175,10 +174,9 @@ export function AnalyticsClient({ initialData, initialPeriod }: AnalyticsClientP
           </div>
           <div className="p-5">
             <TimeBySubcategoryChart
-              data={subcategoryData.timeBySubcategory}
-              allCategories={subcategoryData.allCategories.map((c) => c.name)}
-              selectedCategory={subcategoryFilter}
-              onSelectCategory={setSubcategoryFilter}
+              data={subcategoryData.timeSeries ?? []}
+              series={subcategoryData.seriesDefinitions ?? []}
+              allCategories={subcategoryData.allCategories}
             />
           </div>
         </div>
@@ -187,13 +185,14 @@ export function AnalyticsClient({ initialData, initialPeriod }: AnalyticsClientP
           <div className="border-b border-border/50 px-5 py-4">
             <p className="text-sm font-semibold text-foreground">Focus quality</p>
             <p className="text-xs text-muted-foreground/60 mt-0.5">
-              Average session ratings — global and per category
+              Average session ratings — by category and sub-category
             </p>
           </div>
           <div className="p-5">
             <FocusQualityChart
               global={data.focusQuality.global}
               byCategory={data.focusQuality.byCategory}
+              bySubcategory={(data.focusQuality as any).bySubcategory ?? []}
             />
           </div>
         </div>
