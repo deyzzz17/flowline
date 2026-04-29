@@ -154,6 +154,8 @@ export interface SessionAnalytics {
       sessions: number
     }[]
   }
+  focusQualityTimeSeries: TimeSeriesPoint[]
+  focusQualitySeriesDefinitions: SeriesDefinition[]
 }
 
 function emptyAnalytics(): SessionAnalytics {
@@ -168,6 +170,8 @@ function emptyAnalytics(): SessionAnalytics {
     timeSeries: [],
     seriesDefinitions: [],
     focusQuality: { global: { avgRating: 0, sessions: 0 }, byCategory: [], bySubcategory: [] },
+    focusQualityTimeSeries: [],
+    focusQualitySeriesDefinitions: [],
   }
 }
 
@@ -277,25 +281,7 @@ export const getTimerAnalytics = async (period: AnalyticsPeriod): Promise<Sessio
     where: { userId: { equals: userId } },
     limit: 0,
   })
-
-  console.log('userId:', userId)
-  console.log('userCategories count:', userCategories.length)
-  console.log(
-    'userCategories:',
-    userCategories.map((c) => ({ name: c.name, color: c.color })),
-  )
-  console.log(
-    'sessions categoryColors:',
-    sessions.map((s) => ({ cat: s.categoryName, color: s.categoryColor })),
-  )
-
   const categoryColorMap = new Map(userCategories.map((c) => [c.name, c.color]))
-
-  console.log('categoryColorMap:', Object.fromEntries(categoryColorMap))
-  console.log(
-    'session categories:',
-    sessions.map((s) => s.categoryName),
-  )
 
   const resolveColor = (categoryName: string, sessionColor?: string | null): string => {
     if (sessionColor && sessionColor !== '#8b5cf6') return sessionColor
@@ -351,52 +337,6 @@ export const getTimerAnalytics = async (period: AnalyticsPeriod): Promise<Sessio
   const longestSessionSeconds =
     sessions.length > 0 ? Math.max(...sessions.map((s) => s.duration)) : 0
 
-  const seriesDefinitions: SeriesDefinition[] = [
-    ...Array.from(catMap.entries()).map(([name, v]) => ({
-      key: `cat__${name}`,
-      name,
-      color: v.color,
-      type: 'category' as const,
-    })),
-    ...Array.from(subMap.entries()).map(([k, v]) => ({
-      key: `sub__${k}`,
-      name: k.split('::')[1],
-      color: v.color,
-      type: 'subcategory' as const,
-      parentCategory: k.split('::')[0],
-    })),
-  ]
-
-  const labels = getTimeLabels(period)
-  const seriesMap = new Map<string, Map<string, number>>()
-  for (const label of labels) {
-    seriesMap.set(label.key, new Map())
-  }
-
-  for (const s of sessions) {
-    const tzOffset = (s as any).timezoneOffset ?? 0
-    const sessionKey = getSessionKey(s.startedAt, period, tzOffset)
-    const point = seriesMap.get(sessionKey)
-    if (!point) continue
-    if (s.categoryName) {
-      const catKey = `cat__${s.categoryName}`
-      point.set(catKey, (point.get(catKey) ?? 0) + s.duration)
-    }
-    if (s.subCategory && s.categoryName) {
-      const subKey = `sub__${s.categoryName}::${s.subCategory}`
-      point.set(subKey, (point.get(subKey) ?? 0) + s.duration)
-    }
-  }
-
-  const timeSeries: TimeSeriesPoint[] = labels.map((label) => {
-    const point = seriesMap.get(label.key) ?? new Map()
-    const obj: TimeSeriesPoint = { label: label.label, timestamp: label.timestamp }
-    for (const def of seriesDefinitions) {
-      obj[def.key] = point.get(def.key) ?? 0
-    }
-    return obj
-  })
-
   const ratedSessions = sessions.filter((s) => s.rating && s.rating > 0)
   const globalAvg =
     ratedSessions.length > 0
@@ -442,8 +382,83 @@ export const getTimerAnalytics = async (period: AnalyticsPeriod): Promise<Sessio
     sessions: v.count,
   }))
 
-  console.log('seriesDefinitions:', JSON.stringify(seriesDefinitions, null, 2))
-  console.log('timeByCategory:', JSON.stringify(timeByCategory, null, 2))
+  const seriesDefinitions: SeriesDefinition[] = [
+    ...Array.from(catMap.entries()).map(([name, v]) => ({
+      key: `cat__${name}`,
+      name,
+      color: v.color,
+      type: 'category' as const,
+    })),
+    ...Array.from(subMap.entries()).map(([k, v]) => ({
+      key: `sub__${k}`,
+      name: k.split('::')[1],
+      color: v.color,
+      type: 'subcategory' as const,
+      parentCategory: k.split('::')[0],
+    })),
+  ]
+
+  const labels = getTimeLabels(period)
+  const seriesMap = new Map<string, Map<string, number>>()
+  for (const label of labels) seriesMap.set(label.key, new Map())
+
+  for (const s of sessions) {
+    const tzOffset = (s as any).timezoneOffset ?? 0
+    const sessionKey = getSessionKey(s.startedAt, period, tzOffset)
+    const point = seriesMap.get(sessionKey)
+    if (!point) continue
+    if (s.categoryName) {
+      const catKey = `cat__${s.categoryName}`
+      point.set(catKey, (point.get(catKey) ?? 0) + s.duration)
+    }
+    if (s.subCategory && s.categoryName) {
+      const subKey = `sub__${s.categoryName}::${s.subCategory}`
+      point.set(subKey, (point.get(subKey) ?? 0) + s.duration)
+    }
+  }
+
+  const timeSeries: TimeSeriesPoint[] = labels.map((label) => {
+    const point = seriesMap.get(label.key) ?? new Map()
+    const obj: TimeSeriesPoint = { label: label.label, timestamp: label.timestamp }
+    for (const def of seriesDefinitions) obj[def.key] = point.get(def.key) ?? 0
+    return obj
+  })
+
+  const focusQualitySeriesDefinitions: SeriesDefinition[] = Array.from(qualityByCat.entries()).map(
+    ([name, v]) => ({
+      key: `rating__${name}`,
+      name,
+      color: v.color,
+      type: 'category' as const,
+    }),
+  )
+
+  const ratingSeriesMap = new Map<string, Map<string, { total: number; count: number }>>()
+  for (const label of labels) ratingSeriesMap.set(label.key, new Map())
+
+  for (const s of ratedSessions) {
+    if (!s.categoryName || !s.rating) continue
+    const tzOffset = (s as any).timezoneOffset ?? 0
+    const sessionKey = getSessionKey(s.startedAt, period, tzOffset)
+    const point = ratingSeriesMap.get(sessionKey)
+    if (!point) continue
+    const catKey = `rating__${s.categoryName}`
+    const existing = point.get(catKey)
+    if (existing) {
+      existing.total += s.rating
+      existing.count++
+    } else point.set(catKey, { total: s.rating, count: 1 })
+  }
+
+  const focusQualityTimeSeries: TimeSeriesPoint[] = labels.map((label) => {
+    const point = ratingSeriesMap.get(label.key) ?? new Map()
+    const obj: TimeSeriesPoint = { label: label.label, timestamp: label.timestamp }
+    for (const def of focusQualitySeriesDefinitions) {
+      const entry = point.get(def.key)
+      obj[def.key] = entry ? Math.round((entry.total / entry.count) * 10) / 10 : 0
+    }
+    return obj
+  })
 
   return {
     timeByCategory,
@@ -455,6 +470,8 @@ export const getTimerAnalytics = async (period: AnalyticsPeriod): Promise<Sessio
     longestSessionSeconds,
     timeSeries,
     seriesDefinitions,
+    focusQualityTimeSeries,
+    focusQualitySeriesDefinitions,
     focusQuality: {
       global: { avgRating: Math.round(globalAvg * 10) / 10, sessions: ratedSessions.length },
       byCategory,
