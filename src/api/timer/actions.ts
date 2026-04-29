@@ -277,6 +277,18 @@ export const getTimerAnalytics = async (period: AnalyticsPeriod): Promise<Sessio
     where: { userId: { equals: userId } },
     limit: 0,
   })
+
+  console.log('userId:', userId)
+  console.log('userCategories count:', userCategories.length)
+  console.log(
+    'userCategories:',
+    userCategories.map((c) => ({ name: c.name, color: c.color })),
+  )
+  console.log(
+    'sessions categoryColors:',
+    sessions.map((s) => ({ cat: s.categoryName, color: s.categoryColor })),
+  )
+
   const categoryColorMap = new Map(userCategories.map((c) => [c.name, c.color]))
 
   console.log('categoryColorMap:', Object.fromEntries(categoryColorMap))
