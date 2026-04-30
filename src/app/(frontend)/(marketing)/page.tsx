@@ -93,7 +93,7 @@ export default async function HomePage() {
   ]
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-50 text-slate-900 selection:bg-violet-200 dark:bg-[oklch(0.09_0.005_285)] dark:text-white dark:selection:bg-violet-500/30">
+    <div className="relative min-h-screen overflow-hidden bg-background text-slate-900 selection:bg-violet-200  dark:text-white dark:selection:bg-violet-500/30">
       <div
         className="pointer-events-none fixed inset-0 z-0 dark:hidden"
         style={{

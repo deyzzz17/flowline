@@ -38,7 +38,7 @@ export const AuthButtons = () => {
       </Link>
 
       <button
-        onClick={() => change(false)}
+        onClick={() => change()}
         className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-foreground transition-colors hover:bg-accent sm:hidden"
         aria-label="Menu"
       >
@@ -76,12 +76,14 @@ export const AuthButtons = () => {
           <div className="p-2 flex flex-col gap-1">
             <Link
               href="/sign-in"
+              onClick={() => change(false)}
               className="w-full rounded-xl px-4 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:bg-accent"
             >
               Sign in
             </Link>
             <Link
               href="/sign-up"
+              onClick={() => change(false)}
               className="w-full rounded-xl bg-violet-600 px-4 py-2.5 text-left text-sm font-semibold text-white transition-colors hover:bg-violet-500"
             >
               Sign up
