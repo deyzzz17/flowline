@@ -47,6 +47,20 @@ export function configToSessionConfig(c: TimerConfigItem): SessionConfig {
   }
 }
 
+function isDuplicate(
+  existing: TimerConfigItem[],
+  candidate: Omit<TimerConfigItem, 'id' | 'name'>,
+): boolean {
+  return existing.some(
+    (c) =>
+      (c.sessionDuration ?? 0) === (candidate.sessionDuration ?? 0) &&
+      (c.workDuration ?? 0) === (candidate.workDuration ?? 0) &&
+      (c.breakDuration ?? 0) === (candidate.breakDuration ?? 0) &&
+      (c.categoryName ?? '') === (candidate.categoryName ?? '') &&
+      (c.subCategory ?? '') === (candidate.subCategory ?? ''),
+  )
+}
+
 export const useTimerConfigs = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const queryClient = useQueryClient()
@@ -127,6 +141,9 @@ export const useTimerConfigs = () => {
       subCategory: sessionConfig.subCategory,
       subCategoryColor: sessionConfig.subCategoryColor,
     }
+
+    if (isDuplicate(configs, configData)) return
+
     saveMutation.mutate(configData)
   }
 

@@ -69,6 +69,13 @@ export function SessionRatingDialog({
   const [isSaving, setIsSaving] = useState(false)
   const queryClient = useQueryClient()
 
+  const hasCategory = !!config?.categoryName
+  const hasTask = !!config?.taskId && !!config?.taskTitle
+
+  // Étoiles requises seulement si catégorie présente
+  // Tâche requiert une réponse si présente
+  const canSubmit = (hasCategory ? rating > 0 : true) && (!hasTask || taskCompleted !== null)
+
   const completeTaskMutation = useMutation({
     mutationFn: (id: number) => api.tasks.toggleStatus(id, 'active'),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
@@ -109,9 +116,34 @@ export function SessionRatingDialog({
     onClose()
   }
 
-  const hasTask = !!config?.taskId && !!config?.taskTitle
-  const canSubmit =
-    (config?.categoryName ? rating > 0 : true) && (!hasTask || taskCompleted !== null)
+  const handleDismiss = async () => {
+    if (!config) return onClose()
+    setIsSaving(true)
+    try {
+      const startedAt = new Date(Date.now() - totalElapsed * 1000).toISOString()
+      await createTimerSession({
+        duration: totalElapsed,
+        categoryName: config.categoryName,
+        categoryColor: config.categoryColor,
+        subCategory: config.subCategory,
+        subCategoryColor: config.subCategoryColor,
+        taskId: config.taskId,
+        taskTitle: config.taskTitle,
+        rating: undefined,
+        taskCompleted: false,
+        startedAt,
+        timezoneOffset: new Date().getTimezoneOffset(),
+      })
+    } catch {
+    } finally {
+      setIsSaving(false)
+    }
+    setRating(0)
+    setHovered(0)
+    setTaskCompleted(null)
+    onClose()
+  }
+
   const displayValue = hovered > 0 ? hovered : rating
 
   const getStarFill = (star: number): 'empty' | 'half' | 'full' => {
@@ -134,44 +166,54 @@ export function SessionRatingDialog({
               : 'Excellent!'
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) handleDismiss()
+      }}
+    >
       <DialogContent className="sm:max-w-sm" style={{ marginLeft: 'clamp(0px, 8rem, 8rem)' }}>
         <DialogHeader>
           <DialogTitle className="text-center text-base">Session complete 🎉</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6 py-2">
-          {config?.categoryName && (
+          {hasCategory && (
             <p className="text-center text-sm text-muted-foreground">
               How was your{' '}
               <span className="font-medium text-foreground">{config.categoryName}</span> session?
             </p>
           )}
+          {!hasCategory && hasTask && (
+            <p className="text-center text-sm text-muted-foreground">Great work on your session!</p>
+          )}
 
-          <div className="flex flex-col items-center gap-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground/60">
-              Rate your session
-            </p>
-            <div className="flex items-center gap-0.5" onMouseLeave={() => setHovered(0)}>
-              {[1, 2, 3, 4, 5].map((star) => (
-                <div
-                  key={star}
-                  className="relative cursor-pointer p-1"
-                  onMouseMove={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect()
-                    setHovered(e.clientX - rect.left < rect.width / 2 ? star - 0.5 : star)
-                  }}
-                  onClick={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect()
-                    setRating(e.clientX - rect.left < rect.width / 2 ? star - 0.5 : star)
-                  }}
-                >
-                  <StarIcon fill={getStarFill(star)} />
-                </div>
-              ))}
+          {hasCategory && (
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground/60">
+                Rate your session
+              </p>
+              <div className="flex items-center gap-0.5" onMouseLeave={() => setHovered(0)}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <div
+                    key={star}
+                    className="relative cursor-pointer p-1"
+                    onMouseMove={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect()
+                      setHovered(e.clientX - rect.left < rect.width / 2 ? star - 0.5 : star)
+                    }}
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect()
+                      setRating(e.clientX - rect.left < rect.width / 2 ? star - 0.5 : star)
+                    }}
+                  >
+                    <StarIcon fill={getStarFill(star)} />
+                  </div>
+                ))}
+              </div>
+              <p className="h-4 text-xs text-muted-foreground/70">{ratingLabel}</p>
             </div>
-            <p className="h-4 text-xs text-muted-foreground/70">{ratingLabel}</p>
-          </div>
+          )}
 
           {hasTask && (
             <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-3">
