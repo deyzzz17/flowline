@@ -159,6 +159,26 @@ export const useTimer = () => {
 
   const reset = useCallback(() => {
     pause()
+
+    if (hasStarted && isFreeMode && (config?.categoryName || config?.taskId)) {
+      if (!ratingTriggeredRef.current) {
+        ratingTriggeredRef.current = true
+        playSessionEnd()
+        setTimeout(() => setRatingOpen(true), 100)
+        return
+      }
+    }
+
+    setTotalElapsed(0)
+    setHasStarted(false)
+    setConfig(null)
+    setRatingOpen(false)
+    ratingTriggeredRef.current = false
+    lastPhaseRef.current = 'work'
+  }, [pause, hasStarted, isFreeMode, config, playSessionEnd])
+
+  const forceReset = useCallback(() => {
+    pause()
     setTotalElapsed(0)
     setHasStarted(false)
     setConfig(null)
@@ -222,6 +242,7 @@ export const useTimer = () => {
     isFinished,
     toggle,
     reset,
+    forceReset,
     startWithConfig,
     config,
     customizeOpen,

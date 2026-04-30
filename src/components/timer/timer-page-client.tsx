@@ -31,6 +31,7 @@ export function TimerPageClient() {
     totalElapsed,
     toggle,
     reset,
+    forceReset,
     startWithConfig,
     config,
     customizeOpen,
@@ -63,7 +64,7 @@ export function TimerPageClient() {
 
   const handleRatingClose = () => {
     setRatingOpen(false)
-    reset()
+    forceReset()
     queryClient.invalidateQueries({ queryKey: ['timer-analytics', 'day'] })
   }
 
