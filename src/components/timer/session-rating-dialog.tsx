@@ -110,7 +110,8 @@ export function SessionRatingDialog({
   }
 
   const hasTask = !!config?.taskId && !!config?.taskTitle
-  const canSubmit = rating > 0 && (!hasTask || taskCompleted !== null)
+  const canSubmit =
+    (config?.categoryName ? rating > 0 : true) && (!hasTask || taskCompleted !== null)
   const displayValue = hovered > 0 ? hovered : rating
 
   const getStarFill = (star: number): 'empty' | 'half' | 'full' => {

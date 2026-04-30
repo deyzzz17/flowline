@@ -156,6 +156,8 @@ export interface SessionAnalytics {
   }
   focusQualityTimeSeries: TimeSeriesPoint[]
   focusQualitySeriesDefinitions: SeriesDefinition[]
+  focusQualitySubTimeSeries: TimeSeriesPoint[]
+  focusQualitySubSeriesDefinitions: SeriesDefinition[]
 }
 
 function emptyAnalytics(): SessionAnalytics {
@@ -172,6 +174,8 @@ function emptyAnalytics(): SessionAnalytics {
     focusQuality: { global: { avgRating: 0, sessions: 0 }, byCategory: [], bySubcategory: [] },
     focusQualityTimeSeries: [],
     focusQualitySeriesDefinitions: [],
+    focusQualitySubTimeSeries: [],
+    focusQualitySubSeriesDefinitions: [],
   }
 }
 
@@ -460,6 +464,43 @@ export const getTimerAnalytics = async (period: AnalyticsPeriod): Promise<Sessio
     return obj
   })
 
+  const focusQualitySubSeriesDefinitions: SeriesDefinition[] = Array.from(
+    qualityBySub.entries(),
+  ).map(([k, v]) => ({
+    key: `rating_sub__${k}`,
+    name: k.split('::')[1],
+    color: v.color,
+    type: 'subcategory' as const,
+    parentCategory: k.split('::')[0],
+  }))
+
+  const ratingSubSeriesMap = new Map<string, Map<string, { total: number; count: number }>>()
+  for (const label of labels) ratingSubSeriesMap.set(label.key, new Map())
+
+  for (const s of ratedSessions) {
+    if (!s.subCategory || !s.categoryName || !s.rating) continue
+    const tzOffset = (s as any).timezoneOffset ?? 0
+    const sessionKey = getSessionKey(s.startedAt, period, tzOffset)
+    const point = ratingSubSeriesMap.get(sessionKey)
+    if (!point) continue
+    const subKey = `rating_sub__${s.categoryName}::${s.subCategory}`
+    const existing = point.get(subKey)
+    if (existing) {
+      existing.total += s.rating
+      existing.count++
+    } else point.set(subKey, { total: s.rating, count: 1 })
+  }
+
+  const focusQualitySubTimeSeries: TimeSeriesPoint[] = labels.map((label) => {
+    const point = ratingSubSeriesMap.get(label.key) ?? new Map()
+    const obj: TimeSeriesPoint = { label: label.label, timestamp: label.timestamp }
+    for (const def of focusQualitySubSeriesDefinitions) {
+      const entry = point.get(def.key)
+      obj[def.key] = entry ? Math.round((entry.total / entry.count) * 10) / 10 : 0
+    }
+    return obj
+  })
+
   return {
     timeByCategory,
     timeBySubcategory,
@@ -472,6 +513,8 @@ export const getTimerAnalytics = async (period: AnalyticsPeriod): Promise<Sessio
     seriesDefinitions,
     focusQualityTimeSeries,
     focusQualitySeriesDefinitions,
+    focusQualitySubTimeSeries,
+    focusQualitySubSeriesDefinitions,
     focusQuality: {
       global: { avgRating: Math.round(globalAvg * 10) / 10, sessions: ratedSessions.length },
       byCategory,

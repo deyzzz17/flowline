@@ -108,7 +108,7 @@ export const useTimer = () => {
       if (ratingTriggeredRef.current) return
       ratingTriggeredRef.current = true
       playSessionEnd()
-      if (cfg.categoryName) {
+      if (cfg.categoryName || cfg.taskId) {
         setTimeout(() => setRatingOpen(true), 800)
       }
     },

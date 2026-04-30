@@ -68,8 +68,16 @@ export const useTimerCustomize = () => {
   const breakMissing = breakRequired && breakSecs === 0
   const subCategoryWithoutCategory = session.subCategory.trim() !== '' && session.categoryId === ''
 
+  const workWithoutSession = workSecs > 0 && sessionSecs === 0
+  const breakWithoutSession = breakSecs > 0 && sessionSecs === 0
+
   const isValid =
-    !workExceedsSession && !breakExceedsSession && !breakMissing && !subCategoryWithoutCategory
+    !workExceedsSession &&
+    !breakExceedsSession &&
+    !breakMissing &&
+    !subCategoryWithoutCategory &&
+    !workWithoutSession &&
+    !breakWithoutSession
 
   const isFreeMode = sessionSecs === 0 && workSecs === 0 && breakSecs === 0
 
@@ -96,6 +104,18 @@ export const useTimerCustomize = () => {
     if (subCategoryWithoutCategory) {
       toast.error('Category required', {
         description: 'Please select a category before adding a sub-category.',
+      })
+      return
+    }
+    if (workWithoutSession) {
+      toast.error('Session duration required', {
+        description: 'Please set a session duration before setting a work duration.',
+      })
+      return
+    }
+    if (breakWithoutSession) {
+      toast.error('Session duration required', {
+        description: 'Please set a session duration before setting a break duration.',
       })
       return
     }
@@ -149,6 +169,8 @@ export const useTimerCustomize = () => {
     workExceedsSession,
     breakExceedsSession,
     createCategoryMutation,
+    workWithoutSession,
+    breakWithoutSession,
     reset,
   }
 }

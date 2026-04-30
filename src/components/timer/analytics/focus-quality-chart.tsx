@@ -109,8 +109,18 @@ export function FocusQualityChart({
 
   const currentItems = view === 'category' ? categoryItems : filteredSubs
 
-  const focusTimeSeries = (analyticsData as any).focusQualityTimeSeries ?? []
-  const focusSeriesDefs = (analyticsData as any).focusQualitySeriesDefinitions ?? []
+  const focusCatTimeSeries = (analyticsData as any).focusQualityTimeSeries ?? []
+  const focusCatSeriesDefs = (analyticsData as any).focusQualitySeriesDefinitions ?? []
+  const focusSubTimeSeries = (analyticsData as any).focusQualitySubTimeSeries ?? []
+  const focusSubSeriesDefs = (analyticsData as any).focusQualitySubSeriesDefinitions ?? []
+
+  const activeTimeSeries = view === 'category' ? focusCatTimeSeries : focusSubTimeSeries
+  const activeSeriesDefs =
+    view === 'category'
+      ? focusCatSeriesDefs
+      : focusSubSeriesDefs.filter(
+          (s: any) => selectedCategory === 'All' || s.parentCategory === selectedCategory,
+        )
 
   const handlePeriodChange = (p: TimePeriod) => {
     setPeriod(p)
@@ -134,23 +144,38 @@ export function FocusQualityChart({
     })
   }
 
-  const useTimeSeries = focusTimeSeries.length > 0 && focusSeriesDefs.length > 0
+  const hasTimeSeries = activeTimeSeries.length > 0 && activeSeriesDefs.length > 0
 
-  const visibleSeriesDefs = focusSeriesDefs.filter(
+  const visibleSeriesDefs = activeSeriesDefs.filter(
     (s: any) => selectedKeys === null || selectedKeys.has(s.key),
   )
 
   const barData = currentItems
-    .filter(
-      (item) =>
-        selectedKeys === null || selectedKeys.has(`rating__${item.name}`) || item.name === 'Global',
-    )
+    .filter((item) => {
+      if (selectedKeys === null) return true
+      const key =
+        view === 'category'
+          ? `rating__${item.name}`
+          : `rating_sub__${item.parentCategory}::${item.name}`
+      return selectedKeys.has(key) || item.name === 'Global'
+    })
     .map((item) => ({
       name: item.name,
       avgRating: item.avgRating,
       sessions: item.sessions,
       color: item.color,
     }))
+
+  const selectorItems = hasTimeSeries
+    ? activeSeriesDefs
+    : currentItems.map((item) => ({
+        key:
+          view === 'category'
+            ? `rating__${item.name}`
+            : `rating_sub__${item.parentCategory}::${item.name}`,
+        name: item.name,
+        color: item.color,
+      }))
 
   return (
     <div className="space-y-4">
@@ -205,16 +230,9 @@ export function FocusQualityChart({
           </div>
         )}
 
-        {currentItems.length > 1 && (
+        {selectorItems.length > 1 && (
           <div className="flex flex-wrap gap-1.5">
-            {(useTimeSeries
-              ? focusSeriesDefs
-              : currentItems.map((item) => ({
-                  key: `rating__${item.name}`,
-                  name: item.name,
-                  color: item.color,
-                }))
-            ).map((s: any) => {
+            {selectorItems.map((s: any) => {
               const isActive = selectedKeys === null || selectedKeys.has(s.key)
               return (
                 <button
@@ -262,7 +280,7 @@ export function FocusQualityChart({
         <>
           <ResponsiveContainer width="100%" height={200}>
             <ComposedChart
-              data={focusTimeSeries.length > 0 ? focusTimeSeries : barData}
+              data={hasTimeSeries ? activeTimeSeries : barData}
               margin={{ top: 4, right: 4, left: -28, bottom: 0 }}
             >
               <CartesianGrid
@@ -271,7 +289,7 @@ export function FocusQualityChart({
                 vertical={false}
               />
               <XAxis
-                dataKey={focusTimeSeries.length > 0 ? 'label' : 'name'}
+                dataKey={hasTimeSeries ? 'label' : 'name'}
                 tick={{ fontSize: 11, fill: 'oklch(0.55 0.016 286)' }}
                 axisLine={false}
                 tickLine={false}
@@ -287,14 +305,21 @@ export function FocusQualityChart({
               <Tooltip content={<CustomTooltip />} cursor={false} />
 
               {chartType === 'bar'
-                ? visibleSeriesDefs.map((s: any) => (
+                ? (hasTimeSeries
+                    ? visibleSeriesDefs
+                    : barData.map((d) => ({
+                        key: view === 'category' ? `rating__${d.name}` : `rating_sub__${d.name}`,
+                        name: d.name,
+                        color: d.color,
+                      }))
+                  ).map((s: any) => (
                     <Bar
                       key={s.key}
-                      dataKey={s.key}
+                      dataKey={hasTimeSeries ? s.key : 'avgRating'}
                       name={s.name}
                       radius={[4, 4, 0, 0]}
                       maxBarSize={32}
-                      shape={(props) => {
+                      shape={(props: any) => {
                         const { x, y, width, height } = props
                         if (!height || height <= 0) return <g />
                         return (

@@ -86,6 +86,8 @@ export const TimerCustomizeDialog = ({
     workExceedsSession,
     breakExceedsSession,
     createCategoryMutation,
+    workWithoutSession,
+    breakWithoutSession,
     reset,
   } = useTimerCustomize()
 
@@ -172,6 +174,11 @@ export const TimerCustomizeDialog = ({
               {workExceedsSession && (
                 <p className="text-xs text-destructive">Work duration exceeds session duration.</p>
               )}
+              {workWithoutSession && (
+                <p className="text-xs text-destructive">
+                  Session duration is required to set work duration.
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -195,6 +202,11 @@ export const TimerCustomizeDialog = ({
               )}
               {breakExceedsSession && (
                 <p className="text-xs text-destructive">Break duration exceeds session duration.</p>
+              )}
+              {breakWithoutSession && (
+                <p className="text-xs text-destructive">
+                  Session duration is required to set break duration.
+                </p>
               )}
             </div>
           </div>
