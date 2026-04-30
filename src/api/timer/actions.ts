@@ -455,7 +455,7 @@ export const getTimerAnalytics = async (period: AnalyticsPeriod): Promise<Sessio
     const obj: TimeSeriesPoint = { label: label.label, timestamp: label.timestamp }
     for (const def of focusQualitySeriesDefinitions) {
       const entry = point.get(def.key)
-      obj[def.key] = entry ? Math.round((entry.total / entry.count) * 10) / 10 : null
+      obj[def.key] = entry ? Math.round((entry.total / entry.count) * 10) / 10 : 0
     }
     return obj
   })
