@@ -72,8 +72,6 @@ export function SessionRatingDialog({
   const hasCategory = !!config?.categoryName
   const hasTask = !!config?.taskId && !!config?.taskTitle
 
-  // Étoiles requises seulement si catégorie présente
-  // Tâche requiert une réponse si présente
   const canSubmit = (hasCategory ? rating > 0 : true) && (!hasTask || taskCompleted !== null)
 
   const completeTaskMutation = useMutation({
@@ -172,7 +170,7 @@ export function SessionRatingDialog({
         if (!v) handleDismiss()
       }}
     >
-      <DialogContent className="sm:max-w-sm" style={{ marginLeft: 'clamp(0px, 8rem, 8rem)' }}>
+      <DialogContent className="sm:max-w-sm max-w-[calc(100vw-2rem)] mx-4 sm:mx-auto">
         <DialogHeader>
           <DialogTitle className="text-center text-base">Session complete 🎉</DialogTitle>
         </DialogHeader>
