@@ -134,7 +134,7 @@ export function FocusQualityChart({
     })
   }
 
-  const useTimeSeries = chartType === 'line' && focusTimeSeries.length > 0
+  const useTimeSeries = focusTimeSeries.length > 0 && focusSeriesDefs.length > 0
 
   const visibleSeriesDefs = focusSeriesDefs.filter(
     (s: any) => selectedKeys === null || selectedKeys.has(s.key),
@@ -262,7 +262,7 @@ export function FocusQualityChart({
         <>
           <ResponsiveContainer width="100%" height={200}>
             <ComposedChart
-              data={useTimeSeries ? focusTimeSeries : barData}
+              data={focusTimeSeries.length > 0 ? focusTimeSeries : barData}
               margin={{ top: 4, right: 4, left: -28, bottom: 0 }}
             >
               <CartesianGrid
@@ -271,7 +271,7 @@ export function FocusQualityChart({
                 vertical={false}
               />
               <XAxis
-                dataKey={useTimeSeries ? 'label' : 'name'}
+                dataKey={focusTimeSeries.length > 0 ? 'label' : 'name'}
                 tick={{ fontSize: 11, fill: 'oklch(0.55 0.016 286)' }}
                 axisLine={false}
                 tickLine={false}
@@ -286,44 +286,45 @@ export function FocusQualityChart({
               <ReferenceLine y={3} stroke="oklch(0.5 0.01 286 / 0.2)" strokeDasharray="4 4" />
               <Tooltip content={<CustomTooltip />} cursor={false} />
 
-              {useTimeSeries ? (
-                visibleSeriesDefs.map((s: any) => (
-                  <Line
-                    key={s.key}
-                    dataKey={s.key}
-                    name={s.name}
-                    stroke={s.color}
-                    strokeWidth={2}
-                    dot={{ fill: s.color, strokeWidth: 0, r: 3 }}
-                    activeDot={{ r: 5, fill: s.color, strokeWidth: 0 }}
-                    type="monotone"
-                  />
-                ))
-              ) : (
-                <Bar
-                  dataKey="avgRating"
-                  name="Avg rating"
-                  radius={[6, 6, 0, 0]}
-                  maxBarSize={32}
-                  shape={(props: any) => {
-                    const { x, y, width, height, index } = props
-                    const color = barData[index]?.color ?? '#8b5cf6'
-                    if (!height || height <= 0) return <g />
-                    return (
-                      <rect
-                        x={x}
-                        y={y}
-                        width={width}
-                        height={height}
-                        fill={color}
-                        fillOpacity={0.85}
-                        rx={6}
-                        ry={6}
-                      />
-                    )
-                  }}
-                />
-              )}
+              {chartType === 'bar'
+                ? visibleSeriesDefs.map((s: any) => (
+                    <Bar
+                      key={s.key}
+                      dataKey={s.key}
+                      name={s.name}
+                      radius={[4, 4, 0, 0]}
+                      maxBarSize={32}
+                      shape={(props) => {
+                        const { x, y, width, height } = props
+                        if (!height || height <= 0) return <g />
+                        return (
+                          <rect
+                            x={x}
+                            y={y}
+                            width={width}
+                            height={height}
+                            fill={s.color}
+                            fillOpacity={0.85}
+                            rx={4}
+                            ry={4}
+                          />
+                        )
+                      }}
+                    />
+                  ))
+                : visibleSeriesDefs.map((s: any) => (
+                    <Line
+                      key={s.key}
+                      dataKey={s.key}
+                      name={s.name}
+                      stroke={s.color}
+                      strokeWidth={2}
+                      dot={{ fill: s.color, strokeWidth: 0, r: 3 }}
+                      activeDot={{ r: 5, fill: s.color, strokeWidth: 0 }}
+                      connectNulls={false}
+                      type="monotone"
+                    />
+                  ))}
             </ComposedChart>
           </ResponsiveContainer>
 
