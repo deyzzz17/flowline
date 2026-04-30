@@ -572,3 +572,26 @@ export const deleteTimerConfig = async (id: number) => {
     return err('Error deleting config')
   }
 }
+
+
+export const getTaskSessions = async (taskId: number) => {
+  const userId = await getUserId()
+  if (!userId) return { totalSessions: 0, totalSeconds: 0 }
+
+  const payload = await getPayload({ config })
+  const { docs } = await payload.find({
+    collection: 'timer-sessions',
+    where: {
+      and: [
+        { userId: { equals: userId } },
+        { taskId: { equals: taskId } },
+      ],
+    },
+    limit: 0,
+  })
+
+  return {
+    totalSessions: docs.length,
+    totalSeconds: docs.reduce((s, d) => s + d.duration, 0),
+  }
+}

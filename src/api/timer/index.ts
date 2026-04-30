@@ -7,6 +7,7 @@ import {
   listTimerConfigs,
   saveTimerConfig,
   deleteTimerConfig,
+  getTaskSessions,
 } from './actions'
 
 export const timerAPI = {
@@ -17,6 +18,7 @@ export const timerAPI = {
   },
   sessions: {
     create: createTimerSession,
+    getTasks: getTaskSessions,
   },
   analytics: {
     get: getTimerAnalytics,

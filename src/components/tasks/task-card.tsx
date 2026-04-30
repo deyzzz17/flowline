@@ -36,6 +36,7 @@ import { MentionTextarea } from './mention-textarea'
 import { MentionRenderer } from './mention-renderer'
 import { toast } from 'sonner'
 import { format, startOfDay } from 'date-fns'
+import { TaskSessionsBadge } from './task-sessions-badge'
 
 function hexToRgba(hex: string, alpha: number) {
   try {
@@ -977,6 +978,8 @@ export const TaskCard = ({
                   )}
                 </div>
               )}
+
+              {!isEditing && isActive && <TaskSessionsBadge taskId={task.id} />}
 
               {hasSubtasks && (
                 <div className="space-y-1.5 pt-0.5">
