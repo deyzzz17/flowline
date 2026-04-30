@@ -50,25 +50,31 @@ export function AnalyticsClient({ initialData, initialPeriod }: AnalyticsClientP
   }
 
   return (
-    <div className="mx-auto max-w-screen-xl px-4 pb-16 pt-8 sm:px-6 lg:px-10">
+    <div className="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 lg:px-10">
       <div className="mb-10">
-        <Link
-          href="/timer"
-          className="mb-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="h-3 w-3" />
-          Back to timer
-        </Link>
-        <div className="flex items-center gap-2 mb-1">
-          <BarChart2 className="h-4 w-4 text-violet-500" />
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-600 dark:text-violet-400">
-            Analytics
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <BarChart2 className="h-4 w-4 text-violet-500" />
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-600 dark:text-violet-400">
+                Analytics
+              </p>
+            </div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              Focus insights
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Track your productivity and focus patterns over time.
+            </p>
+          </div>
+          <Link
+            href="/timer"
+            className="mt-1 flex items-center gap-1.5 rounded-xl border border-border/60 bg-background/60 px-3 py-2 text-xs font-medium text-muted-foreground backdrop-blur-sm transition-all hover:bg-muted hover:text-foreground shrink-0"
+          >
+            <ArrowLeft className="h-3 w-3" />
+            Back to timer
+          </Link>
         </div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Focus insights</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Track your productivity and focus patterns over time.
-        </p>
       </div>
 
       <section className="mb-10 grid grid-cols-2 gap-4 lg:grid-cols-4">

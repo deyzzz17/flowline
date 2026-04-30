@@ -75,8 +75,6 @@ interface FocusQualityChartProps {
 
 export function FocusQualityChart({
   global: globalData,
-  byCategory,
-  bySubcategory,
   initialData,
   initialPeriod,
 }: FocusQualityChartProps) {
@@ -91,21 +89,25 @@ export function FocusQualityChart({
     return <EmptyState message="Rate your sessions to see focus quality insights." />
   }
 
+  const currentByCategory: FocusDataPoint[] = analyticsData.focusQuality.byCategory ?? []
+  const currentBySubcategory: (FocusDataPoint & { parentCategory: string })[] =
+    (analyticsData.focusQuality as any).bySubcategory ?? []
+
   const categoryItems: FocusDataPoint[] = [
     {
       name: 'Global',
-      avgRating: globalData.avgRating,
-      sessions: globalData.sessions,
+      avgRating: analyticsData.focusQuality.global.avgRating,
+      sessions: analyticsData.focusQuality.global.sessions,
       color: '#8b5cf6',
     },
-    ...byCategory,
+    ...currentByCategory,
   ]
 
-  const availableCategories = [...new Set(bySubcategory.map((s) => s.parentCategory))]
+  const availableCategories = [...new Set(currentBySubcategory.map((s) => s.parentCategory))]
   const filteredSubs =
     selectedCategory === 'All'
-      ? bySubcategory
-      : bySubcategory.filter((s) => s.parentCategory === selectedCategory)
+      ? currentBySubcategory
+      : currentBySubcategory.filter((s) => s.parentCategory === selectedCategory)
 
   const currentItems = view === 'category' ? categoryItems : filteredSubs
 
@@ -156,7 +158,7 @@ export function FocusQualityChart({
       const key =
         view === 'category'
           ? `rating__${item.name}`
-          : `rating_sub__${item.parentCategory}::${item.name}`
+          : `rating_sub__${(item as any).parentCategory}::${item.name}`
       return selectedKeys.has(key) || item.name === 'Global'
     })
     .map((item) => ({
@@ -172,7 +174,7 @@ export function FocusQualityChart({
         key:
           view === 'category'
             ? `rating__${item.name}`
-            : `rating_sub__${item.parentCategory}::${item.name}`,
+            : `rating_sub__${(item as any).parentCategory}::${item.name}`,
         name: item.name,
         color: item.color,
       }))

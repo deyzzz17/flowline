@@ -114,34 +114,6 @@ export function SessionRatingDialog({
     onClose()
   }
 
-  const handleDismiss = async () => {
-    if (!config) return onClose()
-    setIsSaving(true)
-    try {
-      const startedAt = new Date(Date.now() - totalElapsed * 1000).toISOString()
-      await createTimerSession({
-        duration: totalElapsed,
-        categoryName: config.categoryName,
-        categoryColor: config.categoryColor,
-        subCategory: config.subCategory,
-        subCategoryColor: config.subCategoryColor,
-        taskId: config.taskId,
-        taskTitle: config.taskTitle,
-        rating: undefined,
-        taskCompleted: false,
-        startedAt,
-        timezoneOffset: new Date().getTimezoneOffset(),
-      })
-    } catch {
-    } finally {
-      setIsSaving(false)
-    }
-    setRating(0)
-    setHovered(0)
-    setTaskCompleted(null)
-    onClose()
-  }
-
   const displayValue = hovered > 0 ? hovered : rating
 
   const getStarFill = (star: number): 'empty' | 'half' | 'full' => {
@@ -167,10 +139,10 @@ export function SessionRatingDialog({
     <Dialog
       open={open}
       onOpenChange={(v) => {
-        if (!v) handleDismiss()
+        if (!v) onClose()
       }}
     >
-      <DialogContent className="sm:max-w-sm max-w-[calc(100vw-2rem)] mx-4 sm:mx-auto">
+      <DialogContent className="sm:max-w-sm w-[calc(100%-2rem)] sm:w-full">
         <DialogHeader>
           <DialogTitle className="text-center text-base">Session complete 🎉</DialogTitle>
         </DialogHeader>
