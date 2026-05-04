@@ -29,6 +29,7 @@ import Link from 'next/link'
 import type { Task } from '@/payload-types'
 import { SidebarNewsletter } from './sidebar-newsletter'
 import { FeedbackDialog } from '../support/feedback-dialog'
+import { useCalendarFilter } from '../calendar/calendar-filter-context'
 
 interface SidebarContentProps {
   onNavigate?: () => void
@@ -68,8 +69,7 @@ export const SidebarContent = ({ onNavigate }: SidebarContentProps) => {
   const [showNewCategory, setShowNewCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [newCategoryColor, setNewCategoryColor] = useState('#8b5cf6')
-  // Catégories cachées (désactivées via checkbox)
-  const [hiddenCategories, setHiddenCategories] = useState<Set<number>>(new Set())
+  const { hiddenCategories, toggleCategory } = useCalendarFilter()
 
   const { feedbackOpen, setFeedbackOpen } = useSidebarFooter()
   const { categories, createMutation, deleteMutation } = useCalendarCategories()
@@ -102,15 +102,6 @@ export const SidebarContent = ({ onNavigate }: SidebarContentProps) => {
     }
     return acc
   }, {})
-
-  const toggleCategory = (id: number) => {
-    setHiddenCategories((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
 
   const handleCreateCategory = async () => {
     if (!newCategoryName.trim()) return
