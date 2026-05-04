@@ -416,10 +416,18 @@ export function CalendarEventDialog({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDelete}
+              disabled={isDeleting}
               variant="destructive"
               className="flex items-center gap-2"
             >
-              Delete
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete event'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
