@@ -331,6 +331,10 @@ export interface CalendarEvent {
   endDate: string;
   allDay?: boolean | null;
   color?: string | null;
+  /**
+   * Reference to calendar-categories id
+   */
+  categoryId?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -617,6 +621,7 @@ export interface CalendarEventsSelect<T extends boolean = true> {
   endDate?: T;
   allDay?: T;
   color?: T;
+  categoryId?: T;
   updatedAt?: T;
   createdAt?: T;
 }

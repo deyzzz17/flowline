@@ -97,7 +97,7 @@ export const useCalendar = () => {
         endDate: e.endDate,
         allDay: e.allDay ?? false,
         color: e.color ?? '#8b5cf6',
-        categoryId: (e as any).categoryId ?? null,
+        categoryId: typeof e.categoryId === 'number' ? e.categoryId : null,
         type: 'event' as const,
       })),
     [eventsData],
