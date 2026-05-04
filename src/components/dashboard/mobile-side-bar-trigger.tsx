@@ -28,7 +28,7 @@ export const MobileSidebarTrigger = () => {
           <span className="text-[17px] font-bold tracking-tight text-foreground">Flowline</span>
         </div>
         <div className="flex flex-1 flex-col justify-between h-[calc(100%-4rem)]">
-          <SidebarContent onNavigate={change} />
+          <SidebarContent onNavigate={() => change(false)} />
         </div>
       </SheetContent>
     </Sheet>

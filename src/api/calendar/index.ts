@@ -3,6 +3,10 @@ import {
   createCalendarEvent,
   updateCalendarEvent,
   deleteCalendarEvent,
+  listCalendarCategories,
+  createCalendarCategory,
+  updateCalendarCategory,
+  deleteCalendarCategory,
 } from './actions'
 
 export const calendarAPI = {
@@ -10,4 +14,10 @@ export const calendarAPI = {
   create: createCalendarEvent,
   update: updateCalendarEvent,
   delete: deleteCalendarEvent,
+  categories: {
+    list: listCalendarCategories,
+    create: createCalendarCategory,
+    update: updateCalendarCategory,
+    delete: deleteCalendarCategory,
+  },
 }

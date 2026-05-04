@@ -13,6 +13,7 @@ import { syncRecurringTasksForUser } from '@/api/tasks/actions'
 import { createDefaultList } from '@/api/lists/actions'
 import { Toaster } from '@/components/ui/sonner'
 import { NotificationsMenu } from '@/components/header/notifications-menu'
+import { CalendarFilterProvider } from '@/components/calendar/calendar-filter-context'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -35,30 +36,32 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             image: user?.image ?? null,
           }}
         >
-          <Toaster position="bottom-right" />
-          <div className="flex h-screen flex-col overflow-hidden">
-            <header className="z-50 w-full shrink-0 border-b border-border/60 bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/60">
-              <div className="flex h-16 items-center justify-between px-4 sm:px-6">
-                <Link href="/dashboard" className="group flex items-center gap-3">
-                  <FlowlineLogo />
-                  <span className="text-[17px] font-bold tracking-tight text-foreground transition-colors group-hover:text-foreground/80">
-                    Flowline
-                  </span>
-                </Link>
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <NotificationsMenu />
-                  <ModeToggle />
-                  <div className="mx-1 hidden h-5 w-px bg-border sm:block" />
-                  <MobileSidebarTrigger />
-                  <UserDropdown />
+          <CalendarFilterProvider>
+            <Toaster position="bottom-right" />
+            <div className="flex h-screen flex-col overflow-hidden">
+              <header className="z-50 w-full shrink-0 border-b border-border/60 bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/60">
+                <div className="flex h-16 items-center justify-between px-4 sm:px-6">
+                  <Link href="/dashboard" className="group flex items-center gap-3">
+                    <FlowlineLogo />
+                    <span className="text-[17px] font-bold tracking-tight text-foreground transition-colors group-hover:text-foreground/80">
+                      Flowline
+                    </span>
+                  </Link>
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <NotificationsMenu />
+                    <ModeToggle />
+                    <div className="mx-1 hidden h-5 w-px bg-border sm:block" />
+                    <MobileSidebarTrigger />
+                    <UserDropdown />
+                  </div>
                 </div>
+              </header>
+              <div className="flex flex-1 overflow-hidden">
+                <Sidebar />
+                <main className="flex-1 overflow-y-auto">{children}</main>
               </div>
-            </header>
-            <div className="flex flex-1 overflow-hidden">
-              <Sidebar />
-              <main className="flex-1 overflow-y-auto">{children}</main>
             </div>
-          </div>
+          </CalendarFilterProvider>
         </UserProvider>
       </Providers>
     </>

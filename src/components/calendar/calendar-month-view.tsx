@@ -13,13 +13,10 @@ function getDaysInView(currentDate: Date): Date[] {
   const month = currentDate.getMonth()
   const firstDay = new Date(year, month, 1)
   const lastDay = new Date(year, month + 1, 0)
-
   const start = new Date(firstDay)
   start.setDate(start.getDate() - start.getDay())
-
   const end = new Date(lastDay)
   end.setDate(end.getDate() + (6 - end.getDay()))
-
   const days: Date[] = []
   const cur = new Date(start)
   while (cur <= end) {
@@ -29,7 +26,7 @@ function getDaysInView(currentDate: Date): Date[] {
   return days
 }
 
-interface DayCell {
+interface DayCellProps {
   date: Date
   items: CalendarItem[]
   isCurrentMonth: boolean
@@ -38,7 +35,7 @@ interface DayCell {
   onClickItem: (item: CalendarItem) => void
 }
 
-function DayCell({ date, items, isCurrentMonth, isToday, onClickDay, onClickItem }: DayCell) {
+function DayCell({ date, items, isCurrentMonth, isToday, onClickDay, onClickItem }: DayCellProps) {
   const { setNodeRef, isOver } = useDroppable({ id: date.toISOString() })
   const visible = items.slice(0, MAX_VISIBLE)
   const overflow = items.length - MAX_VISIBLE
@@ -48,17 +45,23 @@ function DayCell({ date, items, isCurrentMonth, isToday, onClickDay, onClickItem
       ref={setNodeRef}
       onClick={() => onClickDay(date)}
       className={cn(
-        'min-h-[100px] p-1.5 border-b border-r border-border/40 cursor-pointer transition-colors',
+        'min-h-25 p-1.5 border-b border-r border-border/40 cursor-pointer transition-colors',
         !isCurrentMonth && 'bg-muted/20',
-        isOver && 'bg-violet-500/5',
+        isOver && 'bg-violet-500/5 ring-1 ring-inset ring-violet-500/20',
         'hover:bg-muted/30',
       )}
     >
       <div className="flex items-center justify-between mb-1">
-        <span className={cn(
-          'flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium',
-          isToday ? 'bg-violet-600 text-white' : isCurrentMonth ? 'text-foreground' : 'text-muted-foreground/40',
-        )}>
+        <span
+          className={cn(
+            'flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium',
+            isToday
+              ? 'bg-violet-600 text-white'
+              : isCurrentMonth
+                ? 'text-foreground'
+                : 'text-muted-foreground/40',
+          )}
+        >
           {date.getDate()}
         </span>
       </div>
@@ -74,16 +77,32 @@ function DayCell({ date, items, isCurrentMonth, isToday, onClickDay, onClickItem
   )
 }
 
-function DraggableItem({ item, onClickItem }: { item: CalendarItem; onClickItem: (item: CalendarItem) => void }) {
+function DraggableItem({
+  item,
+  onClickItem,
+}: {
+  item: CalendarItem
+  onClickItem: (item: CalendarItem) => void
+}) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `${item.type}-${item.id}`,
     data: { item },
-    disabled: item.type === 'task',
   })
 
   return (
-    <div ref={setNodeRef} {...(item.type === 'event' ? { ...listeners, ...attributes } : {})}>
-      <CalendarItemPill item={item} onClick={() => onClickItem(item)} isDragging={isDragging} compact />
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      className={cn(isDragging && 'opacity-40')}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <CalendarItemPill
+        item={item}
+        onClick={() => onClickItem(item)}
+        isDragging={isDragging}
+        compact
+      />
     </div>
   )
 }
@@ -95,7 +114,12 @@ interface CalendarMonthViewProps {
   onClickItem: (item: CalendarItem) => void
 }
 
-export function CalendarMonthView({ currentDate, getItemsForDate, onClickDay, onClickItem }: CalendarMonthViewProps) {
+export function CalendarMonthView({
+  currentDate,
+  getItemsForDate,
+  onClickDay,
+  onClickItem,
+}: CalendarMonthViewProps) {
   const days = getDaysInView(currentDate)
   const today = new Date()
 
@@ -103,12 +127,14 @@ export function CalendarMonthView({ currentDate, getItemsForDate, onClickDay, on
     <div className="flex-1 overflow-hidden">
       <div className="grid grid-cols-7 border-b border-border/40">
         {DAYS.map((d) => (
-          <div key={d} className="py-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground/60">
+          <div
+            key={d}
+            className="py-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground/60"
+          >
             {d}
           </div>
         ))}
       </div>
-
       <div className="grid grid-cols-7">
         {days.map((date) => (
           <DayCell

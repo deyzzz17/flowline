@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import { type CalendarEventData } from '@/api/calendar/actions'
+import { useCalendarFilter } from '@/components/calendar/calendar-filter-context'
 import type { Task } from '@/payload-types'
 import { toast } from 'sonner'
 
@@ -17,6 +18,7 @@ export interface CalendarEvent {
   endDate: string
   allDay: boolean
   color: string
+  categoryId?: number | null
   type: 'event'
 }
 
@@ -36,7 +38,6 @@ function getViewRange(date: Date, view: CalendarView): { from: Date; to: Date } 
   const y = date.getFullYear()
   const m = date.getMonth()
   const d = date.getDate()
-
   switch (view) {
     case 'month': {
       const from = new Date(y, m, 1)
@@ -68,8 +69,10 @@ export const useCalendar = () => {
   const [selectedItem, setSelectedItem] = useState<CalendarItem | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [newEventDate, setNewEventDate] = useState<Date | null>(null)
+  const [optimisticOverrides, setOptimisticOverrides] = useState<Map<string, string>>(new Map())
 
   const queryClient = useQueryClient()
+  const { isCategoryVisible } = useCalendarFilter()
   const { from, to } = getViewRange(currentDate, view)
 
   const { data: eventsData } = useQuery({
@@ -94,6 +97,7 @@ export const useCalendar = () => {
         endDate: e.endDate,
         allDay: e.allDay ?? false,
         color: e.color ?? '#8b5cf6',
+        categoryId: (e as any).categoryId ?? null,
         type: 'event' as const,
       })),
     [eventsData],
@@ -118,6 +122,49 @@ export const useCalendar = () => {
       })
   }, [tasksData])
 
+  const eventsWithOverrides = useMemo(
+    () =>
+      events.map((e) => {
+        const key = `event-${e.id}`
+        const override = optimisticOverrides.get(key)
+        if (!override) return e
+        const duration = new Date(e.endDate).getTime() - new Date(e.startDate).getTime()
+        return {
+          ...e,
+          startDate: override,
+          endDate: new Date(new Date(override).getTime() + duration).toISOString(),
+        }
+      }),
+    [events, optimisticOverrides],
+  )
+
+  const tasksWithOverrides = useMemo(
+    () =>
+      tasks.map((t) => {
+        const key = `task-${t.id}`
+        const override = optimisticOverrides.get(key)
+        if (!override) return t
+        return { ...t, dueDate: override }
+      }),
+    [tasks, optimisticOverrides],
+  )
+
+  const setOptimisticDate = useCallback((type: 'event' | 'task', id: number, date: string) => {
+    setOptimisticOverrides((prev) => {
+      const next = new Map(prev)
+      next.set(`${type}-${id}`, date)
+      return next
+    })
+  }, [])
+
+  const clearOptimisticDate = useCallback((type: 'event' | 'task', id: number) => {
+    setOptimisticOverrides((prev) => {
+      const next = new Map(prev)
+      next.delete(`${type}-${id}`)
+      return next
+    })
+  }, [])
+
   const createMutation = useMutation({
     mutationFn: (data: CalendarEventData) => api.calendar.create(data),
     onSuccess: () => {
@@ -131,12 +178,16 @@ export const useCalendar = () => {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<CalendarEventData> }) =>
       api.calendar.update(id, data),
-    onSuccess: () => {
+    onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+      clearOptimisticDate('event', id)
       toast.success('Event updated')
       setDialogOpen(false)
     },
-    onError: () => toast.error('Failed to update event'),
+    onError: (_, { id }) => {
+      clearOptimisticDate('event', id)
+      toast.error('Failed to update event')
+    },
   })
 
   const deleteMutation = useMutation({
@@ -148,6 +199,20 @@ export const useCalendar = () => {
       setSelectedItem(null)
     },
     onError: () => toast.error('Failed to delete event'),
+  })
+
+  const moveTaskMutation = useMutation({
+    mutationFn: ({ id, dueDate }: { id: number; dueDate: string }) =>
+      api.tasks.edit(id, { dueDate }),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      clearOptimisticDate('task', id)
+      toast.success('Task rescheduled')
+    },
+    onError: (_, { id }) => {
+      clearOptimisticDate('task', id)
+      toast.error('Failed to reschedule task')
+    },
   })
 
   const navigate = useCallback(
@@ -180,7 +245,6 @@ export const useCalendar = () => {
     setSelectedItem(null)
     setDialogOpen(true)
   }, [])
-
   const openEdit = useCallback((item: CalendarItem) => {
     setSelectedItem(item)
     setDialogOpen(true)
@@ -190,31 +254,43 @@ export const useCalendar = () => {
     (id: number, newStartDate: Date) => {
       const event = events.find((e) => e.id === id)
       if (!event) return
+      setOptimisticDate('event', id, newStartDate.toISOString())
       const duration = new Date(event.endDate).getTime() - new Date(event.startDate).getTime()
-      const newEndDate = new Date(newStartDate.getTime() + duration)
       updateMutation.mutate({
         id,
         data: {
           startDate: newStartDate.toISOString(),
-          endDate: newEndDate.toISOString(),
+          endDate: new Date(newStartDate.getTime() + duration).toISOString(),
         },
       })
     },
-    [events, updateMutation],
+    [events, updateMutation, setOptimisticDate],
+  )
+
+  const moveTask = useCallback(
+    (id: number, newDueDate: Date) => {
+      setOptimisticDate('task', id, newDueDate.toISOString())
+      moveTaskMutation.mutate({ id, dueDate: newDueDate.toISOString() })
+    },
+    [moveTaskMutation, setOptimisticDate],
   )
 
   const getItemsForDate = useCallback(
     (date: Date): CalendarItem[] => {
       const dateStr = date.toDateString()
-      const dayEvents = events.filter((e) => new Date(e.startDate).toDateString() === dateStr)
-      const dayTasks = tasks.filter((t) => new Date(t.dueDate).toDateString() === dateStr)
+      const dayEvents = eventsWithOverrides.filter(
+        (e) => new Date(e.startDate).toDateString() === dateStr && isCategoryVisible(e.categoryId),
+      )
+      const dayTasks = tasksWithOverrides.filter(
+        (t) => new Date(t.dueDate).toDateString() === dateStr,
+      )
       return [...dayEvents, ...dayTasks].sort((a, b) => {
         const aDate = a.type === 'event' ? a.startDate : a.dueDate
         const bDate = b.type === 'event' ? b.startDate : b.dueDate
         return new Date(aDate).getTime() - new Date(bDate).getTime()
       })
     },
-    [events, tasks],
+    [eventsWithOverrides, tasksWithOverrides, isCategoryVisible],
   )
 
   return {
@@ -223,8 +299,8 @@ export const useCalendar = () => {
     currentDate,
     setCurrentDate,
     navigate,
-    events,
-    tasks,
+    events: eventsWithOverrides,
+    tasks: tasksWithOverrides,
     from,
     to,
     selectedItem,
@@ -234,9 +310,12 @@ export const useCalendar = () => {
     openNewEvent,
     openEdit,
     moveEvent,
+    moveTask,
+    moveTaskMutation,
     getItemsForDate,
     createMutation,
     updateMutation,
     deleteMutation,
+    setOptimisticDate,
   }
 }

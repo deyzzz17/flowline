@@ -1,14 +1,16 @@
 'use client'
 
+import { useState } from 'react'
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { useCalendar, type CalendarView } from '@/hooks/calendar/use-calendar'
+import { useCalendar, type CalendarView, type CalendarTask } from '@/hooks/calendar/use-calendar'
 import { CalendarMonthView } from './calendar-month-view'
 import { CalendarWeekView } from './calendar-week-view'
 import { CalendarDayView } from './calendar-day-view'
 import { CalendarEventDialog } from './calendar-event-dialog'
+import { TaskTimePicker } from './task-time-picker'
 import type { CalendarEventData } from '@/api/calendar/actions'
 
 const VIEW_LABELS: Record<CalendarView, string> = {
@@ -55,6 +57,7 @@ export function CalendarClient() {
     openNewEvent,
     openEdit,
     moveEvent,
+    moveTask,
     createMutation,
     updateMutation,
     deleteMutation,
@@ -62,15 +65,39 @@ export function CalendarClient() {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
+  const [pendingTaskDrop, setPendingTaskDrop] = useState<{
+    task: CalendarTask
+    targetDate: Date
+  } | null>(null)
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
     if (!over) return
-
     const item = active.data.current?.item
-    if (!item || item.type !== 'event') return
+    if (!item) return
 
-    const newDate = new Date(over.id as string)
-    moveEvent(item.id, newDate)
+    const targetDate = new Date(over.id as string)
+    const hasSpecificHour = targetDate.getHours() !== 0 || targetDate.getMinutes() !== 0
+
+    if (item.type === 'event') {
+      moveEvent(item.id, targetDate)
+    } else if (item.type === 'task') {
+      if (view !== 'month' || hasSpecificHour) {
+        moveTask(item.id, targetDate)
+      } else {
+        setPendingTaskDrop({ task: item as CalendarTask, targetDate })
+      }
+    }
+  }
+
+  const handleTaskTimeConfirm = (dateWithTime: Date) => {
+    if (!pendingTaskDrop) return
+    moveTask(pendingTaskDrop.task.id, dateWithTime)
+    setPendingTaskDrop(null)
+  }
+
+  const handleTaskTimeCancel = () => {
+    setPendingTaskDrop(null)
   }
 
   const handleSave = (data: CalendarEventData) => {
@@ -87,6 +114,14 @@ export function CalendarClient() {
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      <TaskTimePicker
+        open={pendingTaskDrop !== null}
+        date={pendingTaskDrop?.targetDate ?? null}
+        taskTitle={pendingTaskDrop?.task.title ?? ''}
+        onConfirm={handleTaskTimeConfirm}
+        onCancel={handleTaskTimeCancel}
+      />
+
       <div className="flex flex-col h-[calc(100vh-4rem)]">
         <div className="flex items-center justify-between px-4 py-3 sm:px-6 border-b border-border/40 bg-background/95 backdrop-blur-sm">
           <div className="flex items-center gap-3">
@@ -108,7 +143,6 @@ export function CalendarClient() {
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
-
             <Button
               variant="outline"
               size="sm"
@@ -117,7 +151,6 @@ export function CalendarClient() {
             >
               Today
             </Button>
-
             <h2 className="text-sm font-semibold text-foreground">
               {getHeaderTitle(currentDate, view)}
             </h2>
@@ -141,7 +174,6 @@ export function CalendarClient() {
                 </button>
               ))}
             </div>
-
             <Button
               size="sm"
               onClick={() => openNewEvent(new Date())}

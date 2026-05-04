@@ -1,7 +1,6 @@
 'use client'
 
-import { useDroppable } from '@dnd-kit/core'
-import { useDraggable } from '@dnd-kit/core'
+import { useDroppable, useDraggable } from '@dnd-kit/core'
 import { cn } from '@/lib/utils'
 import { CalendarItemPill } from './calendar-item-pill'
 import type { CalendarItem } from '@/hooks/calendar/use-calendar'
@@ -19,9 +18,18 @@ function getWeekDays(currentDate: Date): Date[] {
   })
 }
 
-function HourSlot({ date, hour, items, onClickSlot, onClickItem }: {
-  date: Date; hour: number; items: CalendarItem[]
-  onClickSlot: (date: Date) => void; onClickItem: (item: CalendarItem) => void
+function HourSlot({
+  date,
+  hour,
+  items,
+  onClickSlot,
+  onClickItem,
+}: {
+  date: Date
+  hour: number
+  items: CalendarItem[]
+  onClickSlot: (date: Date) => void
+  onClickItem: (item: CalendarItem) => void
 }) {
   const slotDate = new Date(date)
   slotDate.setHours(hour, 0, 0, 0)
@@ -33,7 +41,7 @@ function HourSlot({ date, hour, items, onClickSlot, onClickItem }: {
       onClick={() => onClickSlot(slotDate)}
       className={cn(
         'h-14 border-b border-border/20 px-1 py-0.5 cursor-pointer transition-colors',
-        isOver && 'bg-violet-500/5',
+        isOver && 'bg-violet-500/5 ring-1 ring-inset ring-violet-500/20',
         'hover:bg-muted/20',
       )}
     >
@@ -44,15 +52,26 @@ function HourSlot({ date, hour, items, onClickSlot, onClickItem }: {
   )
 }
 
-function DraggableItem({ item, onClickItem }: { item: CalendarItem; onClickItem: (item: CalendarItem) => void }) {
+function DraggableItem({
+  item,
+  onClickItem,
+}: {
+  item: CalendarItem
+  onClickItem: (item: CalendarItem) => void
+}) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `${item.type}-${item.id}`,
     data: { item },
-    disabled: item.type === 'task',
   })
 
   return (
-    <div ref={setNodeRef} {...(item.type === 'event' ? { ...listeners, ...attributes } : {})}>
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      className={cn(isDragging && 'opacity-40')}
+      onClick={(e) => e.stopPropagation()}
+    >
       <CalendarItemPill item={item} onClick={() => onClickItem(item)} isDragging={isDragging} />
     </div>
   )
@@ -65,16 +84,20 @@ interface CalendarWeekViewProps {
   onClickItem: (item: CalendarItem) => void
 }
 
-export function CalendarWeekView({ currentDate, getItemsForDate, onClickSlot, onClickItem }: CalendarWeekViewProps) {
+export function CalendarWeekView({
+  currentDate,
+  getItemsForDate,
+  onClickSlot,
+  onClickItem,
+}: CalendarWeekViewProps) {
   const days = getWeekDays(currentDate)
   const today = new Date()
 
-  const getItemsForHour = (date: Date, hour: number): CalendarItem[] => {
-    return getItemsForDate(date).filter((item) => {
+  const getItemsForHour = (date: Date, hour: number): CalendarItem[] =>
+    getItemsForDate(date).filter((item) => {
       const itemDate = new Date(item.type === 'event' ? item.startDate : item.dueDate)
       return itemDate.getHours() === hour
     })
-  }
 
   return (
     <div className="flex flex-1 overflow-auto">
@@ -98,10 +121,12 @@ export function CalendarWeekView({ currentDate, getItemsForDate, onClickSlot, on
                 <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
                   {DAYS_SHORT[date.getDay()]}
                 </span>
-                <span className={cn(
-                  'flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold',
-                  isToday ? 'bg-violet-600 text-white' : 'text-foreground',
-                )}>
+                <span
+                  className={cn(
+                    'flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold',
+                    isToday ? 'bg-violet-600 text-white' : 'text-foreground',
+                  )}
+                >
                   {date.getDate()}
                 </span>
               </div>

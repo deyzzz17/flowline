@@ -76,6 +76,7 @@ export interface Config {
     'timer-sessions': TimerSession;
     'timer-configs': TimerConfig;
     'calendar-events': CalendarEvent;
+    'calendar-categories': CalendarCategory;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -92,6 +93,7 @@ export interface Config {
     'timer-sessions': TimerSessionsSelect<false> | TimerSessionsSelect<true>;
     'timer-configs': TimerConfigsSelect<false> | TimerConfigsSelect<true>;
     'calendar-events': CalendarEventsSelect<false> | CalendarEventsSelect<true>;
+    'calendar-categories': CalendarCategoriesSelect<false> | CalendarCategoriesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -334,6 +336,19 @@ export interface CalendarEvent {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "calendar-categories".
+ */
+export interface CalendarCategory {
+  id: number;
+  userId: string;
+  name: string;
+  color: string;
+  isDefault?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -391,6 +406,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'calendar-events';
         value: number | CalendarEvent;
+      } | null)
+    | ({
+        relationTo: 'calendar-categories';
+        value: number | CalendarCategory;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -598,6 +617,18 @@ export interface CalendarEventsSelect<T extends boolean = true> {
   endDate?: T;
   allDay?: T;
   color?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "calendar-categories_select".
+ */
+export interface CalendarCategoriesSelect<T extends boolean = true> {
+  userId?: T;
+  name?: T;
+  color?: T;
+  isDefault?: T;
   updatedAt?: T;
   createdAt?: T;
 }

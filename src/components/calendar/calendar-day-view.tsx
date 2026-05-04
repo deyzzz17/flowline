@@ -37,13 +37,12 @@ function HourSlot({
                 : `${hour - 12} pm`}
         </span>
       </div>
-
       <div
         ref={setNodeRef}
         onClick={() => onClickSlot(slotDate)}
         className={cn(
-          'flex-1 min-h-[64px] px-2 py-1 cursor-pointer transition-colors',
-          isOver && 'bg-violet-500/5',
+          'flex-1 min-h-16 px-2 py-1 cursor-pointer transition-colors',
+          isOver && 'bg-violet-500/5 ring-1 ring-inset ring-violet-500/20',
           'hover:bg-muted/20',
         )}
       >
@@ -65,11 +64,16 @@ function DraggableItem({
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `${item.type}-${item.id}`,
     data: { item },
-    disabled: item.type === 'task',
   })
 
   return (
-    <div ref={setNodeRef} {...(item.type === 'event' ? { ...listeners, ...attributes } : {})}>
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      className={cn(isDragging && 'opacity-40')}
+      onClick={(e) => e.stopPropagation()}
+    >
       <CalendarItemPill item={item} onClick={() => onClickItem(item)} isDragging={isDragging} />
     </div>
   )
@@ -90,7 +94,6 @@ export function CalendarDayView({
 }: CalendarDayViewProps) {
   const today = new Date()
   const isToday = currentDate.toDateString() === today.toDateString()
-
   const items = getItemsForDate(currentDate)
 
   const getItemsForHour = (hour: number): CalendarItem[] =>
@@ -123,7 +126,6 @@ export function CalendarDayView({
           </p>
         </div>
       </div>
-
       <div className="flex-1">
         {HOURS.map((h) => (
           <HourSlot
