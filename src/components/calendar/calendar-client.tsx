@@ -75,10 +75,8 @@ export function CalendarClient() {
     if (!over) return
     const item = active.data.current?.item
     if (!item) return
-
     const targetDate = new Date(over.id as string)
     const hasSpecificHour = targetDate.getHours() !== 0 || targetDate.getMinutes() !== 0
-
     if (item.type === 'event') {
       moveEvent(item.id, targetDate)
     } else if (item.type === 'task') {
@@ -96,20 +94,12 @@ export function CalendarClient() {
     setPendingTaskDrop(null)
   }
 
-  const handleTaskTimeCancel = () => {
-    setPendingTaskDrop(null)
-  }
-
   const handleSave = (data: CalendarEventData) => {
     if (selectedItem?.type === 'event') {
       updateMutation.mutate({ id: selectedItem.id, data })
     } else {
       createMutation.mutate(data)
     }
-  }
-
-  const handleDelete = (id: number) => {
-    deleteMutation.mutate(id)
   }
 
   return (
@@ -119,11 +109,11 @@ export function CalendarClient() {
         date={pendingTaskDrop?.targetDate ?? null}
         taskTitle={pendingTaskDrop?.task.title ?? ''}
         onConfirm={handleTaskTimeConfirm}
-        onCancel={handleTaskTimeCancel}
+        onCancel={() => setPendingTaskDrop(null)}
       />
-
+      
       <div className="flex flex-col h-full">
-        <div className="flex items-center justify-between px-4 py-3 sm:px-6 border-b border-border/40 bg-background/95 backdrop-blur-sm">
+        <div className="flex items-center justify-between px-4 py-3 sm:px-6 border-b border-border/40 bg-background/95 backdrop-blur-sm shrink-0">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1">
               <Button
@@ -185,30 +175,38 @@ export function CalendarClient() {
           </div>
         </div>
 
-        {view === 'month' && (
-          <CalendarMonthView
-            currentDate={currentDate}
-            getItemsForDate={getItemsForDate}
-            onClickDay={openNewEvent}
-            onClickItem={openEdit}
-          />
-        )}
-        {view === 'week' && (
-          <CalendarWeekView
-            currentDate={currentDate}
-            getItemsForDate={getItemsForDate}
-            onClickSlot={openNewEvent}
-            onClickItem={openEdit}
-          />
-        )}
-        {view === 'day' && (
-          <CalendarDayView
-            currentDate={currentDate}
-            getItemsForDate={getItemsForDate}
-            onClickSlot={openNewEvent}
-            onClickItem={openEdit}
-          />
-        )}
+        <div
+          className={cn(
+            'flex-1 min-h-0',
+            view === 'month' && 'overflow-auto',
+            view !== 'month' && 'overflow-hidden flex flex-col',
+          )}
+        >
+          {view === 'month' && (
+            <CalendarMonthView
+              currentDate={currentDate}
+              getItemsForDate={getItemsForDate}
+              onClickDay={openNewEvent}
+              onClickItem={openEdit}
+            />
+          )}
+          {view === 'week' && (
+            <CalendarWeekView
+              currentDate={currentDate}
+              getItemsForDate={getItemsForDate}
+              onClickSlot={openNewEvent}
+              onClickItem={openEdit}
+            />
+          )}
+          {view === 'day' && (
+            <CalendarDayView
+              currentDate={currentDate}
+              getItemsForDate={getItemsForDate}
+              onClickSlot={openNewEvent}
+              onClickItem={openEdit}
+            />
+          )}
+        </div>
       </div>
 
       <CalendarEventDialog
@@ -217,7 +215,7 @@ export function CalendarClient() {
         selectedItem={selectedItem}
         defaultDate={newEventDate}
         onSave={handleSave}
-        onDelete={handleDelete}
+        onDelete={(id) => deleteMutation.mutate(id)}
         isSaving={createMutation.isPending || updateMutation.isPending}
         isDeleting={deleteMutation.isPending}
       />

@@ -116,9 +116,8 @@ export const SidebarContent = ({ onNavigate }: SidebarContentProps) => {
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
 
       <div className="flex flex-1 flex-col p-3 h-full overflow-hidden">
-        <nav className="flex-1 space-y-1 overflow-y-auto min-h-0">
+        <nav className="flex-1 space-y-1 overflow-y-auto min-h-0 sidebar-scroll">
           <NavItem href="/dashboard" icon={Home} label="Home" onNavigate={onNavigate} />
-
           <div>
             <button
               type="button"
