@@ -3,8 +3,10 @@ import { ProtectedRoute } from '@/components/route/protected-route'
 
 export default function CalendarPage() {
   return (
-    <ProtectedRoute>
-      <CalendarClient />
-    </ProtectedRoute>
+    <div className="h-full overflow-hidden">
+      <ProtectedRoute>
+        <CalendarClient />
+      </ProtectedRoute>
+    </div>
   )
 }

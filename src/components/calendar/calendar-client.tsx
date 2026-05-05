@@ -122,7 +122,7 @@ export function CalendarClient() {
         onCancel={handleTaskTimeCancel}
       />
 
-      <div className="flex flex-col h-[calc(100vh-4rem)]">
+      <div className="flex flex-col h-full">
         <div className="flex items-center justify-between px-4 py-3 sm:px-6 border-b border-border/40 bg-background/95 backdrop-blur-sm">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1">
