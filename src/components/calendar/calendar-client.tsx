@@ -18,11 +18,7 @@ import { CalendarEventDialog } from './calendar-event-dialog'
 import { TaskTimePicker } from './task-time-picker'
 import type { CalendarEventData } from '@/api/calendar/actions'
 
-const VIEW_LABELS: Record<CalendarView, string> = {
-  month: 'Month',
-  week: 'Week',
-  day: 'Day',
-}
+const VIEW_LABELS: Record<CalendarView, string> = { month: 'Month', week: 'Week', day: 'Day' }
 
 function getHeaderTitle(date: Date, view: CalendarView): string {
   switch (view) {
@@ -55,6 +51,7 @@ export function CalendarClient() {
     currentDate,
     navigate,
     getItemsForDate,
+    getItemDisplayHeight,
     selectedItem,
     dialogOpen,
     setDialogOpen,
@@ -212,6 +209,7 @@ export function CalendarClient() {
               onClickSlot={openNewEvent}
               onClickItem={openEdit}
               onResizeEnd={handleResizeEnd}
+              getItemDisplayHeight={getItemDisplayHeight}
             />
           )}
           {view === 'day' && (
@@ -221,6 +219,7 @@ export function CalendarClient() {
               onClickSlot={openNewEvent}
               onClickItem={openEdit}
               onResizeEnd={handleResizeEnd}
+              getItemDisplayHeight={getItemDisplayHeight}
             />
           )}
         </div>

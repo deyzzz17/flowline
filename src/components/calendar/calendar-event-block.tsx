@@ -39,11 +39,13 @@ export function CalendarEventBlock({
   onClickItem,
   onResizeEnd,
   paddingX = 2,
+  displayHeight,
 }: {
   item: CalendarItem
   onClickItem: (item: CalendarItem) => void
   onResizeEnd: (item: CalendarItem, newEndDate: Date) => void
   paddingX?: number
+  displayHeight?: number
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `${item.type}-${item.id}`,
@@ -51,7 +53,7 @@ export function CalendarEventBlock({
   })
 
   const top = getItemTop(item)
-  const height = getItemHeight(item)
+  const height = displayHeight ?? getItemHeight(item)
 
   const color =
     item.type === 'event' ? (item as CalendarEvent).color : (item as CalendarTask).listColor

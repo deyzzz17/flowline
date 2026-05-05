@@ -48,12 +48,14 @@ function DayColumn({
   onClickSlot,
   onClickItem,
   onResizeEnd,
+  getItemDisplayHeight,
 }: {
   date: Date
   items: CalendarItem[]
   onClickSlot: (date: Date) => void
   onClickItem: (item: CalendarItem) => void
   onResizeEnd: (item: CalendarItem, newEndDate: Date) => void
+  getItemDisplayHeight: (item: CalendarItem) => number
 }) {
   return (
     <div
@@ -78,6 +80,7 @@ function DayColumn({
           onClickItem={onClickItem}
           onResizeEnd={onResizeEnd}
           paddingX={2}
+          displayHeight={getItemDisplayHeight(item)}
         />
       ))}
     </div>
@@ -90,6 +93,7 @@ interface CalendarWeekViewProps {
   onClickSlot: (date: Date) => void
   onClickItem: (item: CalendarItem) => void
   onResizeEnd: (item: CalendarItem, newEndDate: Date) => void
+  getItemDisplayHeight: (item: CalendarItem) => number
 }
 
 export function CalendarWeekView({
@@ -98,6 +102,7 @@ export function CalendarWeekView({
   onClickSlot,
   onClickItem,
   onResizeEnd,
+  getItemDisplayHeight,
 }: CalendarWeekViewProps) {
   const days = getWeekDays(currentDate)
   const today = new Date()
@@ -144,6 +149,7 @@ export function CalendarWeekView({
                 onClickSlot={onClickSlot}
                 onClickItem={onClickItem}
                 onResizeEnd={onResizeEnd}
+                getItemDisplayHeight={getItemDisplayHeight}
               />
             </div>
           )

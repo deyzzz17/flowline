@@ -34,6 +34,13 @@ export interface CalendarTask {
 
 export type CalendarItem = CalendarEvent | CalendarTask
 
+const SLOT_HEIGHT = 56
+const MIN_DURATION_MIN = 15
+
+function minutesToPx(minutes: number) {
+  return (minutes / 60) * SLOT_HEIGHT
+}
+
 function getViewRange(date: Date, view: CalendarView): { from: Date; to: Date } {
   const y = date.getFullYear()
   const m = date.getMonth()
@@ -56,9 +63,7 @@ function getViewRange(date: Date, view: CalendarView): { from: Date; to: Date } 
       return { from, to }
     }
     case 'day': {
-      const from = new Date(y, m, d, 0, 0, 0)
-      const to = new Date(y, m, d, 23, 59, 59)
-      return { from, to }
+      return { from: new Date(y, m, d, 0, 0, 0), to: new Date(y, m, d, 23, 59, 59) }
     }
   }
 }
@@ -125,10 +130,8 @@ export const useCalendar = () => {
   const eventsWithOverrides = useMemo(
     () =>
       events.map((e) => {
-        const startKey = `event-${e.id}`
-        const endKey = `event-end-${e.id}`
-        const startOverride = optimisticOverrides.get(startKey)
-        const endOverride = optimisticOverrides.get(endKey)
+        const startOverride = optimisticOverrides.get(`event-${e.id}`)
+        const endOverride = optimisticOverrides.get(`event-end-${e.id}`)
         if (!startOverride && !endOverride) return e
         const newStart = startOverride ?? e.startDate
         const newEnd = endOverride
@@ -147,8 +150,7 @@ export const useCalendar = () => {
   const tasksWithOverrides = useMemo(
     () =>
       tasks.map((t) => {
-        const key = `task-${t.id}`
-        const override = optimisticOverrides.get(key)
+        const override = optimisticOverrides.get(`task-${t.id}`)
         if (!override) return t
         return { ...t, dueDate: override }
       }),
@@ -167,9 +169,38 @@ export const useCalendar = () => {
     setOptimisticOverrides((prev) => {
       const next = new Map(prev)
       next.delete(`${type}-${id}`)
+      next.delete(`${type}-end-${id}`)
       return next
     })
   }, [])
+
+  const getItemDisplayHeight = useCallback(
+    (item: CalendarItem): number => {
+      if (item.type === 'event') {
+        const endOverride = optimisticOverrides.get(`event-end-${item.id}`)
+        const endDate = endOverride ? new Date(endOverride) : new Date(item.endDate)
+        const startDate = new Date(item.startDate)
+        const durationMin = Math.max(
+          MIN_DURATION_MIN,
+          (endDate.getTime() - startDate.getTime()) / 60000,
+        )
+        return minutesToPx(durationMin)
+      } else {
+        const endOverride = optimisticOverrides.get(`task-end-${item.id}`)
+        if (endOverride) {
+          const endDate = new Date(endOverride)
+          const startDate = new Date(item.dueDate)
+          const durationMin = Math.max(
+            MIN_DURATION_MIN,
+            (endDate.getTime() - startDate.getTime()) / 60000,
+          )
+          return minutesToPx(durationMin)
+        }
+        return minutesToPx(30)
+      }
+    },
+    [optimisticOverrides],
+  )
 
   const createMutation = useMutation({
     mutationFn: (data: CalendarEventData) => api.calendar.create(data),
@@ -281,6 +312,30 @@ export const useCalendar = () => {
     [moveTaskMutation, setOptimisticDate],
   )
 
+  const resizeEvent = useCallback(
+    (id: number, newEndDate: Date) => {
+      setOptimisticOverrides((prev) => {
+        const next = new Map(prev)
+        next.set(`event-end-${id}`, newEndDate.toISOString())
+        return next
+      })
+      updateMutation.mutate({ id, data: { endDate: newEndDate.toISOString() } })
+    },
+    [updateMutation],
+  )
+
+  const resizeTask = useCallback(
+    (id: number, newEndDate: Date) => {
+      setOptimisticOverrides((prev) => {
+        const next = new Map(prev)
+        next.set(`task-end-${id}`, newEndDate.toISOString())
+        return next
+      })
+      moveTaskMutation.mutate({ id, dueDate: newEndDate.toISOString() })
+    },
+    [moveTaskMutation],
+  )
+
   const getItemsForDate = useCallback(
     (date: Date): CalendarItem[] => {
       const dateStr = date.toDateString()
@@ -297,31 +352,6 @@ export const useCalendar = () => {
       })
     },
     [eventsWithOverrides, tasksWithOverrides, isCategoryVisible],
-  )
-
-  const resizeEvent = useCallback(
-    (id: number, newEndDate: Date) => {
-      const event = events.find((e) => e.id === id)
-      if (!event) return
-      setOptimisticOverrides((prev) => {
-        const next = new Map(prev)
-        next.set(`event-end-${id}`, newEndDate.toISOString())
-        return next
-      })
-      updateMutation.mutate({
-        id,
-        data: { endDate: newEndDate.toISOString() },
-      })
-    },
-    [events, updateMutation],
-  )
-
-  const resizeTask = useCallback(
-    (id: number, newDueDate: Date) => {
-      setOptimisticDate('task', id, newDueDate.toISOString())
-      moveTaskMutation.mutate({ id, dueDate: newDueDate.toISOString() })
-    },
-    [moveTaskMutation, setOptimisticDate],
   )
 
   return {
@@ -343,12 +373,13 @@ export const useCalendar = () => {
     moveEvent,
     moveTask,
     moveTaskMutation,
+    resizeEvent,
+    resizeTask,
     getItemsForDate,
+    getItemDisplayHeight,
     createMutation,
     updateMutation,
     deleteMutation,
     setOptimisticDate,
-    resizeEvent,
-    resizeTask,
   }
 }

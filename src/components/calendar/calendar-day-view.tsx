@@ -37,6 +37,7 @@ interface CalendarDayViewProps {
   onClickSlot: (date: Date) => void
   onClickItem: (item: CalendarItem) => void
   onResizeEnd: (item: CalendarItem, newEndDate: Date) => void
+  getItemDisplayHeight: (item: CalendarItem) => number
 }
 
 export function CalendarDayView({
@@ -45,6 +46,7 @@ export function CalendarDayView({
   onClickSlot,
   onClickItem,
   onResizeEnd,
+  getItemDisplayHeight,
 }: CalendarDayViewProps) {
   const today = new Date()
   const isToday = currentDate.toDateString() === today.toDateString()
@@ -111,6 +113,7 @@ export function CalendarDayView({
               onClickItem={onClickItem}
               onResizeEnd={onResizeEnd}
               paddingX={4}
+              displayHeight={getItemDisplayHeight(item)}
             />
           ))}
         </div>
