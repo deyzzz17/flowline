@@ -5,7 +5,12 @@ import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { useCalendar, type CalendarView, type CalendarTask } from '@/hooks/calendar/use-calendar'
+import {
+  useCalendar,
+  type CalendarView,
+  type CalendarTask,
+  type CalendarItem,
+} from '@/hooks/calendar/use-calendar'
 import { CalendarMonthView } from './calendar-month-view'
 import { CalendarWeekView } from './calendar-week-view'
 import { CalendarDayView } from './calendar-day-view'
@@ -58,6 +63,8 @@ export function CalendarClient() {
     openEdit,
     moveEvent,
     moveTask,
+    resizeEvent,
+    resizeTask,
     createMutation,
     updateMutation,
     deleteMutation,
@@ -80,11 +87,19 @@ export function CalendarClient() {
     if (item.type === 'event') {
       moveEvent(item.id, targetDate)
     } else if (item.type === 'task') {
-      if (view !== 'month' || hasSpecificHour) {
+      if (view === 'day' && hasSpecificHour) {
         moveTask(item.id, targetDate)
       } else {
         setPendingTaskDrop({ task: item as CalendarTask, targetDate })
       }
+    }
+  }
+
+  const handleResizeEnd = (item: CalendarItem, newEndDate: Date) => {
+    if (item.type === 'event') {
+      resizeEvent(item.id, newEndDate)
+    } else {
+      resizeTask(item.id, newEndDate)
     }
   }
 
@@ -105,13 +120,14 @@ export function CalendarClient() {
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <TaskTimePicker
+        key={pendingTaskDrop?.targetDate.toISOString()}
         open={pendingTaskDrop !== null}
         date={pendingTaskDrop?.targetDate ?? null}
         taskTitle={pendingTaskDrop?.task.title ?? ''}
         onConfirm={handleTaskTimeConfirm}
         onCancel={() => setPendingTaskDrop(null)}
       />
-      
+
       <div className="flex flex-col h-full">
         <div className="flex items-center justify-between px-4 py-3 sm:px-6 border-b border-border/40 bg-background/95 backdrop-blur-sm shrink-0">
           <div className="flex items-center gap-3">
@@ -145,7 +161,6 @@ export function CalendarClient() {
               {getHeaderTitle(currentDate, view)}
             </h2>
           </div>
-
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-0.5 rounded-xl border border-border/60 bg-muted/30 p-1">
               {(['month', 'week', 'day'] as CalendarView[]).map((v) => (
@@ -196,6 +211,7 @@ export function CalendarClient() {
               getItemsForDate={getItemsForDate}
               onClickSlot={openNewEvent}
               onClickItem={openEdit}
+              onResizeEnd={handleResizeEnd}
             />
           )}
           {view === 'day' && (
@@ -204,6 +220,7 @@ export function CalendarClient() {
               getItemsForDate={getItemsForDate}
               onClickSlot={openNewEvent}
               onClickItem={openEdit}
+              onResizeEnd={handleResizeEnd}
             />
           )}
         </div>

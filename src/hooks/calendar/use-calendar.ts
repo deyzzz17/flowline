@@ -125,15 +125,21 @@ export const useCalendar = () => {
   const eventsWithOverrides = useMemo(
     () =>
       events.map((e) => {
-        const key = `event-${e.id}`
-        const override = optimisticOverrides.get(key)
-        if (!override) return e
-        const duration = new Date(e.endDate).getTime() - new Date(e.startDate).getTime()
-        return {
-          ...e,
-          startDate: override,
-          endDate: new Date(new Date(override).getTime() + duration).toISOString(),
-        }
+        const startKey = `event-${e.id}`
+        const endKey = `event-end-${e.id}`
+        const startOverride = optimisticOverrides.get(startKey)
+        const endOverride = optimisticOverrides.get(endKey)
+        if (!startOverride && !endOverride) return e
+        const newStart = startOverride ?? e.startDate
+        const newEnd = endOverride
+          ? endOverride
+          : startOverride
+            ? new Date(
+                new Date(startOverride).getTime() +
+                  (new Date(e.endDate).getTime() - new Date(e.startDate).getTime()),
+              ).toISOString()
+            : e.endDate
+        return { ...e, startDate: newStart, endDate: newEnd }
       }),
     [events, optimisticOverrides],
   )
@@ -293,6 +299,31 @@ export const useCalendar = () => {
     [eventsWithOverrides, tasksWithOverrides, isCategoryVisible],
   )
 
+  const resizeEvent = useCallback(
+    (id: number, newEndDate: Date) => {
+      const event = events.find((e) => e.id === id)
+      if (!event) return
+      setOptimisticOverrides((prev) => {
+        const next = new Map(prev)
+        next.set(`event-end-${id}`, newEndDate.toISOString())
+        return next
+      })
+      updateMutation.mutate({
+        id,
+        data: { endDate: newEndDate.toISOString() },
+      })
+    },
+    [events, updateMutation],
+  )
+
+  const resizeTask = useCallback(
+    (id: number, newDueDate: Date) => {
+      setOptimisticDate('task', id, newDueDate.toISOString())
+      moveTaskMutation.mutate({ id, dueDate: newDueDate.toISOString() })
+    },
+    [moveTaskMutation, setOptimisticDate],
+  )
+
   return {
     view,
     setView,
@@ -317,5 +348,7 @@ export const useCalendar = () => {
     updateMutation,
     deleteMutation,
     setOptimisticDate,
+    resizeEvent,
+    resizeTask,
   }
 }
