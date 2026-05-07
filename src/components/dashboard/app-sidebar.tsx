@@ -32,7 +32,6 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -124,302 +123,295 @@ export function AppSidebar() {
   return (
     <>
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
-      <Sidebar
-        collapsible="icon"
-        className="border-r border-border/60 flex flex-col"
-        style={
-          {
-            '--sidebar-height': 'calc(100vh - var(--header-height, 4rem))',
-            top: 'var(--header-height, 4rem)',
-            height: 'calc(100vh - var(--header-height, 4rem))',
-          } as React.CSSProperties
-        }
-      >
-        <SidebarContent className="flex-1 min-h-0 overflow-y-auto">
+
+      <Sidebar collapsible="icon" className="border-r border-border/60">
+        <SidebarContent className="flex-1 min-h-0">
           <SidebarGroup>
-            <SidebarGroupLabel asChild>
-              <SidebarMenuButton
-                asChild
-                isActive={isActive('/dashboard')}
-                className="font-medium text-sm"
-              >
-                <Link href={nav('/dashboard')}>
-                  <Home className="h-4 w-4" />
-                  Home
-                </Link>
-              </SidebarMenuButton>
-            </SidebarGroupLabel>
-          </SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={isActive('/dashboard')} tooltip="Home">
+                    <Link href={nav('/dashboard')}>
+                      <Home className="h-4 w-4" />
+                      <span>Home</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
 
-          <SidebarGroup>
-            <Collapsible className="group/lists">
-              <SidebarGroupLabel asChild>
-                <CollapsibleTrigger className="flex w-full items-center">
-                  <ClipboardList className="h-4 w-4 mr-2" />
-                  Lists
-                  <ChevronDown className="ml-auto h-3.5 w-3.5 transition-transform group-data-[state=closed]/lists:-rotate-90" />
-                </CollapsibleTrigger>
-              </SidebarGroupLabel>
-              <CollapsibleContent>
-                <SidebarGroupContent>
-                  <SidebarMenuSub>
-                    <SidebarMenuSubItem>
-                      <SidebarMenuSubButton asChild isActive={isActive('/lists/today')}>
-                        <Link href={nav('/lists/today')}>
-                          <Sun className="h-3.5 w-3.5" />
-                          Today
-                        </Link>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                    <SidebarMenuSubItem>
-                      <SidebarMenuSubButton asChild isActive={isActive('/lists/recurring')}>
-                        <Link href={nav('/lists/recurring')}>
-                          <RefreshCw className="h-3.5 w-3.5" />
-                          Recurring
-                        </Link>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-
-                    <div className="my-1.5 border-t border-border/40 mx-2" />
-
-                    {defaultList && (
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton
-                          asChild
-                          isActive={isActive(`/lists/${defaultList.slug}`)}
-                        >
-                          <Link href={nav(`/lists/${defaultList.slug}`)}>
-                            <span
-                              className="h-2 w-2 rounded-full shrink-0"
-                              style={{ backgroundColor: defaultList.category?.color ?? '#8b5cf6' }}
-                            />
-                            <span className="flex-1 truncate">{defaultList.name}</span>
-                            {getListUrgency(tasksByList[defaultList.id] ?? []) && (
-                              <span
-                                className={cn(
-                                  'size-1.5 shrink-0 rounded-full',
-                                  getListUrgency(tasksByList[defaultList.id] ?? []) === 'red'
-                                    ? 'bg-destructive'
-                                    : 'bg-orange-500',
-                                )}
-                              />
-                            )}
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    )}
-
-                    {customLists.map((list) => (
-                      <SidebarMenuSubItem key={list.id}>
-                        <SidebarMenuSubButton asChild isActive={isActive(`/lists/${list.slug}`)}>
-                          <Link href={nav(`/lists/${list.slug}`)}>
-                            <span
-                              className="h-2 w-2 rounded-full shrink-0"
-                              style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
-                            />
-                            <span className="flex-1 truncate">{list.name}</span>
-                            {getListUrgency(tasksByList[list.id] ?? []) && (
-                              <span
-                                className={cn(
-                                  'size-1.5 shrink-0 rounded-full',
-                                  getListUrgency(tasksByList[list.id] ?? []) === 'red'
-                                    ? 'bg-destructive'
-                                    : 'bg-orange-500',
-                                )}
-                              />
-                            )}
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
-
-                    <SidebarMenuSubItem>
-                      <SidebarMenuSubButton asChild>
-                        <Link href={nav('/lists/new-list')} className="text-muted-foreground/60">
-                          <Plus className="h-3.5 w-3.5" />
-                          New list
-                        </Link>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  </SidebarMenuSub>
-                </SidebarGroupContent>
-              </CollapsibleContent>
-            </Collapsible>
-          </SidebarGroup>
-
-          <SidebarGroup>
-            <Collapsible className="group/calendar">
-              <SidebarGroupLabel asChild>
-                <CollapsibleTrigger className="flex w-full items-center">
-                  <CalendarDays className="h-4 w-4 mr-2" />
-                  Calendar
-                  <ChevronDown className="ml-auto h-3.5 w-3.5 transition-transform group-data-[state=closed]/calendar:-rotate-90" />
-                </CollapsibleTrigger>
-              </SidebarGroupLabel>
-              <CollapsibleContent>
-                <SidebarGroupContent>
-                  <SidebarMenuSub>
-                    <SidebarMenuSubItem>
-                      <SidebarMenuSubButton asChild isActive={isActive('/calendar')}>
-                        <Link href={nav('/calendar')}>
-                          <CalendarDays className="h-3.5 w-3.5" />
-                          Open calendar
-                        </Link>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-
-                    <div className="my-1.5 border-t border-border/40 mx-2" />
-
-                    {categories.map((cat) => {
-                      const isVisible = !hiddenCategories.has(cat.id)
-                      return (
-                        <SidebarMenuSubItem key={cat.id}>
-                          <div className="flex items-center gap-2 px-2 py-1 rounded-md group/cat hover:bg-sidebar-accent transition-colors">
-                            <button
-                              type="button"
-                              onClick={() => toggleCategory(cat.id)}
-                              className={cn(
-                                'flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all',
-                                isVisible ? 'border-transparent' : 'border-border/60 bg-background',
-                              )}
-                              style={
-                                isVisible
-                                  ? { backgroundColor: cat.color, borderColor: cat.color }
-                                  : undefined
-                              }
-                            >
-                              {isVisible && (
-                                <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />
-                              )}
-                            </button>
-                            <span
-                              className={cn(
-                                'flex-1 truncate text-xs font-medium',
-                                isVisible ? 'text-foreground' : 'text-muted-foreground/50',
-                              )}
-                            >
-                              {cat.name}
-                            </span>
-                            {!cat.isDefault && (
-                              <button
-                                type="button"
-                                onClick={() => deleteMutation.mutate(cat.id)}
-                                className="opacity-0 group-hover/cat:opacity-100 text-muted-foreground/30 hover:text-destructive transition-all"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            )}
-                          </div>
+                <Collapsible asChild className="group/lists">
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton tooltip="Lists">
+                        <ClipboardList className="h-4 w-4" />
+                        <span>Lists</span>
+                        <ChevronDown className="ml-auto h-3.5 w-3.5 transition-transform group-data-[state=closed]/lists:-rotate-90" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={isActive('/lists/today')}>
+                            <Link href={nav('/lists/today')}>
+                              <Sun className="h-3.5 w-3.5" />
+                              Today
+                            </Link>
+                          </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
-                      )
-                    })}
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={isActive('/lists/recurring')}>
+                            <Link href={nav('/lists/recurring')}>
+                              <RefreshCw className="h-3.5 w-3.5" />
+                              Recurring
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
 
-                    {showNewCategory ? (
-                      <SidebarMenuSubItem>
-                        <div className="mx-2 rounded-xl border border-border/50 bg-muted/20 p-2.5 space-y-2">
-                          <input
-                            autoFocus
-                            value={newCategoryName}
-                            onChange={(e) => setNewCategoryName(e.target.value)}
-                            placeholder="Category name..."
-                            className="w-full h-7 rounded-lg border border-border/60 bg-background px-2 text-xs outline-none focus:border-primary/40"
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleCreateCategory()
-                            }}
-                          />
-                          <div className="flex flex-wrap gap-1">
-                            {PRESET_COLORS.map((c) => (
-                              <button
-                                key={c}
-                                type="button"
-                                onClick={() => setNewCategoryColor(c)}
-                                className="h-4 w-4 rounded-full transition-all hover:scale-110"
-                                style={{
-                                  backgroundColor: c,
-                                  ...(newCategoryColor === c && {
-                                    outline: `2px solid ${c}`,
-                                    outlineOffset: '2px',
-                                  }),
+                        <div className="my-1.5 border-t border-border/40 mx-2" />
+
+                        {defaultList && (
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton
+                              asChild
+                              isActive={isActive(`/lists/${defaultList.slug}`)}
+                            >
+                              <Link href={nav(`/lists/${defaultList.slug}`)}>
+                                <span
+                                  className="h-2 w-2 rounded-full shrink-0"
+                                  style={{
+                                    backgroundColor: defaultList.category?.color ?? '#8b5cf6',
+                                  }}
+                                />
+                                <span className="flex-1 truncate">{defaultList.name}</span>
+                                {getListUrgency(tasksByList[defaultList.id] ?? []) && (
+                                  <span
+                                    className={cn(
+                                      'size-1.5 shrink-0 rounded-full',
+                                      getListUrgency(tasksByList[defaultList.id] ?? []) === 'red'
+                                        ? 'bg-destructive'
+                                        : 'bg-orange-500',
+                                    )}
+                                  />
+                                )}
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        )}
+                        {customLists.map((list) => (
+                          <SidebarMenuSubItem key={list.id}>
+                            <SidebarMenuSubButton
+                              asChild
+                              isActive={isActive(`/lists/${list.slug}`)}
+                            >
+                              <Link href={nav(`/lists/${list.slug}`)}>
+                                <span
+                                  className="h-2 w-2 rounded-full shrink-0"
+                                  style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
+                                />
+                                <span className="flex-1 truncate">{list.name}</span>
+                                {getListUrgency(tasksByList[list.id] ?? []) && (
+                                  <span
+                                    className={cn(
+                                      'size-1.5 shrink-0 rounded-full',
+                                      getListUrgency(tasksByList[list.id] ?? []) === 'red'
+                                        ? 'bg-destructive'
+                                        : 'bg-orange-500',
+                                    )}
+                                  />
+                                )}
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild>
+                            <Link
+                              href={nav('/lists/new-list')}
+                              className="text-muted-foreground/60"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              New list
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+
+                <Collapsible asChild className="group/calendar">
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton tooltip="Calendar">
+                        <CalendarDays className="h-4 w-4" />
+                        <span>Calendar</span>
+                        <ChevronDown className="ml-auto h-3.5 w-3.5 transition-transform group-data-[state=closed]/calendar:-rotate-90" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={isActive('/calendar')}>
+                            <Link href={nav('/calendar')}>
+                              <CalendarDays className="h-3.5 w-3.5" />
+                              Open calendar
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+
+                        <div className="my-1.5 border-t border-border/40 mx-2" />
+
+                        {categories.map((cat) => {
+                          const isVisible = !hiddenCategories.has(cat.id)
+                          return (
+                            <SidebarMenuSubItem key={cat.id}>
+                              <div className="flex items-center gap-2 px-2 py-1 rounded-md group/cat hover:bg-sidebar-accent transition-colors">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleCategory(cat.id)}
+                                  className={cn(
+                                    'flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all',
+                                    isVisible
+                                      ? 'border-transparent'
+                                      : 'border-border/60 bg-background',
+                                  )}
+                                  style={
+                                    isVisible
+                                      ? { backgroundColor: cat.color, borderColor: cat.color }
+                                      : undefined
+                                  }
+                                >
+                                  {isVisible && (
+                                    <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />
+                                  )}
+                                </button>
+                                <span
+                                  className={cn(
+                                    'flex-1 truncate text-xs font-medium',
+                                    isVisible ? 'text-foreground' : 'text-muted-foreground/50',
+                                  )}
+                                >
+                                  {cat.name}
+                                </span>
+                                {!cat.isDefault && (
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteMutation.mutate(cat.id)}
+                                    className="opacity-0 group-hover/cat:opacity-100 text-muted-foreground/30 hover:text-destructive transition-all"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                )}
+                              </div>
+                            </SidebarMenuSubItem>
+                          )
+                        })}
+
+                        {showNewCategory ? (
+                          <SidebarMenuSubItem>
+                            <div className="mx-2 rounded-xl border border-border/50 bg-muted/20 p-2.5 space-y-2">
+                              <input
+                                autoFocus
+                                value={newCategoryName}
+                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                placeholder="Category name..."
+                                className="w-full h-7 rounded-lg border border-border/60 bg-background px-2 text-xs outline-none focus:border-primary/40"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleCreateCategory()
                                 }}
                               />
-                            ))}
-                          </div>
-                          <div className="flex gap-1.5">
-                            <button
-                              type="button"
-                              onClick={handleCreateCategory}
-                              disabled={!newCategoryName.trim() || createMutation.isPending}
-                              className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-foreground px-2 py-1 text-[10px] font-semibold text-background disabled:opacity-40"
+                              <div className="flex flex-wrap gap-1">
+                                {PRESET_COLORS.map((c) => (
+                                  <button
+                                    key={c}
+                                    type="button"
+                                    onClick={() => setNewCategoryColor(c)}
+                                    className="h-4 w-4 rounded-full transition-all hover:scale-110"
+                                    style={{
+                                      backgroundColor: c,
+                                      ...(newCategoryColor === c && {
+                                        outline: `2px solid ${c}`,
+                                        outlineOffset: '2px',
+                                      }),
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                              <div className="flex gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={handleCreateCategory}
+                                  disabled={!newCategoryName.trim() || createMutation.isPending}
+                                  className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-foreground px-2 py-1 text-[10px] font-semibold text-background disabled:opacity-40"
+                                >
+                                  {createMutation.isPending ? (
+                                    <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                                  ) : (
+                                    <Check className="h-2.5 w-2.5" />
+                                  )}
+                                  Create
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowNewCategory(false)
+                                    setNewCategoryName('')
+                                  }}
+                                  className="rounded-lg border border-border/60 px-2 py-1 text-[10px] text-muted-foreground hover:bg-muted"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          </SidebarMenuSubItem>
+                        ) : (
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton
+                              onClick={() => setShowNewCategory(true)}
+                              className="text-muted-foreground/60"
                             >
-                              {createMutation.isPending ? (
-                                <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                              ) : (
-                                <Check className="h-2.5 w-2.5" />
-                              )}
-                              Create
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setShowNewCategory(false)
-                                setNewCategoryName('')
-                              }}
-                              className="rounded-lg border border-border/60 px-2 py-1 text-[10px] text-muted-foreground hover:bg-muted"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      </SidebarMenuSubItem>
-                    ) : (
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton
-                          onClick={() => setShowNewCategory(true)}
-                          className="text-muted-foreground/60"
-                        >
-                          <Plus className="h-3 w-3" />
-                          New calendar
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    )}
-                  </SidebarMenuSub>
-                </SidebarGroupContent>
-              </CollapsibleContent>
-            </Collapsible>
-          </SidebarGroup>
+                              <Plus className="h-3 w-3" />
+                              New calendar
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        )}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
 
-          <SidebarGroup>
-            <Collapsible className="group/timer">
-              <SidebarGroupLabel asChild>
-                <CollapsibleTrigger className="flex w-full items-center">
-                  <Timer className="h-4 w-4 mr-2" />
-                  Timer
-                  <ChevronDown className="ml-auto h-3.5 w-3.5 transition-transform group-data-[state=closed]/timer:-rotate-90" />
-                </CollapsibleTrigger>
-              </SidebarGroupLabel>
-              <CollapsibleContent>
-                <SidebarGroupContent>
-                  <SidebarMenuSub>
-                    <SidebarMenuSubItem>
-                      <SidebarMenuSubButton asChild isActive={isActive('/timer')}>
-                        <Link href={nav('/timer')}>
-                          <Timer className="h-3.5 w-3.5" />
-                          Timer
-                        </Link>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                    <SidebarMenuSubItem>
-                      <SidebarMenuSubButton asChild isActive={isActive('/timer/analytics')}>
-                        <Link href={nav('/timer/analytics')}>
-                          <BarChart2 className="h-3.5 w-3.5" />
-                          Analytics
-                        </Link>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  </SidebarMenuSub>
-                </SidebarGroupContent>
-              </CollapsibleContent>
-            </Collapsible>
+                <Collapsible asChild className="group/timer">
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton tooltip="Timer">
+                        <Timer className="h-4 w-4" />
+                        <span>Timer</span>
+                        <ChevronDown className="ml-auto h-3.5 w-3.5 transition-transform group-data-[state=closed]/timer:-rotate-90" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={isActive('/timer')}>
+                            <Link href={nav('/timer')}>
+                              <Timer className="h-3.5 w-3.5" />
+                              Timer
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={isActive('/timer/analytics')}>
+                            <Link href={nav('/timer/analytics')}>
+                              <BarChart2 className="h-3.5 w-3.5" />
+                              Analytics
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+              </SidebarMenu>
+            </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
 
@@ -427,17 +419,17 @@ export function AppSidebar() {
           <SidebarNewsletter />
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild>
+              <SidebarMenuButton asChild tooltip="Support">
                 <Link href={nav('/support')}>
                   <HelpCircle className="h-4 w-4" />
-                  Support
+                  <span>Support</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => setFeedbackOpen(true)}>
+              <SidebarMenuButton onClick={() => setFeedbackOpen(true)} tooltip="Feedback">
                 <MessageSquare className="h-4 w-4" />
-                Feedback
+                <span>Feedback</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
