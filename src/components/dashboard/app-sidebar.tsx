@@ -60,14 +60,12 @@ const PRESET_COLORS = [
 
 function getListUrgency(tasks: Task[]): 'red' | 'orange' | null {
   const now = Date.now()
-  const oneDayMs = 86400000
-  const twoDaysMs = 172800000
   let hasOrange = false
   for (const task of tasks) {
     if (task.status !== 'active' || !task.dueDate) continue
     const diff = new Date(task.dueDate).getTime() - now
-    if (diff <= oneDayMs) return 'red'
-    if (diff <= twoDaysMs) hasOrange = true
+    if (diff <= 86400000) return 'red'
+    if (diff <= 172800000) hasOrange = true
   }
   return hasOrange ? 'orange' : null
 }
@@ -113,7 +111,6 @@ export function AppSidebar() {
     setOpenMobile(false)
     return href
   }
-
   const isActive = (href: string) => pathname === href
 
   const handleCreateCategory = async () => {
@@ -127,22 +124,21 @@ export function AppSidebar() {
   return (
     <>
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
-
-      <Sidebar collapsible="none" className="border-r border-border/60">
-        <SidebarContent>
+      <Sidebar collapsible="offcanvas" className="border-r border-border/60 flex flex-col">
+        <SidebarContent className="flex-1 min-h-0 overflow-y-auto">
           <SidebarGroup>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={isActive('/dashboard')}>
-                    <Link href={nav('/dashboard')}>
-                      <Home className="h-4 w-4" />
-                      <span>Home</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
+            <SidebarGroupLabel asChild>
+              <SidebarMenuButton
+                asChild
+                isActive={isActive('/dashboard')}
+                className="font-medium text-sm"
+              >
+                <Link href={nav('/dashboard')}>
+                  <Home className="h-4 w-4" />
+                  Home
+                </Link>
+              </SidebarMenuButton>
+            </SidebarGroupLabel>
           </SidebarGroup>
 
           <SidebarGroup>
@@ -417,7 +413,7 @@ export function AppSidebar() {
           </SidebarGroup>
         </SidebarContent>
 
-        <SidebarFooter className="border-t border-border/40">
+        <SidebarFooter className="border-t border-border/40 shrink-0">
           <SidebarNewsletter />
           <SidebarMenu>
             <SidebarMenuItem>
