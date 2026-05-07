@@ -125,7 +125,7 @@ export function AppSidebar() {
     <>
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
       <Sidebar
-        collapsible="offcanvas"
+        collapsible="icon"
         className="border-r border-border/60 flex flex-col"
         style={
           {
@@ -152,7 +152,7 @@ export function AppSidebar() {
           </SidebarGroup>
 
           <SidebarGroup>
-            <Collapsible defaultOpen className="group/lists">
+            <Collapsible className="group/lists">
               <SidebarGroupLabel asChild>
                 <CollapsibleTrigger className="flex w-full items-center">
                   <ClipboardList className="h-4 w-4 mr-2" />
