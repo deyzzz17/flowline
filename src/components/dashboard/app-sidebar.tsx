@@ -15,6 +15,7 @@ import {
   X,
   Check,
   Loader2,
+  PanelLeft,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -71,7 +72,7 @@ function getListUrgency(tasks: Task[]): 'red' | 'orange' | null {
 
 export function AppSidebar() {
   const pathname = usePathname()
-  const { setOpenMobile, state } = useSidebar()
+  const { setOpenMobile, state, toggleSidebar } = useSidebar()
   const isCollapsed = state === 'collapsed'
   const { feedbackOpen, setFeedbackOpen } = useSidebarFooter()
   const { categories, createMutation, deleteMutation } = useCalendarCategories()
@@ -447,6 +448,21 @@ export function AppSidebar() {
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
+
+          <div className="border-t border-border/40 pt-1">
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => toggleSidebar()}
+                  tooltip="Expand menu"
+                  className="text-muted-foreground"
+                >
+                  <PanelLeft className="h-4 w-4 shrink-0" />
+                  <span>Collapse menu</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </div>
         </SidebarFooter>
       </Sidebar>
     </>
