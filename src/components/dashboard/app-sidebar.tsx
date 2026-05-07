@@ -72,7 +72,7 @@ function getListUrgency(tasks: Task[]): 'red' | 'orange' | null {
 
 export function AppSidebar() {
   const pathname = usePathname()
-  const { setOpenMobile, state, toggleSidebar } = useSidebar()
+  const { setOpenMobile, state, isMobile, toggleSidebar } = useSidebar()
   const isCollapsed = state === 'collapsed'
   const { feedbackOpen, setFeedbackOpen } = useSidebarFooter()
   const { categories, createMutation, deleteMutation } = useCalendarCategories()
@@ -126,7 +126,16 @@ export function AppSidebar() {
     <>
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
 
-      <Sidebar collapsible="icon" className="border-r border-border/60">
+      <Sidebar
+        collapsible={isMobile ? 'offcanvas' : 'icon'}
+        className="border-r border-border/60"
+        style={
+          {
+            top: 'var(--header-height, 4rem)',
+            height: 'calc(100svh - var(--header-height, 4rem))',
+          } as React.CSSProperties
+        }
+      >
         <SidebarContent className="flex-1 min-h-0">
           <SidebarGroup>
             <SidebarGroupContent>
