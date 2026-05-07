@@ -15,6 +15,7 @@ import { NotificationsMenu } from '@/components/header/notifications-menu'
 import { CalendarFilterProvider } from '@/components/calendar/calendar-filter-context'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { MobileSidebarTrigger } from '@/components/dashboard/mobile-sidebar-trigger'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -50,7 +51,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 <header className="h-16 shrink-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/60">
                   <div className="flex h-full items-center justify-between px-4 sm:px-6">
                     <div className="flex items-center gap-3">
-                      <SidebarTrigger className="md:hidden" />
+                      <MobileSidebarTrigger />
                       <Link href="/dashboard" className="group flex items-center gap-3">
                         <FlowlineLogo />
                         <span className="text-[17px] font-bold tracking-tight text-foreground transition-colors group-hover:text-foreground/80">
