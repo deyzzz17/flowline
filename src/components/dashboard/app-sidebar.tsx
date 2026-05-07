@@ -126,16 +126,7 @@ export function AppSidebar() {
     <>
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
 
-      <Sidebar
-        collapsible="icon"
-        className="border-r border-border/60"
-        style={
-          {
-            top: 'var(--header-height, 4rem)',
-            height: 'calc(100svh - var(--header-height, 4rem))',
-          } as React.CSSProperties
-        }
-      >
+      <Sidebar collapsible="icon" className="border-r border-border/60">
         <SidebarContent className="flex-1 min-h-0">
           <SidebarGroup>
             <SidebarGroupContent>

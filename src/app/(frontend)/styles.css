@@ -149,9 +149,9 @@
   color: hsl(var(--destructive)) !important;
 }
 
-@media (max-width: 768px) {
+@media (min-width: 768px) {
   [data-sidebar='sidebar'] {
-    top: 0 !important;
-    height: 100svh !important;
+    top: var(--header-height, 4rem) !important;
+    height: calc(100svh - var(--header-height, 4rem)) !important;
   }
 }
