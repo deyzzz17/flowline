@@ -38,10 +38,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <CalendarFilterProvider>
           <Toaster position="bottom-right" />
 
-          <div className="[--header-height:--spacing(16)]">
-            <SidebarProvider className="flex flex-col">
-              <header className="sticky top-0 z-50 w-full shrink-0 border-b border-border/60 bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/60">
-                <div className="flex h-16 items-center justify-between px-4 sm:px-6">
+          <div
+            className="h-screen flex flex-col overflow-hidden"
+            style={{ '--header-height': '4rem' } as React.CSSProperties}
+          >
+            <SidebarProvider
+              className="flex-1 flex flex-col min-h-0"
+              style={{ '--sidebar-width': '16rem' } as React.CSSProperties}
+            >
+              <header className="h-16 shrink-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/60">
+                <div className="flex h-full items-center justify-between px-4 sm:px-6">
                   <div className="flex items-center gap-3">
                     <SidebarTrigger className="-ml-1" />
                     <Link href="/dashboard" className="group flex items-center gap-3">
@@ -60,9 +66,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 </div>
               </header>
 
-              <div className="flex flex-1 overflow-hidden">
+              <div className="flex flex-1 min-h-0">
                 <AppSidebar />
-                <SidebarInset className="flex-1 overflow-y-auto">{children}</SidebarInset>
+                <SidebarInset className="flex-1 min-h-0 overflow-y-auto">{children}</SidebarInset>
               </div>
             </SidebarProvider>
           </div>

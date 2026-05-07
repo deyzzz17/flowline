@@ -124,7 +124,17 @@ export function AppSidebar() {
   return (
     <>
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
-      <Sidebar collapsible="offcanvas" className="border-r border-border/60 flex flex-col">
+      <Sidebar
+        collapsible="offcanvas"
+        className="border-r border-border/60 flex flex-col"
+        style={
+          {
+            '--sidebar-height': 'calc(100vh - var(--header-height, 4rem))',
+            top: 'var(--header-height, 4rem)',
+            height: 'calc(100vh - var(--header-height, 4rem))',
+          } as React.CSSProperties
+        }
+      >
         <SidebarContent className="flex-1 min-h-0 overflow-y-auto">
           <SidebarGroup>
             <SidebarGroupLabel asChild>
