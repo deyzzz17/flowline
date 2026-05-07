@@ -71,7 +71,8 @@ function getListUrgency(tasks: Task[]): 'red' | 'orange' | null {
 
 export function AppSidebar() {
   const pathname = usePathname()
-  const { setOpenMobile } = useSidebar()
+  const { setOpenMobile, state } = useSidebar()
+  const isCollapsed = state === 'collapsed'
   const { feedbackOpen, setFeedbackOpen } = useSidebarFooter()
   const { categories, createMutation, deleteMutation } = useCalendarCategories()
   const { hiddenCategories, toggleCategory } = useCalendarFilter()
@@ -124,7 +125,16 @@ export function AppSidebar() {
     <>
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
 
-      <Sidebar collapsible="icon" className="border-r border-border/60">
+      <Sidebar
+        collapsible="icon"
+        className="border-r border-border/60"
+        style={
+          {
+            top: 'var(--header-height, 4rem)',
+            height: 'calc(100svh - var(--header-height, 4rem))',
+          } as React.CSSProperties
+        }
+      >
         <SidebarContent className="flex-1 min-h-0">
           <SidebarGroup>
             <SidebarGroupContent>
@@ -132,17 +142,20 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={isActive('/dashboard')} tooltip="Home">
                     <Link href={nav('/dashboard')}>
-                      <Home className="h-4 w-4" />
+                      <Home className="h-4 w-4 shrink-0" />
                       <span>Home</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
 
-                <Collapsible asChild className="group/lists">
+                <Collapsible asChild className="group/lists" disabled={isCollapsed}>
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
-                      <SidebarMenuButton tooltip="Lists">
-                        <ClipboardList className="h-4 w-4" />
+                      <SidebarMenuButton
+                        tooltip="Lists"
+                        className={cn(isCollapsed && 'pointer-events-none')}
+                      >
+                        <ClipboardList className="h-4 w-4 shrink-0" />
                         <span>Lists</span>
                         <ChevronDown className="ml-auto h-3.5 w-3.5 transition-transform group-data-[state=closed]/lists:-rotate-90" />
                       </SidebarMenuButton>
@@ -165,9 +178,7 @@ export function AppSidebar() {
                             </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
-
                         <div className="my-1.5 border-t border-border/40 mx-2" />
-
                         {defaultList && (
                           <SidebarMenuSubItem>
                             <SidebarMenuSubButton
@@ -238,11 +249,14 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 </Collapsible>
 
-                <Collapsible asChild className="group/calendar">
+                <Collapsible asChild className="group/calendar" disabled={isCollapsed}>
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
-                      <SidebarMenuButton tooltip="Calendar">
-                        <CalendarDays className="h-4 w-4" />
+                      <SidebarMenuButton
+                        tooltip="Calendar"
+                        className={cn(isCollapsed && 'pointer-events-none')}
+                      >
+                        <CalendarDays className="h-4 w-4 shrink-0" />
                         <span>Calendar</span>
                         <ChevronDown className="ml-auto h-3.5 w-3.5 transition-transform group-data-[state=closed]/calendar:-rotate-90" />
                       </SidebarMenuButton>
@@ -257,9 +271,7 @@ export function AppSidebar() {
                             </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
-
                         <div className="my-1.5 border-t border-border/40 mx-2" />
-
                         {categories.map((cat) => {
                           const isVisible = !hiddenCategories.has(cat.id)
                           return (
@@ -305,7 +317,6 @@ export function AppSidebar() {
                             </SidebarMenuSubItem>
                           )
                         })}
-
                         {showNewCategory ? (
                           <SidebarMenuSubItem>
                             <div className="mx-2 rounded-xl border border-border/50 bg-muted/20 p-2.5 space-y-2">
@@ -379,11 +390,14 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 </Collapsible>
 
-                <Collapsible asChild className="group/timer">
+                <Collapsible asChild className="group/timer" disabled={isCollapsed}>
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
-                      <SidebarMenuButton tooltip="Timer">
-                        <Timer className="h-4 w-4" />
+                      <SidebarMenuButton
+                        tooltip="Timer"
+                        className={cn(isCollapsed && 'pointer-events-none')}
+                      >
+                        <Timer className="h-4 w-4 shrink-0" />
                         <span>Timer</span>
                         <ChevronDown className="ml-auto h-3.5 w-3.5 transition-transform group-data-[state=closed]/timer:-rotate-90" />
                       </SidebarMenuButton>
