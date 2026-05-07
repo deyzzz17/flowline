@@ -38,7 +38,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       >
         <CalendarFilterProvider>
           <Toaster position="bottom-right" />
-
           <div
             className="h-screen flex flex-col overflow-hidden"
             style={{ '--header-height': '4rem' } as React.CSSProperties}
@@ -51,6 +50,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 <header className="h-16 shrink-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/60">
                   <div className="flex h-full items-center justify-between px-4 sm:px-6">
                     <div className="flex items-center gap-3">
+                      <SidebarTrigger className="md:hidden" />
                       <Link href="/dashboard" className="group flex items-center gap-3">
                         <FlowlineLogo />
                         <span className="text-[17px] font-bold tracking-tight text-foreground transition-colors group-hover:text-foreground/80">
