@@ -2,6 +2,7 @@ import React from 'react'
 import { ModeToggle } from '@/components/theme/mode-toggle'
 import { FlowlineLogo } from '@/components/header/flowline-logo'
 import { AppSidebar } from '@/components/dashboard/app-sidebar'
+import { MobileSidebarTrigger } from '@/components/dashboard/mobile-side-bar-trigger'
 import Link from 'next/link'
 import { UserDropdown } from '@/components/dashboard/user-dropdown'
 import { Providers } from '../../../components/providers/providers'
@@ -15,7 +16,6 @@ import { NotificationsMenu } from '@/components/header/notifications-menu'
 import { CalendarFilterProvider } from '@/components/calendar/calendar-filter-context'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { MobileSidebarTrigger } from '@/components/dashboard/mobile-sidebar-trigger'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -69,7 +69,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 </header>
 
                 <div className="flex flex-1 min-h-0">
-                  <AppSidebar />
+                  <div className="hidden md:flex">
+                    <AppSidebar />
+                  </div>
                   <SidebarInset className="flex-1 min-h-0 overflow-y-auto">{children}</SidebarInset>
                 </div>
               </SidebarProvider>
