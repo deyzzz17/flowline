@@ -13,7 +13,7 @@ import { createDefaultList } from '@/api/lists/actions'
 import { Toaster } from '@/components/ui/sonner'
 import { NotificationsMenu } from '@/components/header/notifications-menu'
 import { CalendarFilterProvider } from '@/components/calendar/calendar-filter-context'
-import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { MobileSidebarTrigger } from '@/components/dashboard/mobile-sidebar-trigger'
 
