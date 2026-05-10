@@ -180,23 +180,6 @@ export const ListClient = ({ list }: ListClientProps) => {
                 </AlertDialogContent>
               </AlertDialog>
             </div>
-
-            {activePlusDone.length > 0 && (
-              <>
-                <span className="text-xs text-muted-foreground">
-                  {achievedTasks.length}/{activePlusDone.length} done
-                </span>
-                <div className="h-1.5 w-32 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full transition-all duration-700"
-                    style={{ width: `${completionRate}%`, backgroundColor: categoryColor }}
-                  />
-                </div>
-                <span className="text-xs font-semibold" style={{ color: categoryColor }}>
-                  {completionRate}%
-                </span>
-              </>
-            )}
           </div>
         </div>
       </section>
