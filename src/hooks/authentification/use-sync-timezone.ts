@@ -9,12 +9,15 @@ export function useSyncTimezone() {
   const synced = useRef(false)
 
   if (session?.user && !synced.current) {
-    const pendingTimezone = localStorage.getItem('pending_timezone')
-    if (pendingTimezone) {
-      synced.current = true
-      authClient
-        .updateUser({ timezone: pendingTimezone } as never)
-        .then(() => localStorage.removeItem('pending_timezone'))
+    synced.current = true
+
+    const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    const storedTimezone = session.user.timezone as string | null | undefined
+
+    if (detectedTimezone && detectedTimezone !== storedTimezone) {
+      authClient.updateUser({ timezone: detectedTimezone } as never).catch(() => {
+        synced.current = false
+      })
     }
   }
 }
