@@ -207,11 +207,19 @@ export interface Task {
   };
   dueDate?: string | null;
   /**
+   * Date when the task was marked as completed. Used for analytics.
+   */
+  completedAt?: string | null;
+  /**
+   * Estimated duration in minutes. Used for calendar display.
+   */
+  estimatedDuration?: number | null;
+  /**
    * Automatically move to trash when the due date is passed.
    */
   autoDeleteOnDueDate?: boolean | null;
   /**
-   * Date when the task was soft deleted. Used for auto-cleanup after 15 days.
+   * Date when the task was soft deleted.
    */
   trashedAt?: string | null;
   updatedAt: string;
@@ -527,6 +535,8 @@ export interface TasksSelect<T extends boolean = true> {
         days?: T;
       };
   dueDate?: T;
+  completedAt?: T;
+  estimatedDuration?: T;
   autoDeleteOnDueDate?: T;
   trashedAt?: T;
   updatedAt?: T;

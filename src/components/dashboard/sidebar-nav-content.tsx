@@ -148,6 +148,18 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
             {listsOpen && (
               <div className="mt-0.5 ml-3 space-y-0.5 border-l border-border/50 pl-3">
                 <Link
+                  {...navLink('/lists/analytics')}
+                  className={cn(
+                    'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
+                    isActive('/lists/analytics')
+                      ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  )}
+                >
+                  <BarChart2 className="h-3.5 w-3.5 shrink-0" />
+                  Analytics
+                </Link>
+                <Link
                   {...navLink('/lists/today')}
                   className={cn(
                     'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',

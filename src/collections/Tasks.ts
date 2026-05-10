@@ -2,20 +2,10 @@ import type { CollectionConfig } from 'payload'
 
 export const Tasks: CollectionConfig = {
   slug: 'tasks',
-  admin: {
-    useAsTitle: 'title',
-  },
+  admin: { useAsTitle: 'title' },
   fields: [
-    {
-      name: 'title',
-      type: 'text',
-      required: true,
-    },
-    {
-      name: 'description',
-      type: 'textarea',
-      required: false,
-    },
+    { name: 'title', type: 'text', required: true },
+    { name: 'description', type: 'textarea', required: false },
     {
       name: 'status',
       type: 'select',
@@ -28,19 +18,8 @@ export const Tasks: CollectionConfig = {
       ],
       required: true,
     },
-    {
-      name: 'userId',
-      type: 'text',
-      required: true,
-      index: true,
-    },
-    {
-      name: 'list',
-      type: 'relationship',
-      relationTo: 'lists',
-      required: false,
-      index: true,
-    },
+    { name: 'userId', type: 'text', required: true, index: true },
+    { name: 'list', type: 'relationship', relationTo: 'lists', required: false, index: true },
     {
       name: 'type',
       type: 'select',
@@ -100,9 +79,7 @@ export const Tasks: CollectionConfig = {
       name: 'recurrence',
       type: 'group',
       required: false,
-      admin: {
-        condition: (data) => data.type === 'recurring',
-      },
+      admin: { condition: (data) => data.type === 'recurring' },
       fields: [
         {
           name: 'frequency',
@@ -117,9 +94,7 @@ export const Tasks: CollectionConfig = {
           type: 'select',
           hasMany: true,
           required: false,
-          admin: {
-            condition: (_, siblingData) => siblingData?.frequency === 'custom',
-          },
+          admin: { condition: (_, siblingData) => siblingData?.frequency === 'custom' },
           options: [
             { label: 'Monday', value: 'mon' },
             { label: 'Tuesday', value: 'tue' },
@@ -132,29 +107,36 @@ export const Tasks: CollectionConfig = {
         },
       ],
     },
+    { name: 'dueDate', type: 'date', required: false },
     {
-      name: 'dueDate',
+      name: 'completedAt',
       type: 'date',
       required: false,
+      index: true,
+      admin: {
+        description: 'Date when the task was marked as completed. Used for analytics.',
+        readOnly: true,
+      },
+    },
+    {
+      name: 'estimatedDuration',
+      type: 'number',
+      required: false,
+      admin: { description: 'Estimated duration in minutes. Used for calendar display.' },
     },
     {
       name: 'autoDeleteOnDueDate',
       type: 'checkbox',
       defaultValue: false,
       required: false,
-      admin: {
-        description: 'Automatically move to trash when the due date is passed.',
-      },
+      admin: { description: 'Automatically move to trash when the due date is passed.' },
     },
     {
       name: 'trashedAt',
       type: 'date',
       required: false,
       index: true,
-      admin: {
-        description: 'Date when the task was soft deleted. Used for auto-cleanup after 15 days.',
-        readOnly: true,
-      },
+      admin: { description: 'Date when the task was soft deleted.', readOnly: true },
     },
   ],
 }

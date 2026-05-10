@@ -239,6 +239,7 @@ export const toggleTaskStatus = async (id: number, currentStatus: 'active' | 'co
       id,
       data: {
         status: newStatus,
+        completedAt: newStatus === 'completed' ? new Date().toISOString() : null,
         ...(shouldResetSubtasks && {
           subtasks: subtasks.map((s) => ({ ...s, done: false })),
         }),

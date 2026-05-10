@@ -164,6 +164,14 @@ export function AppSidebar() {
                     <CollapsibleContent>
                       <SidebarMenuSub>
                         <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={isActive('/lists/analytics')}>
+                            <Link href={nav('/lists/analytics')}>
+                              <BarChart2 className="h-3.5 w-3.5" />
+                              Analytics
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={isActive('/lists/today')}>
                             <Link href={nav('/lists/today')}>
                               <Sun className="h-3.5 w-3.5" />
