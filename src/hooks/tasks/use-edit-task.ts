@@ -11,7 +11,7 @@ type EditDraft = {
   dueDate?: string | null
   type?: Task['type']
   recurrence?: Task['recurrence']
-  subtasks?: { title: string; done: boolean }[]
+  subtasks?: Task['subtasks']
 }
 
 export const useEditTask = () => {
@@ -38,8 +38,9 @@ export const useEditTask = () => {
                     type: draft.type ?? task.type,
                     recurrence: draft.recurrence !== undefined ? draft.recurrence : task.recurrence,
                     subtasks:
-                      draft.subtasks !== undefined
+                      draft.subtasks !== undefined && draft.subtasks !== null
                         ? draft.subtasks.map((s, i) => ({
+                            ...(task.subtasks?.[i] ?? {}),
                             ...s,
                             id:
                               (task.subtasks?.[i] as { id?: string } | undefined)?.id ?? String(i),
