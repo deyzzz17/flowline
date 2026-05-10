@@ -165,7 +165,7 @@ export function AppSidebar() {
                       <SidebarMenuSub>
                         <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={isActive('/lists/analytics')}>
-                            <Link href={nav('/lists/analytics')}>
+                            <Link href={nav('/list-analytics')}>
                               <BarChart2 className="h-3.5 w-3.5" />
                               Analytics
                             </Link>

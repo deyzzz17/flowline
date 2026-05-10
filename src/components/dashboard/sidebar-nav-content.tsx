@@ -148,7 +148,7 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
             {listsOpen && (
               <div className="mt-0.5 ml-3 space-y-0.5 border-l border-border/50 pl-3">
                 <Link
-                  {...navLink('/lists/analytics')}
+                  {...navLink('/list-analytics')}
                   className={cn(
                     'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
                     isActive('/lists/analytics')
