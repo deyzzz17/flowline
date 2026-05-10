@@ -431,7 +431,7 @@ export function AppSidebar() {
         </SidebarContent>
 
         <SidebarFooter className="border-t border-border/40 shrink-0">
-          <SidebarNewsletter />
+          {!isCollapsed && <SidebarNewsletter />}
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton asChild tooltip="Support">

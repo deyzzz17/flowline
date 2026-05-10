@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Menu } from 'lucide-react'
+import { Menu, PanelLeft } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { SidebarNavContent } from './sidebar-nav-content'
 import * as VisuallyHidden from '@radix-ui/react-visually-hidden'
@@ -17,7 +17,7 @@ export function MobileSidebarTrigger() {
         className="md:hidden flex h-9 w-9 items-center justify-center rounded-lg border border-border/60 bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
         aria-label="Open menu"
       >
-        <Menu className="h-4 w-4" />
+        <PanelLeft className="h-4 w-4 shrink-0" />
       </button>
 
       <Sheet open={open} onOpenChange={setOpen}>
