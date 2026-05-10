@@ -22,7 +22,7 @@ export const SidebarNewsletter = () => {
 
   if (subscribed) {
     return (
-      <div className="absolute bottom-full left-0 right-0 mx-3 mb-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
+      <div className="absolute bottom-full left-0 right-0 mb-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
         <div className="flex items-center gap-2">
           <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/15">
             <Check className="h-3 w-3 text-emerald-500" />
@@ -36,7 +36,7 @@ export const SidebarNewsletter = () => {
   }
 
   return (
-    <div className="mx-3 mb-3 rounded-xl border border-border/60 bg-card/40 p-3.5">
+    <div className="mb-3 rounded-xl border border-border/60 bg-card/40 p-3.5">
       <div className="flex items-start justify-between gap-2 mb-2.5">
         <div className="flex items-center gap-2">
           <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-violet-500/10">

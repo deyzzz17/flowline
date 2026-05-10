@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Menu, PanelLeft } from 'lucide-react'
+import { PanelLeft } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { SidebarNavContent } from './sidebar-nav-content'
 import * as VisuallyHidden from '@radix-ui/react-visually-hidden'
