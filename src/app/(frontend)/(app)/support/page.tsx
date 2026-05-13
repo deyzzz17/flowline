@@ -1,3 +1,4 @@
+import { ProtectedRoute } from '@/components/route/protected-route'
 import { SupportClient } from '@/components/support/support-client'
 
 export const metadata = {
@@ -49,5 +50,9 @@ const FAQ_ITEMS = [
 ]
 
 export default function SupportPage() {
-  return <SupportClient faqItems={FAQ_ITEMS} />
+  return (
+    <ProtectedRoute>
+      <SupportClient faqItems={FAQ_ITEMS} />
+    </ProtectedRoute>
+  )
 }
