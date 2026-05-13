@@ -1,6 +1,6 @@
 export default function ListLoading() {
   return (
-    <div className="relative mx-auto max-w-screen-2xl px-4 pb-16 sm:px-6 lg:px-10 animate-pulse">
+    <div className="relative px-4 pb-16 sm:px-6 lg:px-10 animate-pulse">
       <section className="mb-8 mt-10">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 space-y-2.5">
