@@ -1,10 +1,9 @@
 import { AnalyticsClient } from '@/components/timer/analytics/analytics-client'
 import { ProtectedRoute } from '@/components/route/protected-route'
-import { api } from '@/api'
+import { getTimerAnalytics } from '@/api/timer-analytics/actions'
 
 export default async function TimerAnalyticsPage() {
-  const analytics = await api.timer.analytics.get('week')
-
+  const analytics = await getTimerAnalytics('week', 0)
   return (
     <ProtectedRoute>
       <AnalyticsClient initialData={analytics} initialPeriod="week" />
