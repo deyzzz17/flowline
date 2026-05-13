@@ -13,7 +13,7 @@ import {
 } from 'recharts'
 import { EmptyState } from './empty-state'
 import type { ChartType } from './chart-type-toggle'
-import type { TimeSeriesPoint, SeriesDefinition } from '@/api/timer/actions'
+import type { TimeSeriesPoint, SeriesDefinition } from '@/api/timer-analytics/actions'
 
 function formatSeconds(s: number): string {
   if (!s || s === 0) return '0m'

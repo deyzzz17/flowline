@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getTimerAnalytics } from '@/api/timer/actions'
+import { getTimerAnalytics } from '@/api/timer-analytics/actions'
 
 function formatSeconds(s: number): string {
   if (s === 0) return '—'

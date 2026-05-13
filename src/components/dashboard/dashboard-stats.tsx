@@ -1,5 +1,5 @@
 import { CheckCircle2, Timer, TrendingUp, Flame } from 'lucide-react'
-import { getTimerAnalytics } from '@/api/timer/actions'
+import { getTimerAnalytics } from '@/api/timer-analytics/actions'
 import type { Task } from '@/payload-types'
 
 function formatSeconds(s: number): string {

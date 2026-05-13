@@ -1,5 +1,5 @@
 import { TrendingUp } from 'lucide-react'
-import { getTimerAnalytics } from '@/api/timer/actions'
+import { getTimerAnalytics } from '@/api/timer-analytics/actions'
 
 export async function DashboardWeeklyOverview() {
   const analytics = await getTimerAnalytics('week')

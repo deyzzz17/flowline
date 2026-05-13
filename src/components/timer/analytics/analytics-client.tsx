@@ -2,14 +2,26 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { Clock, Timer, Star, BarChart2, TrendingUp, ArrowLeft, Loader2 } from 'lucide-react'
+import {
+  Clock,
+  Timer,
+  Star,
+  BarChart2,
+  TrendingUp,
+  ArrowLeft,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { StatCard } from './stat-card'
 import { TimePeriodSelector, type TimePeriod } from './time-period-selector'
 import { TimeByCategoryChart } from './time-by-category-chart'
 import { TimeBySubcategoryChart } from './time-by-subcategory-chart'
 import { DistributionChart } from './distribution-chart'
 import { FocusQualityChart } from './focus-quality-chart'
-import { getTimerAnalytics, type SessionAnalytics } from '@/api/timer/actions'
+import { getTimerAnalytics, type SessionAnalytics } from '@/api/timer-analytics/actions'
+import { cn } from '@/lib/utils'
 
 function formatSeconds(s: number): string {
   if (s === 0) return '—'
@@ -26,27 +38,52 @@ interface AnalyticsClientProps {
 
 export function AnalyticsClient({ initialData, initialPeriod }: AnalyticsClientProps) {
   const [period, setPeriod] = useState<TimePeriod>(initialPeriod)
+  const [offset, setOffset] = useState(0)
   const [subcategoryPeriod, setSubcategoryPeriod] = useState<TimePeriod>(initialPeriod)
+  const [subcategoryOffset, setSubcategoryOffset] = useState(0)
+
   const [data, setData] = useState<SessionAnalytics>(initialData)
   const [subcategoryData, setSubcategoryData] = useState<SessionAnalytics>(initialData)
   const [selectedDistCategory, setSelectedDistCategory] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [isSubPending, startSubTransition] = useTransition()
 
-  const handlePeriodChange = (p: TimePeriod) => {
-    setPeriod(p)
+  const fetchData = (p: TimePeriod, o: number) => {
     startTransition(async () => {
-      const fresh = await getTimerAnalytics(p)
+      const fresh = await getTimerAnalytics(p, o)
       setData(fresh)
     })
   }
 
-  const handleSubPeriodChange = (p: TimePeriod) => {
-    setSubcategoryPeriod(p)
+  const fetchSubData = (p: TimePeriod, o: number) => {
     startSubTransition(async () => {
-      const fresh = await getTimerAnalytics(p)
+      const fresh = await getTimerAnalytics(p, o)
       setSubcategoryData(fresh)
     })
+  }
+
+  const handlePeriodChange = (p: TimePeriod) => {
+    setPeriod(p)
+    setOffset(0)
+    fetchData(p, 0)
+  }
+
+  const handleNavigate = (dir: 'prev' | 'next') => {
+    const newOffset = offset + (dir === 'prev' ? -1 : 1)
+    setOffset(newOffset)
+    fetchData(period, newOffset)
+  }
+
+  const handleSubPeriodChange = (p: TimePeriod) => {
+    setSubcategoryPeriod(p)
+    setSubcategoryOffset(0)
+    fetchSubData(p, 0)
+  }
+
+  const handleSubNavigate = (dir: 'prev' | 'next') => {
+    const newOffset = subcategoryOffset + (dir === 'prev' ? -1 : 1)
+    setSubcategoryOffset(newOffset)
+    fetchSubData(subcategoryPeriod, newOffset)
   }
 
   return (
@@ -81,7 +118,7 @@ export function AnalyticsClient({ initialData, initialPeriod }: AnalyticsClientP
         <StatCard
           label="Total focus time"
           value={formatSeconds(data.totalSeconds)}
-          sub={`This ${period}`}
+          sub={data.periodLabel ?? `This ${period}`}
           icon={Clock}
           iconColor="text-violet-600 dark:text-violet-400"
           iconBg="bg-violet-500/10"
@@ -89,7 +126,7 @@ export function AnalyticsClient({ initialData, initialPeriod }: AnalyticsClientP
         <StatCard
           label="Sessions completed"
           value={data.totalSessions > 0 ? String(data.totalSessions) : '—'}
-          sub={`This ${period}`}
+          sub={data.periodLabel ?? `This ${period}`}
           icon={Timer}
           iconColor="text-blue-600 dark:text-blue-400"
           iconBg="bg-blue-500/10"
@@ -123,7 +160,7 @@ export function AnalyticsClient({ initialData, initialPeriod }: AnalyticsClientP
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm overflow-hidden">
-            <div className="flex items-center justify-between border-b border-border/50 px-5 py-4">
+            <div className="flex items-center justify-between border-b border-border/50 px-5 py-4 gap-3 flex-wrap">
               <div>
                 <p className="text-sm font-semibold text-foreground">Time by category</p>
                 <p className="text-xs text-muted-foreground/60 mt-0.5">Focus time over time</p>
@@ -133,9 +170,36 @@ export function AnalyticsClient({ initialData, initialPeriod }: AnalyticsClientP
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground/50" />
                 )}
                 <TimePeriodSelector value={period} onChange={handlePeriodChange} />
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => handleNavigate('prev')}
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </Button>
+                  <span
+                    className={cn(
+                      'text-xs font-medium text-foreground min-w-24 text-center transition-opacity',
+                      isPending && 'opacity-40',
+                    )}
+                  >
+                    {data.periodLabel}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => handleNavigate('next')}
+                    disabled={offset >= 0}
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
             </div>
-            <div className="p-5">
+            <div className={cn('p-5 transition-opacity', isPending && 'opacity-40')}>
               <TimeByCategoryChart
                 data={data.timeSeries ?? []}
                 series={data.seriesDefinitions ?? []}
@@ -164,7 +228,7 @@ export function AnalyticsClient({ initialData, initialPeriod }: AnalyticsClientP
         </div>
 
         <div className="rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm overflow-hidden">
-          <div className="flex items-center justify-between border-b border-border/50 px-5 py-4">
+          <div className="flex items-center justify-between border-b border-border/50 px-5 py-4 gap-3 flex-wrap">
             <div>
               <p className="text-sm font-semibold text-foreground">Time by sub-category</p>
               <p className="text-xs text-muted-foreground/60 mt-0.5">
@@ -176,9 +240,36 @@ export function AnalyticsClient({ initialData, initialPeriod }: AnalyticsClientP
                 <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground/50" />
               )}
               <TimePeriodSelector value={subcategoryPeriod} onChange={handleSubPeriodChange} />
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => handleSubNavigate('prev')}
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+                <span
+                  className={cn(
+                    'text-xs font-medium text-foreground min-w-24 text-center transition-opacity',
+                    isSubPending && 'opacity-40',
+                  )}
+                >
+                  {subcategoryData.periodLabel}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => handleSubNavigate('next')}
+                  disabled={subcategoryOffset >= 0}
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
           </div>
-          <div className="p-5">
+          <div className={cn('p-5 transition-opacity', isSubPending && 'opacity-40')}>
             <TimeBySubcategoryChart
               data={subcategoryData.timeSeries ?? []}
               series={subcategoryData.seriesDefinitions ?? []}

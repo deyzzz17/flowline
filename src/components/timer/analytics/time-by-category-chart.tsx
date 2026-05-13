@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { TimeSeriesChart } from './time-series-chart'
 import { ChartTypeToggle, type ChartType } from './chart-type-toggle'
 import { cn } from '@/lib/utils'
-import type { TimeSeriesPoint, SeriesDefinition } from '@/api/timer/actions'
+import type { TimeSeriesPoint, SeriesDefinition } from '@/api/timer-analytics/actions'
 
 function hexToRgba(hex: string, alpha: number) {
   try {

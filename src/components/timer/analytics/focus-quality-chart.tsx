@@ -16,7 +16,7 @@ import { EmptyState } from './empty-state'
 import { ChartTypeToggle, type ChartType } from './chart-type-toggle'
 import { TimePeriodSelector, type TimePeriod } from './time-period-selector'
 import { cn } from '@/lib/utils'
-import { getTimerAnalytics, type SessionAnalytics } from '@/api/timer/actions'
+import { getTimerAnalytics, type SessionAnalytics } from '@/api/timer-analytics/actions'
 
 function hexToRgba(hex: string, alpha: number) {
   try {

@@ -3,7 +3,6 @@ import {
   createTimerCategory,
   deleteTimerCategory,
   createTimerSession,
-  getTimerAnalytics,
   listTimerConfigs,
   saveTimerConfig,
   deleteTimerConfig,
@@ -19,9 +18,6 @@ export const timerAPI = {
   sessions: {
     create: createTimerSession,
     getTasks: getTaskSessions,
-  },
-  analytics: {
-    get: getTimerAnalytics,
   },
   configs: {
     list: listTimerConfigs,
