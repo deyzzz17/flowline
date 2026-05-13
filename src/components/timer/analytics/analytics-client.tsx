@@ -290,8 +290,8 @@ export function AnalyticsClient({ initialData, initialPeriod }: AnalyticsClientP
               global={data.focusQuality.global}
               byCategory={data.focusQuality.byCategory}
               bySubcategory={(data.focusQuality as any).bySubcategory ?? []}
-              initialData={data}
-              initialPeriod={period}
+              initialData={initialData}
+              initialPeriod={initialPeriod}
             />
           </div>
         </div>

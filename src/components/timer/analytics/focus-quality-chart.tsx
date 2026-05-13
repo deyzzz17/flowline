@@ -74,11 +74,7 @@ interface FocusQualityChartProps {
   initialPeriod: TimePeriod
 }
 
-export function FocusQualityChart({
-  global: globalData,
-  initialData,
-  initialPeriod,
-}: FocusQualityChartProps) {
+export function FocusQualityChart({ initialData, initialPeriod }: FocusQualityChartProps) {
   const [chartType, setChartType] = useState<ChartType>('bar')
   const [view, setView] = useState<FocusView>('category')
   const [selectedCategory, setSelectedCategory] = useState<string>('All')
@@ -87,10 +83,6 @@ export function FocusQualityChart({
   const [analyticsData, setAnalyticsData] = useState<SessionAnalytics>(initialData)
   const [selectedKeys, setSelectedKeys] = useState<Set<string> | null>(null)
   const [isPending, setIsPending] = useState(false)
-
-  if (globalData.sessions === 0) {
-    return <EmptyState message="Rate your sessions to see focus quality insights." />
-  }
 
   const fetchData = (p: TimePeriod, o: number) => {
     setIsPending(true)
@@ -192,11 +184,12 @@ export function FocusQualityChart({
         color: item.color,
       }))
 
+  const hasRatedSessions = analyticsData.focusQuality.global.sessions > 0
+
   return (
     <div className="space-y-4">
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          {/* Toggle category / subcategory */}
           <div className="flex items-center gap-0.5 rounded-xl border border-border/60 bg-muted/30 p-1">
             {(['category', 'subcategory'] as FocusView[]).map((v) => (
               <button
@@ -218,7 +211,6 @@ export function FocusQualityChart({
             ))}
           </div>
 
-          {/* Period selector + navigation + chart type */}
           <div className="flex items-center gap-2 flex-wrap">
             <TimePeriodSelector value={period} onChange={handlePeriodChange} />
             <div className="flex items-center gap-1">
@@ -275,7 +267,7 @@ export function FocusQualityChart({
           </div>
         )}
 
-        {selectorItems.length > 1 && (
+        {hasRatedSessions && selectorItems.length > 1 && (
           <div className="flex flex-wrap gap-1.5">
             {selectorItems.map((s: any) => {
               const isActive = selectedKeys === null || selectedKeys.has(s.key)
@@ -313,7 +305,9 @@ export function FocusQualityChart({
         )}
       </div>
 
-      {currentItems.length === 0 ? (
+      {!hasRatedSessions ? (
+        <EmptyState message="No rated sessions for this period." />
+      ) : currentItems.length === 0 ? (
         <EmptyState
           message={
             view === 'subcategory'

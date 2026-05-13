@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
 import { BarChart2, LayoutList } from 'lucide-react'
 import { TimerRing } from './timer-ring'
@@ -15,18 +14,9 @@ import { useTodayStats } from '@/hooks/timer/use-today-stats'
 import { useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import type { SessionConfig } from '@/hooks/timer/use-timer'
-import type { AnalyticsPeriod } from '@/api/timer-analytics/actions'
-
-const PERIOD_LABELS: Record<AnalyticsPeriod, string> = {
-  day: 'Today',
-  week: 'This week',
-  month: 'This month',
-  year: 'This year',
-}
 
 export function TimerPageClient() {
   const queryClient = useQueryClient()
-  const [statsPeriod, setStatsPeriod] = useState<AnalyticsPeriod>('day')
 
   const {
     isRunning,
@@ -59,7 +49,7 @@ export function TimerPageClient() {
     deleteMutation,
   } = useTimerConfigs()
 
-  const { stats, isLoading: statsLoading } = useTodayStats(statsPeriod)
+  const { stats, isLoading: statsLoading } = useTodayStats()
 
   const handleStartSession = (sessionConfig: SessionConfig) => {
     setCustomizeOpen(false)
@@ -75,7 +65,7 @@ export function TimerPageClient() {
   const handleRatingClose = () => {
     setRatingOpen(false)
     forceReset()
-    queryClient.invalidateQueries({ queryKey: ['timer-analytics'] })
+    queryClient.invalidateQueries({ queryKey: ['timer-analytics', 'day'] })
   }
 
   const TODAY_STATS = [
@@ -83,8 +73,6 @@ export function TimerPageClient() {
     { label: 'Focus time', value: stats.focusTime },
     { label: 'Longest', value: stats.longest },
   ]
-
-  const PERIODS: AnalyticsPeriod[] = ['day', 'week', 'month', 'year']
 
   return (
     <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
@@ -94,6 +82,7 @@ export function TimerPageClient() {
           onOpenChange={setCustomizeOpen}
           onStart={handleStartSession}
         />
+
         <SessionRatingDialog
           open={ratingOpen}
           onClose={handleRatingClose}
@@ -210,28 +199,9 @@ export function TimerPageClient() {
 
         <div className="relative px-5 pb-8 sm:px-10 sm:pb-10">
           <div className="mx-auto flex max-w-sm flex-col items-center gap-2.5 sm:gap-3">
-            <div className="flex items-center gap-0.5 rounded-xl border border-border/40 bg-muted/20 p-0.5">
-              {PERIODS.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setStatsPeriod(p)}
-                  className={cn(
-                    'rounded-lg px-2.5 py-1 text-[10px] font-medium transition-all',
-                    statsPeriod === p
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground/50 hover:text-muted-foreground',
-                  )}
-                >
-                  {p === 'day' ? 'Day' : p === 'week' ? 'Week' : p === 'month' ? 'Month' : 'Year'}
-                </button>
-              ))}
-            </div>
-
             <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground/50">
-              {PERIOD_LABELS[statsPeriod]}
+              Today
             </p>
-
             <div className="flex items-center gap-5 sm:gap-6">
               {TODAY_STATS.map((stat) => (
                 <div key={stat.label} className="flex flex-col items-center gap-0.5">
@@ -247,7 +217,6 @@ export function TimerPageClient() {
                 </div>
               ))}
             </div>
-
             <div className="flex items-center gap-1.5 mt-0.5">
               {[28, 16, 8].map((w, i) => (
                 <div key={i} className="h-1 rounded-full bg-violet-500/30" style={{ width: w }} />

@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getTimerAnalytics, type AnalyticsPeriod } from '@/api/timer-analytics/actions'
+import { getTimerAnalytics } from '@/api/timer-analytics/actions'
 
 function formatSeconds(s: number): string {
   if (s === 0) return '—'
@@ -12,10 +12,10 @@ function formatSeconds(s: number): string {
   return `${m}m`
 }
 
-export const useTodayStats = (period: AnalyticsPeriod = 'day') => {
+export const useTodayStats = () => {
   const { data, isLoading } = useQuery({
-    queryKey: ['timer-analytics', period],
-    queryFn: () => getTimerAnalytics(period, 0),
+    queryKey: ['timer-analytics', 'day'],
+    queryFn: () => getTimerAnalytics('day'),
     staleTime: 0,
     refetchOnWindowFocus: true,
   })
