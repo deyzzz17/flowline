@@ -13,7 +13,7 @@ export default async function TodayPage() {
 
   return (
     <ProtectedRoute>
-      <div className="relative mx-auto max-w-screen-2xl px-4 pb-16 sm:px-6 lg:px-10">
+      <div className="relative mx-auto px-4 pb-16 sm:px-6 lg:px-10">
         <div className="relative z-10">
           <HydrationBoundary state={dehydrate(queryClient)}>
             <TodayClient />
