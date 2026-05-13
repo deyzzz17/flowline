@@ -423,7 +423,7 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
                   Timer
                 </Link>
                 <Link
-                  {...navLink('/timer/analytics')}
+                  {...navLink('/timer-analytics')}
                   className={cn(
                     'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
                     isActive('/timer/analytics')

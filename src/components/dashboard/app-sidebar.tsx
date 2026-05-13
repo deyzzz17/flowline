@@ -422,8 +422,8 @@ export function AppSidebar() {
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                         <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={isActive('/timer/analytics')}>
-                            <Link href={nav('/timer/analytics')}>
+                          <SidebarMenuSubButton asChild isActive={isActive('/timer-analytics')}>
+                            <Link href={nav('/timer-analytics')}>
                               <BarChart2 className="h-3.5 w-3.5" />
                               Analytics
                             </Link>
