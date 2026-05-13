@@ -20,8 +20,8 @@ export interface SessionConfig {
 const LS_KEY = 'flowline_timer'
 
 interface PersistedTimer {
-  startTimestamp: number 
-  accumulatedSeconds: number 
+  startTimestamp: number
+  accumulatedSeconds: number
   isRunning: boolean
   config: SessionConfig | null
   hasStarted: boolean
@@ -285,7 +285,7 @@ export const useTimer = () => {
   const reset = useCallback(() => {
     pause()
 
-    if (hasStarted && isFreeMode && (config?.categoryName || config?.taskId)) {
+    if (hasStarted && totalElapsed > 0 && (config?.categoryName || config?.taskId)) {
       if (!ratingTriggeredRef.current) {
         ratingTriggeredRef.current = true
         playSessionEnd()
@@ -301,7 +301,7 @@ export const useTimer = () => {
     setRatingOpen(false)
     ratingTriggeredRef.current = false
     lastPhaseRef.current = 'work'
-  }, [pause, hasStarted, isFreeMode, config, playSessionEnd])
+  }, [pause, hasStarted, totalElapsed, config, playSessionEnd])
 
   const forceReset = useCallback(() => {
     stopInterval()

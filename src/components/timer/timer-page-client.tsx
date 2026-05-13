@@ -8,7 +8,7 @@ import { TimerControls } from './timer-controls'
 import { TimerCustomizeDialog } from './timer-customize-dialog'
 import { SessionRatingDialog } from './session-rating-dialog'
 import { TimerConfigsSidebar } from './timer-configs-sidebar'
-import { useTimer } from '@/hooks/timer/use-timer'
+import { useTimerContext } from './timer-context'
 import { useTimerConfigs } from '@/hooks/timer/use-timer-configs'
 import { useTodayStats } from '@/hooks/timer/use-today-stats'
 import { useQueryClient } from '@tanstack/react-query'
@@ -38,7 +38,7 @@ export function TimerPageClient() {
     setCustomizeOpen,
     ratingOpen,
     setRatingOpen,
-  } = useTimer()
+  } = useTimerContext()
 
   const {
     sidebarOpen,
@@ -76,9 +76,7 @@ export function TimerPageClient() {
 
   return (
     <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
-      <div
-        className={cn('relative flex flex-1 flex-col overflow-hidden transition-all duration-300')}
-      >
+      <div className="relative flex flex-1 flex-col overflow-hidden transition-all duration-300">
         <TimerCustomizeDialog
           open={customizeOpen}
           onOpenChange={setCustomizeOpen}
@@ -165,7 +163,6 @@ export function TimerPageClient() {
               isRunning={isRunning}
               phase={phase}
             />
-
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 sm:gap-8">
               <TimerDisplay
                 hours={displayHours}
