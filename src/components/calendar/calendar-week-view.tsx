@@ -5,6 +5,7 @@ import { useDroppable } from '@dnd-kit/core'
 import { cn } from '@/lib/utils'
 import { CalendarEventBlock, pxToMinutes } from './calendar-event-block'
 import { useTimeFormat } from '@/hooks/calendar/use-time-format'
+import { usePublicHolidays } from '@/hooks/calendar/use-public-holidays'
 import type { CalendarItem, CalendarEvent } from '@/hooks/calendar/use-calendar'
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
@@ -23,30 +24,6 @@ function getWeekDays(currentDate: Date): Date[] {
 
 function isAllDay(item: CalendarItem): boolean {
   return item.type === 'event' && (item as CalendarEvent).allDay
-}
-
-function DroppableSlot({ date, hour }: { date: Date; hour: number }) {
-  const slotDate = new Date(date)
-  slotDate.setHours(hour, 0, 0, 0)
-  const { setNodeRef, isOver } = useDroppable({ id: slotDate.toISOString() })
-  return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        'absolute left-0 right-0 border-b border-border/20 pointer-events-auto transition-colors',
-        isOver && 'bg-violet-500/5',
-      )}
-      style={{ top: hour * SLOT_HEIGHT, height: SLOT_HEIGHT }}
-    />
-  )
-}
-
-function getSlotDate(date: Date, clientY: number, rect: DOMRect): Date {
-  const y = clientY - rect.top
-  const totalMinutes = Math.floor(pxToMinutes(y) / 15) * 15
-  const slotDate = new Date(date)
-  slotDate.setHours(Math.floor(totalMinutes / 60), totalMinutes % 60, 0, 0)
-  return slotDate
 }
 
 function AllDayPill({
@@ -74,6 +51,30 @@ function AllDayPill({
       {item.title}
     </button>
   )
+}
+
+function DroppableSlot({ date, hour }: { date: Date; hour: number }) {
+  const slotDate = new Date(date)
+  slotDate.setHours(hour, 0, 0, 0)
+  const { setNodeRef, isOver } = useDroppable({ id: slotDate.toISOString() })
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'absolute left-0 right-0 border-b border-border/20 pointer-events-auto transition-colors',
+        isOver && 'bg-violet-500/5',
+      )}
+      style={{ top: hour * SLOT_HEIGHT, height: SLOT_HEIGHT }}
+    />
+  )
+}
+
+function getSlotDate(date: Date, clientY: number, rect: DOMRect): Date {
+  const y = clientY - rect.top
+  const totalMinutes = Math.floor(pxToMinutes(y) / 15) * 15
+  const slotDate = new Date(date)
+  slotDate.setHours(Math.floor(totalMinutes / 60), totalMinutes % 60, 0, 0)
+  return slotDate
 }
 
 function DayColumn({
@@ -157,6 +158,7 @@ export function CalendarWeekView({
   const days = getWeekDays(currentDate)
   const today = new Date()
   const { formatHourLabel } = useTimeFormat()
+  const { getHoliday } = usePublicHolidays(currentDate.getFullYear())
 
   const allDayByDay = days.map((date) => getItemsForDate(date).filter(isAllDay))
   const hasAnyAllDay = allDayByDay.some((items) => items.length > 0)
@@ -171,7 +173,7 @@ export function CalendarWeekView({
             className="sticky top-12 z-10 bg-background border-b border-border/40 flex items-center justify-end pr-2 shrink-0"
             style={{ height: allDayBandHeight }}
           >
-            <span className="text-[9px] text-muted-foreground/40 rotate-0">all day</span>
+            <span className="text-[9px] text-muted-foreground/40">all day</span>
           </div>
         )}
         <div className="sticky top-0 z-20 bg-background border-b border-border/40 h-12" />
@@ -195,21 +197,36 @@ export function CalendarWeekView({
           const isToday = date.toDateString() === today.toDateString()
           const allDayItems = allDayByDay[i]
           const items = getItemsForDate(date)
+          const holiday = getHoliday(date)
 
           return (
             <div key={date.toISOString()} className="flex-1 flex flex-col min-w-0">
-              <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm h-12 flex flex-col items-center justify-center border-b border-border/40 border-r border-border/40 shrink-0">
+              <div
+                className={cn(
+                  'sticky top-0 z-20 bg-background/95 backdrop-blur-sm h-12 flex flex-col items-center justify-center border-b border-border/40 border-r border-border/40 shrink-0',
+                  holiday && 'bg-amber-500/5',
+                )}
+              >
                 <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
                   {DAYS_SHORT[date.getDay()]}
                 </span>
                 <span
                   className={cn(
                     'flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold',
-                    isToday ? 'bg-violet-600 text-white' : 'text-foreground',
+                    isToday
+                      ? 'bg-violet-600 text-white'
+                      : holiday
+                        ? 'text-amber-600 dark:text-amber-400'
+                        : 'text-foreground',
                   )}
                 >
                   {date.getDate()}
                 </span>
+                {holiday && (
+                  <span className="text-[8px] text-amber-600/70 dark:text-amber-400/70 truncate max-w-full px-1 leading-none mt-0.5 hidden">
+                    {holiday.localName}
+                  </span>
+                )}
               </div>
 
               {hasAnyAllDay && (
@@ -217,6 +234,18 @@ export function CalendarWeekView({
                   className="sticky top-12 z-10 border-b border-r border-border/40 bg-background/95 backdrop-blur-sm px-1 py-1 flex flex-col gap-0.5 shrink-0"
                   style={{ height: allDayBandHeight }}
                 >
+                  {holiday && (
+                    <div
+                      className="w-full rounded px-1.5 py-0.5 text-[10px] font-medium truncate"
+                      style={{
+                        backgroundColor: '#f59e0b20',
+                        color: '#d97706',
+                        borderLeft: '2px solid #f59e0b',
+                      }}
+                    >
+                      🎌 {holiday.localName}
+                    </div>
+                  )}
                   {allDayItems.map((item) => (
                     <AllDayPill key={`${item.type}-${item.id}`} item={item} onClick={onClickItem} />
                   ))}

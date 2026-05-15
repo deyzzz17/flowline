@@ -4,6 +4,7 @@ import { useDroppable } from '@dnd-kit/core'
 import { cn } from '@/lib/utils'
 import { CalendarEventBlock, pxToMinutes } from './calendar-event-block'
 import { useTimeFormat } from '@/hooks/calendar/use-time-format'
+import { usePublicHolidays } from '@/hooks/calendar/use-public-holidays'
 import type { CalendarItem, CalendarEvent } from '@/hooks/calendar/use-calendar'
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
@@ -80,14 +81,25 @@ export function CalendarDayView({
   const timedItems = allItems.filter((i) => !isAllDay(i))
   const totalHeight = SLOT_HEIGHT * 24
   const { formatHourLabel } = useTimeFormat()
+  const { getHoliday } = usePublicHolidays(currentDate.getFullYear())
+  const holiday = getHoliday(currentDate)
 
   return (
     <div className="flex flex-1 flex-col overflow-auto">
-      <div className="flex items-center gap-3 px-6 py-4 border-b border-border/40 shrink-0">
+      <div
+        className={cn(
+          'flex items-center gap-3 px-6 py-4 border-b border-border/40 shrink-0',
+          holiday && 'bg-amber-500/5',
+        )}
+      >
         <div
           className={cn(
             'flex h-10 w-10 items-center justify-center rounded-2xl text-lg font-semibold',
-            isToday ? 'bg-violet-600 text-white' : 'bg-muted text-foreground',
+            isToday
+              ? 'bg-violet-600 text-white'
+              : holiday
+                ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                : 'bg-muted text-foreground',
           )}
         >
           {currentDate.getDate()}
@@ -100,15 +112,20 @@ export function CalendarDayView({
               day: 'numeric',
             })}
           </p>
-          <p className="text-xs text-muted-foreground/60">
-            {allItems.length} event{allItems.length !== 1 ? 's' : ''}
-          </p>
+          {holiday ? (
+            <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+              🎌 {holiday.localName}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground/60">
+              {allItems.length} event{allItems.length !== 1 ? 's' : ''}
+            </p>
+          )}
         </div>
       </div>
 
       {allDayItems.length > 0 && (
         <div className="flex border-b border-border/40 shrink-0">
-          {' '}
           <div className="w-16 shrink-0 flex items-center justify-end pr-3 border-r border-border/40">
             <span className="text-[9px] text-muted-foreground/40">all day</span>
           </div>
