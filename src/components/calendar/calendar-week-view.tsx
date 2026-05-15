@@ -5,7 +5,7 @@ import { useDroppable } from '@dnd-kit/core'
 import { cn } from '@/lib/utils'
 import { CalendarEventBlock, pxToMinutes } from './calendar-event-block'
 import { useTimeFormat } from '@/hooks/calendar/use-time-format'
-import type { CalendarItem } from '@/hooks/calendar/use-calendar'
+import type { CalendarItem, CalendarEvent } from '@/hooks/calendar/use-calendar'
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 const DAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -19,6 +19,10 @@ function getWeekDays(currentDate: Date): Date[] {
     d.setDate(d.getDate() + i)
     return d
   })
+}
+
+function isAllDay(item: CalendarItem): boolean {
+  return item.type === 'event' && (item as CalendarEvent).allDay
 }
 
 function DroppableSlot({ date, hour }: { date: Date; hour: number }) {
@@ -45,6 +49,33 @@ function getSlotDate(date: Date, clientY: number, rect: DOMRect): Date {
   return slotDate
 }
 
+function AllDayPill({
+  item,
+  onClick,
+}: {
+  item: CalendarItem
+  onClick: (item: CalendarItem) => void
+}) {
+  const event = item as CalendarEvent
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick(item)
+      }}
+      className="w-full text-left rounded px-1.5 py-0.5 text-[10px] font-medium truncate transition-opacity hover:opacity-80"
+      style={{
+        backgroundColor: `${event.color}30`,
+        color: event.color,
+        borderLeft: `2px solid ${event.color}`,
+      }}
+    >
+      {item.title}
+    </button>
+  )
+}
+
 function DayColumn({
   date,
   items,
@@ -63,6 +94,7 @@ function DayColumn({
   getItemDisplayHeight: (item: CalendarItem) => number
 }) {
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const timedItems = items.filter((i) => !isAllDay(i))
 
   return (
     <div
@@ -89,7 +121,7 @@ function DayColumn({
       {HOURS.map((h) => (
         <DroppableSlot key={h} date={date} hour={h} />
       ))}
-      {items.map((item) => (
+      {timedItems.map((item) => (
         <CalendarEventBlock
           key={`${item.type}-${item.id}`}
           item={item}
@@ -126,10 +158,23 @@ export function CalendarWeekView({
   const today = new Date()
   const { formatHourLabel } = useTimeFormat()
 
+  const allDayByDay = days.map((date) => getItemsForDate(date).filter(isAllDay))
+  const hasAnyAllDay = allDayByDay.some((items) => items.length > 0)
+  const maxAllDay = Math.max(...allDayByDay.map((items) => items.length), 0)
+  const allDayBandHeight = hasAnyAllDay ? Math.max(28, maxAllDay * 22 + 6) : 0
+
   return (
     <div className="flex flex-1 overflow-auto">
-      <div className="w-14 shrink-0 border-r border-border/40 relative">
-        <div className="h-12 sticky top-0 z-20 bg-background border-b border-border/40" />
+      <div className="w-14 shrink-0 border-r border-border/40 relative flex flex-col">
+        {hasAnyAllDay && (
+          <div
+            className="sticky top-12 z-10 bg-background border-b border-border/40 flex items-center justify-end pr-2 shrink-0"
+            style={{ height: allDayBandHeight }}
+          >
+            <span className="text-[9px] text-muted-foreground/40 rotate-0">all day</span>
+          </div>
+        )}
+        <div className="sticky top-0 z-20 bg-background border-b border-border/40 h-12" />
         <div className="relative" style={{ height: SLOT_HEIGHT * 24 }}>
           {HOURS.map((h) => (
             <div
@@ -146,9 +191,11 @@ export function CalendarWeekView({
       </div>
 
       <div className="flex flex-1 min-w-0">
-        {days.map((date) => {
+        {days.map((date, i) => {
           const isToday = date.toDateString() === today.toDateString()
+          const allDayItems = allDayByDay[i]
           const items = getItemsForDate(date)
+
           return (
             <div key={date.toISOString()} className="flex-1 flex flex-col min-w-0">
               <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm h-12 flex flex-col items-center justify-center border-b border-border/40 border-r border-border/40 shrink-0">
@@ -164,6 +211,18 @@ export function CalendarWeekView({
                   {date.getDate()}
                 </span>
               </div>
+
+              {hasAnyAllDay && (
+                <div
+                  className="sticky top-12 z-10 border-b border-r border-border/40 bg-background/95 backdrop-blur-sm px-1 py-1 flex flex-col gap-0.5 shrink-0"
+                  style={{ height: allDayBandHeight }}
+                >
+                  {allDayItems.map((item) => (
+                    <AllDayPill key={`${item.type}-${item.id}`} item={item} onClick={onClickItem} />
+                  ))}
+                </div>
+              )}
+
               <DayColumn
                 date={date}
                 items={items}
