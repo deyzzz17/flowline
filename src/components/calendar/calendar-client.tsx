@@ -17,7 +17,7 @@ import { CalendarDayView } from './calendar-day-view'
 import { CalendarYearView } from './calendar-year-view'
 import { CalendarEventDialog } from './calendar-event-dialog'
 import { TaskTimePicker } from './task-time-picker'
-import type { CalendarEventData } from '@/api/calendar/actions'
+import type { CalendarEventData, EditScope } from '@/api/calendar/actions'
 
 const VIEW_LABELS: Record<CalendarView, string> = {
   year: 'Year',
@@ -109,11 +109,8 @@ export function CalendarClient() {
     if (item.type === 'event') {
       moveEvent(item.id, targetDate)
     } else if (item.type === 'task') {
-      if (view === 'day' && hasSpecificHour) {
-        moveTask(item.id, targetDate)
-      } else {
-        setPendingTaskDrop({ task: item as CalendarTask, targetDate })
-      }
+      if (view === 'day' && hasSpecificHour) moveTask(item.id, targetDate)
+      else setPendingTaskDrop({ task: item as CalendarTask, targetDate })
     }
   }
 
@@ -128,12 +125,16 @@ export function CalendarClient() {
     setPendingTaskDrop(null)
   }
 
-  const handleSave = (data: CalendarEventData) => {
+  const handleSave = (data: CalendarEventData, scope?: EditScope, originalDate?: string) => {
     if (selectedItem?.type === 'event') {
-      updateMutation.mutate({ id: selectedItem.id, data })
+      updateMutation.mutate({ id: selectedItem.id, data, scope, originalDate })
     } else {
       createMutation.mutate(data)
     }
+  }
+
+  const handleDelete = (id: number, scope?: EditScope, originalDate?: string) => {
+    deleteMutation.mutate({ id, scope, originalDate })
   }
 
   return (
@@ -265,7 +266,7 @@ export function CalendarClient() {
         selectedItem={selectedItem}
         defaultDate={newEventDate}
         onSave={handleSave}
-        onDelete={(id) => deleteMutation.mutate(id)}
+        onDelete={handleDelete}
         isSaving={createMutation.isPending || updateMutation.isPending}
         isDeleting={deleteMutation.isPending}
       />

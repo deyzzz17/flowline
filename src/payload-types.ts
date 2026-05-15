@@ -343,6 +343,56 @@ export interface CalendarEvent {
    * Reference to calendar-categories id
    */
   categoryId?: number | null;
+  /**
+   * Recurrence rule for this event
+   */
+  recurrence?: {
+    /**
+     * How often the event repeats
+     */
+    frequency?: ('daily' | 'weekly' | 'monthly' | 'yearly') | null;
+    /**
+     * Repeat every N frequency units (e.g. every 2 weeks)
+     */
+    interval?: number | null;
+    /**
+     * For weekly recurrence: which days of the week
+     */
+    daysOfWeek?: ('0' | '1' | '2' | '3' | '4' | '5' | '6')[] | null;
+    /**
+     * For monthly recurrence: how to repeat
+     */
+    monthlyType?: ('dayOfMonth' | 'dayOfWeek') | null;
+    endType?: ('never' | 'onDate' | 'afterCount') | null;
+    /**
+     * Last date of recurrence (used when endType = onDate)
+     */
+    endDate?: string | null;
+    /**
+     * Number of occurrences (used when endType = afterCount)
+     */
+    endCount?: number | null;
+  };
+  /**
+   * Dates excluded or overridden from the recurrence
+   */
+  exceptions?:
+    | {
+        /**
+         * The original occurrence date that is excluded/overridden
+         */
+        date: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * ID of the parent recurring event (set when this is a modified occurrence)
+   */
+  recurrenceId?: number | null;
+  /**
+   * The original occurrence date this event overrides
+   */
+  originalDate?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -632,6 +682,25 @@ export interface CalendarEventsSelect<T extends boolean = true> {
   allDay?: T;
   color?: T;
   categoryId?: T;
+  recurrence?:
+    | T
+    | {
+        frequency?: T;
+        interval?: T;
+        daysOfWeek?: T;
+        monthlyType?: T;
+        endType?: T;
+        endDate?: T;
+        endCount?: T;
+      };
+  exceptions?:
+    | T
+    | {
+        date?: T;
+        id?: T;
+      };
+  recurrenceId?: T;
+  originalDate?: T;
   updatedAt?: T;
   createdAt?: T;
 }

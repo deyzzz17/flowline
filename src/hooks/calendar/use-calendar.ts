@@ -3,7 +3,8 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
-import { type CalendarEventData } from '@/api/calendar/actions'
+import { type CalendarEventData, type EditScope, type RecurrenceRule } from '@/api/calendar/actions'
+import { generateOccurrences } from '@/api/calendar/calendar-recurrence'
 import { useCalendarFilter } from '@/components/calendar/calendar-filter-context'
 import type { Task } from '@/payload-types'
 import { toast } from 'sonner'
@@ -19,6 +20,11 @@ export interface CalendarEvent {
   allDay: boolean
   color: string
   categoryId?: number | null
+  recurrence?: RecurrenceRule | null
+  recurrenceId?: number | null
+  originalDate?: string | null
+  isOccurrence?: boolean
+  occurrenceDate?: string
   type: 'event'
 }
 
@@ -98,9 +104,9 @@ export const useCalendar = () => {
     staleTime: 0,
   })
 
-  const events: CalendarEvent[] = useMemo(
+  const rawEvents = useMemo(
     () =>
-      (eventsData?.docs ?? []).map((e) => ({
+      (eventsData?.docs ?? []).map((e: any) => ({
         id: e.id,
         title: e.title,
         description: e.description ?? undefined,
@@ -109,10 +115,61 @@ export const useCalendar = () => {
         allDay: e.allDay ?? false,
         color: e.color ?? '#8b5cf6',
         categoryId: typeof e.categoryId === 'number' ? e.categoryId : null,
+        recurrence: e.recurrence?.frequency ? (e.recurrence as RecurrenceRule) : null,
+        recurrenceId: e.recurrenceId ?? null,
+        originalDate: e.originalDate ?? null,
+        exceptions: (e.exceptions ?? []) as { date: string }[],
         type: 'event' as const,
       })),
     [eventsData],
   )
+
+  const events: CalendarEvent[] = useMemo(() => {
+    const result: CalendarEvent[] = []
+
+    const parents = rawEvents.filter((e) => e.recurrence?.frequency && !e.recurrenceId)
+    const overrides = rawEvents.filter((e) => e.recurrenceId)
+    const normal = rawEvents.filter((e) => !e.recurrence?.frequency && !e.recurrenceId)
+
+    result.push(...normal.map(({ exceptions, ...e }) => e))
+
+    result.push(...overrides.map(({ exceptions, ...e }) => ({ ...e, isOccurrence: true })))
+
+    for (const parent of parents) {
+      const exceptions = new Set(
+        (parent.exceptions ?? []).map((ex) => new Date(ex.date).toISOString().slice(0, 10)),
+      )
+      const overrideDates = new Set(
+        overrides
+          .filter((o) => o.recurrenceId === parent.id)
+          .map((o) => new Date(o.originalDate ?? o.startDate).toISOString().slice(0, 10)),
+      )
+      const allExceptions = new Set([...exceptions, ...overrideDates])
+
+      const occurrences = generateOccurrences(parent, from, to, allExceptions)
+
+      for (const occ of occurrences) {
+        result.push({
+          id: parent.id,
+          title: parent.title,
+          description: parent.description,
+          startDate: occ.date.toISOString(),
+          endDate: occ.endDate.toISOString(),
+          allDay: parent.allDay,
+          color: parent.color,
+          categoryId: parent.categoryId,
+          recurrence: parent.recurrence,
+          recurrenceId: null,
+          originalDate: occ.date.toISOString(),
+          isOccurrence: true,
+          occurrenceDate: occ.date.toISOString(),
+          type: 'event',
+        })
+      }
+    }
+
+    return result
+  }, [rawEvents, from, to])
 
   const tasks: CalendarTask[] = useMemo(() => {
     const allTasks = (tasksData?.docs ?? []) as Task[]
@@ -157,8 +214,7 @@ export const useCalendar = () => {
     () =>
       tasks.map((t) => {
         const override = optimisticOverrides.get(`task-${t.id}`)
-        if (!override) return t
-        return { ...t, dueDate: override }
+        return override ? { ...t, dueDate: override } : t
       }),
     [tasks, optimisticOverrides],
   )
@@ -194,11 +250,9 @@ export const useCalendar = () => {
       } else {
         const endOverride = optimisticOverrides.get(`task-end-${item.id}`)
         if (endOverride) {
-          const endDate = new Date(endOverride)
-          const startDate = new Date(item.dueDate)
           const durationMin = Math.max(
             MIN_DURATION_MIN,
-            (endDate.getTime() - startDate.getTime()) / 60000,
+            (new Date(endOverride).getTime() - new Date(item.dueDate).getTime()) / 60000,
           )
           return minutesToPx(durationMin)
         }
@@ -219,20 +273,24 @@ export const useCalendar = () => {
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<CalendarEventData> }) =>
-      api.calendar.update(id, data),
-    onSuccess: (updatedEvent, { id, data }) => {
+    mutationFn: ({
+      id,
+      data,
+      scope,
+      originalDate,
+    }: {
+      id: number
+      data: Partial<CalendarEventData>
+      scope?: EditScope
+      originalDate?: string
+    }) => api.calendar.update(id, data, scope, originalDate),
+    onSuccess: (_, { id, data }) => {
       queryClient.setQueriesData<{ docs: any[] }>({ queryKey: ['calendar-events'] }, (old) => {
         if (!old) return old
-        return {
-          ...old,
-          docs: old.docs.map((e) => (e.id === id ? { ...e, ...data } : e)),
-        }
+        return { ...old, docs: old.docs.map((e) => (e.id === id ? { ...e, ...data } : e)) }
       })
       clearOptimisticDate('event', id)
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
-      }, 1000)
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: ['calendar-events'] }), 1000)
       if (dialogOpen) {
         toast.success('Event updated')
         setDialogOpen(false)
@@ -245,7 +303,15 @@ export const useCalendar = () => {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.calendar.delete(id),
+    mutationFn: ({
+      id,
+      scope,
+      originalDate,
+    }: {
+      id: number
+      scope?: EditScope
+      originalDate?: string
+    }) => api.calendar.delete(id, scope, originalDate),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
       toast.success('Event deleted')
@@ -261,15 +327,10 @@ export const useCalendar = () => {
     onSuccess: (_, { id, dueDate }) => {
       queryClient.setQueriesData<{ docs: any[] }>({ queryKey: ['tasks'] }, (old) => {
         if (!old) return old
-        return {
-          ...old,
-          docs: old.docs.map((t) => (t.id === id ? { ...t, dueDate } : t)),
-        }
+        return { ...old, docs: old.docs.map((t) => (t.id === id ? { ...t, dueDate } : t)) }
       })
       clearOptimisticDate('task', id)
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ['tasks'] })
-      }, 1000)
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: ['tasks'] }), 1000)
     },
     onError: (_, { id }) => {
       clearOptimisticDate('task', id)
@@ -328,6 +389,8 @@ export const useCalendar = () => {
           startDate: newStartDate.toISOString(),
           endDate: new Date(newStartDate.getTime() + duration).toISOString(),
         },
+        scope: event.isOccurrence ? 'this' : 'all',
+        originalDate: event.occurrenceDate ?? event.startDate,
       })
     },
     [events, updateMutation, setOptimisticDate],
