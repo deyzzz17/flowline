@@ -9,12 +9,8 @@ import type { CalendarItem, CalendarEvent, CalendarTask } from '@/hooks/calendar
 const SLOT_HEIGHT = 56
 const MIN_DURATION_MIN = 15
 
-export function minutesToPx(minutes: number) {
-  return (minutes / 60) * SLOT_HEIGHT
-}
-export function pxToMinutes(px: number) {
-  return (px / SLOT_HEIGHT) * 60
-}
+export function minutesToPx(minutes: number) { return (minutes / 60) * SLOT_HEIGHT }
+export function pxToMinutes(px: number) { return (px / SLOT_HEIGHT) * 60 }
 
 export function getItemTop(item: CalendarItem): number {
   const date = new Date(item.type === 'event' ? item.startDate : item.dueDate)
@@ -54,81 +50,96 @@ export function CalendarEventBlock({
   const top = getItemTop(item)
   const height = displayHeight ?? getItemHeight(item)
 
-  const color =
-    item.type === 'event' ? (item as CalendarEvent).color : (item as CalendarTask).listColor
+  const color = item.type === 'event'
+    ? (item as CalendarEvent).color
+    : (item as CalendarTask).listColor
 
   const startDate = new Date(item.type === 'event' ? item.startDate : item.dueDate)
-  const endDate =
-    item.type === 'event'
-      ? new Date((item as CalendarEvent).endDate)
-      : new Date(startDate.getTime() + 30 * 60000)
+  const endDate = item.type === 'event'
+    ? new Date((item as CalendarEvent).endDate)
+    : new Date(startDate.getTime() + 30 * 60000)
 
   const resizeStartY = useRef<number | null>(null)
   const resizeStartHeight = useRef<number>(height)
   const isResizing = useRef(false)
   const blockRef = useRef<HTMLDivElement | null>(null)
 
-  const handleResizeMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation()
-      e.preventDefault()
-      resizeStartY.current = e.clientY
-      resizeStartHeight.current = height
-      isResizing.current = false
+  const startResize = useCallback((clientY: number) => {
+    resizeStartY.current = clientY
+    resizeStartHeight.current = height
+    isResizing.current = false
+  }, [height])
 
-      const el = blockRef.current
+  const updateResize = useCallback((clientY: number) => {
+    if (resizeStartY.current === null) return
+    isResizing.current = true
+    const deltaY = clientY - resizeStartY.current
+    const newHeightPx = Math.max(minutesToPx(MIN_DURATION_MIN), resizeStartHeight.current + deltaY)
+    const newDurationMin = Math.round(pxToMinutes(newHeightPx) / 15) * 15
+    const el = blockRef.current
+    if (el) el.style.height = `${minutesToPx(newDurationMin)}px`
+  }, [])
 
-      const onMouseMove = (ev: MouseEvent) => {
-        if (resizeStartY.current === null) return
-        isResizing.current = true
-        const deltaY = ev.clientY - resizeStartY.current
-        const newHeightPx = Math.max(
-          minutesToPx(MIN_DURATION_MIN),
-          resizeStartHeight.current + deltaY,
-        )
-        const newDurationMin = Math.round(pxToMinutes(newHeightPx) / 15) * 15
-        if (el) el.style.height = `${minutesToPx(newDurationMin)}px`
-      }
+  const endResize = useCallback((clientY: number) => {
+    if (!isResizing.current || resizeStartY.current === null) {
+      resizeStartY.current = null
+      return
+    }
+    const deltaY = clientY - resizeStartY.current
+    const newHeightPx = Math.max(minutesToPx(MIN_DURATION_MIN), resizeStartHeight.current + deltaY)
+    const newDurationMin = Math.round(pxToMinutes(newHeightPx) / 15) * 15
+    const newEnd = new Date(startDate.getTime() + newDurationMin * 60000)
+    resizeStartY.current = null
+    onResizeEnd(item, newEnd)
+    setTimeout(() => { isResizing.current = false }, 50)
+  }, [startDate, item, onResizeEnd])
 
-      const onMouseUp = (ev: MouseEvent) => {
-        document.removeEventListener('mousemove', onMouseMove)
-        document.removeEventListener('mouseup', onMouseUp)
-        if (!isResizing.current || resizeStartY.current === null) {
-          resizeStartY.current = null
-          return
-        }
-        const deltaY = ev.clientY - resizeStartY.current
-        const newHeightPx = Math.max(
-          minutesToPx(MIN_DURATION_MIN),
-          resizeStartHeight.current + deltaY,
-        )
-        const newDurationMin = Math.round(pxToMinutes(newHeightPx) / 15) * 15
-        const newEnd = new Date(startDate.getTime() + newDurationMin * 60000)
-        resizeStartY.current = null
-        onResizeEnd(item, newEnd)
-        setTimeout(() => {
-          isResizing.current = false
-        }, 50)
-      }
+  const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    startResize(e.clientY)
 
-      document.addEventListener('mousemove', onMouseMove)
-      document.addEventListener('mouseup', onMouseUp)
-    },
-    [height, startDate, item, onResizeEnd],
-  )
+    const onMouseMove = (ev: MouseEvent) => updateResize(ev.clientY)
+    const onMouseUp = (ev: MouseEvent) => {
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+      endResize(ev.clientY)
+    }
+
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }, [startResize, updateResize, endResize])
+
+  const handleResizeTouchStart = useCallback((e: React.TouchEvent) => {
+    e.stopPropagation()
+    const touch = e.touches[0]
+    if (!touch) return
+    startResize(touch.clientY)
+
+    const onTouchMove = (ev: TouchEvent) => {
+      const t = ev.touches[0]
+      if (!t) return
+      ev.preventDefault()
+      updateResize(t.clientY)
+    }
+
+    const onTouchEnd = (ev: TouchEvent) => {
+      document.removeEventListener('touchmove', onTouchMove)
+      document.removeEventListener('touchend', onTouchEnd)
+      const t = ev.changedTouches[0]
+      if (t) endResize(t.clientY)
+    }
+
+    document.addEventListener('touchmove', onTouchMove, { passive: false })
+    document.addEventListener('touchend', onTouchEnd)
+  }, [startResize, updateResize, endResize])
 
   return (
     <div
-      ref={(node) => {
-        blockRef.current = node
-        setNodeRef(node)
-      }}
+      ref={(node) => { blockRef.current = node; setNodeRef(node) }}
       style={{
         position: 'absolute',
-        top,
-        left: paddingX,
-        right: paddingX,
-        height,
+        top, left: paddingX, right: paddingX, height,
         backgroundColor: `${color}22`,
         borderLeft: `3px solid ${color}`,
         zIndex: isDragging ? 50 : 10,
@@ -156,11 +167,12 @@ export function CalendarEventBlock({
 
       <div
         onMouseDown={handleResizeMouseDown}
-        className="absolute bottom-0 left-0 right-0 h-3 cursor-s-resize flex items-center justify-center group"
+        onTouchStart={handleResizeTouchStart}
+        className="absolute bottom-0 left-0 right-0 h-4 cursor-s-resize flex items-center justify-center group touch-none"
         onClick={(e) => e.stopPropagation()}
       >
         <div
-          className="w-8 h-0.5 rounded-full transition-opacity opacity-40 group-hover:opacity-80"
+          className="w-8 h-1 rounded-full transition-opacity opacity-40 group-hover:opacity-80"
           style={{ backgroundColor: color }}
         />
       </div>

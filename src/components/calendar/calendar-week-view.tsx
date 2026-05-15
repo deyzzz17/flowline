@@ -3,6 +3,7 @@
 import { useDroppable } from '@dnd-kit/core'
 import { cn } from '@/lib/utils'
 import { CalendarEventBlock, pxToMinutes } from './calendar-event-block'
+import { useTimeFormat } from '@/hooks/calendar/use-time-format'
 import type { CalendarItem } from '@/hooks/calendar/use-calendar'
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
@@ -17,13 +18,6 @@ function getWeekDays(currentDate: Date): Date[] {
     d.setDate(d.getDate() + i)
     return d
   })
-}
-
-function formatHour(h: number) {
-  if (h === 0) return '12am'
-  if (h < 12) return `${h}am`
-  if (h === 12) return '12pm'
-  return `${h - 12}pm`
 }
 
 function DroppableSlot({ date, hour }: { date: Date; hour: number }) {
@@ -106,6 +100,7 @@ export function CalendarWeekView({
 }: CalendarWeekViewProps) {
   const days = getWeekDays(currentDate)
   const today = new Date()
+  const { formatHourLabel } = useTimeFormat()
 
   return (
     <div className="flex flex-1 overflow-auto">
@@ -118,7 +113,7 @@ export function CalendarWeekView({
               className="absolute right-0 flex items-start justify-end pr-2"
               style={{ top: h * SLOT_HEIGHT - 8, height: SLOT_HEIGHT }}
             >
-              <span className="text-[10px] text-muted-foreground/50">{formatHour(h)}</span>
+              <span className="text-[10px] text-muted-foreground/50">{formatHourLabel(h)}</span>
             </div>
           ))}
         </div>

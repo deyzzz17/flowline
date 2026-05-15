@@ -7,7 +7,6 @@ export function useTimeFormat() {
     try {
       const formatted = new Intl.DateTimeFormat(navigator.language, {
         hour: 'numeric',
-        hour12: undefined,
       }).format(new Date(2000, 0, 1, 13, 0, 0))
       return !/am|pm/i.test(formatted)
     } catch {
@@ -17,14 +16,13 @@ export function useTimeFormat() {
 
   const formatTime = useMemo(
     () =>
-      (date: Date, includeMinutes = true): string => {
+      (date: Date): string => {
         return new Intl.DateTimeFormat(navigator.language, {
           hour: 'numeric',
-          minute: includeMinutes ? '2-digit' : undefined,
-          hour12: !is24h ? false : undefined,
+          minute: '2-digit',
         }).format(date)
       },
-    [is24h],
+    [],
   )
 
   const formatHourLabel = useMemo(
@@ -33,10 +31,9 @@ export function useTimeFormat() {
         const d = new Date(2000, 0, 1, hour, 0, 0)
         return new Intl.DateTimeFormat(navigator.language, {
           hour: 'numeric',
-          hour12: !is24h ? false : undefined,
         }).format(d)
       },
-    [is24h],
+    [],
   )
 
   return { is24h, formatTime, formatHourLabel }
