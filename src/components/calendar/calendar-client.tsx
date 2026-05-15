@@ -230,7 +230,7 @@ export function CalendarClient() {
               currentDate={currentDate}
               getItemsForDate={getItemsForDate}
               onClickDay={goToDay}
-              onClickCell={openNewEvent}
+              onClickCell={goToDay}
               onClickItem={openEdit}
             />
           )}
