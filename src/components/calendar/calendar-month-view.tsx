@@ -32,10 +32,11 @@ interface DayCellProps {
   isCurrentMonth: boolean
   isToday: boolean
   onClickDay: (date: Date) => void
+  onClickCell: (date: Date) => void 
   onClickItem: (item: CalendarItem) => void
 }
 
-function DayCell({ date, items, isCurrentMonth, isToday, onClickDay, onClickItem }: DayCellProps) {
+function DayCell({ date, items, isCurrentMonth, isToday, onClickDay, onClickCell, onClickItem }: DayCellProps) {
   const { setNodeRef, isOver } = useDroppable({ id: date.toISOString() })
   const visible = items.slice(0, MAX_VISIBLE)
   const overflow = items.length - MAX_VISIBLE
@@ -43,7 +44,7 @@ function DayCell({ date, items, isCurrentMonth, isToday, onClickDay, onClickItem
   return (
     <div
       ref={setNodeRef}
-      onClick={() => onClickDay(date)}
+      onClick={() => onClickCell(date)}
       className={cn(
         'min-h-25 p-1.5 border-b border-r border-border/40 cursor-pointer transition-colors',
         !isCurrentMonth && 'bg-muted/20',
@@ -52,18 +53,23 @@ function DayCell({ date, items, isCurrentMonth, isToday, onClickDay, onClickItem
       )}
     >
       <div className="flex items-center justify-between mb-1">
-        <span
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onClickDay(date)
+          }}
           className={cn(
-            'flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium',
+            'flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium transition-colors hover:bg-muted',
             isToday
-              ? 'bg-violet-600 text-white'
+              ? 'bg-violet-600 text-white hover:bg-violet-700'
               : isCurrentMonth
                 ? 'text-foreground'
                 : 'text-muted-foreground/40',
           )}
         >
           {date.getDate()}
-        </span>
+        </button>
       </div>
       <div className="space-y-0.5">
         {visible.map((item) => (
@@ -110,7 +116,8 @@ function DraggableItem({
 interface CalendarMonthViewProps {
   currentDate: Date
   getItemsForDate: (date: Date) => CalendarItem[]
-  onClickDay: (date: Date) => void
+  onClickDay: (date: Date) => void 
+  onClickCell: (date: Date) => void 
   onClickItem: (item: CalendarItem) => void
 }
 
@@ -118,6 +125,7 @@ export function CalendarMonthView({
   currentDate,
   getItemsForDate,
   onClickDay,
+  onClickCell,
   onClickItem,
 }: CalendarMonthViewProps) {
   const days = getDaysInView(currentDate)
@@ -127,10 +135,7 @@ export function CalendarMonthView({
     <div className="flex-1 overflow-hidden">
       <div className="grid grid-cols-7 border-b border-border/40">
         {DAYS.map((d) => (
-          <div
-            key={d}
-            className="py-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground/60"
-          >
+          <div key={d} className="py-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground/60">
             {d}
           </div>
         ))}
@@ -144,6 +149,7 @@ export function CalendarMonthView({
             isCurrentMonth={date.getMonth() === currentDate.getMonth()}
             isToday={date.toDateString() === today.toDateString()}
             onClickDay={onClickDay}
+            onClickCell={onClickCell}
             onClickItem={onClickItem}
           />
         ))}

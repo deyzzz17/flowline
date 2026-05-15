@@ -8,7 +8,7 @@ import { useCalendarFilter } from '@/components/calendar/calendar-filter-context
 import type { Task } from '@/payload-types'
 import { toast } from 'sonner'
 
-export type CalendarView = 'month' | 'week' | 'day'
+export type CalendarView = 'year' | 'month' | 'week' | 'day'
 
 export interface CalendarEvent {
   id: number
@@ -46,6 +46,13 @@ function getViewRange(date: Date, view: CalendarView): { from: Date; to: Date } 
   const m = date.getMonth()
   const d = date.getDate()
   switch (view) {
+    case 'year': {
+      const from = new Date(y, 0, 1)
+      from.setHours(0, 0, 0, 0)
+      const to = new Date(y, 11, 31)
+      to.setHours(23, 59, 59)
+      return { from, to }
+    }
     case 'month': {
       const from = new Date(y, m, 1)
       from.setDate(from.getDate() - from.getDay())
@@ -261,6 +268,9 @@ export const useCalendar = () => {
       setCurrentDate((prev) => {
         const d = new Date(prev)
         switch (view) {
+          case 'year':
+            d.setFullYear(d.getFullYear() + (direction === 'next' ? 1 : -1))
+            break
           case 'month':
             d.setMonth(d.getMonth() + (direction === 'next' ? 1 : -1))
             break

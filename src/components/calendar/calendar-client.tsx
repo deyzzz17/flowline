@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -14,14 +14,22 @@ import {
 import { CalendarMonthView } from './calendar-month-view'
 import { CalendarWeekView } from './calendar-week-view'
 import { CalendarDayView } from './calendar-day-view'
+import { CalendarYearView } from './calendar-year-view'
 import { CalendarEventDialog } from './calendar-event-dialog'
 import { TaskTimePicker } from './task-time-picker'
 import type { CalendarEventData } from '@/api/calendar/actions'
 
-const VIEW_LABELS: Record<CalendarView, string> = { month: 'Month', week: 'Week', day: 'Day' }
+const VIEW_LABELS: Record<CalendarView, string> = {
+  year: 'Year',
+  month: 'Month',
+  week: 'Week',
+  day: 'Day',
+}
 
 function getHeaderTitle(date: Date, view: CalendarView): string {
   switch (view) {
+    case 'year':
+      return String(date.getFullYear())
     case 'month':
       return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
     case 'week': {
@@ -49,6 +57,7 @@ export function CalendarClient() {
     view,
     setView,
     currentDate,
+    setCurrentDate,
     navigate,
     getItemsForDate,
     getItemDisplayHeight,
@@ -74,6 +83,22 @@ export function CalendarClient() {
     targetDate: Date
   } | null>(null)
 
+  const goToDay = useCallback(
+    (date: Date) => {
+      setCurrentDate(date)
+      setView('day')
+    },
+    [setCurrentDate, setView],
+  )
+
+  const goToMonth = useCallback(
+    (date: Date) => {
+      setCurrentDate(date)
+      setView('month')
+    },
+    [setCurrentDate, setView],
+  )
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
     if (!over) return
@@ -93,11 +118,8 @@ export function CalendarClient() {
   }
 
   const handleResizeEnd = (item: CalendarItem, newEndDate: Date) => {
-    if (item.type === 'event') {
-      resizeEvent(item.id, newEndDate)
-    } else {
-      resizeTask(item.id, newEndDate)
-    }
+    if (item.type === 'event') resizeEvent(item.id, newEndDate)
+    else resizeTask(item.id, newEndDate)
   }
 
   const handleTaskTimeConfirm = (dateWithTime: Date) => {
@@ -160,7 +182,7 @@ export function CalendarClient() {
           </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-0.5 rounded-xl border border-border/60 bg-muted/30 p-1">
-              {(['month', 'week', 'day'] as CalendarView[]).map((v) => (
+              {(['year', 'month', 'week', 'day'] as CalendarView[]).map((v) => (
                 <button
                   key={v}
                   type="button"
@@ -191,14 +213,24 @@ export function CalendarClient() {
           className={cn(
             'flex-1 min-h-0',
             view === 'month' && 'overflow-auto',
-            view !== 'month' && 'overflow-hidden flex flex-col',
+            view === 'year' && 'overflow-hidden flex flex-col',
+            (view === 'week' || view === 'day') && 'overflow-hidden flex flex-col',
           )}
         >
+          {view === 'year' && (
+            <CalendarYearView
+              currentDate={currentDate}
+              getItemsForDate={getItemsForDate}
+              onClickDay={goToDay}
+              onClickMonth={goToMonth}
+            />
+          )}
           {view === 'month' && (
             <CalendarMonthView
               currentDate={currentDate}
               getItemsForDate={getItemsForDate}
-              onClickDay={openNewEvent}
+              onClickDay={goToDay}
+              onClickCell={openNewEvent}
               onClickItem={openEdit}
             />
           )}
@@ -206,7 +238,7 @@ export function CalendarClient() {
             <CalendarWeekView
               currentDate={currentDate}
               getItemsForDate={getItemsForDate}
-              onClickSlot={openNewEvent}
+              onClickSlot={goToDay}
               onClickItem={openEdit}
               onResizeEnd={handleResizeEnd}
               getItemDisplayHeight={getItemDisplayHeight}
