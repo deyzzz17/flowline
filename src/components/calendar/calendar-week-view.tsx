@@ -1,5 +1,6 @@
 'use client'
 
+import { useRef } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { cn } from '@/lib/utils'
 import { CalendarEventBlock, pxToMinutes } from './calendar-event-block'
@@ -61,16 +62,26 @@ function DayColumn({
   onResizeEnd: (item: CalendarItem, newEndDate: Date) => void
   getItemDisplayHeight: (item: CalendarItem) => number
 }) {
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   return (
     <div
       className="relative border-r border-border/40"
       style={{ height: SLOT_HEIGHT * 24 }}
       onClick={(e) => {
+        if (clickTimer.current) return
         const slotDate = getSlotDate(date, e.clientY, e.currentTarget.getBoundingClientRect())
-        onClickSlot(slotDate)
+        clickTimer.current = setTimeout(() => {
+          clickTimer.current = null
+          onClickSlot(slotDate)
+        }, 200)
       }}
       onDoubleClick={(e) => {
         e.stopPropagation()
+        if (clickTimer.current) {
+          clearTimeout(clickTimer.current)
+          clickTimer.current = null
+        }
         const slotDate = getSlotDate(date, e.clientY, e.currentTarget.getBoundingClientRect())
         onDoubleClickSlot(slotDate)
       }}

@@ -1,5 +1,6 @@
 'use client'
 
+import { useRef } from 'react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { cn } from '@/lib/utils'
 import { CalendarItemPill } from './calendar-item-pill'
@@ -50,13 +51,24 @@ function DayCell({
   const { setNodeRef, isOver } = useDroppable({ id: date.toISOString() })
   const visible = items.slice(0, MAX_VISIBLE)
   const overflow = items.length - MAX_VISIBLE
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   return (
     <div
       ref={setNodeRef}
-      onClick={() => onClickCell(date)}
+      onClick={() => {
+        if (clickTimer.current) return
+        clickTimer.current = setTimeout(() => {
+          clickTimer.current = null
+          onClickCell(date)
+        }, 200)
+      }}
       onDoubleClick={(e) => {
         e.stopPropagation()
+        if (clickTimer.current) {
+          clearTimeout(clickTimer.current)
+          clickTimer.current = null
+        }
         onDoubleClickDay(date)
       }}
       className={cn(
