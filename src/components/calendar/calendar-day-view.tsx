@@ -114,7 +114,7 @@ export function CalendarDayView({
           </p>
           {holiday ? (
             <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
-              🎌 {holiday.localName}
+              {holiday.localName}
             </p>
           ) : (
             <p className="text-xs text-muted-foreground/60">
