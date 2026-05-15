@@ -69,9 +69,8 @@ function getViewRange(date: Date, view: CalendarView): { from: Date; to: Date } 
       to.setHours(23, 59, 59)
       return { from, to }
     }
-    case 'day': {
+    case 'day':
       return { from: new Date(y, m, d, 0, 0, 0), to: new Date(y, m, d, 23, 59, 59) }
-    }
   }
 }
 
@@ -222,11 +221,22 @@ export const useCalendar = () => {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<CalendarEventData> }) =>
       api.calendar.update(id, data),
-    onSuccess: (_, { id }) => {
-      queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+    onSuccess: (updatedEvent, { id, data }) => {
+      queryClient.setQueriesData<{ docs: any[] }>({ queryKey: ['calendar-events'] }, (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          docs: old.docs.map((e) => (e.id === id ? { ...e, ...data } : e)),
+        }
+      })
       clearOptimisticDate('event', id)
-      toast.success('Event updated')
-      setDialogOpen(false)
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+      }, 1000)
+      if (dialogOpen) {
+        toast.success('Event updated')
+        setDialogOpen(false)
+      }
     },
     onError: (_, { id }) => {
       clearOptimisticDate('event', id)
@@ -248,10 +258,18 @@ export const useCalendar = () => {
   const moveTaskMutation = useMutation({
     mutationFn: ({ id, dueDate }: { id: number; dueDate: string }) =>
       api.tasks.edit(id, { dueDate }),
-    onSuccess: (_, { id }) => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    onSuccess: (_, { id, dueDate }) => {
+      queryClient.setQueriesData<{ docs: any[] }>({ queryKey: ['tasks'] }, (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          docs: old.docs.map((t) => (t.id === id ? { ...t, dueDate } : t)),
+        }
+      })
       clearOptimisticDate('task', id)
-      toast.success('Task rescheduled')
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      }, 1000)
     },
     onError: (_, { id }) => {
       clearOptimisticDate('task', id)
@@ -292,6 +310,7 @@ export const useCalendar = () => {
     setSelectedItem(null)
     setDialogOpen(true)
   }, [])
+
   const openEdit = useCallback((item: CalendarItem) => {
     setSelectedItem(item)
     setDialogOpen(true)
