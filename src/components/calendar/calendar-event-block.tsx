@@ -3,6 +3,7 @@
 import { useRef, useCallback } from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import { cn } from '@/lib/utils'
+import { useTimeFormat } from '@/hooks/calendar/use-time-format'
 import type { CalendarItem, CalendarEvent, CalendarTask } from '@/hooks/calendar/use-calendar'
 
 const SLOT_HEIGHT = 56
@@ -30,10 +31,6 @@ export function getItemHeight(item: CalendarItem): number {
   return minutesToPx(30)
 }
 
-function formatTime(d: Date) {
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
-
 export function CalendarEventBlock({
   item,
   onClickItem,
@@ -47,6 +44,8 @@ export function CalendarEventBlock({
   paddingX?: number
   displayHeight?: number
 }) {
+  const { formatTime } = useTimeFormat()
+
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `${item.type}-${item.id}`,
     data: { item },
@@ -94,12 +93,10 @@ export function CalendarEventBlock({
       const onMouseUp = (ev: MouseEvent) => {
         document.removeEventListener('mousemove', onMouseMove)
         document.removeEventListener('mouseup', onMouseUp)
-
         if (!isResizing.current || resizeStartY.current === null) {
           resizeStartY.current = null
           return
         }
-
         const deltaY = ev.clientY - resizeStartY.current
         const newHeightPx = Math.max(
           minutesToPx(MIN_DURATION_MIN),
@@ -109,7 +106,6 @@ export function CalendarEventBlock({
         const newEnd = new Date(startDate.getTime() + newDurationMin * 60000)
         resizeStartY.current = null
         onResizeEnd(item, newEnd)
-
         setTimeout(() => {
           isResizing.current = false
         }, 50)
