@@ -32,11 +32,21 @@ interface DayCellProps {
   isCurrentMonth: boolean
   isToday: boolean
   onClickDay: (date: Date) => void
-  onClickCell: (date: Date) => void 
+  onClickCell: (date: Date) => void
+  onDoubleClickDay: (date: Date) => void
   onClickItem: (item: CalendarItem) => void
 }
 
-function DayCell({ date, items, isCurrentMonth, isToday, onClickDay, onClickCell, onClickItem }: DayCellProps) {
+function DayCell({
+  date,
+  items,
+  isCurrentMonth,
+  isToday,
+  onClickDay,
+  onClickCell,
+  onDoubleClickDay,
+  onClickItem,
+}: DayCellProps) {
   const { setNodeRef, isOver } = useDroppable({ id: date.toISOString() })
   const visible = items.slice(0, MAX_VISIBLE)
   const overflow = items.length - MAX_VISIBLE
@@ -45,6 +55,10 @@ function DayCell({ date, items, isCurrentMonth, isToday, onClickDay, onClickCell
     <div
       ref={setNodeRef}
       onClick={() => onClickCell(date)}
+      onDoubleClick={(e) => {
+        e.stopPropagation()
+        onDoubleClickDay(date)
+      }}
       className={cn(
         'min-h-25 p-1.5 border-b border-r border-border/40 cursor-pointer transition-colors',
         !isCurrentMonth && 'bg-muted/20',
@@ -94,7 +108,6 @@ function DraggableItem({
     id: `${item.type}-${item.id}`,
     data: { item },
   })
-
   return (
     <div
       ref={setNodeRef}
@@ -116,8 +129,9 @@ function DraggableItem({
 interface CalendarMonthViewProps {
   currentDate: Date
   getItemsForDate: (date: Date) => CalendarItem[]
-  onClickDay: (date: Date) => void 
-  onClickCell: (date: Date) => void 
+  onClickDay: (date: Date) => void
+  onClickCell: (date: Date) => void
+  onDoubleClickDay: (date: Date) => void
   onClickItem: (item: CalendarItem) => void
 }
 
@@ -126,6 +140,7 @@ export function CalendarMonthView({
   getItemsForDate,
   onClickDay,
   onClickCell,
+  onDoubleClickDay,
   onClickItem,
 }: CalendarMonthViewProps) {
   const days = getDaysInView(currentDate)
@@ -135,7 +150,10 @@ export function CalendarMonthView({
     <div className="flex-1 overflow-hidden">
       <div className="grid grid-cols-7 border-b border-border/40">
         {DAYS.map((d) => (
-          <div key={d} className="py-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground/60">
+          <div
+            key={d}
+            className="py-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground/60"
+          >
             {d}
           </div>
         ))}
@@ -150,6 +168,7 @@ export function CalendarMonthView({
             isToday={date.toDateString() === today.toDateString()}
             onClickDay={onClickDay}
             onClickCell={onClickCell}
+            onDoubleClickDay={onDoubleClickDay}
             onClickItem={onClickItem}
           />
         ))}

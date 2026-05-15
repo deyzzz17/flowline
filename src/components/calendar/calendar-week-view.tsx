@@ -36,10 +36,19 @@ function DroppableSlot({ date, hour }: { date: Date; hour: number }) {
   )
 }
 
+function getSlotDate(date: Date, clientY: number, rect: DOMRect): Date {
+  const y = clientY - rect.top
+  const totalMinutes = Math.floor(pxToMinutes(y) / 15) * 15
+  const slotDate = new Date(date)
+  slotDate.setHours(Math.floor(totalMinutes / 60), totalMinutes % 60, 0, 0)
+  return slotDate
+}
+
 function DayColumn({
   date,
   items,
   onClickSlot,
+  onDoubleClickSlot,
   onClickItem,
   onResizeEnd,
   getItemDisplayHeight,
@@ -47,6 +56,7 @@ function DayColumn({
   date: Date
   items: CalendarItem[]
   onClickSlot: (date: Date) => void
+  onDoubleClickSlot: (date: Date) => void
   onClickItem: (item: CalendarItem) => void
   onResizeEnd: (item: CalendarItem, newEndDate: Date) => void
   getItemDisplayHeight: (item: CalendarItem) => number
@@ -56,12 +66,13 @@ function DayColumn({
       className="relative border-r border-border/40"
       style={{ height: SLOT_HEIGHT * 24 }}
       onClick={(e) => {
-        const rect = e.currentTarget.getBoundingClientRect()
-        const y = e.clientY - rect.top
-        const totalMinutes = Math.floor(pxToMinutes(y) / 15) * 15
-        const slotDate = new Date(date)
-        slotDate.setHours(Math.floor(totalMinutes / 60), totalMinutes % 60, 0, 0)
+        const slotDate = getSlotDate(date, e.clientY, e.currentTarget.getBoundingClientRect())
         onClickSlot(slotDate)
+      }}
+      onDoubleClick={(e) => {
+        e.stopPropagation()
+        const slotDate = getSlotDate(date, e.clientY, e.currentTarget.getBoundingClientRect())
+        onDoubleClickSlot(slotDate)
       }}
     >
       {HOURS.map((h) => (
@@ -85,6 +96,7 @@ interface CalendarWeekViewProps {
   currentDate: Date
   getItemsForDate: (date: Date) => CalendarItem[]
   onClickSlot: (date: Date) => void
+  onDoubleClickSlot: (date: Date) => void
   onClickItem: (item: CalendarItem) => void
   onResizeEnd: (item: CalendarItem, newEndDate: Date) => void
   getItemDisplayHeight: (item: CalendarItem) => number
@@ -94,6 +106,7 @@ export function CalendarWeekView({
   currentDate,
   getItemsForDate,
   onClickSlot,
+  onDoubleClickSlot,
   onClickItem,
   onResizeEnd,
   getItemDisplayHeight,
@@ -113,7 +126,9 @@ export function CalendarWeekView({
               className="absolute right-0 flex items-start justify-end pr-2"
               style={{ top: h * SLOT_HEIGHT - 8, height: SLOT_HEIGHT }}
             >
-              <span className="text-[10px] text-muted-foreground/50">{formatHourLabel(h)}</span>
+              {h !== 0 && (
+                <span className="text-[10px] text-muted-foreground/50">{formatHourLabel(h)}</span>
+              )}
             </div>
           ))}
         </div>
@@ -142,6 +157,7 @@ export function CalendarWeekView({
                 date={date}
                 items={items}
                 onClickSlot={onClickSlot}
+                onDoubleClickSlot={onDoubleClickSlot}
                 onClickItem={onClickItem}
                 onResizeEnd={onResizeEnd}
                 getItemDisplayHeight={getItemDisplayHeight}

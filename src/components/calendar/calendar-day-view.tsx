@@ -35,7 +35,12 @@ interface CalendarDayViewProps {
 }
 
 export function CalendarDayView({
-  currentDate, getItemsForDate, onClickSlot, onClickItem, onResizeEnd, getItemDisplayHeight,
+  currentDate,
+  getItemsForDate,
+  onClickSlot,
+  onClickItem,
+  onResizeEnd,
+  getItemDisplayHeight,
 }: CalendarDayViewProps) {
   const today = new Date()
   const isToday = currentDate.toDateString() === today.toDateString()
@@ -46,15 +51,21 @@ export function CalendarDayView({
   return (
     <div className="flex flex-1 flex-col overflow-auto">
       <div className="flex items-center gap-3 px-6 py-4 border-b border-border/40 shrink-0">
-        <div className={cn(
-          'flex h-10 w-10 items-center justify-center rounded-2xl text-lg font-semibold',
-          isToday ? 'bg-violet-600 text-white' : 'bg-muted text-foreground',
-        )}>
+        <div
+          className={cn(
+            'flex h-10 w-10 items-center justify-center rounded-2xl text-lg font-semibold',
+            isToday ? 'bg-violet-600 text-white' : 'bg-muted text-foreground',
+          )}
+        >
           {currentDate.getDate()}
         </div>
         <div>
           <p className="text-sm font-semibold text-foreground">
-            {currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            {currentDate.toLocaleDateString('en-US', {
+              weekday: 'long',
+              month: 'long',
+              day: 'numeric',
+            })}
           </p>
           <p className="text-xs text-muted-foreground/60">
             {items.length} event{items.length !== 1 ? 's' : ''}
@@ -65,9 +76,14 @@ export function CalendarDayView({
       <div className="flex flex-1">
         <div className="w-16 shrink-0 relative" style={{ height: totalHeight }}>
           {HOURS.map((h) => (
-            <div key={h} className="absolute right-0 flex items-start justify-end pr-3"
-              style={{ top: h * SLOT_HEIGHT - 8, height: SLOT_HEIGHT }}>
-              <span className="text-[11px] text-muted-foreground/50">{formatHourLabel(h)}</span>
+            <div
+              key={h}
+              className="absolute right-0 flex items-start justify-end pr-3"
+              style={{ top: h * SLOT_HEIGHT - 8, height: SLOT_HEIGHT }}
+            >
+              {h !== 0 && (
+                <span className="text-[10px] text-muted-foreground/50">{formatHourLabel(h)}</span>
+              )}
             </div>
           ))}
         </div>
@@ -84,7 +100,9 @@ export function CalendarDayView({
             onClickSlot(slotDate)
           }}
         >
-          {HOURS.map((h) => <DroppableSlot key={h} date={currentDate} hour={h} />)}
+          {HOURS.map((h) => (
+            <DroppableSlot key={h} date={currentDate} hour={h} />
+          ))}
           {items.map((item) => (
             <CalendarEventBlock
               key={`${item.type}-${item.id}`}

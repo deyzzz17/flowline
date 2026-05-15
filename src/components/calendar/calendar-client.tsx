@@ -232,6 +232,7 @@ export function CalendarClient() {
               onClickDay={goToDay}
               onClickCell={goToDay}
               onClickItem={openEdit}
+              onDoubleClickDay={openNewEvent}
             />
           )}
           {view === 'week' && (
@@ -242,6 +243,7 @@ export function CalendarClient() {
               onClickItem={openEdit}
               onResizeEnd={handleResizeEnd}
               getItemDisplayHeight={getItemDisplayHeight}
+              onDoubleClickSlot={openNewEvent}
             />
           )}
           {view === 'day' && (
