@@ -286,16 +286,13 @@ export const useCalendar = () => {
     }) => api.calendar.update(id, data, scope, originalDate),
     onSuccess: (_, { id, data, scope }) => {
       if (!scope || scope === 'all') {
-        queryClient.setQueriesData<{ docs: any[] }>(
-          { queryKey: ['calendar-events'] },
-          (old) => {
-            if (!old) return old
-            return {
-              ...old,
-              docs: old.docs.map((e) => (e.id === id ? { ...e, ...data } : e)),
-            }
-          },
-        )
+        queryClient.setQueriesData<{ docs: any[] }>({ queryKey: ['calendar-events'] }, (old) => {
+          if (!old) return old
+          return {
+            ...old,
+            docs: old.docs.map((e) => (e.id === id ? { ...e, ...data } : e)),
+          }
+        })
         clearOptimisticDate('event', id)
       } else {
         clearOptimisticDate('event', id)
@@ -388,7 +385,7 @@ export const useCalendar = () => {
   }, [])
 
   const moveEvent = useCallback(
-    (id: number, newStartDate: Date) => {
+    (id: number, newStartDate: Date, scope?: EditScope, originalDate?: string) => {
       const event = events.find((e) => e.id === id)
       if (!event) return
       setOptimisticDate('event', id, newStartDate.toISOString())
@@ -399,23 +396,15 @@ export const useCalendar = () => {
           startDate: newStartDate.toISOString(),
           endDate: new Date(newStartDate.getTime() + duration).toISOString(),
         },
-        scope: event.isOccurrence ? 'this' : 'all',
-        originalDate: event.occurrenceDate ?? event.startDate,
+        scope: scope ?? (event.isOccurrence ? 'this' : 'all'),
+        originalDate: originalDate ?? event.occurrenceDate ?? event.startDate,
       })
     },
     [events, updateMutation, setOptimisticDate],
   )
 
-  const moveTask = useCallback(
-    (id: number, newDueDate: Date) => {
-      setOptimisticDate('task', id, newDueDate.toISOString())
-      moveTaskMutation.mutate({ id, dueDate: newDueDate.toISOString() })
-    },
-    [moveTaskMutation, setOptimisticDate],
-  )
-
   const resizeEvent = useCallback(
-    (id: number, newEndDate: Date) => {
+    (id: number, newEndDate: Date, scope?: EditScope, originalDate?: string) => {
       const event = events.find((e) => e.id === id)
       setOptimisticOverrides((prev) => {
         const next = new Map(prev)
@@ -425,11 +414,19 @@ export const useCalendar = () => {
       updateMutation.mutate({
         id,
         data: { endDate: newEndDate.toISOString() },
-        scope: event?.isOccurrence ? 'this' : 'all',
-        originalDate: event?.occurrenceDate ?? event?.startDate,
+        scope: scope ?? (event?.isOccurrence ? 'this' : 'all'),
+        originalDate: originalDate ?? event?.occurrenceDate ?? event?.startDate,
       })
     },
     [updateMutation, events],
+  )
+
+  const moveTask = useCallback(
+    (id: number, newDueDate: Date) => {
+      setOptimisticDate('task', id, newDueDate.toISOString())
+      moveTaskMutation.mutate({ id, dueDate: newDueDate.toISOString() })
+    },
+    [moveTaskMutation, setOptimisticDate],
   )
 
   const resizeTask = useCallback(
@@ -459,8 +456,10 @@ export const useCalendar = () => {
         if (!isCategoryVisible(e.categoryId)) return false
         const start = new Date(e.startDate)
         const end = new Date(e.endDate)
-        const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0)
-        const dayEnd = new Date(date); dayEnd.setHours(23, 59, 59, 999)
+        const dayStart = new Date(date)
+        dayStart.setHours(0, 0, 0, 0)
+        const dayEnd = new Date(date)
+        dayEnd.setHours(23, 59, 59, 999)
         return start <= dayEnd && end >= dayStart
       })
 
