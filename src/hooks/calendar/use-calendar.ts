@@ -76,7 +76,10 @@ function getViewRange(date: Date, view: CalendarView): { from: Date; to: Date } 
       return { from, to }
     }
     case 'day':
-      return { from: new Date(y, m, d, 0, 0, 0), to: new Date(y, m, d, 23, 59, 59) }
+      return {
+        from: new Date(y, m, d - 1, 0, 0, 0),
+        to: new Date(y, m, d, 23, 59, 59),
+      }
   }
 }
 

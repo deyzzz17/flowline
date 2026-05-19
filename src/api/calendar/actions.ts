@@ -12,15 +12,11 @@ const getUserId = async () => {
   return session?.user?.id ?? null
 }
 
-// ── Helpers date ─────────────────────────────────────────────────────────────
-
 function addDays(date: Date, n: number): Date {
   const d = new Date(date)
   d.setDate(d.getDate() + n)
   return d
 }
-
-// ── Types ────────────────────────────────────────────────────────────────────
 
 export interface CalendarCategoryData {
   name: string
@@ -52,8 +48,6 @@ export interface CalendarEventData {
 }
 
 export type EditScope = 'this' | 'thisAndFollowing' | 'all'
-
-// ── Calendar Categories ───────────────────────────────────────────────────────
 
 const DEFAULT_CALENDAR_CATEGORIES = [
   { name: 'Personal', color: '#8b5cf6', isDefault: true },
@@ -126,8 +120,6 @@ export const deleteCalendarCategory = async (id: number) => {
   }
 }
 
-// ── Calendar Events ───────────────────────────────────────────────────────────
-
 export const listCalendarEvents = async (from: string, to: string) => {
   const userId = await getUserId()
   if (!userId) return { docs: [] }
@@ -147,11 +139,7 @@ export const listCalendarEvents = async (from: string, to: string) => {
               and: [{ recurrenceId: { exists: false } }, { startDate: { less_than_equal: to } }],
             },
             {
-              and: [
-                { recurrenceId: { exists: true } },
-                { startDate: { greater_than_equal: from } },
-                { startDate: { less_than_equal: to } },
-              ],
+              and: [{ recurrenceId: { exists: true } }, { startDate: { less_than_equal: to } }],
             },
           ],
         },
@@ -424,5 +412,3 @@ export const deleteCalendarEvent = async (
     return err('Error deleting event')
   }
 }
-
-
