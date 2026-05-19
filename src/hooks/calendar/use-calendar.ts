@@ -308,9 +308,6 @@ export const useCalendar = () => {
     }) => api.calendar.update(id, data, scope, originalDate),
 
     onSuccess: (_, { id, data, scope, optimisticKey: key }) => {
-      if (key) clearOptimistic(key)
-      else clearOptimisticDate('event', id)
-
       if (!scope || scope === 'all') {
         queryClient.setQueriesData<{ docs: any[] }>(
           { queryKey: ['calendar-events'] },
@@ -319,10 +316,15 @@ export const useCalendar = () => {
             return { ...old, docs: old.docs.map((e) => e.id === id ? { ...e, ...data } : e) }
           }
         )
+        if (key) clearOptimistic(key)
+        else clearOptimisticDate('event', id)
       } else {
-        queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+        if (key) clearOptimistic(key)
+        else clearOptimisticDate('event', id)
+        Promise.resolve().then(() => {
+          queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+        })
       }
-
       if (dialogOpen) { toast.success('Event updated'); setDialogOpen(false) }
     },
 

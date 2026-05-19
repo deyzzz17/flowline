@@ -72,8 +72,16 @@ export function CalendarEventBlock({
 }) {
   const { formatTime } = useTimeFormat()
 
+  // ── ID unique par occurrence ──────────────────────────────────────────────
+  // Pour les occurrences récurrentes, plusieurs blocks ont le même item.id
+  // → on utilise optimisticKey qui est unique par occurrence
+  const draggableId =
+    item.type === 'event'
+      ? ((item as CalendarEvent).optimisticKey ?? `event-${item.id}`)
+      : `task-${item.id}`
+
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `${item.type}-${item.id}`,
+    id: draggableId,
     data: { item },
   })
 
@@ -144,10 +152,8 @@ export function CalendarEventBlock({
         resizeStartHeight.current + deltaY,
       )
       const newDurationMin = Math.round(pxToMinutes(newHeightPx) / 15) * 15
-
       const overflowMin = Math.max(0, newDurationMin - maxDurationMin)
       onResizeOverflow?.(overflowMin)
-
       const clampedMin = Math.min(newDurationMin, maxDurationMin)
       const el = blockRef.current
       if (el) el.style.height = `${minutesToPx(clampedMin)}px`
@@ -167,9 +173,7 @@ export function CalendarEventBlock({
         resizeStartHeight.current + deltaY,
       )
       const newDurationMin = Math.round(pxToMinutes(newHeightPx) / 15) * 15
-
       const newEnd = new Date(resizeBaseDate.getTime() + newDurationMin * 60000)
-
       resizeStartY.current = null
       onResizeOverflow?.(0)
       onResizeEnd(item, newEnd)
