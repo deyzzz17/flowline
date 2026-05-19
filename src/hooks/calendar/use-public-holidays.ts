@@ -145,7 +145,7 @@ function timezoneToCountryCode(timezone: string): string {
     'Africa/Dakar': 'SN',
     'Africa/Douala': 'CM',
   }
-  return map[timezone] ?? 'FR' // fallback France
+  return map[timezone] ?? 'FR'
 }
 
 async function fetchHolidays(year: number, countryCode: string): Promise<PublicHoliday[]> {
@@ -174,7 +174,10 @@ export function usePublicHolidays(year: number) {
   holidays.forEach((h) => holidayMap.set(h.date, h))
 
   const getHoliday = (date: Date): PublicHoliday | null => {
-    const key = date.toISOString().slice(0, 10)
+    const y = date.getFullYear()
+    const m = String(date.getMonth() + 1).padStart(2, '0')
+    const d = String(date.getDate()).padStart(2, '0')
+    const key = `${y}-${m}-${d}`
     return holidayMap.get(key) ?? null
   }
 
