@@ -35,8 +35,7 @@ function getHeaderTitle(date: Date, view: CalendarView): string {
     case 'week': {
       const start = new Date(date)
       start.setDate(start.getDate() - start.getDay())
-      const end = new Date(start)
-      end.setDate(end.getDate() + 6)
+      const end = new Date(start); end.setDate(end.getDate() + 6)
       if (start.getMonth() === end.getMonth()) {
         return `${start.toLocaleDateString('en-US', { month: 'long' })} ${start.getDate()}–${end.getDate()}, ${start.getFullYear()}`
       }
@@ -53,7 +52,6 @@ function MoveScopeDialog({ open, onOpenChange, onSelect, action }: {
   onSelect: (scope: EditScope) => void
   action: 'move' | 'resize'
 }) {
-  const label = action === 'move' ? 'move' : 'resize'
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -62,7 +60,7 @@ function MoveScopeDialog({ open, onOpenChange, onSelect, action }: {
             {action === 'move' ? 'Move recurring event' : 'Resize recurring event'}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            This event is part of a series. Which events would you like to {label}?
+            This event is part of a series. Which events would you like to {action}?
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="flex flex-col gap-2 py-2">
@@ -109,7 +107,7 @@ export function CalendarClient() {
   const goToDay = useCallback((date: Date) => { setCurrentDate(date); setView('day') }, [setCurrentDate, setView])
   const goToMonth = useCallback((date: Date) => { setCurrentDate(date); setView('month') }, [setCurrentDate, setView])
 
-  const isRecurring = (item: CalendarItem): item is CalendarEvent => {
+  const isRecurringEvent = (item: CalendarItem): item is CalendarEvent => {
     if (item.type !== 'event') return false
     const ev = item as CalendarEvent
     return !!(ev.recurrence?.frequency || ev.isOccurrence)
@@ -124,7 +122,7 @@ export function CalendarClient() {
     const hasSpecificHour = targetDate.getHours() !== 0 || targetDate.getMinutes() !== 0
 
     if (item.type === 'event') {
-      if (isRecurring(item)) {
+      if (isRecurringEvent(item)) {
         setPendingAction({ type: 'move', item: item as CalendarEvent, targetDate })
       } else {
         moveEvent(item.id, targetDate)
@@ -137,7 +135,7 @@ export function CalendarClient() {
 
   const handleResizeEnd = (item: CalendarItem, newEndDate: Date) => {
     if (item.type === 'event') {
-      if (isRecurring(item as CalendarEvent)) {
+      if (isRecurringEvent(item as CalendarEvent)) {
         setPendingAction({ type: 'resize', item: item as CalendarEvent, newEndDate })
       } else {
         resizeEvent(item.id, newEndDate)
@@ -153,19 +151,19 @@ export function CalendarClient() {
 
   const handleScopeSelect = (scope: EditScope) => {
     if (!pendingAction) return
+    const { item } = pendingAction
+    const occDate = item.occurrenceDate ?? item.startDate
+    const key = item.optimisticKey
 
     if (pendingAction.type === 'move') {
-      const { item, targetDate } = pendingAction
-      moveEvent(item.id, targetDate, scope, item.occurrenceDate ?? item.startDate)
+      moveEvent(item.id, pendingAction.targetDate, scope, occDate, key)
     } else {
-      const { item, newEndDate } = pendingAction
-      resizeEvent(item.id, newEndDate, scope, item.occurrenceDate ?? item.startDate)
+      resizeEvent(item.id, pendingAction.newEndDate, scope, occDate, key)
       if (view === 'day') {
         const midnight = new Date(currentDate); midnight.setHours(24, 0, 0, 0)
-        if (newEndDate > midnight) setTimeout(() => navigate('next'), 400)
+        if (pendingAction.newEndDate > midnight) setTimeout(() => navigate('next'), 400)
       }
     }
-
     setPendingAction(null)
   }
 
