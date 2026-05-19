@@ -183,7 +183,7 @@ export const updateCalendarEvent = async (
     if (!isRecurring && !isOverride || scope === 'all') {
       const targetId = isOverride ? (existing as any).recurrenceId : id
     
-      let updateData: any = {
+      const updateData: any = {
         ...(data.title !== undefined && { title: data.title }),
         ...(data.description !== undefined && { description: data.description }),
         ...(data.allDay !== undefined && { allDay: data.allDay }),
