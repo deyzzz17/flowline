@@ -52,7 +52,7 @@ export function CalendarEventBlock({
   displayHeight?: number
   style?: React.CSSProperties
   viewDate?: Date
-  onResizeOverflow?: (overflowMinutes: number) => void 
+  onResizeOverflow?: (overflowMinutes: number) => void
 }) {
   const { formatTime } = useTimeFormat()
 
@@ -80,8 +80,14 @@ export function CalendarEventBlock({
     ? startDate < (() => { const d = new Date(viewDate); d.setHours(0, 0, 0, 0); return d })()
     : false
 
-  const startMinutes = startDate.getHours() * 60 + startDate.getMinutes()
-  const maxDurationMin = 24 * 60 - startMinutes
+  const resizeBaseDate = continuesPrevDay && viewDate
+    ? (() => { const d = new Date(viewDate); d.setHours(0, 0, 0, 0); return d })()
+    : startDate
+
+  const minutesBeforeThisDay = continuesPrevDay
+    ? 0 
+    : startDate.getHours() * 60 + startDate.getMinutes()
+  const maxDurationMin = 24 * 60 - minutesBeforeThisDay
 
   const resizeStartY = useRef<number | null>(null)
   const resizeStartHeight = useRef<number>(height)
@@ -116,12 +122,14 @@ export function CalendarEventBlock({
     const deltaY = clientY - resizeStartY.current
     const newHeightPx = Math.max(minutesToPx(MIN_DURATION_MIN), resizeStartHeight.current + deltaY)
     const newDurationMin = Math.round(pxToMinutes(newHeightPx) / 15) * 15
-    const newEnd = new Date(startDate.getTime() + newDurationMin * 60000)
+
+    const newEnd = new Date(resizeBaseDate.getTime() + newDurationMin * 60000)
+
     resizeStartY.current = null
-    onResizeOverflow?.(0) 
+    onResizeOverflow?.(0)
     onResizeEnd(item, newEnd)
     setTimeout(() => { isResizing.current = false }, 50)
-  }, [startDate, item, onResizeEnd, onResizeOverflow])
+  }, [resizeBaseDate, item, onResizeEnd, onResizeOverflow])
 
   const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
     e.stopPropagation(); e.preventDefault()
@@ -193,17 +201,15 @@ export function CalendarEventBlock({
         )}
       </div>
 
-      {!continuesNextDay && (
-        <div
-          onMouseDown={handleResizeMouseDown}
-          onTouchStart={handleResizeTouchStart}
-          className="absolute bottom-0 left-0 right-0 h-4 cursor-s-resize flex items-center justify-center group touch-none"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="w-8 h-1 rounded-full transition-opacity opacity-40 group-hover:opacity-80"
-            style={{ backgroundColor: color }} />
-        </div>
-      )}
+      <div
+        onMouseDown={handleResizeMouseDown}
+        onTouchStart={handleResizeTouchStart}
+        className="absolute bottom-0 left-0 right-0 h-4 cursor-s-resize flex items-center justify-center group touch-none"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="w-8 h-1 rounded-full transition-opacity opacity-40 group-hover:opacity-80"
+          style={{ backgroundColor: color }} />
+      </div>
     </div>
   )
 }
