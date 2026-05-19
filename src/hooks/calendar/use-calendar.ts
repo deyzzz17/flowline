@@ -289,13 +289,9 @@ export const useCalendar = () => {
       scope?: EditScope
       originalDate?: string
     }) => api.calendar.update(id, data, scope, originalDate),
-    onSuccess: (_, { id, data }) => {
-      queryClient.setQueriesData<{ docs: any[] }>({ queryKey: ['calendar-events'] }, (old) => {
-        if (!old) return old
-        return { ...old, docs: old.docs.map((e) => (e.id === id ? { ...e, ...data } : e)) }
-      })
+    onSuccess: (_, { id }) => {
       clearOptimisticDate('event', id)
-      setTimeout(() => queryClient.invalidateQueries({ queryKey: ['calendar-events'] }), 1000)
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: ['calendar-events'] }), 500)
       if (dialogOpen) {
         toast.success('Event updated')
         setDialogOpen(false)
@@ -411,14 +407,20 @@ export const useCalendar = () => {
 
   const resizeEvent = useCallback(
     (id: number, newEndDate: Date) => {
+      const event = events.find((e) => e.id === id)
       setOptimisticOverrides((prev) => {
         const next = new Map(prev)
         next.set(`event-end-${id}`, newEndDate.toISOString())
         return next
       })
-      updateMutation.mutate({ id, data: { endDate: newEndDate.toISOString() } })
+      updateMutation.mutate({
+        id,
+        data: { endDate: newEndDate.toISOString() },
+        scope: event?.isOccurrence ? 'this' : 'all',
+        originalDate: event?.occurrenceDate ?? event?.startDate,
+      })
     },
-    [updateMutation],
+    [updateMutation, events],
   )
 
   const resizeTask = useCallback(
