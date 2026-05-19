@@ -115,8 +115,18 @@ export function CalendarClient() {
   }
 
   const handleResizeEnd = (item: CalendarItem, newEndDate: Date) => {
-    if (item.type === 'event') resizeEvent(item.id, newEndDate)
-    else resizeTask(item.id, newEndDate)
+    if (item.type === 'event') {
+      resizeEvent(item.id, newEndDate)
+      if (view === 'day') {
+        const midnight = new Date(currentDate)
+        midnight.setHours(24, 0, 0, 0)
+        if (newEndDate > midnight) {
+          setTimeout(() => navigate('next'), 400)
+        }
+      }
+    } else {
+      resizeTask(item.id, newEndDate)
+    }
   }
 
   const handleTaskTimeConfirm = (dateWithTime: Date) => {

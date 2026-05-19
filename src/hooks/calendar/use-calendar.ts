@@ -444,9 +444,16 @@ export const useCalendar = () => {
         return dt.getFullYear() === y && dt.getMonth() === m && dt.getDate() === d
       }
 
-      const dayEvents = eventsWithOverrides.filter(
-        (e) => sameLocalDate(e.startDate) && isCategoryVisible(e.categoryId),
-      )
+      const dayEvents = eventsWithOverrides.filter((e) => {
+        if (!isCategoryVisible(e.categoryId)) return false
+        const start = new Date(e.startDate)
+        const end = new Date(e.endDate)
+        const dayStart = new Date(date)
+        dayStart.setHours(0, 0, 0, 0)
+        const dayEnd = new Date(date)
+        dayEnd.setHours(23, 59, 59, 999)
+        return start <= dayEnd && end >= dayStart
+      })
       const dayTasks = tasksWithOverrides.filter((t) => sameLocalDate(t.dueDate))
       return [...dayEvents, ...dayTasks].sort((a, b) => {
         const aDate = a.type === 'event' ? a.startDate : a.dueDate
