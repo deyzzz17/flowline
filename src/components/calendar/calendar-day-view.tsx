@@ -3,12 +3,14 @@
 import { useDroppable } from '@dnd-kit/core'
 import { cn } from '@/lib/utils'
 import { CalendarEventBlock, pxToMinutes } from './calendar-event-block'
+import { computeColumns } from './calendar-columns'
 import { useTimeFormat } from '@/hooks/calendar/use-time-format'
 import { usePublicHolidays } from '@/hooks/calendar/use-public-holidays'
 import type { CalendarItem, CalendarEvent } from '@/hooks/calendar/use-calendar'
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 const SLOT_HEIGHT = 56
+const PADDING = 4
 
 function isAllDay(item: CalendarItem): boolean {
   return item.type === 'event' && (item as CalendarEvent).allDay
@@ -83,6 +85,7 @@ export function CalendarDayView({
   const { formatHourLabel } = useTimeFormat()
   const { getHoliday } = usePublicHolidays(currentDate.getFullYear())
   const holiday = getHoliday(currentDate)
+  const layouts = computeColumns(timedItems)
 
   return (
     <div className="flex flex-1 flex-col overflow-auto">
@@ -151,6 +154,7 @@ export function CalendarDayView({
             </div>
           ))}
         </div>
+
         <div
           className="flex-1 relative cursor-pointer"
           style={{ height: totalHeight }}
@@ -166,16 +170,24 @@ export function CalendarDayView({
           {HOURS.map((h) => (
             <DroppableSlot key={h} date={currentDate} hour={h} />
           ))}
-          {timedItems.map((item) => (
-            <CalendarEventBlock
-              key={`${item.type}-${item.id}`}
-              item={item}
-              onClickItem={onClickItem}
-              onResizeEnd={onResizeEnd}
-              paddingX={4}
-              displayHeight={getItemDisplayHeight(item)}
-            />
-          ))}
+          {layouts.map(({ item, column, totalColumns }) => {
+            const widthPct = 100 / totalColumns
+            const leftPct = column * widthPct
+            return (
+              <CalendarEventBlock
+                key={`${item.type}-${item.id}`}
+                item={item}
+                onClickItem={onClickItem}
+                onResizeEnd={onResizeEnd}
+                displayHeight={getItemDisplayHeight(item)}
+                style={{
+                  left: `calc(${leftPct}% + ${PADDING}px)`,
+                  right: `calc(${100 - leftPct - widthPct}% + ${PADDING}px)`,
+                  width: 'auto',
+                }}
+              />
+            )
+          })}
         </div>
       </div>
     </div>

@@ -21,7 +21,10 @@ export function getItemHeight(item: CalendarItem): number {
   if (item.type === 'event') {
     const start = new Date(item.startDate)
     const end = new Date(item.endDate)
-    const durationMin = Math.max(MIN_DURATION_MIN, (end.getTime() - start.getTime()) / 60000)
+    const midnight = new Date(start)
+    midnight.setHours(24, 0, 0, 0)
+    const effectiveEnd = end > midnight ? midnight : end
+    const durationMin = Math.max(MIN_DURATION_MIN, (effectiveEnd.getTime() - start.getTime()) / 60000)
     return minutesToPx(durationMin)
   }
   return minutesToPx(30)
@@ -33,12 +36,14 @@ export function CalendarEventBlock({
   onResizeEnd,
   paddingX = 2,
   displayHeight,
+  style, 
 }: {
   item: CalendarItem
   onClickItem: (item: CalendarItem) => void
   onResizeEnd: (item: CalendarItem, newEndDate: Date) => void
   paddingX?: number
   displayHeight?: number
+  style?: React.CSSProperties
 }) {
   const { formatTime } = useTimeFormat()
 
@@ -95,41 +100,31 @@ export function CalendarEventBlock({
   }, [startDate, item, onResizeEnd])
 
   const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-    e.preventDefault()
+    e.stopPropagation(); e.preventDefault()
     startResize(e.clientY)
-
     const onMouseMove = (ev: MouseEvent) => updateResize(ev.clientY)
     const onMouseUp = (ev: MouseEvent) => {
       document.removeEventListener('mousemove', onMouseMove)
       document.removeEventListener('mouseup', onMouseUp)
       endResize(ev.clientY)
     }
-
     document.addEventListener('mousemove', onMouseMove)
     document.addEventListener('mouseup', onMouseUp)
   }, [startResize, updateResize, endResize])
 
   const handleResizeTouchStart = useCallback((e: React.TouchEvent) => {
     e.stopPropagation()
-    const touch = e.touches[0]
-    if (!touch) return
+    const touch = e.touches[0]; if (!touch) return
     startResize(touch.clientY)
-
     const onTouchMove = (ev: TouchEvent) => {
-      const t = ev.touches[0]
-      if (!t) return
-      ev.preventDefault()
-      updateResize(t.clientY)
+      const t = ev.touches[0]; if (!t) return
+      ev.preventDefault(); updateResize(t.clientY)
     }
-
     const onTouchEnd = (ev: TouchEvent) => {
       document.removeEventListener('touchmove', onTouchMove)
       document.removeEventListener('touchend', onTouchEnd)
-      const t = ev.changedTouches[0]
-      if (t) endResize(t.clientY)
+      const t = ev.changedTouches[0]; if (t) endResize(t.clientY)
     }
-
     document.addEventListener('touchmove', onTouchMove, { passive: false })
     document.addEventListener('touchend', onTouchEnd)
   }, [startResize, updateResize, endResize])
@@ -139,10 +134,14 @@ export function CalendarEventBlock({
       ref={(node) => { blockRef.current = node; setNodeRef(node) }}
       style={{
         position: 'absolute',
-        top, left: paddingX, right: paddingX, height,
+        top,
+        left: paddingX,
+        right: paddingX,
+        height,
         backgroundColor: `${color}22`,
         borderLeft: `3px solid ${color}`,
         zIndex: isDragging ? 50 : 10,
+        ...style,
       }}
       className={cn('rounded-r-lg overflow-hidden select-none', isDragging && 'opacity-40')}
     >
@@ -171,10 +170,8 @@ export function CalendarEventBlock({
         className="absolute bottom-0 left-0 right-0 h-4 cursor-s-resize flex items-center justify-center group touch-none"
         onClick={(e) => e.stopPropagation()}
       >
-        <div
-          className="w-8 h-1 rounded-full transition-opacity opacity-40 group-hover:opacity-80"
-          style={{ backgroundColor: color }}
-        />
+        <div className="w-8 h-1 rounded-full transition-opacity opacity-40 group-hover:opacity-80"
+          style={{ backgroundColor: color }} />
       </div>
     </div>
   )

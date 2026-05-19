@@ -4,6 +4,7 @@ import { useRef } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { cn } from '@/lib/utils'
 import { CalendarEventBlock, pxToMinutes } from './calendar-event-block'
+import { computeColumns } from './calendar-columns'
 import { useTimeFormat } from '@/hooks/calendar/use-time-format'
 import { usePublicHolidays } from '@/hooks/calendar/use-public-holidays'
 import type { CalendarItem, CalendarEvent } from '@/hooks/calendar/use-calendar'
@@ -11,14 +12,13 @@ import type { CalendarItem, CalendarEvent } from '@/hooks/calendar/use-calendar'
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 const DAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const SLOT_HEIGHT = 56
+const PADDING = 2
 
 function getWeekDays(currentDate: Date): Date[] {
   const start = new Date(currentDate)
   start.setDate(start.getDate() - start.getDay())
   return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(start)
-    d.setDate(d.getDate() + i)
-    return d
+    const d = new Date(start); d.setDate(d.getDate() + i); return d
   })
 }
 
@@ -26,46 +26,24 @@ function isAllDay(item: CalendarItem): boolean {
   return item.type === 'event' && (item as CalendarEvent).allDay
 }
 
-function AllDayPill({
-  item,
-  onClick,
-}: {
-  item: CalendarItem
-  onClick: (item: CalendarItem) => void
-}) {
+function AllDayPill({ item, onClick }: { item: CalendarItem; onClick: (item: CalendarItem) => void }) {
   const event = item as CalendarEvent
   return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation()
-        onClick(item)
-      }}
+    <button type="button" onClick={(e) => { e.stopPropagation(); onClick(item) }}
       className="w-full text-left rounded px-1.5 py-0.5 text-[10px] font-medium truncate transition-opacity hover:opacity-80"
-      style={{
-        backgroundColor: `${event.color}30`,
-        color: event.color,
-        borderLeft: `2px solid ${event.color}`,
-      }}
-    >
+      style={{ backgroundColor: `${event.color}30`, color: event.color, borderLeft: `2px solid ${event.color}` }}>
       {item.title}
     </button>
   )
 }
 
 function DroppableSlot({ date, hour }: { date: Date; hour: number }) {
-  const slotDate = new Date(date)
-  slotDate.setHours(hour, 0, 0, 0)
+  const slotDate = new Date(date); slotDate.setHours(hour, 0, 0, 0)
   const { setNodeRef, isOver } = useDroppable({ id: slotDate.toISOString() })
   return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        'absolute left-0 right-0 border-b border-border/20 pointer-events-auto transition-colors',
-        isOver && 'bg-violet-500/5',
-      )}
-      style={{ top: hour * SLOT_HEIGHT, height: SLOT_HEIGHT }}
-    />
+    <div ref={setNodeRef}
+      className={cn('absolute left-0 right-0 border-b border-border/20 pointer-events-auto transition-colors', isOver && 'bg-violet-500/5')}
+      style={{ top: hour * SLOT_HEIGHT, height: SLOT_HEIGHT }} />
   )
 }
 
@@ -78,13 +56,7 @@ function getSlotDate(date: Date, clientY: number, rect: DOMRect): Date {
 }
 
 function DayColumn({
-  date,
-  items,
-  onClickSlot,
-  onDoubleClickSlot,
-  onClickItem,
-  onResizeEnd,
-  getItemDisplayHeight,
+  date, items, onClickSlot, onDoubleClickSlot, onClickItem, onResizeEnd, getItemDisplayHeight,
 }: {
   date: Date
   items: CalendarItem[]
@@ -96,42 +68,41 @@ function DayColumn({
 }) {
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const timedItems = items.filter((i) => !isAllDay(i))
+  const layouts = computeColumns(timedItems)
 
   return (
-    <div
-      className="relative border-r border-border/40"
-      style={{ height: SLOT_HEIGHT * 24 }}
+    <div className="relative border-r border-border/40" style={{ height: SLOT_HEIGHT * 24 }}
       onClick={(e) => {
         if (clickTimer.current) return
         const slotDate = getSlotDate(date, e.clientY, e.currentTarget.getBoundingClientRect())
-        clickTimer.current = setTimeout(() => {
-          clickTimer.current = null
-          onClickSlot(slotDate)
-        }, 200)
+        clickTimer.current = setTimeout(() => { clickTimer.current = null; onClickSlot(slotDate) }, 200)
       }}
       onDoubleClick={(e) => {
         e.stopPropagation()
-        if (clickTimer.current) {
-          clearTimeout(clickTimer.current)
-          clickTimer.current = null
-        }
+        if (clickTimer.current) { clearTimeout(clickTimer.current); clickTimer.current = null }
         const slotDate = getSlotDate(date, e.clientY, e.currentTarget.getBoundingClientRect())
         onDoubleClickSlot(slotDate)
       }}
     >
-      {HOURS.map((h) => (
-        <DroppableSlot key={h} date={date} hour={h} />
-      ))}
-      {timedItems.map((item) => (
-        <CalendarEventBlock
-          key={`${item.type}-${item.id}`}
-          item={item}
-          onClickItem={onClickItem}
-          onResizeEnd={onResizeEnd}
-          paddingX={2}
-          displayHeight={getItemDisplayHeight(item)}
-        />
-      ))}
+      {HOURS.map((h) => <DroppableSlot key={h} date={date} hour={h} />)}
+      {layouts.map(({ item, column, totalColumns }) => {
+        const widthPct = 100 / totalColumns
+        const leftPct = column * widthPct
+        return (
+          <CalendarEventBlock
+            key={`${item.type}-${item.id}`}
+            item={item}
+            onClickItem={onClickItem}
+            onResizeEnd={onResizeEnd}
+            displayHeight={getItemDisplayHeight(item)}
+            style={{
+              left: `calc(${leftPct}% + ${PADDING}px)`,
+              right: `calc(${100 - leftPct - widthPct}% + ${PADDING}px)`,
+              width: 'auto',
+            }}
+          />
+        )
+      })}
     </div>
   )
 }
@@ -147,13 +118,8 @@ interface CalendarWeekViewProps {
 }
 
 export function CalendarWeekView({
-  currentDate,
-  getItemsForDate,
-  onClickSlot,
-  onDoubleClickSlot,
-  onClickItem,
-  onResizeEnd,
-  getItemDisplayHeight,
+  currentDate, getItemsForDate, onClickSlot, onDoubleClickSlot,
+  onClickItem, onResizeEnd, getItemDisplayHeight,
 }: CalendarWeekViewProps) {
   const days = getWeekDays(currentDate)
   const today = new Date()
@@ -169,24 +135,17 @@ export function CalendarWeekView({
     <div className="flex flex-1 overflow-auto">
       <div className="w-14 shrink-0 border-r border-border/40 relative flex flex-col">
         {hasAnyAllDay && (
-          <div
-            className="sticky top-12 z-10 bg-background border-b border-border/40 flex items-center justify-end pr-2 shrink-0"
-            style={{ height: allDayBandHeight }}
-          >
+          <div className="sticky top-12 z-10 bg-background border-b border-border/40 flex items-center justify-end pr-2 shrink-0"
+            style={{ height: allDayBandHeight }}>
             <span className="text-[9px] text-muted-foreground/40">all day</span>
           </div>
         )}
         <div className="sticky top-0 z-20 bg-background border-b border-border/40 h-12" />
         <div className="relative" style={{ height: SLOT_HEIGHT * 24 }}>
           {HOURS.map((h) => (
-            <div
-              key={h}
-              className="absolute right-0 flex items-start justify-end pr-2"
-              style={{ top: h * SLOT_HEIGHT - 8, height: SLOT_HEIGHT }}
-            >
-              {h !== 0 && (
-                <span className="text-[10px] text-muted-foreground/50">{formatHourLabel(h)}</span>
-              )}
+            <div key={h} className="absolute right-0 flex items-start justify-end pr-2"
+              style={{ top: h * SLOT_HEIGHT - 8, height: SLOT_HEIGHT }}>
+              {h !== 0 && <span className="text-[10px] text-muted-foreground/50">{formatHourLabel(h)}</span>}
             </div>
           ))}
         </div>
@@ -201,48 +160,23 @@ export function CalendarWeekView({
 
           return (
             <div key={date.toISOString()} className="flex-1 flex flex-col min-w-0">
-              <div
-                className={cn(
-                  'sticky top-0 z-20 bg-background/95 backdrop-blur-sm h-12 flex flex-col items-center justify-center border-b border-border/40 border-r border-border/40 shrink-0',
-                  holiday && 'bg-amber-500/5',
-                )}
-              >
+              <div className={cn('sticky top-0 z-20 bg-background/95 backdrop-blur-sm h-12 flex flex-col items-center justify-center border-b border-border/40 border-r border-border/40 shrink-0',
+                holiday && 'bg-amber-500/5')}>
                 <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
                   {DAYS_SHORT[date.getDay()]}
                 </span>
-                <span
-                  className={cn(
-                    'flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold',
-                    isToday
-                      ? 'bg-violet-600 text-white'
-                      : holiday
-                        ? 'text-amber-600 dark:text-amber-400'
-                        : 'text-foreground',
-                  )}
-                >
+                <span className={cn('flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold',
+                  isToday ? 'bg-violet-600 text-white' : holiday ? 'text-amber-600 dark:text-amber-400' : 'text-foreground')}>
                   {date.getDate()}
                 </span>
-                {holiday && (
-                  <span className="text-[8px] text-amber-600/70 dark:text-amber-400/70 truncate max-w-full px-1 leading-none mt-0.5 hidden">
-                    {holiday.localName}
-                  </span>
-                )}
               </div>
 
               {hasAnyAllDay && (
-                <div
-                  className="sticky top-12 z-10 border-b border-r border-border/40 bg-background/95 backdrop-blur-sm px-1 py-1 flex flex-col gap-0.5 shrink-0"
-                  style={{ height: allDayBandHeight }}
-                >
+                <div className="sticky top-12 z-10 border-b border-r border-border/40 bg-background/95 backdrop-blur-sm px-1 py-1 flex flex-col gap-0.5 shrink-0"
+                  style={{ height: allDayBandHeight }}>
                   {holiday && (
-                    <div
-                      className="w-full rounded px-1.5 py-0.5 text-[10px] font-medium truncate"
-                      style={{
-                        backgroundColor: '#f59e0b20',
-                        color: '#d97706',
-                        borderLeft: '2px solid #f59e0b',
-                      }}
-                    >
+                    <div className="w-full rounded px-1.5 py-0.5 text-[10px] font-medium truncate"
+                      style={{ backgroundColor: '#f59e0b20', color: '#d97706', borderLeft: '2px solid #f59e0b' }}>
                       🎌 {holiday.localName}
                     </div>
                   )}
@@ -252,15 +186,10 @@ export function CalendarWeekView({
                 </div>
               )}
 
-              <DayColumn
-                date={date}
-                items={items}
-                onClickSlot={onClickSlot}
-                onDoubleClickSlot={onDoubleClickSlot}
-                onClickItem={onClickItem}
-                onResizeEnd={onResizeEnd}
-                getItemDisplayHeight={getItemDisplayHeight}
-              />
+              <DayColumn date={date} items={items}
+                onClickSlot={onClickSlot} onDoubleClickSlot={onDoubleClickSlot}
+                onClickItem={onClickItem} onResizeEnd={onResizeEnd}
+                getItemDisplayHeight={getItemDisplayHeight} />
             </div>
           )
         })}

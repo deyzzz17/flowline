@@ -240,11 +240,16 @@ export const useCalendar = () => {
     (item: CalendarItem): number => {
       if (item.type === 'event') {
         const endOverride = optimisticOverrides.get(`event-end-${item.id}`)
-        const endDate = endOverride ? new Date(endOverride) : new Date(item.endDate)
         const startDate = new Date(item.startDate)
+        const endDate = endOverride ? new Date(endOverride) : new Date(item.endDate)
+
+        const midnight = new Date(startDate)
+        midnight.setHours(24, 0, 0, 0)
+        const effectiveEnd = endDate > midnight ? midnight : endDate
+
         const durationMin = Math.max(
           MIN_DURATION_MIN,
-          (endDate.getTime() - startDate.getTime()) / 60000,
+          (effectiveEnd.getTime() - startDate.getTime()) / 60000,
         )
         return minutesToPx(durationMin)
       } else {
@@ -430,13 +435,19 @@ export const useCalendar = () => {
 
   const getItemsForDate = useCallback(
     (date: Date): CalendarItem[] => {
-      const dateStr = date.toDateString()
+      const y = date.getFullYear()
+      const m = date.getMonth()
+      const d = date.getDate()
+
+      const sameLocalDate = (iso: string) => {
+        const dt = new Date(iso)
+        return dt.getFullYear() === y && dt.getMonth() === m && dt.getDate() === d
+      }
+
       const dayEvents = eventsWithOverrides.filter(
-        (e) => new Date(e.startDate).toDateString() === dateStr && isCategoryVisible(e.categoryId),
+        (e) => sameLocalDate(e.startDate) && isCategoryVisible(e.categoryId),
       )
-      const dayTasks = tasksWithOverrides.filter(
-        (t) => new Date(t.dueDate).toDateString() === dateStr,
-      )
+      const dayTasks = tasksWithOverrides.filter((t) => sameLocalDate(t.dueDate))
       return [...dayEvents, ...dayTasks].sort((a, b) => {
         const aDate = a.type === 'event' ? a.startDate : a.dueDate
         const bDate = b.type === 'event' ? b.startDate : b.dueDate
