@@ -182,19 +182,49 @@ export const updateCalendarEvent = async (
 
     if (!isRecurring && !isOverride || scope === 'all') {
       const targetId = isOverride ? (existing as any).recurrenceId : id
+    
+      let updateData: any = {
+        ...(data.title !== undefined && { title: data.title }),
+        ...(data.description !== undefined && { description: data.description }),
+        ...(data.allDay !== undefined && { allDay: data.allDay }),
+        ...(data.color !== undefined && { color: data.color }),
+        ...(data.categoryId !== undefined && { categoryId: data.categoryId }),
+        ...(data.recurrence !== undefined && { recurrence: data.recurrence ?? undefined }),
+      }
+    
+      if (isOverride && (data.startDate || data.endDate)) {
+        const parent = await payload.findByID({ collection: 'calendar-events', id: targetId })
+        const originalOccStart = new Date(existing.startDate)
+        const originalParentStart = new Date(parent.startDate)
+        const originalParentEnd = new Date(parent.endDate)
+    
+        if (data.startDate) {
+          const newOccStart = new Date(data.startDate)
+          const deltaMs = newOccStart.getTime() - originalOccStart.getTime()
+          updateData.startDate = new Date(originalParentStart.getTime() + deltaMs).toISOString()
+          updateData.endDate = new Date(originalParentEnd.getTime() + deltaMs).toISOString()
+        } else if (data.endDate) {
+          const newDuration = new Date(data.endDate).getTime() - new Date(existing.startDate).getTime()
+          updateData.endDate = new Date(originalParentStart.getTime() + newDuration).toISOString()
+        }
+    
+        const { docs: overrides } = await payload.find({
+          collection: 'calendar-events',
+          where: { recurrenceId: { equals: targetId } },
+          limit: 500,
+        })
+        for (const o of overrides) {
+          await payload.delete({ collection: 'calendar-events', id: o.id })
+        }
+      } else {
+        if (data.startDate) updateData.startDate = data.startDate
+        if (data.endDate) updateData.endDate = data.endDate
+      }
+    
       const updated = await payload.update({
         collection: 'calendar-events',
         id: targetId,
-        data: {
-          ...(data.title !== undefined && { title: data.title }),
-          ...(data.description !== undefined && { description: data.description }),
-          ...(data.startDate !== undefined && { startDate: data.startDate }),
-          ...(data.endDate !== undefined && { endDate: data.endDate }),
-          ...(data.allDay !== undefined && { allDay: data.allDay }),
-          ...(data.color !== undefined && { color: data.color }),
-          ...(data.categoryId !== undefined && { categoryId: data.categoryId }),
-          ...(data.recurrence !== undefined && { recurrence: data.recurrence as any ?? undefined }),
-        },
+        data: updateData,
       })
       return ok(updated)
     }
