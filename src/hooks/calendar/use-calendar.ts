@@ -135,7 +135,6 @@ export const useCalendar = () => {
     const normal = rawEvents.filter((e) => !e.recurrence?.frequency && !e.recurrenceId)
 
     result.push(...normal.map(({ exceptions, ...e }) => e))
-
     result.push(...overrides.map(({ exceptions, ...e }) => ({ ...e, isOccurrence: true })))
 
     for (const parent of parents) {
@@ -148,9 +147,7 @@ export const useCalendar = () => {
           .map((o) => new Date(o.originalDate ?? o.startDate).toISOString().slice(0, 10)),
       )
       const allExceptions = new Set([...exceptions, ...overrideDates])
-
       const occurrences = generateOccurrences(parent, from, to, allExceptions)
-
       for (const occ of occurrences) {
         result.push({
           id: parent.id,
@@ -245,14 +242,9 @@ export const useCalendar = () => {
         const endOverride = optimisticOverrides.get(`event-end-${item.id}`)
         const startDate = new Date(item.startDate)
         const endDate = endOverride ? new Date(endOverride) : new Date(item.endDate)
-
-        const midnight = new Date(startDate)
-        midnight.setHours(24, 0, 0, 0)
-        const effectiveEnd = endDate > midnight ? midnight : endDate
-
         const durationMin = Math.max(
           MIN_DURATION_MIN,
-          (effectiveEnd.getTime() - startDate.getTime()) / 60000,
+          (endDate.getTime() - startDate.getTime()) / 60000,
         )
         return minutesToPx(durationMin)
       } else {
@@ -292,9 +284,23 @@ export const useCalendar = () => {
       scope?: EditScope
       originalDate?: string
     }) => api.calendar.update(id, data, scope, originalDate),
-    onSuccess: (_, { id }) => {
-      clearOptimisticDate('event', id)
-      setTimeout(() => queryClient.invalidateQueries({ queryKey: ['calendar-events'] }), 500)
+    onSuccess: (_, { id, data, scope }) => {
+      if (!scope || scope === 'all') {
+        queryClient.setQueriesData<{ docs: any[] }>(
+          { queryKey: ['calendar-events'] },
+          (old) => {
+            if (!old) return old
+            return {
+              ...old,
+              docs: old.docs.map((e) => (e.id === id ? { ...e, ...data } : e)),
+            }
+          },
+        )
+        clearOptimisticDate('event', id)
+      } else {
+        clearOptimisticDate('event', id)
+        queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+      }
       if (dialogOpen) {
         toast.success('Event updated')
         setDialogOpen(false)
@@ -453,13 +459,13 @@ export const useCalendar = () => {
         if (!isCategoryVisible(e.categoryId)) return false
         const start = new Date(e.startDate)
         const end = new Date(e.endDate)
-        const dayStart = new Date(date)
-        dayStart.setHours(0, 0, 0, 0)
-        const dayEnd = new Date(date)
-        dayEnd.setHours(23, 59, 59, 999)
+        const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0)
+        const dayEnd = new Date(date); dayEnd.setHours(23, 59, 59, 999)
         return start <= dayEnd && end >= dayStart
       })
+
       const dayTasks = tasksWithOverrides.filter((t) => sameLocalDate(t.dueDate))
+
       return [...dayEvents, ...dayTasks].sort((a, b) => {
         const aDate = a.type === 'event' ? a.startDate : a.dueDate
         const bDate = b.type === 'event' ? b.startDate : b.dueDate
