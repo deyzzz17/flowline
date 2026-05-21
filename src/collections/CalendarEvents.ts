@@ -145,10 +145,5 @@ export const CalendarEvents: CollectionConfig = {
         description: 'The original occurrence date this event overrides',
       },
     },
-    {
-      name: 'seriesId',
-      type: 'text',
-      admin: { readOnly: false },
-    },
   ],
 }
