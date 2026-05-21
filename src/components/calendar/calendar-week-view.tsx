@@ -310,15 +310,13 @@ export function CalendarWeekView({
   return (
     <div className="flex flex-1 overflow-auto">
       <div className="w-14 shrink-0 border-r border-border/40 relative flex flex-col">
+        <div className="sticky top-0 z-20 bg-background border-b border-border/40 h-12 shrink-0" />
         {hasAnyAllDay && (
           <div
-            className="sticky top-12 z-10 bg-background border-b border-border/40 flex items-center justify-end pr-2 shrink-0"
+            className="sticky top-12 z-10 bg-background border-b border-border/40 shrink-0"
             style={{ height: allDayBandHeight }}
-          >
-            <span className="text-[9px] text-muted-foreground/40">all day</span>
-          </div>
+          />
         )}
-        <div className="sticky top-0 z-20 bg-background border-b border-border/40 h-12" />
         <div className="relative" style={{ height: SLOT_HEIGHT * 24 }}>
           {HOURS.map((h) => (
             <div
@@ -347,7 +345,7 @@ export function CalendarWeekView({
             <div key={date.toISOString()} className="flex-1 flex flex-col min-w-0">
               <div
                 className={cn(
-                  'sticky top-0 z-20 bg-background/95 backdrop-blur-sm h-12 flex flex-col items-center justify-center border-b border-border/40 border-r border-border/40 shrink-0',
+                  'sticky top-0 z-20 bg-background h-12 flex flex-col items-center justify-center border-b border-border/40 border-r border-border/40 shrink-0',
                   holiday && 'bg-amber-500/5',
                 )}
               >
@@ -385,7 +383,6 @@ export function CalendarWeekView({
                       <span className="truncate">{holiday.localName}</span>
                     </div>
                   )}
-
                   {allDayItems.map((item) => (
                     <AllDayPill key={`${item.type}-${item.id}`} item={item} onClick={onClickItem} />
                   ))}
