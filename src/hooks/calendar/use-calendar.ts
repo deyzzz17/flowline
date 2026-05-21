@@ -324,34 +324,24 @@ export const useCalendar = () => {
       optimisticKey?: string
     }) => api.calendar.update(id, data, scope, originalDate),
 
-    onMutate: async ({ optimisticKey: key }) => {
+    onMutate: async ({ id, data, optimisticKey: key }) => {
       await queryClient.cancelQueries({ queryKey: ['calendar-events'] })
       const snapshot = queryClient.getQueriesData({ queryKey: ['calendar-events'] })
+
+      queryClient.setQueriesData<{ docs: any[] }>({ queryKey: ['calendar-events'] }, (old) => {
+        if (!old) return old
+        return { ...old, docs: old.docs.map((e) => (e.id === id ? { ...e, ...data } : e)) }
+      })
+
+      if (key) clearOptimistic(key)
+      else clearOptimisticDate('event', id)
+
       return { snapshot, key }
     },
 
-    onSuccess: (_, { id, data, scope, optimisticKey: key }) => {
-      if (!scope || scope === 'all') {
-        if (data.startDate || data.endDate) {
-          // Move/resize sur toute la série : invalide avec override actif
-          // pour que TOUTES les occurrences (passées et futures) se mettent à jour
-          queryClient.invalidateQueries({ queryKey: ['calendar-events'] }).then(() => {
-            if (key) clearOptimistic(key)
-            else clearOptimisticDate('event', id)
-          })
-        } else {
-          queryClient.setQueriesData<{ docs: any[] }>({ queryKey: ['calendar-events'] }, (old) => {
-            if (!old) return old
-            return { ...old, docs: old.docs.map((e) => (e.id === id ? { ...e, ...data } : e)) }
-          })
-          if (key) clearOptimistic(key)
-          else clearOptimisticDate('event', id)
-        }
-      } else {
-        queryClient.invalidateQueries({ queryKey: ['calendar-events'] }).then(() => {
-          if (key) clearOptimistic(key)
-          else clearOptimisticDate('event', id)
-        })
+    onSuccess: (_, { id, scope, optimisticKey: key }) => {
+      if (scope === 'this' || scope === 'thisAndFollowing') {
+        queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
       }
       if (dialogOpen) {
         toast.success('Event updated')
