@@ -307,45 +307,22 @@ export function CalendarWeekView({
     ? Math.max(28, maxItems * ALL_DAY_ITEM_HEIGHT + ALL_DAY_PADDING)
     : 0
 
+  const totalGridHeight = SLOT_HEIGHT * 24
+
   return (
-    <div className="flex flex-1 overflow-auto">
-      <div className="w-14 shrink-0 border-r border-border/40 relative flex flex-col">
-        <div className="sticky top-0 z-20 bg-background border-b border-border/40 h-12 shrink-0" />
-        {hasAnyAllDay && (
-          <div
-            className="sticky top-12 z-10 bg-background border-b border-border/40 shrink-0"
-            style={{ height: allDayBandHeight }}
-          />
-        )}
-        <div className="relative" style={{ height: SLOT_HEIGHT * 24 }}>
-          {HOURS.map((h) => (
-            <div
-              key={h}
-              className="absolute right-0 flex items-start justify-end pr-2"
-              style={{ top: h * SLOT_HEIGHT - 8, height: SLOT_HEIGHT }}
-            >
-              {h !== 0 && (
-                <span className="text-[10px] text-muted-foreground/50">{formatHourLabel(h)}</span>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+    <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex shrink-0 border-b border-border/40 bg-background z-20">
+        <div className="w-14 shrink-0 border-r border-border/40" />
 
-      <div className="flex flex-1 min-w-0">
-        {days.map((date, i) => {
-          const isToday = date.toDateString() === today.toDateString()
-          const allDayItems = allDayByDay[i]
-          const items = getItemsForDate(date)
-          const holiday = holidayByDay[i]
-          const ghostMinutes =
-            overflow && overflow.dayIndex === i - 1 ? overflow.overflowMinutes : 0
-
-          return (
-            <div key={date.toISOString()} className="flex-1 flex flex-col min-w-0">
+        <div className="flex flex-1 min-w-0">
+          {days.map((date, i) => {
+            const isToday = date.toDateString() === today.toDateString()
+            const holiday = holidayByDay[i]
+            return (
               <div
+                key={date.toISOString()}
                 className={cn(
-                  'sticky top-0 z-20 bg-background h-12 flex flex-col items-center justify-center border-b border-border/40 border-r border-border/40 shrink-0',
+                  'flex-1 h-12 flex flex-col items-center justify-center border-r border-border/40',
                   holiday && 'bg-amber-500/5',
                 )}
               >
@@ -365,46 +342,92 @@ export function CalendarWeekView({
                   {date.getDate()}
                 </span>
               </div>
+            )
+          })}
+        </div>
+      </div>
 
-              {hasAnyAllDay && (
+      {hasAnyAllDay && (
+        <div className="flex shrink-0 border-b border-border/40 bg-background z-10">
+          <div
+            className="w-14 shrink-0 border-r border-border/40"
+            style={{ height: allDayBandHeight }}
+          />
+
+          <div className="flex flex-1 min-w-0">
+            {days.map((date, i) => {
+              const allDayItems = allDayByDay[i]
+              const holiday = holidayByDay[i]
+              return (
                 <div
-                  className="sticky top-12 z-10 border-b border-r border-border/40 bg-background px-1 py-1 flex flex-col gap-0.5 shrink-0 overflow-hidden"
+                  key={date.toISOString()}
+                  className="flex-1 border-r border-border/40 px-1 py-1 flex flex-col gap-0.5 overflow-hidden"
                   style={{ height: allDayBandHeight }}
                 >
                   {holiday && (
                     <div
-                      className="w-full rounded px-1.5 py-0.5 text-[10px] font-medium truncate flex items-center gap-1"
+                      className="w-full rounded px-1.5 py-0.5 text-[10px] font-medium truncate"
                       style={{
                         backgroundColor: '#f59e0b20',
                         color: '#d97706',
                         borderLeft: '2px solid #f59e0b',
                       }}
                     >
-                      <span className="truncate">{holiday.localName}</span>
+                      {holiday.localName}
                     </div>
                   )}
                   {allDayItems.map((item) => (
                     <AllDayPill key={`${item.type}-${item.id}`} item={item} onClick={onClickItem} />
                   ))}
                 </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+      
+      <div className="flex flex-1 overflow-y-auto overflow-x-hidden min-h-0">
+        <div
+          className="w-14 shrink-0 border-r border-border/40 relative"
+          style={{ height: totalGridHeight }}
+        >
+          {HOURS.map((h) => (
+            <div
+              key={h}
+              className="absolute right-0 flex items-start justify-end pr-2"
+              style={{ top: h * SLOT_HEIGHT - 8, height: SLOT_HEIGHT }}
+            >
+              {h !== 0 && (
+                <span className="text-[10px] text-muted-foreground/50">{formatHourLabel(h)}</span>
               )}
-
-              <DayColumn
-                date={date}
-                items={items}
-                onClickSlot={onClickSlot}
-                onDoubleClickSlot={onDoubleClickSlot}
-                onClickItem={onClickItem}
-                onResizeEnd={onResizeEnd}
-                ghostOverflow={ghostMinutes}
-                onResizeOverflow={(state) => {
-                  if (state) setOverflow({ ...state, dayIndex: i })
-                  else setOverflow(null)
-                }}
-              />
             </div>
-          )
-        })}
+          ))}
+        </div>
+
+        <div className="flex flex-1 min-w-0">
+          {days.map((date, i) => {
+            const items = getItemsForDate(date)
+            const ghostMinutes =
+              overflow && overflow.dayIndex === i - 1 ? overflow.overflowMinutes : 0
+            return (
+              <div key={date.toISOString()} className="flex-1 min-w-0">
+                <DayColumn
+                  date={date}
+                  items={items}
+                  onClickSlot={onClickSlot}
+                  onDoubleClickSlot={onDoubleClickSlot}
+                  onClickItem={onClickItem}
+                  onResizeEnd={onResizeEnd}
+                  ghostOverflow={ghostMinutes}
+                  onResizeOverflow={(state) => {
+                    if (state) setOverflow({ ...state, dayIndex: i })
+                    else setOverflow(null)
+                  }}
+                />
+              </div>
+            )
+          })}
+        </div>
       </div>
     </div>
   )
