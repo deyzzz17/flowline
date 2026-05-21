@@ -332,12 +332,21 @@ export const useCalendar = () => {
 
     onSuccess: (_, { id, data, scope, optimisticKey: key }) => {
       if (!scope || scope === 'all') {
-        queryClient.setQueriesData<{ docs: any[] }>({ queryKey: ['calendar-events'] }, (old) => {
-          if (!old) return old
-          return { ...old, docs: old.docs.map((e) => (e.id === id ? { ...e, ...data } : e)) }
-        })
-        if (key) clearOptimistic(key)
-        else clearOptimisticDate('event', id)
+        if (data.startDate || data.endDate) {
+          // Move/resize sur toute la série : invalide avec override actif
+          // pour que TOUTES les occurrences (passées et futures) se mettent à jour
+          queryClient.invalidateQueries({ queryKey: ['calendar-events'] }).then(() => {
+            if (key) clearOptimistic(key)
+            else clearOptimisticDate('event', id)
+          })
+        } else {
+          queryClient.setQueriesData<{ docs: any[] }>({ queryKey: ['calendar-events'] }, (old) => {
+            if (!old) return old
+            return { ...old, docs: old.docs.map((e) => (e.id === id ? { ...e, ...data } : e)) }
+          })
+          if (key) clearOptimistic(key)
+          else clearOptimisticDate('event', id)
+        }
       } else {
         queryClient.invalidateQueries({ queryKey: ['calendar-events'] }).then(() => {
           if (key) clearOptimistic(key)
