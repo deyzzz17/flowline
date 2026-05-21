@@ -1,16 +1,22 @@
 import type { RecurrenceRule } from './actions'
 
 function addDays(date: Date, n: number): Date {
-  const d = new Date(date); d.setDate(d.getDate() + n); return d
+  const d = new Date(date)
+  d.setDate(d.getDate() + n)
+  return d
 }
 function addWeeks(date: Date, n: number): Date {
   return addDays(date, n * 7)
 }
 function addMonths(date: Date, n: number): Date {
-  const d = new Date(date); d.setMonth(d.getMonth() + n); return d
+  const d = new Date(date)
+  d.setMonth(d.getMonth() + n)
+  return d
 }
 function addYears(date: Date, n: number): Date {
-  const d = new Date(date); d.setFullYear(d.getFullYear() + n); return d
+  const d = new Date(date)
+  d.setFullYear(d.getFullYear() + n)
+  return d
 }
 function nthWeekdayOfMonth(year: number, month: number, weekday: number, n: number): Date {
   const first = new Date(year, month, 1)

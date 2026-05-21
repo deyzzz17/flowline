@@ -54,8 +54,6 @@ export interface CalendarEventData {
 
 export type EditScope = 'this' | 'thisAndFollowing' | 'all'
 
-// ── Categories ────────────────────────────────────────────────────────────────
-
 const DEFAULT_CALENDAR_CATEGORIES = [
   { name: 'Personal', color: '#8b5cf6', isDefault: true },
   { name: 'Work', color: '#3b82f6', isDefault: true },
@@ -91,11 +89,12 @@ export const createCalendarCategory = async (data: CalendarCategoryData) => {
     const userId = await getUserId()
     if (!userId) return err('Not authenticated')
     const payload = await getPayload({ config })
-    const cat = await payload.create({
-      collection: 'calendar-categories',
-      data: { ...data, userId, isDefault: false },
-    })
-    return ok(cat)
+    return ok(
+      await payload.create({
+        collection: 'calendar-categories',
+        data: { ...data, userId, isDefault: false },
+      }),
+    )
   } catch {
     return err('Error creating category')
   }
@@ -119,8 +118,6 @@ export const deleteCalendarCategory = async (id: number) => {
     return err('Error deleting category')
   }
 }
-
-// ── Events ────────────────────────────────────────────────────────────────────
 
 export const listCalendarEvents = async (from: string, to: string) => {
   const userId = await getUserId()
@@ -188,7 +185,6 @@ export const updateCalendarEvent = async (
     const isRecurring = !!(existing as any).recurrence?.frequency
     const isOverride = !!(existing as any).recurrenceId
 
-    // ── Event non récurrent : update simple ───────────────────────────────────
     if (!isRecurring && !isOverride) {
       const updated = await payload.update({
         collection: 'calendar-events',
@@ -211,9 +207,11 @@ export const updateCalendarEvent = async (
 
     const parentId = isOverride ? (existing as any).recurrenceId : id
 
-    // ── scope === 'all' ────────────────────────────────────────────────────────
     if (scope === 'all') {
       const parent = await payload.findByID({ collection: 'calendar-events', id: parentId })
+      const parentStart = new Date(parent.startDate)
+      const parentEnd = new Date(parent.endDate)
+      const originalDuration = parentEnd.getTime() - parentStart.getTime()
 
       const updateData: any = {
         ...(data.title !== undefined && { title: data.title }),
@@ -222,63 +220,56 @@ export const updateCalendarEvent = async (
         ...(data.color !== undefined && { color: data.color }),
         ...(data.categoryId !== undefined && { categoryId: data.categoryId }),
         ...(data.recurrence !== undefined && { recurrence: (data.recurrence as any) ?? undefined }),
+        exceptions: [],
       }
 
       if (data.startDate || data.endDate) {
-        const parentStart = new Date(parent.startDate)
-        const parentEnd = new Date(parent.endDate)
+        if (data.startDate) {
+          const newOccStart = new Date(data.startDate)
 
-        if (isOverride) {
-          // Depuis un override : calcule le delta entre la position originale
-          // de l'occurrence dans la série et la nouvelle position demandée.
-          // La position originale = originalOccurrenceDate à l'heure du parent
-          const occDate = originalOccurrenceDate ?? existing.startDate
-          const occDateTime = new Date(occDate)
-
-          // Heure originale de l'occurrence = même heure que le parent
-          const originalOccStart = new Date(
-            occDateTime.getFullYear(),
-            occDateTime.getMonth(),
-            occDateTime.getDate(),
-            parentStart.getHours(),
-            parentStart.getMinutes(),
+          updateData.startDate = new Date(
+            parentStart.getFullYear(),
+            parentStart.getMonth(),
+            parentStart.getDate(),
+            newOccStart.getHours(),
+            newOccStart.getMinutes(),
             0,
             0,
-          )
+          ).toISOString()
 
-          if (data.startDate) {
-            const newOccStart = new Date(data.startDate)
-            const deltaMs = newOccStart.getTime() - originalOccStart.getTime()
-            updateData.startDate = new Date(parentStart.getTime() + deltaMs).toISOString()
-            updateData.endDate = new Date(parentEnd.getTime() + deltaMs).toISOString()
-          } else if (data.endDate) {
-            // Resize : garde l'heure de début, change juste la durée
-            const newDuration =
-              new Date(data.endDate).getTime() - new Date(existing.startDate).getTime()
-            updateData.endDate = new Date(parentStart.getTime() + newDuration).toISOString()
+          if (data.endDate) {
+            const newOccEnd = new Date(data.endDate)
+            updateData.endDate = new Date(
+              parentEnd.getFullYear(),
+              parentEnd.getMonth(),
+              parentEnd.getDate(),
+              newOccEnd.getHours(),
+              newOccEnd.getMinutes(),
+              0,
+              0,
+            ).toISOString()
+          } else {
+            updateData.endDate = new Date(
+              new Date(updateData.startDate).getTime() + originalDuration,
+            ).toISOString()
           }
-
-          // Supprime uniquement CET override (pas les autres)
-          await payload.delete({ collection: 'calendar-events', id })
-
-          // Retire l'exception correspondante sur le parent si elle existe
-          const exceptions = ((parent as any).exceptions ?? []) as { date: string }[]
-          const occKey = new Date(occDate).toISOString().slice(0, 10)
-          const newExceptions = exceptions.filter(
-            (e) => new Date(e.date).toISOString().slice(0, 10) !== occKey,
+        } else if (data.endDate) {
+          const newOccEnd = new Date(data.endDate)
+          const newOccStart = new Date(
+            isOverride ? existing.startDate : (originalOccurrenceDate ?? existing.startDate),
           )
-          if (newExceptions.length !== exceptions.length) {
-            await payload.update({
-              collection: 'calendar-events',
-              id: parentId,
-              data: { exceptions: newExceptions as any },
-            })
-          }
-        } else {
-          // Depuis le parent directement : update simple
-          if (data.startDate) updateData.startDate = data.startDate
-          if (data.endDate) updateData.endDate = data.endDate
+          const newDuration = newOccEnd.getTime() - newOccStart.getTime()
+          updateData.endDate = new Date(parentStart.getTime() + newDuration).toISOString()
         }
+      }
+
+      const { docs: allOverrides } = await payload.find({
+        collection: 'calendar-events',
+        where: { recurrenceId: { equals: parentId } },
+        limit: 500,
+      })
+      for (const o of allOverrides) {
+        await payload.delete({ collection: 'calendar-events', id: o.id })
       }
 
       const updated = await payload.update({
@@ -289,12 +280,10 @@ export const updateCalendarEvent = async (
       return ok(updated)
     }
 
-    // ── scope === 'this' ───────────────────────────────────────────────────────
     const occDate = originalOccurrenceDate ?? data.startDate ?? existing.startDate
     const parent = await payload.findByID({ collection: 'calendar-events', id: parentId })
 
     if (scope === 'this') {
-      // Ajoute l'exception sur le parent
       const exceptions = ((parent as any).exceptions ?? []) as { date: string }[]
       const occDateKey = new Date(occDate).toISOString().slice(0, 10)
       if (!exceptions.find((e) => new Date(e.date).toISOString().slice(0, 10) === occDateKey)) {
@@ -306,7 +295,6 @@ export const updateCalendarEvent = async (
       }
 
       if (isOverride) {
-        // Met à jour l'override existant
         const updated = await payload.update({
           collection: 'calendar-events',
           id,
@@ -322,7 +310,6 @@ export const updateCalendarEvent = async (
         })
         return ok(updated)
       } else {
-        // Crée un nouvel override pour cette occurrence
         const duration =
           new Date(existing.endDate).getTime() - new Date(existing.startDate).getTime()
         const newStart = data.startDate ?? occDate
@@ -351,11 +338,9 @@ export const updateCalendarEvent = async (
       }
     }
 
-    // ── scope === 'thisAndFollowing' ───────────────────────────────────────────
     if (scope === 'thisAndFollowing') {
       const occDateTime = new Date(occDate)
 
-      // Supprime les overrides >= occDate liés au parent
       const { docs: overrides } = await payload.find({
         collection: 'calendar-events',
         where: {
@@ -368,7 +353,6 @@ export const updateCalendarEvent = async (
       })
       for (const o of overrides) await payload.delete({ collection: 'calendar-events', id: o.id })
 
-      // Coupe la série parente juste avant cette date
       const parentRecurrence = (parent as any).recurrence ?? {}
       const cutDate = addDays(occDateTime, -1)
       await payload.update({
@@ -390,10 +374,9 @@ export const updateCalendarEvent = async (
         },
       })
 
-      // Calcule les dates du nouveau parent
+      const origParentStart = new Date(existing.startDate)
       const originalDuration =
         new Date(existing.endDate).getTime() - new Date(existing.startDate).getTime()
-      const parentStart = new Date(existing.startDate)
 
       let newStart: string
       let newEnd: string
@@ -408,8 +391,8 @@ export const updateCalendarEvent = async (
           occurrenceStart.getFullYear(),
           occurrenceStart.getMonth(),
           occurrenceStart.getDate(),
-          parentStart.getHours(),
-          parentStart.getMinutes(),
+          origParentStart.getHours(),
+          origParentStart.getMinutes(),
           0,
           0,
         ).toISOString()
@@ -501,7 +484,6 @@ export const deleteCalendarEvent = async (
         limit: 500,
       })
       for (const o of overrides) await payload.delete({ collection: 'calendar-events', id: o.id })
-
       const parent = await payload.findByID({ collection: 'calendar-events', id: parentId })
       const parentRecurrence = (parent as any).recurrence ?? {}
       const cutDate = addDays(occDateTime, -1)
