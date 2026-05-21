@@ -200,7 +200,6 @@ export function CalendarDayView({
       )}
 
       <div className="flex flex-1">
-        {/* Labels des heures */}
         <div className="w-16 shrink-0 relative" style={{ height: totalHeight }}>
           {HOURS.map((h) => (
             <div
@@ -215,7 +214,6 @@ export function CalendarDayView({
           ))}
         </div>
 
-        {/* Zone principale */}
         <div
           className="flex-1 relative cursor-pointer"
           style={{ height: totalHeight }}
@@ -228,10 +226,8 @@ export function CalendarDayView({
             onClickSlot(slotDate)
           }}
         >
-          {/* Lignes visuelles */}
           <HourLines />
 
-          {/* Slots droppables 15min */}
           {SLOTS.map((s) => (
             <DroppableSlot key={s} date={currentDate} slotIndex={s} />
           ))}

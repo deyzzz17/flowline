@@ -324,7 +324,7 @@ export const useCalendar = () => {
       optimisticKey?: string
     }) => api.calendar.update(id, data, scope, originalDate),
 
-    onMutate: async ({ id, optimisticKey: key }) => {
+    onMutate: async ({ optimisticKey: key }) => {
       await queryClient.cancelQueries({ queryKey: ['calendar-events'] })
       const snapshot = queryClient.getQueriesData({ queryKey: ['calendar-events'] })
       return { snapshot, key }

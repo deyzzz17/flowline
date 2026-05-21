@@ -9,13 +9,14 @@ import { usePublicHolidays } from '@/hooks/calendar/use-public-holidays'
 import type { CalendarItem, CalendarEvent } from '@/hooks/calendar/use-calendar'
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
-// 96 slots de 15 minutes = 24h — granularité fine pour le drag
 const SLOTS_COUNT = 96
 const SLOTS = Array.from({ length: SLOTS_COUNT }, (_, i) => i)
 const DAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-const SLOT_HEIGHT = 56 // hauteur d'une heure en px
-const SLOT_15_HEIGHT = SLOT_HEIGHT / 4 // hauteur d'un slot de 15min
+const SLOT_HEIGHT = 56
+const SLOT_15_HEIGHT = SLOT_HEIGHT / 4
 const PADDING = 2
+const ALL_DAY_ITEM_HEIGHT = 22 
+const ALL_DAY_PADDING = 6
 
 function getWeekDays(currentDate: Date): Date[] {
   const start = new Date(currentDate)
@@ -40,29 +41,26 @@ function AllDayPill({ item, onClick }: { item: CalendarItem; onClick: (item: Cal
   )
 }
 
-// Slot droppable de 15 minutes
 function DroppableSlot({ date, slotIndex }: { date: Date; slotIndex: number }) {
   const slotDate = new Date(date)
   slotDate.setHours(Math.floor(slotIndex / 4), (slotIndex % 4) * 15, 0, 0)
   const { setNodeRef, isOver } = useDroppable({ id: slotDate.toISOString() })
   return (
     <div ref={setNodeRef}
-      className={cn(
-        'absolute left-0 right-0 pointer-events-auto transition-colors',
-        isOver && 'bg-violet-500/5',
-      )}
+      className={cn('absolute left-0 right-0 pointer-events-auto transition-colors', isOver && 'bg-violet-500/5')}
       style={{ top: slotIndex * SLOT_15_HEIGHT, height: SLOT_15_HEIGHT }}
     />
   )
 }
 
-// Lignes visuelles des heures (séparées des slots droppables)
 function HourLines() {
   return (
     <>
       {HOURS.map((h) => (
-        <div key={h} className="absolute left-0 right-0 border-b border-border/20 pointer-events-none"
-          style={{ top: h * SLOT_HEIGHT, height: SLOT_HEIGHT }} />
+        <div key={h}
+          className="absolute left-0 right-0 border-t border-border/20 pointer-events-none"
+          style={{ top: h * SLOT_HEIGHT }}
+        />
       ))}
     </>
   )
@@ -171,16 +169,9 @@ function DayColumn({
         onDoubleClickSlot(slotDate)
       }}
     >
-      {/* Lignes visuelles */}
       <HourLines />
-
-      {/* Slots droppables 15min */}
       {SLOTS.map((s) => <DroppableSlot key={s} date={date} slotIndex={s} />)}
-
-      {ghostOverflow > 0 && (
-        <GhostBlock color="#8b5cf6" height={minutesToPx(ghostOverflow)} />
-      )}
-
+      {ghostOverflow > 0 && <GhostBlock color="#8b5cf6" height={minutesToPx(ghostOverflow)} />}
       {layouts.map(({ item, column, totalColumns }) => {
         const widthPct = 100 / totalColumns
         const leftPct = column * widthPct
@@ -188,9 +179,7 @@ function DayColumn({
         return (
           <CalendarEventBlock
             key={`${item.type}-${item.id}-${date.toDateString()}`}
-            item={item}
-            onClickItem={onClickItem}
-            onResizeEnd={handleResizeEnd}
+            item={item} onClickItem={onClickItem} onResizeEnd={handleResizeEnd}
             viewDate={date}
             style={{
               left: `calc(${leftPct}% + ${PADDING}px)`,
@@ -232,13 +221,20 @@ export function CalendarWeekView({
   const [overflow, setOverflow] = useState<OverflowState | null>(null)
 
   const allDayByDay = days.map((date) => getItemsForDate(date).filter(isAllDay))
-  const hasAnyAllDay = allDayByDay.some((items) => items.length > 0)
-  const maxAllDay = Math.max(...allDayByDay.map((items) => items.length), 0)
-  const allDayBandHeight = hasAnyAllDay ? Math.max(28, maxAllDay * 22 + 6) : 0
+  const holidayByDay = days.map((date) => getHoliday(date))
+
+  const maxItemsPerDay = days.map((_, i) => {
+    const holidayCount = holidayByDay[i] ? 1 : 0
+    return allDayByDay[i].length + holidayCount
+  })
+  const maxItems = Math.max(...maxItemsPerDay, 0)
+  const hasAnyAllDay = maxItems > 0
+  const allDayBandHeight = hasAnyAllDay
+    ? Math.max(28, maxItems * ALL_DAY_ITEM_HEIGHT + ALL_DAY_PADDING)
+    : 0
 
   return (
     <div className="flex flex-1 overflow-auto">
-      {/* Colonne des heures */}
       <div className="w-14 shrink-0 border-r border-border/40 relative flex flex-col">
         {hasAnyAllDay && (
           <div className="sticky top-12 z-10 bg-background border-b border-border/40 flex items-center justify-end pr-2 shrink-0"
@@ -257,39 +253,45 @@ export function CalendarWeekView({
         </div>
       </div>
 
-      {/* Colonnes des jours */}
       <div className="flex flex-1 min-w-0">
         {days.map((date, i) => {
           const isToday = date.toDateString() === today.toDateString()
           const allDayItems = allDayByDay[i]
           const items = getItemsForDate(date)
-          const holiday = getHoliday(date)
+          const holiday = holidayByDay[i]
           const ghostMinutes = overflow && overflow.dayIndex === i - 1 ? overflow.overflowMinutes : 0
 
           return (
             <div key={date.toISOString()} className="flex-1 flex flex-col min-w-0">
-              {/* Header du jour */}
-              <div className={cn('sticky top-0 z-20 bg-background/95 backdrop-blur-sm h-12 flex flex-col items-center justify-center border-b border-border/40 border-r border-border/40 shrink-0',
-                holiday && 'bg-amber-500/5')}>
+              <div className={cn(
+                'sticky top-0 z-20 bg-background/95 backdrop-blur-sm h-12 flex flex-col items-center justify-center border-b border-border/40 border-r border-border/40 shrink-0',
+                holiday && 'bg-amber-500/5',
+              )}>
                 <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
                   {DAYS_SHORT[date.getDay()]}
                 </span>
-                <span className={cn('flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold',
-                  isToday ? 'bg-violet-600 text-white' : holiday ? 'text-amber-600 dark:text-amber-400' : 'text-foreground')}>
+                <span className={cn(
+                  'flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold',
+                  isToday ? 'bg-violet-600 text-white'
+                    : holiday ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-foreground',
+                )}>
                   {date.getDate()}
                 </span>
               </div>
 
-              {/* Bande all-day */}
               {hasAnyAllDay && (
-                <div className="sticky top-12 z-10 border-b border-r border-border/40 bg-background/95 backdrop-blur-sm px-1 py-1 flex flex-col gap-0.5 shrink-0"
+                <div className="sticky top-12 z-10 border-b border-r border-border/40 bg-background/95 backdrop-blur-sm px-1 py-1 flex flex-col gap-0.5 shrink-0 overflow-hidden"
                   style={{ height: allDayBandHeight }}>
+
                   {holiday && (
-                    <div className="w-full rounded px-1.5 py-0.5 text-[10px] font-medium truncate"
+                    <div className="w-full rounded px-1.5 py-0.5 text-[10px] font-medium truncate flex items-center gap-1"
                       style={{ backgroundColor: '#f59e0b20', color: '#d97706', borderLeft: '2px solid #f59e0b' }}>
-                      🎌 {holiday.localName}
+                      <span>🎌</span>
+                      <span className="truncate">{holiday.localName}</span>
                     </div>
                   )}
+
                   {allDayItems.map((item) => (
                     <AllDayPill key={`${item.type}-${item.id}`} item={item} onClick={onClickItem} />
                   ))}

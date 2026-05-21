@@ -258,12 +258,29 @@ export function CalendarEventBlock({
           if (!isResizing.current) onClickItem(item)
         }}
       >
-        <p className="text-[11px] font-semibold truncate leading-tight" style={{ color }}>
+        <p
+          className="font-semibold truncate leading-tight"
+          style={{
+            color,
+            fontSize: height < 24 ? '9px' : height < 32 ? '10px' : '11px',
+          }}
+        >
           {item.title}
         </p>
         {height > 32 && (
           <p className="text-[10px] leading-tight" style={{ color, opacity: 0.7 }}>
             {formatTime(startDate)} – {formatTime(endDate)}
+          </p>
+        )}
+        {height > 14 && (
+          <p
+            className="font-semibold truncate leading-tight"
+            style={{
+              color,
+              fontSize: height < 24 ? '9px' : height < 32 ? '10px' : '11px',
+            }}
+          >
+            {item.title}
           </p>
         )}
       </div>
