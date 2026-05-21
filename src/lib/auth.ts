@@ -33,7 +33,10 @@ export const auth = betterAuth({
       accessType: 'offline',
       clientId: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-      scopes: [
+      scope: [
+        'openid',
+        'email',
+        'profile',
         'https://www.googleapis.com/auth/calendar.readonly',
         'https://www.googleapis.com/auth/calendar.events.readonly',
       ],
