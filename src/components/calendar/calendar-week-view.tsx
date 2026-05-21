@@ -3,7 +3,13 @@
 import { useRef, useState } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { cn } from '@/lib/utils'
-import { CalendarEventBlock, pxToMinutes, getItemTop, getItemHeight, minutesToPx } from './calendar-event-block'
+import {
+  CalendarEventBlock,
+  pxToMinutes,
+  getItemTop,
+  getItemHeight,
+  minutesToPx,
+} from './calendar-event-block'
 import { useTimeFormat } from '@/hooks/calendar/use-time-format'
 import { usePublicHolidays } from '@/hooks/calendar/use-public-holidays'
 import type { CalendarItem, CalendarEvent } from '@/hooks/calendar/use-calendar'
@@ -15,14 +21,16 @@ const DAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const SLOT_HEIGHT = 56
 const SLOT_15_HEIGHT = SLOT_HEIGHT / 4
 const PADDING = 2
-const ALL_DAY_ITEM_HEIGHT = 22 
+const ALL_DAY_ITEM_HEIGHT = 22
 const ALL_DAY_PADDING = 6
 
 function getWeekDays(currentDate: Date): Date[] {
   const start = new Date(currentDate)
   start.setDate(start.getDate() - start.getDay())
   return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(start); d.setDate(d.getDate() + i); return d
+    const d = new Date(start)
+    d.setDate(d.getDate() + i)
+    return d
   })
 }
 
@@ -30,12 +38,28 @@ function isAllDay(item: CalendarItem): boolean {
   return item.type === 'event' && (item as CalendarEvent).allDay
 }
 
-function AllDayPill({ item, onClick }: { item: CalendarItem; onClick: (item: CalendarItem) => void }) {
+function AllDayPill({
+  item,
+  onClick,
+}: {
+  item: CalendarItem
+  onClick: (item: CalendarItem) => void
+}) {
   const event = item as CalendarEvent
   return (
-    <button type="button" onClick={(e) => { e.stopPropagation(); onClick(item) }}
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick(item)
+      }}
       className="w-full text-left rounded px-1.5 py-0.5 text-[10px] font-medium truncate transition-opacity hover:opacity-80"
-      style={{ backgroundColor: `${event.color}30`, color: event.color, borderLeft: `2px solid ${event.color}` }}>
+      style={{
+        backgroundColor: `${event.color}30`,
+        color: event.color,
+        borderLeft: `2px solid ${event.color}`,
+      }}
+    >
       {item.title}
     </button>
   )
@@ -46,8 +70,12 @@ function DroppableSlot({ date, slotIndex }: { date: Date; slotIndex: number }) {
   slotDate.setHours(Math.floor(slotIndex / 4), (slotIndex % 4) * 15, 0, 0)
   const { setNodeRef, isOver } = useDroppable({ id: slotDate.toISOString() })
   return (
-    <div ref={setNodeRef}
-      className={cn('absolute left-0 right-0 pointer-events-auto transition-colors', isOver && 'bg-violet-500/5')}
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'absolute left-0 right-0 pointer-events-auto transition-colors',
+        isOver && 'bg-violet-500/5',
+      )}
       style={{ top: slotIndex * SLOT_15_HEIGHT, height: SLOT_15_HEIGHT }}
     />
   )
@@ -57,7 +85,8 @@ function HourLines() {
   return (
     <>
       {HOURS.map((h) => (
-        <div key={h}
+        <div
+          key={h}
           className="absolute left-0 right-0 border-t border-border/20 pointer-events-none"
           style={{ top: h * SLOT_HEIGHT }}
         />
@@ -84,9 +113,12 @@ function computeColumnsForDay(items: CalendarItem[], viewDate: Date) {
     const top = getItemTop(item, viewDate)
     const end = top + getItemHeight(item, viewDate)
     if (currentGroup.length === 0 || top < groupEnd) {
-      currentGroup.push(item); groupEnd = Math.max(groupEnd, end)
+      currentGroup.push(item)
+      groupEnd = Math.max(groupEnd, end)
     } else {
-      groups.push([...currentGroup]); currentGroup = [item]; groupEnd = end
+      groups.push([...currentGroup])
+      currentGroup = [item]
+      groupEnd = end
     }
   }
   if (currentGroup.length > 0) groups.push(currentGroup)
@@ -99,7 +131,11 @@ function computeColumnsForDay(items: CalendarItem[], viewDate: Date) {
       for (let col = 0; col < columns.length; col++) {
         const last = columns[col][columns[col].length - 1]
         const lastBottom = getItemTop(last, viewDate) + getItemHeight(last, viewDate)
-        if (itemTop >= lastBottom) { columns[col].push(item); placed = true; break }
+        if (itemTop >= lastBottom) {
+          columns[col].push(item)
+          placed = true
+          break
+        }
       }
       if (!placed) columns.push([item])
     }
@@ -114,13 +150,24 @@ function computeColumnsForDay(items: CalendarItem[], viewDate: Date) {
 function GhostBlock({ color, height }: { color: string; height: number }) {
   if (height <= 0) return null
   return (
-    <div style={{
-      position: 'absolute', top: 0, left: PADDING, right: PADDING, height,
-      backgroundColor: `${color}15`, borderLeft: `3px dashed ${color}`,
-      zIndex: 8, pointerEvents: 'none',
-    }} className="rounded-b-lg overflow-hidden">
+    <div
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: PADDING,
+        right: PADDING,
+        height,
+        backgroundColor: `${color}15`,
+        borderLeft: `3px dashed ${color}`,
+        zIndex: 8,
+        pointerEvents: 'none',
+      }}
+      className="rounded-b-lg overflow-hidden"
+    >
       <div className="px-1.5 pt-0.5">
-        <p className="text-[10px] font-medium truncate" style={{ color, opacity: 0.7 }}>↓ continues</p>
+        <p className="text-[10px] font-medium truncate" style={{ color, opacity: 0.7 }}>
+          ↓ continues
+        </p>
       </div>
     </div>
   )
@@ -134,8 +181,14 @@ interface OverflowState {
 }
 
 function DayColumn({
-  date, items, onClickSlot, onDoubleClickSlot, onClickItem, onResizeEnd,
-  onResizeOverflow, ghostOverflow,
+  date,
+  items,
+  onClickSlot,
+  onDoubleClickSlot,
+  onClickItem,
+  onResizeEnd,
+  onResizeOverflow,
+  ghostOverflow,
 }: {
   date: Date
   items: CalendarItem[]
@@ -156,21 +209,31 @@ function DayColumn({
   }
 
   return (
-    <div className="relative border-r border-border/40" style={{ height: SLOT_HEIGHT * 24 }}
+    <div
+      className="relative border-r border-border/40"
+      style={{ height: SLOT_HEIGHT * 24 }}
       onClick={(e) => {
         if (clickTimer.current) return
         const slotDate = getSlotDate(date, e.clientY, e.currentTarget.getBoundingClientRect())
-        clickTimer.current = setTimeout(() => { clickTimer.current = null; onClickSlot(slotDate) }, 200)
+        clickTimer.current = setTimeout(() => {
+          clickTimer.current = null
+          onClickSlot(slotDate)
+        }, 200)
       }}
       onDoubleClick={(e) => {
         e.stopPropagation()
-        if (clickTimer.current) { clearTimeout(clickTimer.current); clickTimer.current = null }
+        if (clickTimer.current) {
+          clearTimeout(clickTimer.current)
+          clickTimer.current = null
+        }
         const slotDate = getSlotDate(date, e.clientY, e.currentTarget.getBoundingClientRect())
         onDoubleClickSlot(slotDate)
       }}
     >
       <HourLines />
-      {SLOTS.map((s) => <DroppableSlot key={s} date={date} slotIndex={s} />)}
+      {SLOTS.map((s) => (
+        <DroppableSlot key={s} date={date} slotIndex={s} />
+      ))}
       {ghostOverflow > 0 && <GhostBlock color="#8b5cf6" height={minutesToPx(ghostOverflow)} />}
       {layouts.map(({ item, column, totalColumns }) => {
         const widthPct = 100 / totalColumns
@@ -179,7 +242,9 @@ function DayColumn({
         return (
           <CalendarEventBlock
             key={`${item.type}-${item.id}-${date.toDateString()}`}
-            item={item} onClickItem={onClickItem} onResizeEnd={handleResizeEnd}
+            item={item}
+            onClickItem={onClickItem}
+            onResizeEnd={handleResizeEnd}
             viewDate={date}
             style={{
               left: `calc(${leftPct}% + ${PADDING}px)`,
@@ -188,7 +253,12 @@ function DayColumn({
             }}
             onResizeOverflow={(overflowMin) => {
               if (overflowMin > 0) {
-                onResizeOverflow({ itemId: `${item.type}-${item.id}`, dayIndex: 0, overflowMinutes: overflowMin, color })
+                onResizeOverflow({
+                  itemId: `${item.type}-${item.id}`,
+                  dayIndex: 0,
+                  overflowMinutes: overflowMin,
+                  color,
+                })
               } else {
                 onResizeOverflow(null)
               }
@@ -211,8 +281,12 @@ interface CalendarWeekViewProps {
 }
 
 export function CalendarWeekView({
-  currentDate, getItemsForDate, onClickSlot, onDoubleClickSlot,
-  onClickItem, onResizeEnd,
+  currentDate,
+  getItemsForDate,
+  onClickSlot,
+  onDoubleClickSlot,
+  onClickItem,
+  onResizeEnd,
 }: CalendarWeekViewProps) {
   const days = getWeekDays(currentDate)
   const today = new Date()
@@ -237,17 +311,24 @@ export function CalendarWeekView({
     <div className="flex flex-1 overflow-auto">
       <div className="w-14 shrink-0 border-r border-border/40 relative flex flex-col">
         {hasAnyAllDay && (
-          <div className="sticky top-12 z-10 bg-background border-b border-border/40 flex items-center justify-end pr-2 shrink-0"
-            style={{ height: allDayBandHeight }}>
+          <div
+            className="sticky top-12 z-10 bg-background border-b border-border/40 flex items-center justify-end pr-2 shrink-0"
+            style={{ height: allDayBandHeight }}
+          >
             <span className="text-[9px] text-muted-foreground/40">all day</span>
           </div>
         )}
         <div className="sticky top-0 z-20 bg-background border-b border-border/40 h-12" />
         <div className="relative" style={{ height: SLOT_HEIGHT * 24 }}>
           {HOURS.map((h) => (
-            <div key={h} className="absolute right-0 flex items-start justify-end pr-2"
-              style={{ top: h * SLOT_HEIGHT - 8, height: SLOT_HEIGHT }}>
-              {h !== 0 && <span className="text-[10px] text-muted-foreground/50">{formatHourLabel(h)}</span>}
+            <div
+              key={h}
+              className="absolute right-0 flex items-start justify-end pr-2"
+              style={{ top: h * SLOT_HEIGHT - 8, height: SLOT_HEIGHT }}
+            >
+              {h !== 0 && (
+                <span className="text-[10px] text-muted-foreground/50">{formatHourLabel(h)}</span>
+              )}
             </div>
           ))}
         </div>
@@ -259,35 +340,48 @@ export function CalendarWeekView({
           const allDayItems = allDayByDay[i]
           const items = getItemsForDate(date)
           const holiday = holidayByDay[i]
-          const ghostMinutes = overflow && overflow.dayIndex === i - 1 ? overflow.overflowMinutes : 0
+          const ghostMinutes =
+            overflow && overflow.dayIndex === i - 1 ? overflow.overflowMinutes : 0
 
           return (
             <div key={date.toISOString()} className="flex-1 flex flex-col min-w-0">
-              <div className={cn(
-                'sticky top-0 z-20 bg-background/95 backdrop-blur-sm h-12 flex flex-col items-center justify-center border-b border-border/40 border-r border-border/40 shrink-0',
-                holiday && 'bg-amber-500/5',
-              )}>
+              <div
+                className={cn(
+                  'sticky top-0 z-20 bg-background/95 backdrop-blur-sm h-12 flex flex-col items-center justify-center border-b border-border/40 border-r border-border/40 shrink-0',
+                  holiday && 'bg-amber-500/5',
+                )}
+              >
                 <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
                   {DAYS_SHORT[date.getDay()]}
                 </span>
-                <span className={cn(
-                  'flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold',
-                  isToday ? 'bg-violet-600 text-white'
-                    : holiday ? 'text-amber-600 dark:text-amber-400'
-                    : 'text-foreground',
-                )}>
+                <span
+                  className={cn(
+                    'flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold',
+                    isToday
+                      ? 'bg-violet-600 text-white'
+                      : holiday
+                        ? 'text-amber-600 dark:text-amber-400'
+                        : 'text-foreground',
+                  )}
+                >
                   {date.getDate()}
                 </span>
               </div>
 
               {hasAnyAllDay && (
-                <div className="sticky top-12 z-10 border-b border-r border-border/40 bg-background/95 backdrop-blur-sm px-1 py-1 flex flex-col gap-0.5 shrink-0 overflow-hidden"
-                  style={{ height: allDayBandHeight }}>
-
+                <div
+                  className="sticky top-12 z-10 border-b border-r border-border/40 bg-background px-1 py-1 flex flex-col gap-0.5 shrink-0 overflow-hidden"
+                  style={{ height: allDayBandHeight }}
+                >
                   {holiday && (
-                    <div className="w-full rounded px-1.5 py-0.5 text-[10px] font-medium truncate flex items-center gap-1"
-                      style={{ backgroundColor: '#f59e0b20', color: '#d97706', borderLeft: '2px solid #f59e0b' }}>
-                      <span>🎌</span>
+                    <div
+                      className="w-full rounded px-1.5 py-0.5 text-[10px] font-medium truncate flex items-center gap-1"
+                      style={{
+                        backgroundColor: '#f59e0b20',
+                        color: '#d97706',
+                        borderLeft: '2px solid #f59e0b',
+                      }}
+                    >
                       <span className="truncate">{holiday.localName}</span>
                     </div>
                   )}
@@ -299,9 +393,12 @@ export function CalendarWeekView({
               )}
 
               <DayColumn
-                date={date} items={items}
-                onClickSlot={onClickSlot} onDoubleClickSlot={onDoubleClickSlot}
-                onClickItem={onClickItem} onResizeEnd={onResizeEnd}
+                date={date}
+                items={items}
+                onClickSlot={onClickSlot}
+                onDoubleClickSlot={onDoubleClickSlot}
+                onClickItem={onClickItem}
+                onResizeEnd={onResizeEnd}
                 ghostOverflow={ghostMinutes}
                 onResizeOverflow={(state) => {
                   if (state) setOverflow({ ...state, dayIndex: i })
