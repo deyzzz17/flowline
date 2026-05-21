@@ -393,6 +393,7 @@ export interface CalendarEvent {
    * The original occurrence date this event overrides
    */
   originalDate?: string | null;
+  seriesId?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -701,6 +702,7 @@ export interface CalendarEventsSelect<T extends boolean = true> {
       };
   recurrenceId?: T;
   originalDate?: T;
+  seriesId?: T;
   updatedAt?: T;
   createdAt?: T;
 }
