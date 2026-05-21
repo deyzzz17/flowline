@@ -334,7 +334,19 @@ export const useCalendar = () => {
       if (!scope || scope === 'all') {
         queryClient.setQueriesData<{ docs: any[] }>({ queryKey: ['calendar-events'] }, (old) => {
           if (!old) return old
-          return { ...old, docs: old.docs.map((e) => (e.id === id ? { ...e, ...data } : e)) }
+          return {
+            ...old,
+            docs: old.docs.map((e) =>
+              e.id === id
+                ? {
+                    ...e,
+                    ...data,
+                    recurrence: data.recurrence !== undefined ? data.recurrence : e.recurrence,
+                    exceptions: data.exceptions !== undefined ? data.exceptions : e.exceptions,
+                  }
+                : e,
+            ),
+          }
         })
         if (key) clearOptimistic(key)
         else clearOptimisticDate('event', id)
