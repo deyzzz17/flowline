@@ -338,6 +338,7 @@ export const useCalendar = () => {
         })
         if (key) clearOptimistic(key)
         else clearOptimisticDate('event', id)
+        queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
       } else {
         queryClient.invalidateQueries({ queryKey: ['calendar-events'] }).then(() => {
           if (key) clearOptimistic(key)
