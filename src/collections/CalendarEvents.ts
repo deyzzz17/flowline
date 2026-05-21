@@ -146,5 +146,28 @@ export const CalendarEvents: CollectionConfig = {
       },
     },
     { name: 'seriesId', type: 'text' },
+    {
+      name: 'source',
+      type: 'select',
+      options: ['flowline', 'google'],
+      defaultValue: 'flowline',
+      admin: { readOnly: false },
+    },
+    {
+      name: 'googleEventId',
+      type: 'text',
+      admin: { readOnly: true },
+      index: true,
+    },
+    {
+      name: 'googleCalendarId',
+      type: 'text',
+      admin: { readOnly: true },
+    },
+    {
+      name: 'googleCalendarName',
+      type: 'text',
+      admin: { readOnly: true },
+    },
   ],
 }

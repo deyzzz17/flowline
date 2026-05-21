@@ -77,6 +77,7 @@ export interface Config {
     'timer-configs': TimerConfig;
     'calendar-events': CalendarEvent;
     'calendar-categories': CalendarCategory;
+    'google-calendar-syncs': GoogleCalendarSync;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -94,6 +95,7 @@ export interface Config {
     'timer-configs': TimerConfigsSelect<false> | TimerConfigsSelect<true>;
     'calendar-events': CalendarEventsSelect<false> | CalendarEventsSelect<true>;
     'calendar-categories': CalendarCategoriesSelect<false> | CalendarCategoriesSelect<true>;
+    'google-calendar-syncs': GoogleCalendarSyncsSelect<false> | GoogleCalendarSyncsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -394,6 +396,10 @@ export interface CalendarEvent {
    */
   originalDate?: string | null;
   seriesId?: string | null;
+  source?: ('flowline' | 'google') | null;
+  googleEventId?: string | null;
+  googleCalendarId?: string | null;
+  googleCalendarName?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -407,6 +413,30 @@ export interface CalendarCategory {
   name: string;
   color: string;
   isDefault?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "google-calendar-syncs".
+ */
+export interface GoogleCalendarSync {
+  id: number;
+  userId: string;
+  nextSyncToken?: string | null;
+  lastSyncedAt?: string | null;
+  calendars?:
+    | {
+        googleId: string;
+        name: string;
+        color?: string | null;
+        primary?: boolean | null;
+        enabled?: boolean | null;
+        id?: string | null;
+      }[]
+    | null;
+  status?: ('connected' | 'disconnected' | 'error') | null;
+  errorMessage?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -473,6 +503,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'calendar-categories';
         value: number | CalendarCategory;
+      } | null)
+    | ({
+        relationTo: 'google-calendar-syncs';
+        value: number | GoogleCalendarSync;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -703,6 +737,10 @@ export interface CalendarEventsSelect<T extends boolean = true> {
   recurrenceId?: T;
   originalDate?: T;
   seriesId?: T;
+  source?: T;
+  googleEventId?: T;
+  googleCalendarId?: T;
+  googleCalendarName?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -715,6 +753,29 @@ export interface CalendarCategoriesSelect<T extends boolean = true> {
   name?: T;
   color?: T;
   isDefault?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "google-calendar-syncs_select".
+ */
+export interface GoogleCalendarSyncsSelect<T extends boolean = true> {
+  userId?: T;
+  nextSyncToken?: T;
+  lastSyncedAt?: T;
+  calendars?:
+    | T
+    | {
+        googleId?: T;
+        name?: T;
+        color?: T;
+        primary?: T;
+        enabled?: T;
+        id?: T;
+      };
+  status?: T;
+  errorMessage?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -1,6 +1,5 @@
 import { betterAuth } from 'better-auth'
 import { Pool } from 'pg'
-//import { sendVerificationEmail } from './email'
 
 export const auth = betterAuth({
   database: new Pool({
@@ -33,11 +32,11 @@ export const auth = betterAuth({
       prompt: 'select_account',
       clientId: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+      scopes: [
+        'https://www.googleapis.com/auth/calendar.readonly',
+        'https://www.googleapis.com/auth/calendar.events.readonly',
+      ],
+      accessType: 'offline',
     },
   },
-  // emailVerification: {
-  //   sendVerificationEmail: async ({ user, url }) => {
-  //     await sendVerificationEmail(user.email, url)
-  //   },
-  // },
 })
