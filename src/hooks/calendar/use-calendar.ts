@@ -324,7 +324,7 @@ export const useCalendar = () => {
       optimisticKey?: string
     }) => api.calendar.update(id, data, scope, originalDate),
 
-    onMutate: async ({ optimisticKey: key }) => {
+    onMutate: async ({ id, optimisticKey: key }) => {
       await queryClient.cancelQueries({ queryKey: ['calendar-events'] })
       const snapshot = queryClient.getQueriesData({ queryKey: ['calendar-events'] })
       return { snapshot, key }
@@ -334,19 +334,7 @@ export const useCalendar = () => {
       if (!scope || scope === 'all') {
         queryClient.setQueriesData<{ docs: any[] }>({ queryKey: ['calendar-events'] }, (old) => {
           if (!old) return old
-          return {
-            ...old,
-            docs: old.docs.map((e) =>
-              e.id === id
-                ? {
-                    ...e,
-                    ...data,
-                    recurrence: data.recurrence !== undefined ? data.recurrence : e.recurrence,
-                    exceptions: data.exceptions !== undefined ? data.exceptions : e.exceptions,
-                  }
-                : e,
-            ),
-          }
+          return { ...old, docs: old.docs.map((e) => (e.id === id ? { ...e, ...data } : e)) }
         })
         if (key) clearOptimistic(key)
         else clearOptimisticDate('event', id)
