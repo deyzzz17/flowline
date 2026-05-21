@@ -207,11 +207,46 @@ export const updateCalendarEvent = async (
 
     const parentId = isOverride ? (existing as any).recurrenceId : id
 
+    const findSeriesRoot = async (startId: number): Promise<number> => {
+      const currentParent = await payload.findByID({ collection: 'calendar-events', id: startId })
+      const currentStart = new Date(currentParent.startDate)
+
+      const { docs: potentialRoots } = await payload.find({
+        collection: 'calendar-events',
+        where: {
+          and: [
+            { userId: { equals: userId } },
+            { id: { not_equals: startId } },
+            { startDate: { less_than: currentParent.startDate } },
+            { 'recurrence.frequency': { exists: true } },
+            { recurrenceId: { exists: false } },
+          ],
+        },
+        limit: 50,
+        sort: 'startDate',
+      })
+
+      const realRoots = potentialRoots.filter((p: any) => {
+        if (p.title !== currentParent.title) return false
+        const rec = p.recurrence
+        if (!rec?.frequency) return false
+        if (rec.endType === 'never') return true
+        if (rec.endType === 'onDate' && rec.endDate) {
+          return new Date(rec.endDate) >= addDays(currentStart, -1)
+        }
+        return false
+      })
+
+      if (realRoots.length > 0) {
+        return findSeriesRoot(realRoots[0].id)
+      }
+      return startId
+    }
+
     if (scope === 'all') {
       const parent = await payload.findByID({ collection: 'calendar-events', id: parentId })
-      const parentStart = new Date(parent.startDate)
-      const parentEnd = new Date(parent.endDate)
-      const originalDuration = parentEnd.getTime() - parentStart.getTime()
+
+      const rootId = await findSeriesRoot(parentId)
 
       const updateData: any = {
         ...(data.title !== undefined && { title: data.title }),
@@ -224,25 +259,31 @@ export const updateCalendarEvent = async (
       }
 
       if (data.startDate || data.endDate) {
+        const root =
+          rootId !== parentId
+            ? await payload.findByID({ collection: 'calendar-events', id: rootId })
+            : parent
+        const rootStart = new Date(root.startDate)
+        const rootEnd = new Date(root.endDate)
+        const rootDuration = rootEnd.getTime() - rootStart.getTime()
+
         if (data.startDate) {
           const newOccStart = new Date(data.startDate)
-
           updateData.startDate = new Date(
-            parentStart.getFullYear(),
-            parentStart.getMonth(),
-            parentStart.getDate(),
+            rootStart.getFullYear(),
+            rootStart.getMonth(),
+            rootStart.getDate(),
             newOccStart.getHours(),
             newOccStart.getMinutes(),
             0,
             0,
           ).toISOString()
-
           if (data.endDate) {
             const newOccEnd = new Date(data.endDate)
             updateData.endDate = new Date(
-              parentEnd.getFullYear(),
-              parentEnd.getMonth(),
-              parentEnd.getDate(),
+              rootEnd.getFullYear(),
+              rootEnd.getMonth(),
+              rootEnd.getDate(),
               newOccEnd.getHours(),
               newOccEnd.getMinutes(),
               0,
@@ -250,7 +291,7 @@ export const updateCalendarEvent = async (
             ).toISOString()
           } else {
             updateData.endDate = new Date(
-              new Date(updateData.startDate).getTime() + originalDuration,
+              new Date(updateData.startDate).getTime() + rootDuration,
             ).toISOString()
           }
         } else if (data.endDate) {
@@ -259,23 +300,61 @@ export const updateCalendarEvent = async (
             isOverride ? existing.startDate : (originalOccurrenceDate ?? existing.startDate),
           )
           const newDuration = newOccEnd.getTime() - newOccStart.getTime()
-          updateData.endDate = new Date(parentStart.getTime() + newDuration).toISOString()
+          updateData.endDate = new Date(rootStart.getTime() + newDuration).toISOString()
+        }
+      }
+
+      if (rootId !== parentId) {
+        const { docs: intermediateParents } = await payload.find({
+          collection: 'calendar-events',
+          where: {
+            and: [
+              { userId: { equals: userId } },
+              { 'recurrence.frequency': { exists: true } },
+              { recurrenceId: { exists: false } },
+              { id: { not_equals: rootId } },
+              {
+                startDate: {
+                  greater_than_equal: (
+                    await payload.findByID({ collection: 'calendar-events', id: rootId })
+                  ).startDate,
+                },
+              },
+            ],
+          },
+          limit: 100,
+        })
+        for (const ip of intermediateParents) {
+          const { docs: ipOverrides } = await payload.find({
+            collection: 'calendar-events',
+            where: { recurrenceId: { equals: ip.id } },
+            limit: 500,
+          })
+          for (const o of ipOverrides)
+            await payload.delete({ collection: 'calendar-events', id: o.id })
+          await payload.delete({ collection: 'calendar-events', id: ip.id })
         }
       }
 
       const { docs: allOverrides } = await payload.find({
         collection: 'calendar-events',
-        where: { recurrenceId: { equals: parentId } },
+        where: { recurrenceId: { equals: rootId } },
         limit: 500,
       })
-      for (const o of allOverrides) {
+      for (const o of allOverrides)
         await payload.delete({ collection: 'calendar-events', id: o.id })
-      }
 
+      const rootDoc = await payload.findByID({ collection: 'calendar-events', id: rootId })
+      const rootRecurrence = (rootDoc as any).recurrence ?? {}
       const updated = await payload.update({
         collection: 'calendar-events',
-        id: parentId,
-        data: updateData,
+        id: rootId,
+        data: {
+          ...updateData,
+          recurrence: data.recurrence
+            ? (data.recurrence as any)
+            : ({ ...rootRecurrence, endType: 'never', endDate: null, endCount: null } as any),
+        },
       })
       return ok(updated)
     }
@@ -341,6 +420,35 @@ export const updateCalendarEvent = async (
     if (scope === 'thisAndFollowing') {
       const occDateTime = new Date(occDate)
 
+      const rootId = await findSeriesRoot(parentId)
+      const rootDoc = await payload.findByID({ collection: 'calendar-events', id: rootId })
+
+      const { docs: allParents } = await payload.find({
+        collection: 'calendar-events',
+        where: {
+          and: [
+            { userId: { equals: userId } },
+            { 'recurrence.frequency': { exists: true } },
+            { recurrenceId: { exists: false } },
+            { startDate: { greater_than_equal: rootDoc.startDate } },
+            { startDate: { greater_than_equal: toMidnight(occDate) } },
+          ],
+        },
+        limit: 100,
+      })
+
+      for (const p of allParents) {
+        if (p.id === rootId) continue
+        const { docs: pOverrides } = await payload.find({
+          collection: 'calendar-events',
+          where: { recurrenceId: { equals: p.id } },
+          limit: 500,
+        })
+        for (const o of pOverrides)
+          await payload.delete({ collection: 'calendar-events', id: o.id })
+        await payload.delete({ collection: 'calendar-events', id: p.id })
+      }
+
       const { docs: overrides } = await payload.find({
         collection: 'calendar-events',
         where: {
@@ -400,6 +508,8 @@ export const updateCalendarEvent = async (
           data.endDate ?? new Date(new Date(newStart).getTime() + originalDuration).toISOString()
       }
 
+      const rootRecurrence = (rootDoc as any).recurrence ?? parentRecurrence
+
       const created = await payload.create({
         collection: 'calendar-events',
         data: {
@@ -417,7 +527,7 @@ export const updateCalendarEvent = async (
               : {}),
           recurrence: data.recurrence
             ? (data.recurrence as any)
-            : { ...parentRecurrence, endType: 'never', endDate: null, endCount: null },
+            : { ...rootRecurrence, endType: 'never', endDate: null, endCount: null },
         },
       })
       return ok(created)
