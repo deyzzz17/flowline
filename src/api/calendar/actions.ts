@@ -173,21 +173,55 @@ async function fetchGoogleCalendarEvents(
     const { docs: syncs } = await payload.find({
       collection: 'google-calendar-syncs',
       where: {
-        and: [
-          { userId: { equals: userId } },
-          { status: { equals: 'connected' } },
-        ],
+        and: [{ userId: { equals: userId } }, { status: { equals: 'connected' } }],
       },
       limit: 1,
     })
     if (syncs.length === 0) return []
 
     const sync = syncs[0] as any
-    const enabledCalendars = (sync.calendars ?? []).filter((c: any) => c.enabled)
-    if (enabledCalendars.length === 0) return []
-
     const accessToken = await getGoogleAccessToken(userId)
     if (!accessToken) return []
+
+    try {
+      const calListRes = await fetch(
+        'https://www.googleapis.com/calendar/v3/users/me/calendarList',
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      if (calListRes.ok) {
+        const calListData = await calListRes.json()
+        const freshCalendars = (calListData.items ?? []).map((cal: any) => {
+          const existing = (sync.calendars ?? []).find((c: any) => c.googleId === cal.id)
+          return {
+            googleId: cal.id,
+            name: cal.summary,
+            color: cal.backgroundColor ?? '#4285f4',
+            primary: cal.primary ?? false,
+            enabled: existing ? existing.enabled : true,
+          }
+        })
+
+        const currentIds = (sync.calendars ?? [])
+          .map((c: any) => c.googleId)
+          .sort()
+          .join(',')
+        const freshIds = freshCalendars
+          .map((c: any) => c.googleId)
+          .sort()
+          .join(',')
+        if (currentIds !== freshIds) {
+          await payload.update({
+            collection: 'google-calendar-syncs',
+            id: sync.id,
+            data: { calendars: freshCalendars } as any,
+          })
+          sync.calendars = freshCalendars
+        }
+      }
+    } catch {}
+
+    const enabledCalendars = (sync.calendars ?? []).filter((c: any) => c.enabled)
+    if (enabledCalendars.length === 0) return []
 
     const allEvents: any[] = []
 
@@ -206,7 +240,6 @@ async function fetchGoogleCalendarEvents(
           const res = await fetch(url.toString(), {
             headers: { Authorization: `Bearer ${accessToken}` },
           })
-
           if (!res.ok) return
 
           const data = await res.json()
@@ -273,7 +306,9 @@ export const listCalendarEvents = async (from: string, to: string) => {
           { userId: { equals: userId } },
           {
             or: [
-              { and: [{ recurrenceId: { exists: false } }, { startDate: { less_than_equal: to } }] },
+              {
+                and: [{ recurrenceId: { exists: false } }, { startDate: { less_than_equal: to } }],
+              },
               { and: [{ recurrenceId: { exists: true } }, { startDate: { less_than_equal: to } }] },
             ],
           },
@@ -380,14 +415,24 @@ export const updateCalendarEvent = async (
       if (data.startDate) {
         const newOccStart = new Date(data.startDate)
         updateData.startDate = new Date(
-          parentStart.getFullYear(), parentStart.getMonth(), parentStart.getDate(),
-          newOccStart.getHours(), newOccStart.getMinutes(), 0, 0,
+          parentStart.getFullYear(),
+          parentStart.getMonth(),
+          parentStart.getDate(),
+          newOccStart.getHours(),
+          newOccStart.getMinutes(),
+          0,
+          0,
         ).toISOString()
         if (data.endDate) {
           const newOccEnd = new Date(data.endDate)
           updateData.endDate = new Date(
-            parentEnd.getFullYear(), parentEnd.getMonth(), parentEnd.getDate(),
-            newOccEnd.getHours(), newOccEnd.getMinutes(), 0, 0,
+            parentEnd.getFullYear(),
+            parentEnd.getMonth(),
+            parentEnd.getDate(),
+            newOccEnd.getHours(),
+            newOccEnd.getMinutes(),
+            0,
+            0,
           ).toISOString()
         } else {
           updateData.endDate = new Date(
@@ -397,8 +442,13 @@ export const updateCalendarEvent = async (
       } else if (data.endDate) {
         const occStart = new Date(originalOccurrenceDate ?? existing.startDate)
         const occStartInSeries = new Date(
-          occStart.getFullYear(), occStart.getMonth(), occStart.getDate(),
-          parentStart.getHours(), parentStart.getMinutes(), 0, 0,
+          occStart.getFullYear(),
+          occStart.getMonth(),
+          occStart.getDate(),
+          parentStart.getHours(),
+          parentStart.getMinutes(),
+          0,
+          0,
         )
         const newDuration = new Date(data.endDate).getTime() - occStartInSeries.getTime()
         updateData.endDate = new Date(parentStart.getTime() + newDuration).toISOString()
@@ -476,21 +526,26 @@ export const updateCalendarEvent = async (
         })
         return ok(updated)
       } else {
-        const duration = new Date(existing.endDate).getTime() - new Date(existing.startDate).getTime()
+        const duration =
+          new Date(existing.endDate).getTime() - new Date(existing.startDate).getTime()
         const newStart = data.startDate ?? occDate
-        const newEnd = data.endDate ?? new Date(new Date(newStart).getTime() + duration).toISOString()
+        const newEnd =
+          data.endDate ?? new Date(new Date(newStart).getTime() + duration).toISOString()
         const created = await payload.create({
           collection: 'calendar-events',
           data: {
             userId,
             title: data.title ?? existing.title,
             description: data.description ?? (existing as any).description ?? undefined,
-            startDate: newStart, endDate: newEnd,
+            startDate: newStart,
+            endDate: newEnd,
             allDay: data.allDay ?? existing.allDay ?? false,
             color: data.color ?? existing.color ?? '#8b5cf6',
             ...(data.categoryId !== undefined
               ? { categoryId: data.categoryId }
-              : (existing as any).categoryId ? { categoryId: (existing as any).categoryId } : {}),
+              : (existing as any).categoryId
+                ? { categoryId: (existing as any).categoryId }
+                : {}),
             recurrenceId: parentId,
             originalDate: occDate,
           },
@@ -550,28 +605,41 @@ export const updateCalendarEvent = async (
             ...parentRecurrence,
             endType: 'onDate',
             endDate: new Date(
-              cutDate.getFullYear(), cutDate.getMonth(), cutDate.getDate(), 23, 59, 59,
+              cutDate.getFullYear(),
+              cutDate.getMonth(),
+              cutDate.getDate(),
+              23,
+              59,
+              59,
             ).toISOString(),
           } as any,
         },
       })
 
       const origParentStart = new Date(existing.startDate)
-      const originalDuration = new Date(existing.endDate).getTime() - new Date(existing.startDate).getTime()
+      const originalDuration =
+        new Date(existing.endDate).getTime() - new Date(existing.startDate).getTime()
 
       let newStart: string
       let newEnd: string
 
       if (data.startDate) {
         newStart = data.startDate
-        newEnd = data.endDate ?? new Date(new Date(newStart).getTime() + originalDuration).toISOString()
+        newEnd =
+          data.endDate ?? new Date(new Date(newStart).getTime() + originalDuration).toISOString()
       } else {
         const occurrenceStart = new Date(occDate)
         newStart = new Date(
-          occurrenceStart.getFullYear(), occurrenceStart.getMonth(), occurrenceStart.getDate(),
-          origParentStart.getHours(), origParentStart.getMinutes(), 0, 0,
+          occurrenceStart.getFullYear(),
+          occurrenceStart.getMonth(),
+          occurrenceStart.getDate(),
+          origParentStart.getHours(),
+          origParentStart.getMinutes(),
+          0,
+          0,
         ).toISOString()
-        newEnd = data.endDate ?? new Date(new Date(newStart).getTime() + originalDuration).toISOString()
+        newEnd =
+          data.endDate ?? new Date(new Date(newStart).getTime() + originalDuration).toISOString()
       }
 
       const created = await payload.create({
@@ -580,12 +648,15 @@ export const updateCalendarEvent = async (
           userId,
           title: data.title ?? existing.title,
           description: data.description ?? (existing as any).description ?? undefined,
-          startDate: newStart, endDate: newEnd,
+          startDate: newStart,
+          endDate: newEnd,
           allDay: data.allDay ?? existing.allDay ?? false,
           color: data.color ?? existing.color ?? '#8b5cf6',
           ...(data.categoryId !== undefined
             ? { categoryId: data.categoryId }
-            : (existing as any).categoryId ? { categoryId: (existing as any).categoryId } : {}),
+            : (existing as any).categoryId
+              ? { categoryId: (existing as any).categoryId }
+              : {}),
           recurrence: data.recurrence
             ? (data.recurrence as any)
             : { ...parentRecurrence, endType: 'never', endDate: null, endCount: null },
@@ -719,7 +790,12 @@ export const deleteCalendarEvent = async (
             ...parentRecurrence,
             endType: 'onDate',
             endDate: new Date(
-              cutDate.getFullYear(), cutDate.getMonth(), cutDate.getDate(), 23, 59, 59,
+              cutDate.getFullYear(),
+              cutDate.getMonth(),
+              cutDate.getDate(),
+              23,
+              59,
+              59,
             ).toISOString(),
           } as any,
         },
@@ -732,4 +808,35 @@ export const deleteCalendarEvent = async (
     console.error(e)
     return err('Error deleting event')
   }
+}
+
+export const listFlowlineCalendarEvents = async (from: string, to: string) => {
+  const userId = await getUserId()
+  if (!userId) return { docs: [] }
+  const payload = await getPayload({ config })
+  const { docs } = await payload.find({
+    collection: 'calendar-events',
+    limit: 500,
+    sort: 'startDate',
+    where: {
+      and: [
+        { userId: { equals: userId } },
+        {
+          or: [
+            { and: [{ recurrenceId: { exists: false } }, { startDate: { less_than_equal: to } }] },
+            { and: [{ recurrenceId: { exists: true } }, { startDate: { less_than_equal: to } }] },
+          ],
+        },
+      ],
+    },
+  })
+  return { docs }
+}
+
+export const listGoogleCalendarEvents = async (from: string, to: string) => {
+  const userId = await getUserId()
+  if (!userId) return { docs: [] }
+  const payload = await getPayload({ config })
+  const docs = await fetchGoogleCalendarEvents(userId, from, to, payload)
+  return { docs }
 }

@@ -1,5 +1,6 @@
 import {
-  listCalendarEvents,
+  listFlowlineCalendarEvents,
+  listGoogleCalendarEvents,
   createCalendarEvent,
   updateCalendarEvent,
   deleteCalendarEvent,
@@ -15,7 +16,8 @@ import {
 export type { EditScope, RecurrenceRule, CalendarEventData }
 
 export const calendarAPI = {
-  list: listCalendarEvents,
+  listFlowline: listFlowlineCalendarEvents,
+  listGoogle: listGoogleCalendarEvents,
   create: createCalendarEvent,
   update: (
     id: number,

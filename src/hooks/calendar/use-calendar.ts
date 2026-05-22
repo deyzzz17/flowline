@@ -12,7 +12,7 @@ import { toast } from 'sonner'
 export type CalendarView = 'year' | 'month' | 'week' | 'day'
 
 export interface CalendarEvent {
-  id: number
+  id: number | string
   title: string
   description?: string
   startDate: string
@@ -29,6 +29,7 @@ export interface CalendarEvent {
   source?: 'flowline' | 'google'
   googleCalendarId?: string | null
   googleCalendarName?: string | null
+  googleEventId?: string | null
   type: 'event'
 }
 
@@ -87,6 +88,28 @@ function getViewRange(date: Date, view: CalendarView): { from: Date; to: Date } 
   }
 }
 
+function mapEvent(e: any) {
+  return {
+    id: e.id,
+    title: e.title,
+    description: e.description ?? undefined,
+    startDate: e.startDate,
+    endDate: e.endDate,
+    allDay: e.allDay ?? false,
+    color: e.color ?? '#8b5cf6',
+    categoryId: typeof e.categoryId === 'number' ? e.categoryId : null,
+    recurrence: e.recurrence?.frequency ? (e.recurrence as RecurrenceRule) : null,
+    recurrenceId: e.recurrenceId ?? null,
+    originalDate: e.originalDate ?? null,
+    exceptions: (e.exceptions ?? []) as { date: string }[],
+    source: (e.source ?? 'flowline') as 'flowline' | 'google',
+    googleCalendarId: e.googleCalendarId ?? null,
+    googleCalendarName: e.googleCalendarName ?? null,
+    googleEventId: e.googleEventId ?? null,
+    type: 'event' as const,
+  }
+}
+
 export const useCalendar = () => {
   const [view, setView] = useState<CalendarView>('month')
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -103,9 +126,16 @@ export const useCalendar = () => {
   const { from, to } = getViewRange(currentDate, view)
 
   const { data: eventsData } = useQuery({
-    queryKey: ['calendar-events', from.toISOString(), to.toISOString()],
-    queryFn: () => api.calendar.list(from.toISOString(), to.toISOString()),
+    queryKey: ['calendar-events-flowline', from.toISOString(), to.toISOString()],
+    queryFn: () => api.calendar.listFlowline(from.toISOString(), to.toISOString()),
     staleTime: Infinity,
+  })
+
+  const { data: googleEventsData } = useQuery({
+    queryKey: ['calendar-events-google', from.toISOString(), to.toISOString()],
+    queryFn: () => api.calendar.listGoogle(from.toISOString(), to.toISOString()),
+    staleTime: 0,
+    refetchInterval: 30_000,
   })
 
   const { data: tasksData } = useQuery({
@@ -115,33 +145,22 @@ export const useCalendar = () => {
   })
 
   const rawEvents = useMemo(
-    () =>
-      (eventsData?.docs ?? []).map((e: any) => ({
-        id: e.id,
-        title: e.title,
-        description: e.description ?? undefined,
-        startDate: e.startDate,
-        endDate: e.endDate,
-        allDay: e.allDay ?? false,
-        color: e.color ?? '#8b5cf6',
-        categoryId: typeof e.categoryId === 'number' ? e.categoryId : null,
-        recurrence: e.recurrence?.frequency ? (e.recurrence as RecurrenceRule) : null,
-        recurrenceId: e.recurrenceId ?? null,
-        originalDate: e.originalDate ?? null,
-        exceptions: (e.exceptions ?? []) as { date: string }[],
-        source: (e.source ?? 'flowline') as 'flowline' | 'google',
-        googleCalendarId: e.googleCalendarId ?? null,
-        googleCalendarName: e.googleCalendarName ?? null,
-        type: 'event' as const,
-      })),
-    [eventsData],
+    () => [
+      ...(eventsData?.docs ?? []),
+      ...(googleEventsData?.docs ?? []),
+    ].map(mapEvent),
+    [eventsData, googleEventsData],
   )
 
   const events: CalendarEvent[] = useMemo(() => {
     const result: CalendarEvent[] = []
-    const parents = rawEvents.filter((e) => e.recurrence?.frequency && !e.recurrenceId)
-    const overrides = rawEvents.filter((e) => e.recurrenceId)
-    const normal = rawEvents.filter((e) => !e.recurrence?.frequency && !e.recurrenceId)
+
+    const googleEvents = rawEvents.filter((e) => e.source === 'google')
+    const flowlineEvents = rawEvents.filter((e) => e.source !== 'google')
+
+    const parents = flowlineEvents.filter((e) => e.recurrence?.frequency && !e.recurrenceId)
+    const overrides = flowlineEvents.filter((e) => e.recurrenceId)
+    const normal = flowlineEvents.filter((e) => !e.recurrence?.frequency && !e.recurrenceId)
 
     result.push(
       ...normal.map(({ exceptions, ...e }) => ({
@@ -186,13 +205,19 @@ export const useCalendar = () => {
           isOccurrence: true,
           occurrenceDate: occIso,
           optimisticKey: `event-${parent.id}-${occIso}`,
-          source: parent.source,
-          googleCalendarId: parent.googleCalendarId,
-          googleCalendarName: parent.googleCalendarName,
+          source: 'flowline',
           type: 'event',
         })
       }
     }
+
+    result.push(
+      ...googleEvents.map(({ exceptions, ...e }) => ({
+        ...e,
+        optimisticKey: `google-${e.googleEventId ?? e.id}`,
+      })),
+    )
+
     return result
   }, [rawEvents, from, to])
 
@@ -312,7 +337,7 @@ export const useCalendar = () => {
   const createMutation = useMutation({
     mutationFn: (data: CalendarEventData) => api.calendar.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] })
       toast.success('Event created')
       setDialogOpen(false)
     },
@@ -334,22 +359,25 @@ export const useCalendar = () => {
     }) => api.calendar.update(id, data, scope, originalDate),
 
     onMutate: async ({ optimisticKey: key }) => {
-      await queryClient.cancelQueries({ queryKey: ['calendar-events'] })
-      const snapshot = queryClient.getQueriesData({ queryKey: ['calendar-events'] })
+      await queryClient.cancelQueries({ queryKey: ['calendar-events-flowline'] })
+      const snapshot = queryClient.getQueriesData({ queryKey: ['calendar-events-flowline'] })
       return { snapshot, key }
     },
 
     onSuccess: (_, { id, data, scope, optimisticKey: key }) => {
       if (!scope || scope === 'all') {
-        queryClient.setQueriesData<{ docs: any[] }>({ queryKey: ['calendar-events'] }, (old) => {
-          if (!old) return old
-          return { ...old, docs: old.docs.map((e) => (e.id === id ? { ...e, ...data } : e)) }
-        })
+        queryClient.setQueriesData<{ docs: any[] }>(
+          { queryKey: ['calendar-events-flowline'] },
+          (old) => {
+            if (!old) return old
+            return { ...old, docs: old.docs.map((e) => (e.id === id ? { ...e, ...data } : e)) }
+          },
+        )
         if (key) clearOptimistic(key)
         else clearOptimisticDate('event', id)
-        queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+        queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] })
       } else {
-        queryClient.invalidateQueries({ queryKey: ['calendar-events'] }).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] }).then(() => {
           if (key) clearOptimistic(key)
           else clearOptimisticDate('event', id)
         })
@@ -383,15 +411,16 @@ export const useCalendar = () => {
       originalDate?: string
     }) => api.calendar.delete(id, scope, originalDate),
     onMutate: async ({ id }) => {
-      await queryClient.cancelQueries({ queryKey: ['calendar-events'] })
-      const snapshot = queryClient.getQueriesData({ queryKey: ['calendar-events'] })
-      queryClient.setQueriesData<{ docs: any[] }>({ queryKey: ['calendar-events'] }, (old) =>
-        old ? { ...old, docs: old.docs.filter((e) => e.id !== id) } : old,
+      await queryClient.cancelQueries({ queryKey: ['calendar-events-flowline'] })
+      const snapshot = queryClient.getQueriesData({ queryKey: ['calendar-events-flowline'] })
+      queryClient.setQueriesData<{ docs: any[] }>(
+        { queryKey: ['calendar-events-flowline'] },
+        (old) => (old ? { ...old, docs: old.docs.filter((e) => e.id !== id) } : old),
       )
       return { snapshot }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] })
       toast.success('Event deleted')
       setDialogOpen(false)
       setSelectedItem(null)
@@ -485,7 +514,6 @@ export const useCalendar = () => {
             : e.id === id && !e.isOccurrence,
         ) ?? events.find((e) => e.id === id)
       if (!event) return
-
       if (event.source === 'google') return
 
       const key = event.optimisticKey ?? `event-${id}`
@@ -521,7 +549,6 @@ export const useCalendar = () => {
             ? e.optimisticKey === eventOptimisticKey
             : e.id === id && !e.isOccurrence,
         ) ?? events.find((e) => e.id === id)
-
       if (event?.source === 'google') return
 
       const key = event?.optimisticKey ?? `event-${id}`
