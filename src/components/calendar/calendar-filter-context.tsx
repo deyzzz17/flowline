@@ -1,41 +1,83 @@
 'use client'
 
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 
 interface CalendarFilterContextValue {
   hiddenCategories: Set<number>
   toggleCategory: (id: number) => void
   isCategoryVisible: (id: number | null | undefined) => boolean
+  hiddenGoogleCalendars: Set<string>
+  toggleGoogleCalendar: (googleCalendarId: string) => void
+  isGoogleCalendarVisible: (googleCalendarId: string | null | undefined) => boolean
 }
 
 const CalendarFilterContext = createContext<CalendarFilterContextValue>({
   hiddenCategories: new Set(),
   toggleCategory: () => {},
   isCategoryVisible: () => true,
+  hiddenGoogleCalendars: new Set(),
+  toggleGoogleCalendar: () => {},
+  isGoogleCalendarVisible: () => true,
 })
 
 export function CalendarFilterProvider({ children }: { children: ReactNode }) {
   const [hiddenCategories, setHiddenCategories] = useState<Set<number>>(new Set())
+  const [hiddenGoogleCalendars, setHiddenGoogleCalendars] = useState<Set<string>>(new Set())
 
-  const toggleCategory = (id: number) => {
+  const toggleCategory = useCallback((id: number) => {
     setHiddenCategories((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
       return next
     })
-  }
+  }, [])
 
-  const isCategoryVisible = (id: number | null | undefined) => {
-    if (!id) return true
-    return !hiddenCategories.has(id)
-  }
-
-  return (
-    <CalendarFilterContext.Provider value={{ hiddenCategories, toggleCategory, isCategoryVisible }}>
-      {children}
-    </CalendarFilterContext.Provider>
+  const isCategoryVisible = useCallback(
+    (id: number | null | undefined) => {
+      if (!id) return true
+      return !hiddenCategories.has(id)
+    },
+    [hiddenCategories],
   )
+
+  const toggleGoogleCalendar = useCallback((googleCalendarId: string) => {
+    setHiddenGoogleCalendars((prev) => {
+      const next = new Set(prev)
+      if (next.has(googleCalendarId)) next.delete(googleCalendarId)
+      else next.add(googleCalendarId)
+      return next
+    })
+  }, [])
+
+  const isGoogleCalendarVisible = useCallback(
+    (googleCalendarId: string | null | undefined) => {
+      if (!googleCalendarId) return true
+      return !hiddenGoogleCalendars.has(googleCalendarId)
+    },
+    [hiddenGoogleCalendars],
+  )
+
+  const value = useMemo(
+    () => ({
+      hiddenCategories,
+      toggleCategory,
+      isCategoryVisible,
+      hiddenGoogleCalendars,
+      toggleGoogleCalendar,
+      isGoogleCalendarVisible,
+    }),
+    [
+      hiddenCategories,
+      toggleCategory,
+      isCategoryVisible,
+      hiddenGoogleCalendars,
+      toggleGoogleCalendar,
+      isGoogleCalendarVisible,
+    ],
+  )
+
+  return <CalendarFilterContext.Provider value={value}>{children}</CalendarFilterContext.Provider>
 }
 
 export const useCalendarFilter = () => useContext(CalendarFilterContext)

@@ -26,6 +26,9 @@ export interface CalendarEvent {
   isOccurrence?: boolean
   occurrenceDate?: string
   optimisticKey?: string
+  source?: 'flowline' | 'google'
+  googleCalendarId?: string | null
+  googleCalendarName?: string | null
   type: 'event'
 }
 
@@ -96,7 +99,7 @@ export const useCalendar = () => {
   >(new Map())
 
   const queryClient = useQueryClient()
-  const { isCategoryVisible } = useCalendarFilter()
+  const { isCategoryVisible, isGoogleCalendarVisible } = useCalendarFilter()
   const { from, to } = getViewRange(currentDate, view)
 
   const { data: eventsData } = useQuery({
@@ -126,6 +129,9 @@ export const useCalendar = () => {
         recurrenceId: e.recurrenceId ?? null,
         originalDate: e.originalDate ?? null,
         exceptions: (e.exceptions ?? []) as { date: string }[],
+        source: (e.source ?? 'flowline') as 'flowline' | 'google',
+        googleCalendarId: e.googleCalendarId ?? null,
+        googleCalendarName: e.googleCalendarName ?? null,
         type: 'event' as const,
       })),
     [eventsData],
@@ -180,6 +186,9 @@ export const useCalendar = () => {
           isOccurrence: true,
           occurrenceDate: occIso,
           optimisticKey: `event-${parent.id}-${occIso}`,
+          source: parent.source,
+          googleCalendarId: parent.googleCalendarId,
+          googleCalendarName: parent.googleCalendarName,
           type: 'event',
         })
       }
@@ -477,6 +486,8 @@ export const useCalendar = () => {
         ) ?? events.find((e) => e.id === id)
       if (!event) return
 
+      if (event.source === 'google') return
+
       const key = event.optimisticKey ?? `event-${id}`
       const duration = new Date(event.endDate).getTime() - new Date(event.startDate).getTime()
 
@@ -510,6 +521,8 @@ export const useCalendar = () => {
             ? e.optimisticKey === eventOptimisticKey
             : e.id === id && !e.isOccurrence,
         ) ?? events.find((e) => e.id === id)
+
+      if (event?.source === 'google') return
 
       const key = event?.optimisticKey ?? `event-${id}`
 
@@ -563,6 +576,9 @@ export const useCalendar = () => {
 
       const dayEvents = eventsWithOverrides.filter((e) => {
         if (!isCategoryVisible(e.categoryId)) return false
+        if (e.source === 'google' && e.googleCalendarId) {
+          if (!isGoogleCalendarVisible(e.googleCalendarId)) return false
+        }
         const start = new Date(e.startDate)
         const end = new Date(e.endDate)
         const dayStart = new Date(date)
@@ -580,7 +596,7 @@ export const useCalendar = () => {
         return new Date(aDate).getTime() - new Date(bDate).getTime()
       })
     },
-    [eventsWithOverrides, tasksWithOverrides, isCategoryVisible],
+    [eventsWithOverrides, tasksWithOverrides, isCategoryVisible, isGoogleCalendarVisible],
   )
 
   return {
