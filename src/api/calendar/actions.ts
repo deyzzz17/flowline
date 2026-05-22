@@ -140,6 +140,8 @@ export const listCalendarEvents = async (from: string, to: string) => {
       ],
     },
   })
+  console.log('Total events:', docs.length)
+  console.log('Google events:', docs.filter((e: any) => e.source === 'google').length)
   return { docs }
 }
 
