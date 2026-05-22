@@ -1,6 +1,7 @@
 import { inngest } from '@/lib/inngest'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
+import { Pool } from 'pg'
 
 export const syncGoogleCalendar = inngest.createFunction(
   { id: 'sync-google-calendar', name: 'Sync Google Calendar', triggers: { cron: '*/15 * * * *' } },
@@ -45,24 +46,29 @@ export const syncGoogleCalendarForUser = inngest.createFunction(
 async function syncUserGoogleCalendar(sync: any, payload: any) {
   const { userId, calendars = [], nextSyncToken } = sync
 
-  const { docs: accounts } = await payload.find({
-    collection: 'accounts' as any,
-    where: {
-      and: [{ userId: { equals: userId } }, { providerId: { equals: 'google' } }],
-    },
-    limit: 1,
-  })
-
-  if (accounts.length === 0) {
-    await payload.update({
-      collection: 'google-calendar-syncs',
-      id: sync.id,
-      data: { status: 'error', errorMessage: 'No Google account found' } as any,
-    })
-    return
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+  let account: any
+  try {
+    const result = await pool.query(
+      `SELECT id, "accessToken", "refreshToken", "accessTokenExpiresAt"
+       FROM account
+       WHERE "userId" = $1 AND "providerId" = 'google'
+       LIMIT 1`,
+      [userId],
+    )
+    if (result.rows.length === 0) {
+      await payload.update({
+        collection: 'google-calendar-syncs',
+        id: sync.id,
+        data: { status: 'error', errorMessage: 'No Google account found' } as any,
+      })
+      return
+    }
+    account = result.rows[0]
+  } finally {
+    await pool.end()
   }
 
-  const account = accounts[0] as any
   let accessToken = account.accessToken
 
   if (account.accessTokenExpiresAt && new Date(account.accessTokenExpiresAt) < new Date()) {
@@ -76,14 +82,15 @@ async function syncUserGoogleCalendar(sync: any, payload: any) {
       return
     }
     accessToken = refreshed.accessToken
-    await payload.update({
-      collection: 'accounts' as any,
-      id: account.id,
-      data: {
-        accessToken: refreshed.accessToken,
-        accessTokenExpiresAt: refreshed.expiresAt,
-      } as any,
-    })
+    const pool2 = new Pool({ connectionString: process.env.DATABASE_URL })
+    try {
+      await pool2.query(
+        `UPDATE account SET "accessToken" = $1, "accessTokenExpiresAt" = $2 WHERE id = $3`,
+        [refreshed.accessToken, refreshed.expiresAt, account.id],
+      )
+    } finally {
+      await pool2.end()
+    }
   }
 
   const enabledCalendars = calendars.filter((c: any) => c.enabled)
