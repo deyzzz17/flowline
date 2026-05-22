@@ -72,9 +72,8 @@ export function CalendarEventBlock({
 }) {
   const { formatTime } = useTimeFormat()
 
-  // ── ID unique par occurrence ──────────────────────────────────────────────
-  // Pour les occurrences récurrentes, plusieurs blocks ont le même item.id
-  // → on utilise optimisticKey qui est unique par occurrence
+  const isGoogle = item.type === 'event' && (item as CalendarEvent).source === 'google'
+
   const draggableId =
     item.type === 'event'
       ? ((item as CalendarEvent).optimisticKey ?? `event-${item.id}`)
@@ -83,6 +82,8 @@ export function CalendarEventBlock({
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: draggableId,
     data: { item },
+    // Désactive le drag pour les events Google
+    disabled: isGoogle,
   })
 
   const top = getItemTop(item, viewDate)
@@ -247,12 +248,16 @@ export function CalendarEventBlock({
         continuesPrevDay ? 'rounded-t-none' : 'rounded-t-lg',
         continuesNextDay ? 'rounded-b-none' : 'rounded-b-lg',
         isDragging && 'opacity-40',
+        isGoogle ? 'cursor-default' : '',
       )}
     >
       <div
-        {...listeners}
-        {...attributes}
-        className="absolute inset-0 bottom-3 cursor-grab active:cursor-grabbing px-1.5 pt-0.5"
+        {...(!isGoogle ? listeners : {})}
+        {...(!isGoogle ? attributes : {})}
+        className={cn(
+          'absolute inset-0 bottom-3 px-1.5 pt-0.5',
+          !isGoogle && 'cursor-grab active:cursor-grabbing',
+        )}
         onClick={(e) => {
           e.stopPropagation()
           if (!isResizing.current) onClickItem(item)
@@ -276,7 +281,7 @@ export function CalendarEventBlock({
         )}
       </div>
 
-      {!continuesNextDay && (
+      {!continuesNextDay && !isGoogle && (
         <div
           onMouseDown={handleResizeMouseDown}
           onTouchStart={handleResizeTouchStart}
