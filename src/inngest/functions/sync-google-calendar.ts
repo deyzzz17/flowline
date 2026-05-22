@@ -131,9 +131,23 @@ async function syncUserGoogleCalendar(sync: any, payload: any) {
       const data = await res.json()
       newNextSyncToken = data.nextSyncToken ?? newNextSyncToken
 
-      for (const gEvent of data.items ?? []) {
-        await upsertGoogleEvent(gEvent, cal, userId, payload)
-      }
+      const items: any[] = data.items ?? []
+      if (items.length === 0) continue
+
+      const googleIds = items.map((e: any) => e.id)
+      const { docs: existing } = await payload.find({
+        collection: 'calendar-events',
+        where: { googleEventId: { in: googleIds } },
+        limit: 500,
+      })
+
+      const existingMap = new Map<string, number>(
+        existing.map((e: any) => [e.googleEventId as string, e.id as number]),
+      )
+
+      await Promise.all(
+        items.map((gEvent: any) => upsertGoogleEvent(gEvent, cal, userId, payload, existingMap)),
+      )
     } catch (e) {
       console.error(`Error syncing calendar ${cal.googleId}:`, e)
     }
@@ -151,26 +165,32 @@ async function syncUserGoogleCalendar(sync: any, payload: any) {
   })
 }
 
-async function upsertGoogleEvent(gEvent: any, cal: any, userId: string, payload: any) {
+async function upsertGoogleEvent(
+  gEvent: any,
+  cal: any,
+  userId: string,
+  payload: any,
+  existingMap: Map<string, number>,
+) {
   if (gEvent.status === 'cancelled') {
-    const { docs } = await payload.find({
-      collection: 'calendar-events',
-      where: { googleEventId: { equals: gEvent.id } },
-      limit: 1,
-    })
-    if (docs.length > 0) {
-      await payload.delete({ collection: 'calendar-events', id: docs[0].id })
+    const existingId = existingMap.get(gEvent.id)
+    if (existingId) {
+      await payload.delete({ collection: 'calendar-events', id: existingId })
     }
     return
   }
+
+  if (!gEvent.start) return
 
   const allDay = !gEvent.start.dateTime
   const startDate = gEvent.start.dateTime
     ? new Date(gEvent.start.dateTime).toISOString()
     : new Date(gEvent.start.date + 'T00:00:00').toISOString()
-  const endDate = gEvent.end.dateTime
+  const endDate = gEvent.end?.dateTime
     ? new Date(gEvent.end.dateTime).toISOString()
-    : new Date(gEvent.end.date + 'T00:00:00').toISOString()
+    : gEvent.end?.date
+      ? new Date(gEvent.end.date + 'T00:00:00').toISOString()
+      : startDate
 
   const eventData = {
     userId,
@@ -186,16 +206,11 @@ async function upsertGoogleEvent(gEvent: any, cal: any, userId: string, payload:
     source: 'google',
   }
 
-  const { docs } = await payload.find({
-    collection: 'calendar-events',
-    where: { googleEventId: { equals: gEvent.id } },
-    limit: 1,
-  })
-
-  if (docs.length > 0) {
+  const existingId = existingMap.get(gEvent.id)
+  if (existingId) {
     await payload.update({
       collection: 'calendar-events',
-      id: docs[0].id,
+      id: existingId,
       data: eventData as any,
     })
   } else {
