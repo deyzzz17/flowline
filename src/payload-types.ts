@@ -396,10 +396,6 @@ export interface CalendarEvent {
    */
   originalDate?: string | null;
   seriesId?: string | null;
-  source?: ('flowline' | 'google') | null;
-  googleEventId?: string | null;
-  googleCalendarId?: string | null;
-  googleCalendarName?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -737,10 +733,6 @@ export interface CalendarEventsSelect<T extends boolean = true> {
   recurrenceId?: T;
   originalDate?: T;
   seriesId?: T;
-  source?: T;
-  googleEventId?: T;
-  googleCalendarId?: T;
-  googleCalendarName?: T;
   updatedAt?: T;
   createdAt?: T;
 }

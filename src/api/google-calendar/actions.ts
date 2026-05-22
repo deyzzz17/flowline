@@ -76,7 +76,6 @@ export const connectGoogleCalendar = async () => {
     }))
 
     const payload = await getPayload({ config })
-
     const { docs } = await payload.find({
       collection: 'google-calendar-syncs',
       where: { userId: { equals: userId } },
@@ -109,17 +108,6 @@ export const disconnectGoogleCalendar = async () => {
     if (!userId) return err('Not authenticated')
 
     const payload = await getPayload({ config })
-
-    const { docs: googleEvents } = await payload.find({
-      collection: 'calendar-events',
-      where: {
-        and: [{ userId: { equals: userId } }, { source: { equals: 'google' } }],
-      },
-      limit: 0,
-    })
-    for (const e of googleEvents) {
-      await payload.delete({ collection: 'calendar-events', id: e.id })
-    }
 
     const { docs } = await payload.find({
       collection: 'google-calendar-syncs',

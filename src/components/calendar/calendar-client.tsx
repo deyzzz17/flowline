@@ -188,6 +188,10 @@ export function CalendarClient() {
     if (!over) return
     const item = active.data.current?.item
     if (!item) return
+
+    // Bloque les events Google (read-only)
+    if (item.source === 'google') return
+
     const targetDate = new Date(over.id as string)
     const hasSpecificHour = targetDate.getHours() !== 0 || targetDate.getMinutes() !== 0
 
@@ -195,20 +199,23 @@ export function CalendarClient() {
       if (isRecurringEvent(item)) {
         setPendingAction({ type: 'move', item: item as CalendarEvent, targetDate })
       } else {
-        moveEvent(item.id, targetDate)
+        moveEvent(item.id as number, targetDate)
       }
     } else if (item.type === 'task') {
-      if (view === 'day' && hasSpecificHour) moveTask(item.id, targetDate)
+      if (view === 'day' && hasSpecificHour) moveTask(item.id as number, targetDate)
       else setPendingTaskDrop({ task: item as CalendarTask, targetDate })
     }
   }
 
   const handleResizeEnd = (item: CalendarItem, newEndDate: Date) => {
     if (item.type === 'event') {
+      // Bloque les events Google (read-only)
+      if ((item as CalendarEvent).source === 'google') return
+
       if (isRecurringEvent(item as CalendarEvent)) {
         setPendingAction({ type: 'resize', item: item as CalendarEvent, newEndDate })
       } else {
-        resizeEvent(item.id, newEndDate)
+        resizeEvent(item.id as number, newEndDate)
         if (view === 'day') {
           const midnight = new Date(currentDate)
           midnight.setHours(24, 0, 0, 0)
@@ -216,7 +223,7 @@ export function CalendarClient() {
         }
       }
     } else {
-      resizeTask(item.id, newEndDate)
+      resizeTask(item.id as number, newEndDate)
     }
   }
 
@@ -227,9 +234,9 @@ export function CalendarClient() {
     const key = item.optimisticKey
 
     if (pendingAction.type === 'move') {
-      moveEvent(item.id, pendingAction.targetDate, scope, occDate, key)
+      moveEvent(item.id as number, pendingAction.targetDate, scope, occDate, key)
     } else {
-      resizeEvent(item.id, pendingAction.newEndDate, scope, occDate, key)
+      resizeEvent(item.id as number, pendingAction.newEndDate, scope, occDate, key)
       if (view === 'day') {
         const midnight = new Date(currentDate)
         midnight.setHours(24, 0, 0, 0)
@@ -247,7 +254,14 @@ export function CalendarClient() {
 
   const handleSave = (data: CalendarEventData, scope?: EditScope, originalDate?: string) => {
     if (selectedItem?.type === 'event') {
-      updateMutation.mutate({ id: selectedItem.id, data, scope, originalDate })
+      // Les events Google sont read-only
+      if ((selectedItem as CalendarEvent).source === 'google') return
+      updateMutation.mutate({
+        id: selectedItem.id as number,
+        data,
+        scope,
+        originalDate,
+      })
     } else {
       createMutation.mutate(data)
     }

@@ -28,14 +28,6 @@ export const useGoogleCalendar = () => {
       queryClient.invalidateQueries({ queryKey: ['google-calendar-status'] })
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
       toast.success('Google Calendar connected!')
-      fetch('/api/inngest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'calendar/google.sync.requested',
-          data: {},
-        }),
-      })
     },
     onError: () => toast.error('Failed to connect Google Calendar'),
   })
