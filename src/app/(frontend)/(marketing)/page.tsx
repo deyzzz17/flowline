@@ -16,6 +16,7 @@ import { MiniTask } from '@/components/home/mini-task'
 import { HabitBar } from '@/components/home/habit-bar'
 import Link from 'next/link'
 import { requireGuest } from '@/lib/require-auth'
+import { Footer } from '@/components/home/footer'
 
 export default async function HomePage() {
   await requireGuest()
@@ -456,6 +457,7 @@ export default async function HomePage() {
           </div>
         </section>
       </div>
+      <Footer />
     </div>
   )
 }
