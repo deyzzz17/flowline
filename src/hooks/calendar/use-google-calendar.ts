@@ -21,10 +21,7 @@ export const useGoogleCalendar = () => {
   const connectMutation = useMutation({
     mutationFn: connectGoogleCalendar,
     onSuccess: (result) => {
-      if ('error' in result) {
-        toast.error(result.error)
-        return
-      }
+      if ('error' in result) { toast.error(result.error); return }
       queryClient.invalidateQueries({ queryKey: ['google-calendar-status'] })
       queryClient.invalidateQueries({ queryKey: ['calendar-events-google'] })
       toast.success('Google Calendar connected!')

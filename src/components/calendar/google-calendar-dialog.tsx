@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Loader2, Check, X } from 'lucide-react'
 import { useGoogleCalendar } from '@/hooks/calendar/use-google-calendar'
+import { useCalendarFilter } from '@/components/calendar/calendar-filter-context'
 import { cn } from '@/lib/utils'
 
 function GoogleIcon({ className }: { className?: string }) {
@@ -45,16 +46,32 @@ function ConnectedView({
   updateSettings: any
   isDisconnecting: boolean
 }) {
+  const { toggleGoogleCalendar, isGoogleCalendarVisible } = useCalendarFilter()
+
   const [localCalendars, setLocalCalendars] = useState<any[]>(calendars)
 
   const handleToggle = (googleId: string) => {
     const current = localCalendars.find((c) => c.googleId === googleId)
     if (!current) return
     const newEnabled = !current.enabled
+
     setLocalCalendars((prev) =>
       prev.map((c) => (c.googleId === googleId ? { ...c, enabled: newEnabled } : c)),
     )
-    updateSettings([{ googleId, enabled: newEnabled }])
+
+    const currentlyVisible = isGoogleCalendarVisible(googleId)
+    if (newEnabled !== currentlyVisible) {
+      toggleGoogleCalendar(googleId)
+    }
+
+    updateSettings([{ googleId, enabled: newEnabled }], {
+      onError: () => {
+        setLocalCalendars((prev) =>
+          prev.map((c) => (c.googleId === googleId ? { ...c, enabled: !newEnabled } : c)),
+        )
+        toggleGoogleCalendar(googleId)
+      },
+    })
   }
 
   return (
