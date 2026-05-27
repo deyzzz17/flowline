@@ -26,7 +26,7 @@ export const useGoogleCalendar = () => {
         return
       }
       queryClient.invalidateQueries({ queryKey: ['google-calendar-status'] })
-      queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-google'] })
       toast.success('Google Calendar connected!')
     },
     onError: () => toast.error('Failed to connect Google Calendar'),
@@ -36,7 +36,7 @@ export const useGoogleCalendar = () => {
     mutationFn: disconnectGoogleCalendar,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['google-calendar-status'] })
-      queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-google'] })
       toast.success('Google Calendar disconnected')
     },
     onError: () => toast.error('Failed to disconnect'),
@@ -46,7 +46,7 @@ export const useGoogleCalendar = () => {
     mutationFn: updateGoogleCalendarSettings,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['google-calendar-status'] })
-      queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-google'] })
     },
   })
 
