@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Loader2, Check, X } from 'lucide-react'
@@ -30,91 +30,31 @@ function GoogleIcon({ className }: { className?: string }) {
   )
 }
 
-interface GoogleCalendarDialogProps {
+function ConnectedView({
+  open,
+  onOpenChange,
+  calendars,
+  disconnect,
+  updateSettings,
+  isDisconnecting,
+}: {
   open: boolean
   onOpenChange: (v: boolean) => void
-}
-
-export function GoogleCalendarDialog({ open, onOpenChange }: GoogleCalendarDialogProps) {
-  const {
-    isConnected,
-    calendars,
-    connect,
-    disconnect,
-    updateSettings,
-    isConnecting,
-    isDisconnecting,
-  } = useGoogleCalendar()
-
+  calendars: any[]
+  disconnect: any
+  updateSettings: any
+  isDisconnecting: boolean
+}) {
   const [localCalendars, setLocalCalendars] = useState<any[]>(calendars)
-
-  useEffect(() => {
-    setLocalCalendars(calendars)
-  }, [calendars])
 
   const handleToggle = (googleId: string) => {
     const current = localCalendars.find((c) => c.googleId === googleId)
     if (!current) return
     const newEnabled = !current.enabled
-
     setLocalCalendars((prev) =>
       prev.map((c) => (c.googleId === googleId ? { ...c, enabled: newEnabled } : c)),
     )
-
     updateSettings([{ googleId, enabled: newEnabled }])
-  }
-
-  if (!isConnected) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <GoogleIcon className="h-5 w-5" />
-              Connect Google Calendar
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <p className="text-sm text-muted-foreground">
-              View your Google Calendar events directly in Flowline. Read-only, Flowline won&apos;t
-              modify your Google events.
-            </p>
-            <ul className="space-y-1.5 text-sm text-muted-foreground">
-              {[
-                'View all your Google Calendar events',
-                'Always up to date — no sync delay',
-                "Read-only — Flowline won't modify your Google events",
-              ].map((t) => (
-                <li key={t} className="flex items-center gap-2">
-                  <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                  {t}
-                </li>
-              ))}
-            </ul>
-            <Button
-              className="w-full gap-2"
-              onClick={() => connect(undefined)}
-              disabled={isConnecting}
-            >
-              {isConnecting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Connecting...
-                </>
-              ) : (
-                <>
-                  <GoogleIcon className="h-4 w-4" />
-                  Connect Google Calendar
-                </>
-              )}
-            </Button>
-            <p className="text-[11px] text-muted-foreground/60 text-center">
-              You need to be signed in with Google to use this feature.
-            </p>
-          </div>
-        </DialogContent>
-      </Dialog>
-    )
   }
 
   return (
@@ -178,11 +118,7 @@ export function GoogleCalendarDialog({ open, onOpenChange }: GoogleCalendarDialo
             variant="ghost"
             size="sm"
             className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 gap-2"
-            onClick={() => {
-              disconnect(undefined, {
-                onSuccess: () => onOpenChange(false),
-              })
-            }}
+            onClick={() => disconnect(undefined, { onSuccess: () => onOpenChange(false) })}
             disabled={isDisconnecting}
           >
             {isDisconnecting ? (
@@ -200,5 +136,87 @@ export function GoogleCalendarDialog({ open, onOpenChange }: GoogleCalendarDialo
         </div>
       </DialogContent>
     </Dialog>
+  )
+}
+
+interface GoogleCalendarDialogProps {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+}
+
+export function GoogleCalendarDialog({ open, onOpenChange }: GoogleCalendarDialogProps) {
+  const {
+    isConnected,
+    calendars,
+    connect,
+    disconnect,
+    updateSettings,
+    isConnecting,
+    isDisconnecting,
+  } = useGoogleCalendar()
+
+  if (!isConnected) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <GoogleIcon className="h-5 w-5" />
+              Connect Google Calendar
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              View your Google Calendar events directly in Flowline. Read-only, Flowline won&apos;t
+              modify your Google events.
+            </p>
+            <ul className="space-y-1.5 text-sm text-muted-foreground">
+              {[
+                'View all your Google Calendar events',
+                'Always up to date — no sync delay',
+                "Read-only — Flowline won't modify your Google events",
+              ].map((t) => (
+                <li key={t} className="flex items-center gap-2">
+                  <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                  {t}
+                </li>
+              ))}
+            </ul>
+            <Button
+              className="w-full gap-2"
+              onClick={() => connect(undefined)}
+              disabled={isConnecting}
+            >
+              {isConnecting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Connecting...
+                </>
+              ) : (
+                <>
+                  <GoogleIcon className="h-4 w-4" />
+                  Connect Google Calendar
+                </>
+              )}
+            </Button>
+            <p className="text-[11px] text-muted-foreground/60 text-center">
+              You need to be signed in with Google to use this feature.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
+  return (
+    <ConnectedView
+      key={open ? 'open' : 'closed'}
+      open={open}
+      onOpenChange={onOpenChange}
+      calendars={calendars}
+      disconnect={disconnect}
+      updateSettings={updateSettings}
+      isDisconnecting={isDisconnecting}
+    />
   )
 }
