@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Loader2, Check, X } from 'lucide-react'
@@ -44,6 +45,24 @@ export function GoogleCalendarDialog({ open, onOpenChange }: GoogleCalendarDialo
     isConnecting,
     isDisconnecting,
   } = useGoogleCalendar()
+
+  const [localCalendars, setLocalCalendars] = useState<any[]>(calendars)
+
+  useEffect(() => {
+    setLocalCalendars(calendars)
+  }, [calendars])
+
+  const handleToggle = (googleId: string) => {
+    const current = localCalendars.find((c) => c.googleId === googleId)
+    if (!current) return
+    const newEnabled = !current.enabled
+
+    setLocalCalendars((prev) =>
+      prev.map((c) => (c.googleId === googleId ? { ...c, enabled: newEnabled } : c)),
+    )
+
+    updateSettings([{ googleId, enabled: newEnabled }])
+  }
 
   if (!isConnected) {
     return (
@@ -115,19 +134,17 @@ export function GoogleCalendarDialog({ open, onOpenChange }: GoogleCalendarDialo
             </span>
           </div>
 
-          {calendars.length > 0 && (
+          {localCalendars.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Your calendars
               </p>
               <div className="space-y-1">
-                {calendars.map((cal: any) => (
+                {localCalendars.map((cal: any) => (
                   <button
                     key={cal.googleId}
                     type="button"
-                    onClick={() =>
-                      updateSettings([{ googleId: cal.googleId, enabled: !cal.enabled }])
-                    }
+                    onClick={() => handleToggle(cal.googleId)}
                     className="flex w-full items-center gap-3 rounded-lg border border-border/50 px-3 py-2 text-left transition-all hover:bg-muted/40"
                   >
                     <span
