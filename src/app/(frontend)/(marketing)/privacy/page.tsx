@@ -11,10 +11,10 @@ const sections = [
     title: '1. Introduction',
     content: (
       <p>
-        Flowline is a personal productivity app that helps you organize your tasks, lists,
-        subtasks, timers, and calendar events. This Privacy Policy describes how we collect, use,
-        store, and protect your personal data when you use Flowline, in compliance with the General
-        Data Protection Regulation (GDPR) and applicable data protection laws.
+        Flowline is a personal productivity app that helps you organize your tasks, lists, subtasks,
+        timers, and calendar events. This Privacy Policy describes how we collect, use, store, and
+        protect your personal data when you use Flowline, in compliance with the General Data
+        Protection Regulation (GDPR) and applicable data protection laws.
       </p>
     ),
   },
@@ -26,10 +26,10 @@ const sections = [
         Flowline is the data controller responsible for processing your personal data. For any
         questions regarding this policy or to exercise your rights, contact us at{' '}
         <a
-          href="mailto:privacy@flowline.app"
+          href="mailto:support@flowlineworkspace.com"
           className="text-violet-600 dark:text-violet-400 underline underline-offset-2"
         >
-          privacy@flowline.app
+          support@flowlineworkspace.com
         </a>
         .
       </p>
@@ -41,22 +41,31 @@ const sections = [
     content: (
       <div className="space-y-4">
         <div>
-          <h3 className="text-sm font-semibold text-foreground mb-1">3.1 Data you provide directly</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-1">
+            3.1 Data you provide directly
+          </h3>
           <ul className="list-disc list-inside space-y-1 text-muted-foreground">
             <li>Account information: email address, password (hashed), timezone</li>
-            <li>App content: tasks, lists, subtasks, mentions, tags, calendar events, categories, timers, and work sessions</li>
+            <li>
+              App content: tasks, lists, subtasks, mentions, tags, calendar events, categories,
+              timers, and work sessions
+            </li>
             <li>Media files: images or attachments you upload (stored via Cloudinary)</li>
           </ul>
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-foreground mb-1">3.2 Data collected automatically</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-1">
+            3.2 Data collected automatically
+          </h3>
           <ul className="list-disc list-inside space-y-1 text-muted-foreground">
             <li>Session data: session ID, authentication cookies, login timestamps</li>
             <li>Technical data: IP address, browser type, operating system, pages visited</li>
           </ul>
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-foreground mb-1">3.3 Data from third-party services</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-1">
+            3.3 Data from third-party services
+          </h3>
           <p className="text-muted-foreground">
             If you sign in with Google: email address, name, and profile picture via OAuth 2.0. If
             you enable the Google Calendar integration: calendar events (title, description, dates),
@@ -83,8 +92,14 @@ const sections = [
           <tbody className="divide-y divide-border/40">
             {[
               ['Account creation and management', 'Performance of a contract'],
-              ['Providing app features (tasks, calendar, timers, etc.)', 'Performance of a contract'],
-              ['Authentication and account security', 'Legitimate interest / Performance of a contract'],
+              [
+                'Providing app features (tasks, calendar, timers, etc.)',
+                'Performance of a contract',
+              ],
+              [
+                'Authentication and account security',
+                'Legitimate interest / Performance of a contract',
+              ],
               ['Google Calendar synchronization', 'Explicit consent'],
               ['App improvement and usage analytics', 'Legitimate interest'],
               ['Transactional emails', 'Performance of a contract'],
@@ -159,7 +174,9 @@ const sections = [
           <thead>
             <tr className="border-b border-border/60 bg-muted/30">
               <th className="px-4 py-3 text-left font-semibold text-foreground">Data type</th>
-              <th className="px-4 py-3 text-left font-semibold text-foreground">Retention period</th>
+              <th className="px-4 py-3 text-left font-semibold text-foreground">
+                Retention period
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/40">
@@ -213,7 +230,9 @@ const sections = [
               key={item.right}
               className="rounded-xl border border-border/50 bg-muted/20 px-4 py-3"
             >
-              <p className="text-sm font-medium text-foreground">Right to {item.right.toLowerCase()}</p>
+              <p className="text-sm font-medium text-foreground">
+                Right to {item.right.toLowerCase()}
+              </p>
               <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
             </div>
           ))}
@@ -221,10 +240,10 @@ const sections = [
         <p className="text-sm text-muted-foreground">
           To exercise your rights, contact us at{' '}
           <a
-            href="mailto:privacy@flowline.app"
+            href="mailto:support@flowlineworkspace.com"
             className="text-violet-600 dark:text-violet-400 underline underline-offset-2"
           >
-            privacy@flowline.app
+            support@flowlineworkspace.com
           </a>
           . We will respond within 30 days. You also have the right to lodge a complaint with your
           national data protection authority (in France:{' '}
@@ -318,10 +337,10 @@ const sections = [
         Flowline is not intended for persons under the age of 16. If you become aware that a minor
         has provided us with personal data, please contact us at{' '}
         <a
-          href="mailto:privacy@flowline.app"
+          href="mailto:support@flowlineworkspace.com"
           className="text-violet-600 dark:text-violet-400 underline underline-offset-2"
         >
-          privacy@flowline.app
+          support@flowlineworkspace.com
         </a>
         .
       </p>
@@ -347,10 +366,10 @@ const sections = [
         <p className="text-sm text-muted-foreground">
           Contact us at{' '}
           <a
-            href="mailto:privacy@flowline.app"
+            href="mailto:support@flowlineworkspace.com"
             className="text-violet-600 dark:text-violet-400 underline underline-offset-2 font-medium"
           >
-            privacy@flowline.app
+            support@flowlineworkspace.com
           </a>
           . We respond within 30 business days.
         </p>
