@@ -26,10 +26,10 @@ const sections = [
         Flowline is the data controller responsible for processing your personal data. For any
         questions regarding this policy or to exercise your rights, contact us at{' '}
         <a
-          href="mailto:privacy@flowline.app"
+          href="mailto:support@flowlineworkspace.com"
           className="text-violet-600 dark:text-violet-400 underline underline-offset-2"
         >
-          privacy@flowline.app
+          support@flowlineworkspace.com
         </a>
         .
       </p>
@@ -221,10 +221,10 @@ const sections = [
         <p className="text-sm text-muted-foreground">
           To exercise your rights, contact us at{' '}
           <a
-            href="mailto:privacy@flowline.app"
+            href="mailto:support@flowlineworkspace.com"
             className="text-violet-600 dark:text-violet-400 underline underline-offset-2"
           >
-            privacy@flowline.app
+            support@flowlineworkspace.com
           </a>
           . We will respond within 30 days. You also have the right to lodge a complaint with your
           national data protection authority (in France:{' '}
@@ -318,10 +318,10 @@ const sections = [
         Flowline is not intended for persons under the age of 16. If you become aware that a minor
         has provided us with personal data, please contact us at{' '}
         <a
-          href="mailto:privacy@flowline.app"
+          href="mailto:support@flowlineworkspace.com"
           className="text-violet-600 dark:text-violet-400 underline underline-offset-2"
         >
-          privacy@flowline.app
+          support@flowlineworkspace.com
         </a>
         .
       </p>
@@ -347,10 +347,10 @@ const sections = [
         <p className="text-sm text-muted-foreground">
           Contact us at{' '}
           <a
-            href="mailto:privacy@flowline.app"
+            href="mailto:support@flowlineworkspace.com"
             className="text-violet-600 dark:text-violet-400 underline underline-offset-2 font-medium"
           >
-            privacy@flowline.app
+            support@flowlineworkspace.com
           </a>
           . We respond within 30 business days.
         </p>
