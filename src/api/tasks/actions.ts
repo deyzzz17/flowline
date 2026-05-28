@@ -452,3 +452,48 @@ export const syncIfNeeded = async (userTimezone: string) => {
   await syncRecurringTasksForUser()
   cookieStore.set('tasks_last_sync', today, { httpOnly: true, maxAge: 60 * 60 * 24 })
 }
+
+export const completeTaskWithSubtasks = async (id: number) => {
+  try {
+    const payload = await getPayload({ config })
+    const task = await payload.findByID({ collection: 'tasks', id })
+    type Subtask = NonNullable<Task['subtasks']>[number]
+    const subtasks = (task.subtasks ?? []) as Subtask[]
+    await payload.update({
+      collection: 'tasks',
+      id,
+      data: {
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+        subtasks: subtasks.map((s) => ({ ...s, done: true })),
+      },
+    })
+    revalidatePath('/')
+    return ok(true)
+  } catch {
+    return err('Error while completing task with subtasks')
+  }
+}
+
+export const uncompleteSubtask = async (taskId: number, subtaskIndex: number) => {
+  try {
+    const payload = await getPayload({ config })
+    const task = await payload.findByID({ collection: 'tasks', id: taskId })
+    type Subtask = NonNullable<Task['subtasks']>[number]
+    const subtasks = (task.subtasks ?? []) as Subtask[]
+    const updatedSubtasks = subtasks.map((s, i) => (i === subtaskIndex ? { ...s, done: false } : s))
+    await payload.update({
+      collection: 'tasks',
+      id: taskId,
+      data: {
+        status: 'active',
+        completedAt: null,
+        subtasks: updatedSubtasks,
+      },
+    })
+    revalidatePath('/')
+    return ok({ subtasks: updatedSubtasks, status: 'active' })
+  } catch {
+    return err('Error while uncompleting subtask')
+  }
+}

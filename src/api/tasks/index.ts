@@ -13,6 +13,8 @@ import {
   toggleSubtask,
   deleteSubtask,
   syncRecurringTasksForUser,
+  completeTaskWithSubtasks,
+  uncompleteSubtask,
 } from './actions'
 
 export const tasksAPI = {
@@ -30,4 +32,6 @@ export const tasksAPI = {
   toggleSubtask,
   deleteSubtask,
   syncTasks: syncRecurringTasksForUser,
+  completeWithSubtasks: completeTaskWithSubtasks,
+  uncompleteSubtask,
 }

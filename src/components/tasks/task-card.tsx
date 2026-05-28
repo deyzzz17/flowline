@@ -5,7 +5,7 @@ import { useTask } from '@/hooks/tasks/use-task'
 import { useSoftDelete } from '@/hooks/tasks/use-soft-delete'
 import { useDeleteTask } from '@/hooks/tasks/use-delete-task'
 import { useRestoreTask } from '@/hooks/tasks/use-restore-task'
-import { useToggleSubtask } from '@/hooks/tasks/use-toggle-subtasks'
+import { useToggleSubtask, useCompleteTaskWithSubtasks } from '@/hooks/tasks/use-toggle-subtasks'
 import { useDeleteSubtask } from '@/hooks/tasks/use-delete-subtask'
 import type { Task } from '@/payload-types'
 import { Button } from '../ui/button'
@@ -163,6 +163,7 @@ export const TaskCard = ({
   const deleteTask = useDeleteTask()
   const restoreTask = useRestoreTask()
   const toggleSubtask = useToggleSubtask()
+  const completeWithSubtasks = useCompleteTaskWithSubtasks()
   const deleteSubtask = useDeleteSubtask()
   const queryClient = useQueryClient()
 
@@ -325,9 +326,15 @@ export const TaskCard = ({
               isEditing ||
               isDisabled ||
               isInactive ||
-              (hasSubtasks && !isCompleted)
+              completeWithSubtasks.isPending
             }
-            onCheckedChange={() => toggleStatus(task.id, task.status as 'active' | 'completed')}
+            onCheckedChange={() => {
+              if (isActive && hasSubtasks) {
+                completeWithSubtasks.mutate(task.id)
+              } else {
+                toggleStatus(task.id, task.status as 'active' | 'completed')
+              }
+            }}
           />
         </div>
 
@@ -1041,6 +1048,7 @@ export const TaskCard = ({
                       queryClient.invalidateQueries({ queryKey: ['tasks'] })
                       setEditingSubtaskIndex(null)
                     }
+
                     return (
                       <div
                         key={subtask.id ?? index}
@@ -1140,14 +1148,17 @@ export const TaskCard = ({
                                 checked={subtask.done ?? false}
                                 disabled={
                                   isDeleted ||
-                                  isCompleted ||
                                   isInactive ||
                                   (toggleSubtask.isPending &&
                                     toggleSubtask.variables?.taskId === task.id &&
                                     toggleSubtask.variables?.subtaskIndex === index)
                                 }
                                 onCheckedChange={() =>
-                                  toggleSubtask.mutate({ taskId: task.id, subtaskIndex: index })
+                                  toggleSubtask.mutate({
+                                    taskId: task.id,
+                                    subtaskIndex: index,
+                                    taskStatus: task.status as Task['status'],
+                                  })
                                 }
                                 className="h-3.5 w-3.5 shrink-0"
                               />
