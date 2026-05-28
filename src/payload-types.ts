@@ -78,6 +78,8 @@ export interface Config {
     'calendar-events': CalendarEvent;
     'calendar-categories': CalendarCategory;
     'google-calendar-syncs': GoogleCalendarSync;
+    habits: Habit;
+    'habit-completions': HabitCompletion;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -96,6 +98,8 @@ export interface Config {
     'calendar-events': CalendarEventsSelect<false> | CalendarEventsSelect<true>;
     'calendar-categories': CalendarCategoriesSelect<false> | CalendarCategoriesSelect<true>;
     'google-calendar-syncs': GoogleCalendarSyncsSelect<false> | GoogleCalendarSyncsSelect<true>;
+    habits: HabitsSelect<false> | HabitsSelect<true>;
+    'habit-completions': HabitCompletionsSelect<false> | HabitCompletionsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -438,6 +442,50 @@ export interface GoogleCalendarSync {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "habits".
+ */
+export interface Habit {
+  id: number;
+  userId: string;
+  name: string;
+  description?: string | null;
+  color?: string | null;
+  categoryTag?: string | null;
+  frequency: 'daily' | 'days_of_week' | 'times_per_week';
+  /**
+   * Used when frequency = days_of_week
+   */
+  daysOfWeek?: ('mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun')[] | null;
+  /**
+   * Used when frequency = times_per_week
+   */
+  timesPerWeek?: number | null;
+  /**
+   * Set to archive without deleting
+   */
+  archivedAt?: string | null;
+  /**
+   * Display order
+   */
+  order?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "habit-completions".
+ */
+export interface HabitCompletion {
+  id: number;
+  userId: string;
+  habitId: number;
+  completedAt: string;
+  note?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -503,6 +551,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'google-calendar-syncs';
         value: number | GoogleCalendarSync;
+      } | null)
+    | ({
+        relationTo: 'habits';
+        value: number | Habit;
+      } | null)
+    | ({
+        relationTo: 'habit-completions';
+        value: number | HabitCompletion;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -780,6 +836,36 @@ export interface GoogleCalendarSyncsSelect<T extends boolean = true> {
       };
   status?: T;
   errorMessage?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "habits_select".
+ */
+export interface HabitsSelect<T extends boolean = true> {
+  userId?: T;
+  name?: T;
+  description?: T;
+  color?: T;
+  categoryTag?: T;
+  frequency?: T;
+  daysOfWeek?: T;
+  timesPerWeek?: T;
+  archivedAt?: T;
+  order?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "habit-completions_select".
+ */
+export interface HabitCompletionsSelect<T extends boolean = true> {
+  userId?: T;
+  habitId?: T;
+  completedAt?: T;
+  note?: T;
   updatedAt?: T;
   createdAt?: T;
 }

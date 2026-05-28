@@ -16,6 +16,7 @@ import {
   Check,
   Loader2,
   ChevronRight,
+  Flame,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -66,6 +67,7 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
   const { hiddenCategories, toggleCategory } = useCalendarFilter()
 
   const [listsOpen, setListsOpen] = useState(true)
+  const [habitsOpen, setHabitsOpen] = useState(pathname.startsWith('/habits'))
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [timerOpen, setTimerOpen] = useState(false)
   const [showNewCategory, setShowNewCategory] = useState(false)
@@ -99,7 +101,7 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
   }, {})
 
   const isActive = (href: string) => pathname === href
-
+  const isHabitsActive = pathname.startsWith('/habits')
   const navLink = (href: string) => ({ href, onClick: onNavigate })
 
   const handleCreateCategory = async () => {
@@ -110,12 +112,15 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
     setShowNewCategory(false)
   }
 
+  const SubChevron = ({ open }: { open: boolean }) =>
+    open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />
+
   return (
     <>
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
-
       <div className="flex flex-1 flex-col h-full overflow-hidden">
         <nav className="flex-1 overflow-y-auto min-h-0 p-3 space-y-1 sidebar-scroll">
+          {/* Home */}
           <Link
             {...navLink('/dashboard')}
             className={cn(
@@ -139,11 +144,7 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
                 <ClipboardList className="h-4 w-4 shrink-0" />
                 Lists
               </div>
-              {listsOpen ? (
-                <ChevronDown className="h-3.5 w-3.5" />
-              ) : (
-                <ChevronRight className="h-3.5 w-3.5" />
-              )}
+              <SubChevron open={listsOpen} />
             </button>
             {listsOpen && (
               <div className="mt-0.5 ml-3 space-y-0.5 border-l border-border/50 pl-3">
@@ -151,7 +152,7 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
                   {...navLink('/list-analytics')}
                   className={cn(
                     'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
-                    isActive('/lists/analytics')
+                    isActive('/list-analytics')
                       ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                   )}
@@ -253,6 +254,53 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
           <div>
             <button
               type="button"
+              onClick={() => setHabitsOpen((v) => !v)}
+              className={cn(
+                'flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
+                isHabitsActive
+                  ? 'text-orange-600 dark:text-orange-400 bg-orange-500/10'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <Flame className="h-4 w-4 shrink-0" />
+                Habits
+              </div>
+              <SubChevron open={habitsOpen} />
+            </button>
+            {habitsOpen && (
+              <div className="mt-0.5 ml-3 space-y-0.5 border-l border-border/50 pl-3">
+                <Link
+                  {...navLink('/habits')}
+                  className={cn(
+                    'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
+                    isActive('/habits')
+                      ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  )}
+                >
+                  <Flame className="h-3.5 w-3.5 shrink-0" />
+                  Habits
+                </Link>
+                <Link
+                  {...navLink('/habits/analytics')}
+                  className={cn(
+                    'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
+                    isActive('/habits/analytics')
+                      ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  )}
+                >
+                  <BarChart2 className="h-3.5 w-3.5 shrink-0" />
+                  Analytics
+                </Link>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <button
+              type="button"
               onClick={() => setCalendarOpen((v) => !v)}
               className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
             >
@@ -260,11 +308,7 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
                 <CalendarDays className="h-4 w-4 shrink-0" />
                 Calendar
               </div>
-              {calendarOpen ? (
-                <ChevronDown className="h-3.5 w-3.5" />
-              ) : (
-                <ChevronRight className="h-3.5 w-3.5" />
-              )}
+              <SubChevron open={calendarOpen} />
             </button>
             {calendarOpen && (
               <div className="mt-0.5 ml-3 space-y-0.5 border-l border-border/50 pl-3">
@@ -402,11 +446,7 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
                 <Timer className="h-4 w-4 shrink-0" />
                 Timer
               </div>
-              {timerOpen ? (
-                <ChevronDown className="h-3.5 w-3.5" />
-              ) : (
-                <ChevronRight className="h-3.5 w-3.5" />
-              )}
+              <SubChevron open={timerOpen} />
             </button>
             {timerOpen && (
               <div className="mt-0.5 ml-3 space-y-0.5 border-l border-border/50 pl-3">
@@ -426,7 +466,7 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
                   {...navLink('/timer-analytics')}
                   className={cn(
                     'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
-                    isActive('/timer/analytics')
+                    isActive('/timer-analytics')
                       ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                   )}

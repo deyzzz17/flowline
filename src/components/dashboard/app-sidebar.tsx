@@ -16,6 +16,7 @@ import {
   Check,
   Loader2,
   PanelLeft,
+  Flame,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -113,6 +114,7 @@ export function AppSidebar() {
     return href
   }
   const isActive = (href: string) => pathname === href
+  const isHabitsActive = pathname.startsWith('/habits')
 
   const handleCreateCategory = async () => {
     if (!newCategoryName.trim()) return
@@ -125,7 +127,6 @@ export function AppSidebar() {
   return (
     <>
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
-
       <Sidebar
         collapsible={isMobile ? 'offcanvas' : 'icon'}
         className="border-r border-border/60"
@@ -164,7 +165,7 @@ export function AppSidebar() {
                     <CollapsibleContent>
                       <SidebarMenuSub>
                         <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={isActive('/lists/analytics')}>
+                          <SidebarMenuSubButton asChild isActive={isActive('/list-analytics')}>
                             <Link href={nav('/list-analytics')}>
                               <BarChart2 className="h-3.5 w-3.5" />
                               Analytics
@@ -258,6 +259,42 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 </Collapsible>
 
+                <Collapsible asChild className="group/habits" disabled={isCollapsed}>
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton
+                        tooltip="Habits"
+                        isActive={isHabitsActive}
+                        className={cn(isCollapsed && 'pointer-events-none')}
+                      >
+                        <Flame className="h-4 w-4 shrink-0" />
+                        <span>Habits</span>
+                        <ChevronDown className="ml-auto h-3.5 w-3.5 transition-transform group-data-[state=closed]/habits:-rotate-90" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={isActive('/habits')}>
+                            <Link href={nav('/habits')}>
+                              <Flame className="h-3.5 w-3.5" />
+                              Habits
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={isActive('/habits/analytics')}>
+                            <Link href={nav('/habits/analytics')}>
+                              <BarChart2 className="h-3.5 w-3.5" />
+                              Analytics
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+                
                 <Collapsible asChild className="group/calendar" disabled={isCollapsed}>
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
@@ -456,7 +493,6 @@ export function AppSidebar() {
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
-
           <div className="border-t border-border/40 pt-1">
             <SidebarMenu>
               <SidebarMenuItem>

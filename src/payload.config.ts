@@ -16,6 +16,8 @@ import { CalendarEvents } from './collections/CalendarEvents'
 import { TimerConfigs } from './collections/TimerConfigs'
 import { CalendarCategories } from './collections/CalendarCategories'
 import { GoogleCalendarSyncs } from './collections/GoogleCalendarSyncs'
+import { Habits } from './collections/Habits'
+import { HabitCompletions } from './collections/HabitCompletions'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -39,6 +41,8 @@ export default buildConfig({
     CalendarEvents,
     CalendarCategories,
     GoogleCalendarSyncs,
+    Habits,
+    HabitCompletions,
   ],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
