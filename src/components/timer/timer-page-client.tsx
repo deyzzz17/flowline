@@ -127,7 +127,7 @@ export function TimerPageClient() {
           </div>
           <div className="flex items-center gap-2">
             <Link
-              href="/timer/analytics"
+              href="/timer-analytics"
               className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl border border-border/50 bg-background/60 text-muted-foreground backdrop-blur-sm transition-all hover:bg-muted hover:text-foreground hover:border-border"
               aria-label="Analytics"
             >
