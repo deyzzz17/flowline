@@ -72,10 +72,10 @@ export function useToggleSubtask() {
       context?.previousData?.forEach(({ queryKey, data }) => {
         queryClient.setQueryData(queryKey as string[], data)
       })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
     },
 
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['list-analytics'] })
     },
   })
@@ -115,10 +115,10 @@ export function useCompleteTaskWithSubtasks() {
       context?.previousData?.forEach(({ queryKey, data }) => {
         queryClient.setQueryData(queryKey as string[], data)
       })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
     },
 
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['list-analytics'] })
     },
   })
