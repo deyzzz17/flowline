@@ -3,7 +3,12 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
-import { type CalendarEventData, type EditScope, type RecurrenceRule } from '@/api/calendar/actions'
+import {
+  type CalendarEventData,
+  type EditScope,
+  type RecurrenceRule,
+  type SeriesAdjustment,
+} from '@/api/calendar/actions'
 import { generateOccurrences } from '@/api/calendar/calendar-recurrence'
 import { useCalendarFilter } from '@/components/calendar/calendar-filter-context'
 import type { Task } from '@/payload-types'
@@ -30,6 +35,7 @@ export interface CalendarEvent {
   googleCalendarId?: string | null
   googleCalendarName?: string | null
   googleEventId?: string | null
+  activeAdjustment?: SeriesAdjustment | null
   type: 'event'
 }
 
@@ -102,6 +108,7 @@ function mapEvent(e: any) {
     recurrenceId: e.recurrenceId ?? null,
     originalDate: e.originalDate ?? null,
     exceptions: (e.exceptions ?? []) as { date: string }[],
+    adjustments: (e.adjustments ?? []) as SeriesAdjustment[],
     source: (e.source ?? 'flowline') as 'flowline' | 'google',
     googleCalendarId: e.googleCalendarId ?? null,
     googleCalendarName: e.googleCalendarName ?? null,
@@ -145,10 +152,7 @@ export const useCalendar = () => {
   })
 
   const rawEvents = useMemo(
-    () => [
-      ...(eventsData?.docs ?? []),
-      ...(googleEventsData?.docs ?? []),
-    ].map(mapEvent),
+    () => [...(eventsData?.docs ?? []), ...(googleEventsData?.docs ?? [])].map(mapEvent),
     [eventsData, googleEventsData],
   )
 
@@ -163,14 +167,14 @@ export const useCalendar = () => {
     const normal = flowlineEvents.filter((e) => !e.recurrence?.frequency && !e.recurrenceId)
 
     result.push(
-      ...normal.map(({ exceptions, ...e }) => ({
+      ...normal.map(({ exceptions, adjustments, ...e }) => ({
         ...e,
         optimisticKey: `event-${e.id}`,
       })),
     )
 
     result.push(
-      ...overrides.map(({ exceptions, ...e }) => ({
+      ...overrides.map(({ exceptions, adjustments, ...e }) => ({
         ...e,
         isOccurrence: true,
         optimisticKey: `event-${e.id}`,
@@ -187,18 +191,27 @@ export const useCalendar = () => {
           .map((o) => new Date(o.originalDate ?? o.startDate).toISOString().slice(0, 10)),
       )
       const allExceptions = new Set([...exceptions, ...overrideDates])
-      const occurrences = generateOccurrences(parent, from, to, allExceptions)
+
+      const occurrences = generateOccurrences(
+        { ...parent, adjustments: parent.adjustments ?? [] },
+        from,
+        to,
+        allExceptions,
+      )
+
       for (const occ of occurrences) {
         const occIso = occ.date.toISOString()
+        const adj = occ.adjustment
+
         result.push({
           id: parent.id,
-          title: parent.title,
-          description: parent.description,
+          title: adj?.title ?? parent.title,
+          description: adj?.description ?? parent.description,
           startDate: occIso,
           endDate: occ.endDate.toISOString(),
-          allDay: parent.allDay,
-          color: parent.color,
-          categoryId: parent.categoryId,
+          allDay: adj?.allDay ?? parent.allDay,
+          color: adj?.color ?? parent.color,
+          categoryId: adj?.categoryId ?? parent.categoryId,
           recurrence: parent.recurrence,
           recurrenceId: null,
           originalDate: occIso,
@@ -206,13 +219,14 @@ export const useCalendar = () => {
           occurrenceDate: occIso,
           optimisticKey: `event-${parent.id}-${occIso}`,
           source: 'flowline',
+          activeAdjustment: adj ?? null,
           type: 'event',
         })
       }
     }
 
     result.push(
-      ...googleEvents.map(({ exceptions, ...e }) => ({
+      ...googleEvents.map(({ exceptions, adjustments, ...e }) => ({
         ...e,
         optimisticKey: `google-${e.googleEventId ?? e.id}`,
       })),
