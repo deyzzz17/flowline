@@ -31,6 +31,7 @@ function GoogleIcon({ className }: { className?: string }) {
   )
 }
 
+// Vue connectée extraite pour permettre le pattern key + useState sans useEffect
 function ConnectedView({
   open,
   onOpenChange,
@@ -48,6 +49,7 @@ function ConnectedView({
 }) {
   const { toggleGoogleCalendar, isGoogleCalendarVisible } = useCalendarFilter()
 
+  // Initialisé une seule fois à la création — pas de useEffect
   const [localCalendars, setLocalCalendars] = useState<any[]>(calendars)
 
   const handleToggle = (googleId: string) => {
@@ -55,20 +57,25 @@ function ConnectedView({
     if (!current) return
     const newEnabled = !current.enabled
 
+    // 1. Mise à jour locale immédiate (toggle dialog)
     setLocalCalendars((prev) =>
       prev.map((c) => (c.googleId === googleId ? { ...c, enabled: newEnabled } : c)),
     )
 
+    // 2. Mise à jour du filtre calendrier immédiate (affichage events)
     const currentlyVisible = isGoogleCalendarVisible(googleId)
     if (newEnabled !== currentlyVisible) {
       toggleGoogleCalendar(googleId)
     }
 
+    // 3. Envoi serveur avec rollback si erreur
     updateSettings([{ googleId, enabled: newEnabled }], {
       onError: () => {
+        // Rollback dialog
         setLocalCalendars((prev) =>
           prev.map((c) => (c.googleId === googleId ? { ...c, enabled: !newEnabled } : c)),
         )
+        // Rollback filtre
         toggleGoogleCalendar(googleId)
       },
     })
@@ -76,14 +83,16 @@ function ConnectedView({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-sm max-h-[85vh] flex flex-col overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <GoogleIcon className="h-5 w-5" />
             Google Calendar
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-2">
+
+        {/* Contenu scrollable */}
+        <div className="flex-1 min-h-0 overflow-y-auto py-2 space-y-4">
           <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
             <Check className="h-4 w-4 text-emerald-500 shrink-0" />
             <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
@@ -130,7 +139,10 @@ function ConnectedView({
               </div>
             </div>
           )}
+        </div>
 
+        {/* Bouton disconnect toujours visible en bas */}
+        <div className="shrink-0 pt-2 border-t border-border/40">
           <Button
             variant="ghost"
             size="sm"
@@ -225,6 +237,7 @@ export function GoogleCalendarDialog({ open, onOpenChange }: GoogleCalendarDialo
     )
   }
 
+  // key force le remontage à chaque ouverture → useState réinitialisé avec données fraîches
   return (
     <ConnectedView
       key={open ? 'open' : 'closed'}

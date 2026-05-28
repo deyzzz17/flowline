@@ -158,3 +158,56 @@ export const updateGoogleCalendarSettings = async (
     return err('Error updating settings')
   }
 }
+
+export const refreshGoogleCalendars = async () => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const payload = await getPayload({ config })
+    const { docs } = await payload.find({
+      collection: 'google-calendar-syncs',
+      where: { userId: { equals: userId } },
+      limit: 1,
+    })
+    if (docs.length === 0) return err('Not connected')
+
+    const { Pool } = await import('pg')
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+    const result = await pool.query(
+      `SELECT "accessToken" FROM account WHERE "userId" = $1 AND "providerId" = 'google' LIMIT 1`,
+      [userId],
+    )
+    await pool.end()
+    const accessToken = result.rows[0]?.accessToken
+    if (!accessToken) return err('No access token')
+
+    const calListRes = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!calListRes.ok) return err('Failed to fetch calendars')
+
+    const calListData = await calListRes.json()
+    const sync = docs[0] as any
+    const freshCalendars = (calListData.items ?? []).map((cal: any) => {
+      const existing = (sync.calendars ?? []).find((c: any) => c.googleId === cal.id)
+      return {
+        googleId: cal.id,
+        name: cal.summary,
+        color: cal.backgroundColor ?? '#4285f4',
+        primary: cal.primary ?? false,
+        enabled: existing ? existing.enabled : true,
+      }
+    })
+
+    await payload.update({
+      collection: 'google-calendar-syncs',
+      id: docs[0].id,
+      data: { calendars: freshCalendars } as any,
+    })
+
+    return ok({ calendars: freshCalendars })
+  } catch (e) {
+    return err('Error refreshing calendars')
+  }
+}
