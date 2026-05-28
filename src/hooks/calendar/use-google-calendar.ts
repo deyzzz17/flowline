@@ -2,10 +2,10 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  getGoogleCalendarStatus,
   connectGoogleCalendar,
   disconnectGoogleCalendar,
   updateGoogleCalendarSettings,
+  refreshGoogleCalendars,
 } from '@/api/google-calendar/actions'
 import { toast } from 'sonner'
 
@@ -14,8 +14,13 @@ export const useGoogleCalendar = () => {
 
   const { data: status, isLoading } = useQuery({
     queryKey: ['google-calendar-status'],
-    queryFn: getGoogleCalendarStatus,
+    queryFn: async () => {
+      const result = await refreshGoogleCalendars()
+      if ('error' in result) return { connected: false, calendars: [] }
+      return { connected: true, calendars: result.value.calendars }
+    },
     staleTime: 60_000,
+    refetchInterval: 30_000,
   })
 
   const connectMutation = useMutation({
@@ -26,7 +31,7 @@ export const useGoogleCalendar = () => {
         return
       }
       queryClient.invalidateQueries({ queryKey: ['google-calendar-status'] })
-      queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-google'] })
       toast.success('Google Calendar connected!')
     },
     onError: () => toast.error('Failed to connect Google Calendar'),
