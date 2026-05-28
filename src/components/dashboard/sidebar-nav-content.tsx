@@ -283,10 +283,10 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
                   Habits
                 </Link>
                 <Link
-                  {...navLink('/habits/analytics')}
+                  {...navLink('/habits-analytics')}
                   className={cn(
                     'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
-                    isActive('/habits/analytics')
+                    isActive('/habits-analytics')
                       ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                   )}
