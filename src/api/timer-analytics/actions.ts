@@ -223,12 +223,15 @@ export const getTimerAnalytics = async (
   }
 
   const catMap = new Map<string, { color: string; seconds: number }>()
+  const NO_CATEGORY = 'No category'
+  const NO_CATEGORY_COLOR = '#64748b'
+
   for (const s of sessions) {
-    if (!s.categoryName) continue
-    const color = resolveColor(s.categoryName, s.categoryColor)
-    const existing = catMap.get(s.categoryName)
+    const name = s.categoryName || NO_CATEGORY
+    const color = s.categoryName ? resolveColor(s.categoryName, s.categoryColor) : NO_CATEGORY_COLOR
+    const existing = catMap.get(name)
     if (existing) existing.seconds += s.duration
-    else catMap.set(s.categoryName, { color, seconds: s.duration })
+    else catMap.set(name, { color, seconds: s.duration })
   }
   const timeByCategory = Array.from(catMap.entries())
     .map(([name, v]) => ({ name, color: v.color, seconds: v.seconds }))
@@ -259,8 +262,9 @@ export const getTimerAnalytics = async (
   })
   const allCatMap = new Map<string, string>()
   for (const s of allSessions) {
-    if (s.categoryName && !allCatMap.has(s.categoryName))
-      allCatMap.set(s.categoryName, resolveColor(s.categoryName, s.categoryColor))
+    const name = s.categoryName || NO_CATEGORY
+    const color = s.categoryName ? resolveColor(s.categoryName, s.categoryColor) : NO_CATEGORY_COLOR
+    if (!allCatMap.has(name)) allCatMap.set(name, color)
   }
   const allCategories = Array.from(allCatMap.entries()).map(([name, color]) => ({ name, color }))
 
@@ -278,13 +282,14 @@ export const getTimerAnalytics = async (
 
   const qualityByCat = new Map<string, { color: string; total: number; count: number }>()
   for (const s of ratedSessions) {
-    if (!s.categoryName || !s.rating) continue
-    const color = resolveColor(s.categoryName, s.categoryColor)
-    const existing = qualityByCat.get(s.categoryName)
+    if (!s.rating) continue
+    const name = s.categoryName || NO_CATEGORY
+    const color = s.categoryName ? resolveColor(s.categoryName, s.categoryColor) : NO_CATEGORY_COLOR
+    const existing = qualityByCat.get(name)
     if (existing) {
       existing.total += s.rating
       existing.count++
-    } else qualityByCat.set(s.categoryName, { color, total: s.rating, count: 1 })
+    } else qualityByCat.set(name, { color, total: s.rating, count: 1 })
   }
   const byCategory = Array.from(qualityByCat.entries()).map(([name, v]) => ({
     name,
@@ -340,10 +345,9 @@ export const getTimerAnalytics = async (
     const sessionKey = getSessionKey(s.startedAt, period, tzOffset)
     const point = seriesMap.get(sessionKey)
     if (!point) continue
-    if (s.categoryName) {
-      const catKey = `cat__${s.categoryName}`
-      point.set(catKey, (point.get(catKey) ?? 0) + s.duration)
-    }
+    const catName = s.categoryName || NO_CATEGORY
+    const catKey = `cat__${catName}`
+    point.set(catKey, (point.get(catKey) ?? 0) + s.duration)
     if (s.subCategory && s.categoryName) {
       const subKey = `sub__${s.categoryName}::${s.subCategory}`
       point.set(subKey, (point.get(subKey) ?? 0) + s.duration)

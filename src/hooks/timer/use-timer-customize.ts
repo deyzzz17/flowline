@@ -62,24 +62,22 @@ export const useTimerCustomize = () => {
   const workSecs = toSeconds(session.workDuration)
   const breakSecs = toSeconds(session.breakDuration)
 
-  const workExceedsSession = workSecs > 0 && sessionSecs > 0 && workSecs > sessionSecs
-  const breakExceedsSession = breakSecs > 0 && sessionSecs > 0 && breakSecs > sessionSecs
-  const breakRequired = workSecs > 0 && sessionSecs > 0 && workSecs < sessionSecs
+  const hasSession = sessionSecs > 0
+
+  const workExceedsSession = workSecs > 0 && hasSession && workSecs > sessionSecs
+  const breakExceedsSession = breakSecs > 0 && hasSession && breakSecs > sessionSecs
+
+  const breakRequired = workSecs > 0 && hasSession && workSecs < sessionSecs
   const breakMissing = breakRequired && breakSecs === 0
+
   const subCategoryWithoutCategory = session.subCategory.trim() !== '' && session.categoryId === ''
 
-  const workWithoutSession = workSecs > 0 && sessionSecs === 0
-  const breakWithoutSession = breakSecs > 0 && sessionSecs === 0
-
-  const isValid =
-    !workExceedsSession &&
-    !breakExceedsSession &&
-    !breakMissing &&
-    !subCategoryWithoutCategory &&
-    !workWithoutSession &&
-    !breakWithoutSession
+  const isFreeWithIntervals = !hasSession && (workSecs > 0 || breakSecs > 0)
 
   const isFreeMode = sessionSecs === 0 && workSecs === 0 && breakSecs === 0
+
+  const isValid =
+    !workExceedsSession && !breakExceedsSession && !breakMissing && !subCategoryWithoutCategory
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -104,18 +102,6 @@ export const useTimerCustomize = () => {
     if (subCategoryWithoutCategory) {
       toast.error('Category required', {
         description: 'Please select a category before adding a sub-category.',
-      })
-      return
-    }
-    if (workWithoutSession) {
-      toast.error('Session duration required', {
-        description: 'Please set a session duration before setting a work duration.',
-      })
-      return
-    }
-    if (breakWithoutSession) {
-      toast.error('Session duration required', {
-        description: 'Please set a session duration before setting a break duration.',
       })
       return
     }
@@ -165,12 +151,11 @@ export const useTimerCustomize = () => {
     deleteCategoryMutation,
     isValid,
     isFreeMode,
+    isFreeWithIntervals,
     breakRequired,
     workExceedsSession,
     breakExceedsSession,
     createCategoryMutation,
-    workWithoutSession,
-    breakWithoutSession,
     reset,
   }
 }

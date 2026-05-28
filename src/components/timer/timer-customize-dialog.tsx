@@ -82,12 +82,11 @@ export const TimerCustomizeDialog = ({
     deleteCategoryMutation,
     isValid,
     isFreeMode,
+    isFreeWithIntervals,
     breakRequired,
     workExceedsSession,
     breakExceedsSession,
     createCategoryMutation,
-    workWithoutSession,
-    breakWithoutSession,
     reset,
   } = useTimerCustomize()
 
@@ -105,6 +104,7 @@ export const TimerCustomizeDialog = ({
   }
 
   const selectedCategory = categories.find((c) => String(c.id) === session.categoryId)
+  const hasSession = Number(session.sessionDuration) > 0
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -123,6 +123,12 @@ export const TimerCustomizeDialog = ({
     }
     onStart(config)
     reset()
+  }
+
+  const getStartLabel = () => {
+    if (isFreeMode) return 'Start free timer'
+    if (isFreeWithIntervals) return 'Start with intervals'
+    return 'Start session'
   }
 
   return (
@@ -149,7 +155,7 @@ export const TimerCustomizeDialog = ({
                 Session
               </p>
             </div>
-
+            
             <div className="space-y-2">
               <Label className="text-sm">
                 Session duration
@@ -159,6 +165,11 @@ export const TimerCustomizeDialog = ({
                 value={toDur(session.sessionDuration)}
                 onChange={(d) => update('sessionDuration', durationToSeconds(d) || '')}
               />
+              {!hasSession && (
+                <p className="text-xs text-muted-foreground/60">
+                  Leave empty for a free timer — you can still set work and break intervals below.
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -173,11 +184,6 @@ export const TimerCustomizeDialog = ({
               />
               {workExceedsSession && (
                 <p className="text-xs text-destructive">Work duration exceeds session duration.</p>
-              )}
-              {workWithoutSession && (
-                <p className="text-xs text-destructive">
-                  Session duration is required to set work duration.
-                </p>
               )}
             </div>
 
@@ -202,11 +208,6 @@ export const TimerCustomizeDialog = ({
               )}
               {breakExceedsSession && (
                 <p className="text-xs text-destructive">Break duration exceeds session duration.</p>
-              )}
-              {breakWithoutSession && (
-                <p className="text-xs text-destructive">
-                  Session duration is required to set break duration.
-                </p>
               )}
             </div>
           </div>
@@ -488,7 +489,7 @@ export const TimerCustomizeDialog = ({
             </Button>
             <Button type="submit" disabled={!isValid} className="gap-2">
               <Check className="h-3.5 w-3.5" />
-              {isFreeMode ? 'Start free timer' : 'Start session'}
+              {getStartLabel()}
             </Button>
           </DialogFooter>
         </form>

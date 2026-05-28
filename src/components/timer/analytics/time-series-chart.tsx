@@ -23,6 +23,38 @@ function formatSeconds(s: number): string {
   return `${m}m`
 }
 
+function computeYTicks(maxValue: number): number[] {
+  if (maxValue <= 0) return [0]
+
+  const steps = [
+    15 * 60, 
+    30 * 60,
+    60 * 60,
+    2 * 3600, 
+    3 * 3600,
+    4 * 3600,
+    6 * 3600, 
+    8 * 3600, 
+    12 * 3600, 
+    24 * 3600, 
+  ]
+
+  
+  let step = steps[0]
+  for (const s of steps) {
+    step = s
+    if (maxValue / s <= 5) break
+  }
+  const roundedMax = Math.ceil(maxValue / step) * step
+
+  const ticks: number[] = []
+  for (let v = 0; v <= roundedMax; v += step) {
+    ticks.push(v)
+  }
+
+  return ticks
+}
+
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   const nonZero = payload.filter((p: any) => (p.value as number) > 0)
@@ -98,6 +130,14 @@ export function TimeSeriesChart({
     return <EmptyState message="Complete sessions with categories to see time trends." />
   }
 
+  const maxValue = Math.max(
+    0,
+    ...data.flatMap((point) => filteredSeries.map((s) => (point[s.key] as number) ?? 0)),
+  )
+
+  const yTicks = computeYTicks(maxValue)
+  const yDomain: [number, number] = [0, yTicks[yTicks.length - 1]]
+
   return (
     <ResponsiveContainer width="100%" height={height}>
       <ComposedChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
@@ -114,6 +154,8 @@ export function TimeSeriesChart({
           axisLine={false}
           tickLine={false}
           width={48}
+          ticks={yTicks}
+          domain={yDomain}
         />
         <Tooltip content={<CustomTooltip />} cursor={false} />
         <Legend content={<CustomLegend />} />
