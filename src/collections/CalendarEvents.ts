@@ -28,12 +28,10 @@ export const CalendarEvents: CollectionConfig = {
       required: false,
       admin: { description: 'Reference to calendar-categories id' },
     },
-
     {
       name: 'recurrence',
       type: 'group',
       required: false,
-      admin: { description: 'Recurrence rule for this event' },
       fields: [
         {
           name: 'frequency',
@@ -45,15 +43,8 @@ export const CalendarEvents: CollectionConfig = {
             { label: 'Monthly', value: 'monthly' },
             { label: 'Yearly', value: 'yearly' },
           ],
-          admin: { description: 'How often the event repeats' },
         },
-        {
-          name: 'interval',
-          type: 'number',
-          defaultValue: 1,
-          required: false,
-          admin: { description: 'Repeat every N frequency units (e.g. every 2 weeks)' },
-        },
+        { name: 'interval', type: 'number', defaultValue: 1, required: false },
         {
           name: 'daysOfWeek',
           type: 'select',
@@ -68,17 +59,15 @@ export const CalendarEvents: CollectionConfig = {
             { label: 'Friday', value: '5' },
             { label: 'Saturday', value: '6' },
           ],
-          admin: { description: 'For weekly recurrence: which days of the week' },
         },
         {
           name: 'monthlyType',
           type: 'select',
           required: false,
           options: [
-            { label: 'Day of month (e.g. every 15th)', value: 'dayOfMonth' },
-            { label: 'Day of week (e.g. every 3rd Monday)', value: 'dayOfWeek' },
+            { label: 'Day of month', value: 'dayOfMonth' },
+            { label: 'Day of week', value: 'dayOfWeek' },
           ],
-          admin: { description: 'For monthly recurrence: how to repeat' },
         },
         {
           name: 'endType',
@@ -95,56 +84,75 @@ export const CalendarEvents: CollectionConfig = {
           name: 'endDate',
           type: 'date',
           required: false,
-          admin: {
-            description: 'Last date of recurrence (used when endType = onDate)',
-            condition: (_, siblingData) => siblingData?.endType === 'onDate',
-          },
+          admin: { condition: (_, s) => s?.endType === 'onDate' },
         },
         {
           name: 'endCount',
           type: 'number',
           required: false,
-          admin: {
-            description: 'Number of occurrences (used when endType = afterCount)',
-            condition: (_, siblingData) => siblingData?.endType === 'afterCount',
-          },
+          admin: { condition: (_, s) => s?.endType === 'afterCount' },
         },
       ],
     },
-
     {
       name: 'exceptions',
       type: 'array',
       required: false,
-      admin: { description: 'Dates excluded or overridden from the recurrence' },
+      admin: { description: 'Dates excluded from the recurrence' },
+      fields: [{ name: 'date', type: 'date', required: true }],
+    },
+    {
+      name: 'adjustments',
+      type: 'array',
+      required: false,
+      admin: { description: 'Series adjustments from a given date (thisAndFollowing)' },
       fields: [
         {
-          name: 'date',
+          name: 'fromDate',
           type: 'date',
           required: true,
-          admin: { description: 'The original occurrence date that is excluded/overridden' },
+          admin: {
+            description: 'From this occurrence date onwards',
+            date: { pickerAppearance: 'dayAndTime' },
+          },
         },
+        {
+          name: 'startDate',
+          type: 'date',
+          required: false,
+          admin: {
+            description: 'New start time for occurrences from fromDate',
+            date: { pickerAppearance: 'dayAndTime' },
+          },
+        },
+        {
+          name: 'endDate',
+          type: 'date',
+          required: false,
+          admin: {
+            description: 'New end time for occurrences from fromDate',
+            date: { pickerAppearance: 'dayAndTime' },
+          },
+        },
+        { name: 'title', type: 'text', required: false },
+        { name: 'description', type: 'textarea', required: false },
+        { name: 'color', type: 'text', required: false },
+        { name: 'categoryId', type: 'number', required: false },
+        { name: 'allDay', type: 'checkbox', required: false },
       ],
     },
-
     {
       name: 'recurrenceId',
       type: 'number',
       required: false,
       index: true,
-      admin: {
-        description: 'ID of the parent recurring event (set when this is a modified occurrence)',
-      },
+      admin: { description: 'ID of the parent recurring event (modified occurrence)' },
     },
-
     {
       name: 'originalDate',
       type: 'date',
       required: false,
-      admin: {
-        description: 'The original occurrence date this event overrides',
-      },
+      admin: { description: 'The original occurrence date this event overrides' },
     },
-    { name: 'seriesId', type: 'text' },
   ],
 }

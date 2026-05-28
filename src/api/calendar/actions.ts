@@ -39,6 +39,17 @@ export interface RecurrenceRule {
   endCount?: number | null
 }
 
+export interface SeriesAdjustment {
+  fromDate: string
+  startDate?: string | null
+  endDate?: string | null
+  title?: string | null
+  description?: string | null
+  color?: string | null
+  categoryId?: number | null
+  allDay?: boolean | null
+}
+
 export interface CalendarEventData {
   title: string
   description?: string
@@ -51,7 +62,7 @@ export interface CalendarEventData {
   recurrenceId?: number | null
   originalDate?: string | null
   exceptions?: { date: string }[]
-  seriesId?: string | null
+  adjustments?: SeriesAdjustment[]
 }
 
 export type EditScope = 'this' | 'thisAndFollowing' | 'all'
@@ -126,15 +137,11 @@ async function getGoogleAccessToken(userId: string): Promise<string | null> {
   try {
     const result = await pool.query(
       `SELECT "accessToken", "accessTokenExpiresAt", "refreshToken"
-       FROM account
-       WHERE "userId" = $1 AND "providerId" = 'google'
-       LIMIT 1`,
+       FROM account WHERE "userId" = $1 AND "providerId" = 'google' LIMIT 1`,
       [userId],
     )
     if (result.rows.length === 0) return null
-
     const account = result.rows[0]
-
     if (account.accessTokenExpiresAt && new Date(account.accessTokenExpiresAt) < new Date()) {
       const res = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
@@ -148,15 +155,13 @@ async function getGoogleAccessToken(userId: string): Promise<string | null> {
       })
       if (!res.ok) return null
       const data = await res.json()
-      const newToken = data.access_token
       const expiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString()
       await pool.query(
         `UPDATE account SET "accessToken" = $1, "accessTokenExpiresAt" = $2 WHERE "userId" = $3 AND "providerId" = 'google'`,
-        [newToken, expiresAt, userId],
+        [data.access_token, expiresAt, userId],
       )
-      return newToken
+      return data.access_token
     }
-
     return account.accessToken
   } finally {
     await pool.end()
@@ -172,9 +177,7 @@ async function fetchGoogleCalendarEvents(
   try {
     const { docs: syncs } = await payload.find({
       collection: 'google-calendar-syncs',
-      where: {
-        and: [{ userId: { equals: userId } }, { status: { equals: 'connected' } }],
-      },
+      where: { and: [{ userId: { equals: userId } }, { status: { equals: 'connected' } }] },
       limit: 1,
     })
     if (syncs.length === 0) return []
@@ -200,7 +203,6 @@ async function fetchGoogleCalendarEvents(
             enabled: existing ? existing.enabled : true,
           }
         })
-
         const currentIds = (sync.calendars ?? [])
           .map((c: any) => c.googleId)
           .sort()
@@ -224,7 +226,6 @@ async function fetchGoogleCalendarEvents(
     if (enabledCalendars.length === 0) return []
 
     const allEvents: any[] = []
-
     await Promise.all(
       enabledCalendars.map(async (cal: any) => {
         try {
@@ -236,18 +237,13 @@ async function fetchGoogleCalendarEvents(
           url.searchParams.set('timeMin', from)
           url.searchParams.set('timeMax', to)
           url.searchParams.set('orderBy', 'startTime')
-
           const res = await fetch(url.toString(), {
             headers: { Authorization: `Bearer ${accessToken}` },
           })
           if (!res.ok) return
-
           const data = await res.json()
-
           for (const gEvent of data.items ?? []) {
-            if (gEvent.status === 'cancelled') continue
-            if (!gEvent.start) continue
-
+            if (gEvent.status === 'cancelled' || !gEvent.start) continue
             const allDay = !gEvent.start.dateTime
             const startDate = gEvent.start.dateTime
               ? new Date(gEvent.start.dateTime).toISOString()
@@ -257,7 +253,6 @@ async function fetchGoogleCalendarEvents(
               : gEvent.end?.date
                 ? new Date(gEvent.end.date + 'T00:00:00').toISOString()
                 : startDate
-
             allEvents.push({
               id: `google-${gEvent.id}`,
               title: gEvent.summary ?? '(no title)',
@@ -274,8 +269,8 @@ async function fetchGoogleCalendarEvents(
               recurrenceId: null,
               originalDate: null,
               exceptions: [],
+              adjustments: [],
               categoryId: null,
-              seriesId: null,
             })
           }
         } catch (e) {
@@ -283,7 +278,6 @@ async function fetchGoogleCalendarEvents(
         }
       }),
     )
-
     return allEvents
   } catch (e) {
     console.error('Error fetching Google Calendar events:', e)
@@ -291,34 +285,35 @@ async function fetchGoogleCalendarEvents(
   }
 }
 
-export const listCalendarEvents = async (from: string, to: string) => {
+export const listFlowlineCalendarEvents = async (from: string, to: string) => {
   const userId = await getUserId()
   if (!userId) return { docs: [] }
   const payload = await getPayload({ config })
+  const { docs } = await payload.find({
+    collection: 'calendar-events',
+    limit: 500,
+    sort: 'startDate',
+    where: {
+      and: [
+        { userId: { equals: userId } },
+        {
+          or: [
+            { and: [{ recurrenceId: { exists: false } }, { startDate: { less_than_equal: to } }] },
+            { and: [{ recurrenceId: { exists: true } }, { startDate: { less_than_equal: to } }] },
+          ],
+        },
+      ],
+    },
+  })
+  return { docs }
+}
 
-  const [{ docs: flowlineDocs }, googleDocs] = await Promise.all([
-    payload.find({
-      collection: 'calendar-events',
-      limit: 500,
-      sort: 'startDate',
-      where: {
-        and: [
-          { userId: { equals: userId } },
-          {
-            or: [
-              {
-                and: [{ recurrenceId: { exists: false } }, { startDate: { less_than_equal: to } }],
-              },
-              { and: [{ recurrenceId: { exists: true } }, { startDate: { less_than_equal: to } }] },
-            ],
-          },
-        ],
-      },
-    }),
-    fetchGoogleCalendarEvents(userId, from, to, payload),
-  ])
-
-  return { docs: [...flowlineDocs, ...googleDocs] }
+export const listGoogleCalendarEvents = async (from: string, to: string) => {
+  const userId = await getUserId()
+  if (!userId) return { docs: [] }
+  const payload = await getPayload({ config })
+  const docs = await fetchGoogleCalendarEvents(userId, from, to, payload)
+  return { docs }
 }
 
 export const createCalendarEvent = async (data: CalendarEventData) => {
@@ -326,11 +321,6 @@ export const createCalendarEvent = async (data: CalendarEventData) => {
     const userId = await getUserId()
     if (!userId) return err('Not authenticated')
     const payload = await getPayload({ config })
-
-    const seriesId = data.recurrence?.frequency
-      ? (data.seriesId ?? `series-${Date.now()}-${Math.random().toString(36).slice(2)}`)
-      : null
-
     const event = await payload.create({
       collection: 'calendar-events',
       data: {
@@ -345,7 +335,6 @@ export const createCalendarEvent = async (data: CalendarEventData) => {
         ...(data.recurrence ? { recurrence: data.recurrence as any } : {}),
         ...(data.recurrenceId ? { recurrenceId: data.recurrenceId } : {}),
         ...(data.originalDate ? { originalDate: data.originalDate } : {}),
-        ...(seriesId ? { seriesId } : {}),
       },
     })
     return ok(event)
@@ -354,6 +343,7 @@ export const createCalendarEvent = async (data: CalendarEventData) => {
     return err('Error creating event')
   }
 }
+
 
 export const updateCalendarEvent = async (
   id: number,
@@ -391,14 +381,14 @@ export const updateCalendarEvent = async (
     }
 
     const parentId = isOverride ? (existing as any).recurrenceId : id
+    const parent = await payload.findByID({ collection: 'calendar-events', id: parentId })
+    const parentStart = new Date(parent.startDate)
+    const parentEnd = new Date(parent.endDate)
+    const parentRecurrence = (parent as any).recurrence ?? {}
+    const occDate = originalOccurrenceDate ?? data.startDate ?? existing.startDate
 
     if (scope === 'all') {
-      const parent = await payload.findByID({ collection: 'calendar-events', id: parentId })
-      const parentStart = new Date(parent.startDate)
-      const parentEnd = new Date(parent.endDate)
       const originalDuration = parentEnd.getTime() - parentStart.getTime()
-      const parentRecurrence = (parent as any).recurrence ?? {}
-      const seriesId = (parent as any).seriesId ?? null
 
       const updateData: any = {
         ...(data.title !== undefined && { title: data.title }),
@@ -407,6 +397,7 @@ export const updateCalendarEvent = async (
         ...(data.color !== undefined && { color: data.color }),
         ...(data.categoryId !== undefined && { categoryId: data.categoryId }),
         exceptions: [],
+        adjustments: [],
         recurrence: data.recurrence
           ? (data.recurrence as any)
           : ({ ...parentRecurrence, endType: 'never', endDate: null, endCount: null } as any),
@@ -440,7 +431,7 @@ export const updateCalendarEvent = async (
           ).toISOString()
         }
       } else if (data.endDate) {
-        const occStart = new Date(originalOccurrenceDate ?? existing.startDate)
+        const occStart = new Date(occDate)
         const occStartInSeries = new Date(
           occStart.getFullYear(),
           occStart.getMonth(),
@@ -463,31 +454,6 @@ export const updateCalendarEvent = async (
         await payload.delete({ collection: 'calendar-events', id: o.id })
       }
 
-      if (seriesId) {
-        const { docs: siblings } = await payload.find({
-          collection: 'calendar-events',
-          where: {
-            and: [
-              { seriesId: { equals: seriesId } },
-              { id: { not_equals: parentId } },
-              { recurrenceId: { exists: false } },
-            ],
-          },
-          limit: 100,
-        })
-        for (const s of siblings) {
-          const { docs: sOverrides } = await payload.find({
-            collection: 'calendar-events',
-            where: { recurrenceId: { equals: s.id } },
-            limit: 500,
-          })
-          for (const o of sOverrides) {
-            await payload.delete({ collection: 'calendar-events', id: o.id })
-          }
-          await payload.delete({ collection: 'calendar-events', id: s.id })
-        }
-      }
-
       const updated = await payload.update({
         collection: 'calendar-events',
         id: parentId,
@@ -496,12 +462,10 @@ export const updateCalendarEvent = async (
       return ok(updated)
     }
 
-    const occDate = originalOccurrenceDate ?? data.startDate ?? existing.startDate
-    const parent = await payload.findByID({ collection: 'calendar-events', id: parentId })
-
     if (scope === 'this') {
       const exceptions = ((parent as any).exceptions ?? []) as { date: string }[]
       const occDateKey = new Date(occDate).toISOString().slice(0, 10)
+
       if (!exceptions.find((e) => new Date(e.date).toISOString().slice(0, 10) === occDateKey)) {
         await payload.update({
           collection: 'calendar-events',
@@ -526,8 +490,7 @@ export const updateCalendarEvent = async (
         })
         return ok(updated)
       } else {
-        const duration =
-          new Date(existing.endDate).getTime() - new Date(existing.startDate).getTime()
+        const duration = parentEnd.getTime() - parentStart.getTime()
         const newStart = data.startDate ?? occDate
         const newEnd =
           data.endDate ?? new Date(new Date(newStart).getTime() + duration).toISOString()
@@ -556,34 +519,8 @@ export const updateCalendarEvent = async (
 
     if (scope === 'thisAndFollowing') {
       const occDateTime = new Date(occDate)
-      const seriesId = (parent as any).seriesId ?? null
 
-      if (seriesId) {
-        const { docs: laterSiblings } = await payload.find({
-          collection: 'calendar-events',
-          where: {
-            and: [
-              { seriesId: { equals: seriesId } },
-              { id: { not_equals: parentId } },
-              { recurrenceId: { exists: false } },
-              { startDate: { greater_than_equal: toMidnight(occDate) } },
-            ],
-          },
-          limit: 100,
-        })
-        for (const s of laterSiblings) {
-          const { docs: sOverrides } = await payload.find({
-            collection: 'calendar-events',
-            where: { recurrenceId: { equals: s.id } },
-            limit: 500,
-          })
-          for (const o of sOverrides)
-            await payload.delete({ collection: 'calendar-events', id: o.id })
-          await payload.delete({ collection: 'calendar-events', id: s.id })
-        }
-      }
-
-      const { docs: overrides } = await payload.find({
+      const { docs: futureOverrides } = await payload.find({
         collection: 'calendar-events',
         where: {
           and: [
@@ -593,77 +530,53 @@ export const updateCalendarEvent = async (
         },
         limit: 500,
       })
-      for (const o of overrides) await payload.delete({ collection: 'calendar-events', id: o.id })
-
-      const parentRecurrence = (parent as any).recurrence ?? {}
-      const cutDate = addDays(occDateTime, -1)
-      await payload.update({
-        collection: 'calendar-events',
-        id: parentId,
-        data: {
-          recurrence: {
-            ...parentRecurrence,
-            endType: 'onDate',
-            endDate: new Date(
-              cutDate.getFullYear(),
-              cutDate.getMonth(),
-              cutDate.getDate(),
-              23,
-              59,
-              59,
-            ).toISOString(),
-          } as any,
-        },
-      })
-
-      const origParentStart = new Date(existing.startDate)
-      const originalDuration =
-        new Date(existing.endDate).getTime() - new Date(existing.startDate).getTime()
+      for (const o of futureOverrides) {
+        await payload.delete({ collection: 'calendar-events', id: o.id })
+      }
 
       let newStart: string
       let newEnd: string
 
       if (data.startDate) {
         newStart = data.startDate
-        newEnd =
-          data.endDate ?? new Date(new Date(newStart).getTime() + originalDuration).toISOString()
+        const baseDuration = parentEnd.getTime() - parentStart.getTime()
+        newEnd = data.endDate ?? new Date(new Date(newStart).getTime() + baseDuration).toISOString()
       } else {
-        const occurrenceStart = new Date(occDate)
         newStart = new Date(
-          occurrenceStart.getFullYear(),
-          occurrenceStart.getMonth(),
-          occurrenceStart.getDate(),
-          origParentStart.getHours(),
-          origParentStart.getMinutes(),
+          occDateTime.getFullYear(),
+          occDateTime.getMonth(),
+          occDateTime.getDate(),
+          parentStart.getHours(),
+          parentStart.getMinutes(),
           0,
           0,
         ).toISOString()
-        newEnd =
-          data.endDate ?? new Date(new Date(newStart).getTime() + originalDuration).toISOString()
+        const baseDuration = parentEnd.getTime() - parentStart.getTime()
+        newEnd = data.endDate ?? new Date(new Date(newStart).getTime() + baseDuration).toISOString()
       }
 
-      const created = await payload.create({
+      const existingAdjustments = ((parent as any).adjustments ?? []) as SeriesAdjustment[]
+      const keptAdjustments = existingAdjustments.filter((a) => new Date(a.fromDate) < occDateTime)
+
+      const newAdjustment: SeriesAdjustment = {
+        fromDate: occDate,
+        ...(data.startDate ? { startDate: newStart } : {}),
+        ...(data.endDate ? { endDate: newEnd } : {}),
+        ...(data.title !== undefined ? { title: data.title } : {}),
+        ...(data.description !== undefined ? { description: data.description } : {}),
+        ...(data.color !== undefined ? { color: data.color } : {}),
+        ...(data.categoryId !== undefined ? { categoryId: data.categoryId } : {}),
+        ...(data.allDay !== undefined ? { allDay: data.allDay } : {}),
+      }
+
+      const updated = await payload.update({
         collection: 'calendar-events',
+        id: parentId,
         data: {
-          userId,
-          title: data.title ?? existing.title,
-          description: data.description ?? (existing as any).description ?? undefined,
-          startDate: newStart,
-          endDate: newEnd,
-          allDay: data.allDay ?? existing.allDay ?? false,
-          color: data.color ?? existing.color ?? '#8b5cf6',
-          ...(data.categoryId !== undefined
-            ? { categoryId: data.categoryId }
-            : (existing as any).categoryId
-              ? { categoryId: (existing as any).categoryId }
-              : {}),
-          recurrence: data.recurrence
-            ? (data.recurrence as any)
-            : { ...parentRecurrence, endType: 'never', endDate: null, endCount: null },
-          ...(seriesId ? { seriesId } : {}),
+          adjustments: [...keptAdjustments, newAdjustment] as any,
         },
       })
-      return ok(created)
+      return ok(updated)
     }
 
     return err('Unknown scope')
@@ -684,48 +597,27 @@ export const deleteCalendarEvent = async (
     const isRecurring = !!(existing as any).recurrence?.frequency
     const isOverride = !!(existing as any).recurrenceId
 
+    const parentId = isOverride ? (existing as any).recurrenceId : id
+
     if ((!isRecurring && !isOverride) || scope === 'all') {
       const targetId = isOverride ? (existing as any).recurrenceId : id
-      const targetDoc = await payload.findByID({ collection: 'calendar-events', id: targetId })
-      const seriesId = (targetDoc as any).seriesId ?? null
-
-      if (seriesId) {
-        const { docs: allSeriesParents } = await payload.find({
-          collection: 'calendar-events',
-          where: {
-            and: [{ seriesId: { equals: seriesId } }, { recurrenceId: { exists: false } }],
-          },
-          limit: 100,
-        })
-        for (const sp of allSeriesParents) {
-          const { docs: spOverrides } = await payload.find({
-            collection: 'calendar-events',
-            where: { recurrenceId: { equals: sp.id } },
-            limit: 500,
-          })
-          for (const o of spOverrides)
-            await payload.delete({ collection: 'calendar-events', id: o.id })
-          await payload.delete({ collection: 'calendar-events', id: sp.id })
-        }
-        return ok(true)
-      }
-
       const { docs: overrides } = await payload.find({
         collection: 'calendar-events',
         where: { recurrenceId: { equals: targetId } },
         limit: 500,
       })
-      for (const o of overrides) await payload.delete({ collection: 'calendar-events', id: o.id })
+      for (const o of overrides) {
+        await payload.delete({ collection: 'calendar-events', id: o.id })
+      }
       await payload.delete({ collection: 'calendar-events', id: targetId })
       return ok(true)
     }
 
     const occDate = originalOccurrenceDate ?? existing.startDate
-    const parentId = isOverride ? (existing as any).recurrenceId : id
+    const parent = await payload.findByID({ collection: 'calendar-events', id: parentId })
 
     if (scope === 'this') {
       if (isOverride) await payload.delete({ collection: 'calendar-events', id })
-      const parent = await payload.findByID({ collection: 'calendar-events', id: parentId })
       const exceptions = ((parent as any).exceptions ?? []) as { date: string }[]
       const occDateKey = new Date(occDate).toISOString().slice(0, 10)
       if (!exceptions.find((e) => new Date(e.date).toISOString().slice(0, 10) === occDateKey)) {
@@ -740,35 +632,8 @@ export const deleteCalendarEvent = async (
 
     if (scope === 'thisAndFollowing') {
       const occDateTime = new Date(occDate)
-      const parent = await payload.findByID({ collection: 'calendar-events', id: parentId })
-      const seriesId = (parent as any).seriesId ?? null
 
-      if (seriesId) {
-        const { docs: laterSiblings } = await payload.find({
-          collection: 'calendar-events',
-          where: {
-            and: [
-              { seriesId: { equals: seriesId } },
-              { id: { not_equals: parentId } },
-              { recurrenceId: { exists: false } },
-              { startDate: { greater_than_equal: toMidnight(occDate) } },
-            ],
-          },
-          limit: 100,
-        })
-        for (const s of laterSiblings) {
-          const { docs: sOverrides } = await payload.find({
-            collection: 'calendar-events',
-            where: { recurrenceId: { equals: s.id } },
-            limit: 500,
-          })
-          for (const o of sOverrides)
-            await payload.delete({ collection: 'calendar-events', id: o.id })
-          await payload.delete({ collection: 'calendar-events', id: s.id })
-        }
-      }
-
-      const { docs: overrides } = await payload.find({
+      const { docs: futureOverrides } = await payload.find({
         collection: 'calendar-events',
         where: {
           and: [
@@ -778,14 +643,20 @@ export const deleteCalendarEvent = async (
         },
         limit: 500,
       })
-      for (const o of overrides) await payload.delete({ collection: 'calendar-events', id: o.id })
+      for (const o of futureOverrides) {
+        await payload.delete({ collection: 'calendar-events', id: o.id })
+      }
 
-      const parentRecurrence = (parent as any).recurrence ?? {}
+      const existingAdjustments = ((parent as any).adjustments ?? []) as SeriesAdjustment[]
+      const keptAdjustments = existingAdjustments.filter((a) => new Date(a.fromDate) < occDateTime)
+
       const cutDate = addDays(occDateTime, -1)
+      const parentRecurrence = (parent as any).recurrence ?? {}
       await payload.update({
         collection: 'calendar-events',
         id: parentId,
         data: {
+          adjustments: keptAdjustments as any,
           recurrence: {
             ...parentRecurrence,
             endType: 'onDate',
@@ -808,35 +679,4 @@ export const deleteCalendarEvent = async (
     console.error(e)
     return err('Error deleting event')
   }
-}
-
-export const listFlowlineCalendarEvents = async (from: string, to: string) => {
-  const userId = await getUserId()
-  if (!userId) return { docs: [] }
-  const payload = await getPayload({ config })
-  const { docs } = await payload.find({
-    collection: 'calendar-events',
-    limit: 500,
-    sort: 'startDate',
-    where: {
-      and: [
-        { userId: { equals: userId } },
-        {
-          or: [
-            { and: [{ recurrenceId: { exists: false } }, { startDate: { less_than_equal: to } }] },
-            { and: [{ recurrenceId: { exists: true } }, { startDate: { less_than_equal: to } }] },
-          ],
-        },
-      ],
-    },
-  })
-  return { docs }
-}
-
-export const listGoogleCalendarEvents = async (from: string, to: string) => {
-  const userId = await getUserId()
-  if (!userId) return { docs: [] }
-  const payload = await getPayload({ config })
-  const docs = await fetchGoogleCalendarEvents(userId, from, to, payload)
-  return { docs }
 }
