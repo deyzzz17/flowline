@@ -1,4 +1,5 @@
 'use client'
+
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import type { Task } from '@/payload-types'
@@ -35,25 +36,27 @@ export function useToggleTask() {
   return useMutation({
     mutationFn: ({ id, status }: { id: number; status: 'active' | 'completed' }) =>
       api.tasks.toggleStatus(id, status),
+
     onMutate: ({ id, status }) => {
       const queries = queryClient.getQueriesData<{ docs: Task[] }>({ queryKey: ['tasks'] })
       const previousData = queries.map(([queryKey, data]) => ({ queryKey, data }))
-
       queries.forEach(([queryKey]) => {
         queryClient.setQueryData<{ docs: Task[] }>(queryKey as string[], (old) =>
           updateTaskInCache(old, id, status),
         )
       })
-
       return { previousData }
     },
+
     onError: (_err, _vars, context) => {
       context?.previousData?.forEach(({ queryKey, data }) => {
         queryClient.setQueryData(queryKey as string[], data)
       })
     },
+
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['list-analytics'] })
     },
   })
 }

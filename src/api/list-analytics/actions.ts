@@ -55,53 +55,55 @@ export interface ListAnalyticsData {
   periodEnd: string
 }
 
-function toLocalDate(utcDate: Date, timezone: string): Date {
+function localToUTC(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+  second: number,
+  timezone: string,
+): Date {
+  const str = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}`
+  const utcStr = new Date(str + 'Z').toLocaleString('en-US', { timeZone: timezone })
+  const utcDate = new Date(str + 'Z')
+  const localDate = new Date(utcStr)
+  const offset = utcDate.getTime() - localDate.getTime()
+  return new Date(utcDate.getTime() + offset)
+}
+
+function startOfDayUTC(year: number, month: number, day: number, timezone: string): Date {
+  return localToUTC(year, month, day, 0, 0, 0, timezone)
+}
+
+function endOfDayUTC(year: number, month: number, day: number, timezone: string): Date {
+  const start = startOfDayUTC(year, month, day, timezone)
+  return new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1)
+}
+
+function formatDateKey(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+function addDaysToYMD(
+  year: number,
+  month: number,
+  day: number,
+  n: number,
+): { year: number; month: number; day: number } {
+  const d = new Date(year, month - 1, day + n)
+  return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() }
+}
+
+function getNowInTz(timezone: string): { year: number; month: number; day: number } {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  }).formatToParts(utcDate)
-
-  const get = (type: string) => parseInt(parts.find((p) => p.type === type)?.value ?? '0')
-  return new Date(
-    get('year'),
-    get('month') - 1,
-    get('day'),
-    get('hour'),
-    get('minute'),
-    get('second'),
-  )
-}
-
-function formatDateKey(date: Date): string {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
-
-function addDays(date: Date, n: number): Date {
-  const d = new Date(date)
-  d.setDate(d.getDate() + n)
-  return d
-}
-
-function getNowInTz(timezone: string): { year: number; month: number; day: number; hour: number } {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    hour12: false,
   }).formatToParts(new Date())
   const get = (type: string) => parseInt(parts.find((p) => p.type === type)?.value ?? '0')
-  return { year: get('year'), month: get('month'), day: get('day'), hour: get('hour') }
+  return { year: get('year'), month: get('month'), day: get('day') }
 }
 
 export const getListAnalytics = async (
@@ -134,69 +136,93 @@ export const getListAnalytics = async (
   const payload = await getPayload({ config })
   const nowLocal = getNowInTz(userTimezone)
 
-  let seriesStart: Date
-  let seriesEnd: Date
-  let points: { localDate: Date; label: string }[] = []
+  type YMD = { year: number; month: number; day: number }
+  let seriesStartYMD: YMD
+  let seriesEndYMD: YMD
+  let points: { ymd: YMD; label: string }[] = []
 
   if (period === 'day') {
-    const targetLocal = new Date(nowLocal.year, nowLocal.month - 1, nowLocal.day + offset)
-    seriesStart = new Date(
-      `${targetLocal.getFullYear()}-${String(targetLocal.getMonth() + 1).padStart(2, '0')}-${String(targetLocal.getDate()).padStart(2, '0')}T00:00:00`,
-    )
-    points = Array.from({ length: 24 }, (_, h) => {
-      const d = new Date(targetLocal)
-      d.setHours(h, 0, 0, 0)
-      return { localDate: d, label: `${String(h).padStart(2, '0')}:00` }
-    })
-    seriesEnd = new Date(targetLocal)
-    seriesEnd.setHours(23, 59, 59, 999)
+    const target = addDaysToYMD(nowLocal.year, nowLocal.month, nowLocal.day, offset)
+    seriesStartYMD = target
+    seriesEndYMD = target
+    points = Array.from({ length: 24 }, (_, h) => ({
+      ymd: target,
+      label: `${String(h).padStart(2, '0')}:00`,
+      hour: h,
+    })) as any
   } else if (period === 'week') {
-    const todayLocal = new Date(nowLocal.year, nowLocal.month - 1, nowLocal.day)
-    const dayOfWeek = todayLocal.getDay()
-    const mondayOffset = (dayOfWeek + 6) % 7
-    const monday = new Date(todayLocal)
-    monday.setDate(monday.getDate() - mondayOffset + offset * 7)
-    monday.setHours(0, 0, 0, 0)
-    seriesStart = monday
-    const sunday = addDays(monday, 6)
-    sunday.setHours(23, 59, 59, 999)
-    seriesEnd = sunday
+    const todayJS = new Date(nowLocal.year, nowLocal.month - 1, nowLocal.day)
+    const dayOfWeek = todayJS.getDay()
+    const mondayOffset = (dayOfWeek + 6) % 7 
+    const mondayJS = new Date(todayJS)
+    mondayJS.setDate(mondayJS.getDate() - mondayOffset + offset * 7)
+    const sundayJS = new Date(mondayJS)
+    sundayJS.setDate(sundayJS.getDate() + 6)
+
+    seriesStartYMD = {
+      year: mondayJS.getFullYear(),
+      month: mondayJS.getMonth() + 1,
+      day: mondayJS.getDate(),
+    }
+    seriesEndYMD = {
+      year: sundayJS.getFullYear(),
+      month: sundayJS.getMonth() + 1,
+      day: sundayJS.getDate(),
+    }
+
     points = Array.from({ length: 7 }, (_, i) => {
-      const d = addDays(monday, i)
+      const d = new Date(mondayJS)
+      d.setDate(d.getDate() + i)
+      const ymd = { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() }
       return {
-        localDate: d,
+        ymd,
         label: d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' }),
       }
     })
   } else {
-    const firstDay = new Date(nowLocal.year, nowLocal.month - 1 + offset, 1)
-    const lastDay = new Date(firstDay.getFullYear(), firstDay.getMonth() + 1, 0)
-    firstDay.setHours(0, 0, 0, 0)
-    lastDay.setHours(23, 59, 59, 999)
-    seriesStart = firstDay
-    seriesEnd = lastDay
-    points = Array.from({ length: lastDay.getDate() }, (_, i) => {
-      const d = new Date(firstDay.getFullYear(), firstDay.getMonth(), i + 1)
+    const firstJS = new Date(nowLocal.year, nowLocal.month - 1 + offset, 1)
+    const lastJS = new Date(firstJS.getFullYear(), firstJS.getMonth() + 1, 0)
+    seriesStartYMD = { year: firstJS.getFullYear(), month: firstJS.getMonth() + 1, day: 1 }
+    seriesEndYMD = {
+      year: lastJS.getFullYear(),
+      month: lastJS.getMonth() + 1,
+      day: lastJS.getDate(),
+    }
+
+    points = Array.from({ length: lastJS.getDate() }, (_, i) => {
+      const d = new Date(firstJS.getFullYear(), firstJS.getMonth(), i + 1)
+      const ymd = { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() }
       return {
-        localDate: d,
+        ymd,
         label: d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' }),
       }
     })
   }
 
-  const todayLocal = new Date(nowLocal.year, nowLocal.month - 1, nowLocal.day, 23, 59, 59, 999)
-  const sevenDaysAgoLocal = new Date(
-    nowLocal.year,
-    nowLocal.month - 1,
-    nowLocal.day - 6,
-    0,
-    0,
-    0,
-    0,
+  const seriesStartUTC = startOfDayUTC(
+    seriesStartYMD.year,
+    seriesStartYMD.month,
+    seriesStartYMD.day,
+    userTimezone,
+  )
+  const seriesEndUTC = endOfDayUTC(
+    seriesEndYMD.year,
+    seriesEndYMD.month,
+    seriesEndYMD.day,
+    userTimezone,
   )
 
-  const fetchStart = sevenDaysAgoLocal < seriesStart ? sevenDaysAgoLocal : seriesStart
-  const fetchEnd = todayLocal > seriesEnd ? todayLocal : seriesEnd
+  const sevenDaysAgoYMD = addDaysToYMD(nowLocal.year, nowLocal.month, nowLocal.day, -6)
+  const donutStartUTC = startOfDayUTC(
+    sevenDaysAgoYMD.year,
+    sevenDaysAgoYMD.month,
+    sevenDaysAgoYMD.day,
+    userTimezone,
+  )
+  const donutEndUTC = endOfDayUTC(nowLocal.year, nowLocal.month, nowLocal.day, userTimezone)
+
+  const fetchStartUTC = donutStartUTC < seriesStartUTC ? donutStartUTC : seriesStartUTC
+  const fetchEndUTC = donutEndUTC > seriesEndUTC ? donutEndUTC : seriesEndUTC
 
   const { docs: userTags } = await payload.find({
     collection: 'user-tags',
@@ -216,8 +242,8 @@ export const getListAnalytics = async (
       and: [
         { userId: { equals: userId } },
         { status: { equals: 'completed' } },
-        { completedAt: { greater_than_equal: fetchStart.toISOString() } },
-        { completedAt: { less_than_equal: fetchEnd.toISOString() } },
+        { completedAt: { greater_than_equal: fetchStartUTC.toISOString() } },
+        { completedAt: { less_than_equal: fetchEndUTC.toISOString() } },
       ],
     },
   })
@@ -241,14 +267,14 @@ export const getListAnalytics = async (
     return SYSTEM_TAG_COLORS[tagId] ?? customTagMap[tagId]?.color ?? '#8b5cf6'
   }
 
-  const getLocalDate = (completedAt: string): Date =>
-    toLocalDate(new Date(completedAt), userTimezone)
+  const inRange = (completedAt: string, startUTC: Date, endUTC: Date) => {
+    const t = new Date(completedAt).getTime()
+    return t >= startUTC.getTime() && t <= endUTC.getTime()
+  }
 
-  const donutTasks = completedTasks.filter((t) => {
-    if (!t.completedAt) return false
-    const local = getLocalDate(t.completedAt as string)
-    return local >= sevenDaysAgoLocal && local <= todayLocal
-  })
+  const donutTasks = completedTasks.filter(
+    (t) => t.completedAt && inRange(t.completedAt as string, donutStartUTC, donutEndUTC),
+  )
 
   const donutMap: Record<string, number> = {}
   donutTasks.forEach((task) => {
@@ -267,16 +293,12 @@ export const getListAnalytics = async (
     }))
     .sort((a, b) => b.count - a.count)
 
-  const seriesTasks = completedTasks.filter((t) => {
-    if (!t.completedAt) return false
-    const local = getLocalDate(t.completedAt as string)
-    return local >= seriesStart && local <= seriesEnd
-  })
+  const seriesTasks = completedTasks.filter(
+    (t) => t.completedAt && inRange(t.completedAt as string, seriesStartUTC, seriesEndUTC),
+  )
 
   const allTagIds = new Set<string>()
-  seriesTasks.forEach((task) => {
-    getTagIds(task).forEach((id) => allTagIds.add(id))
-  })
+  seriesTasks.forEach((task) => getTagIds(task).forEach((id) => allTagIds.add(id)))
 
   const seriesTags = Array.from(allTagIds).map((id) => ({
     id,
@@ -284,19 +306,18 @@ export const getListAnalytics = async (
     color: getTagColor(id),
   }))
 
-  const series: DailyPoint[] = points.map(({ localDate, label }) => {
-    let pointStart: Date
-    let pointEnd: Date
+  const series: DailyPoint[] = points.map((point: any) => {
+    const { ymd } = point
+    let pointStartUTC: Date
+    let pointEndUTC: Date
 
     if (period === 'day') {
-      pointStart = new Date(localDate)
-      pointEnd = new Date(localDate)
-      pointEnd.setMinutes(59, 59, 999)
+      const h = point.hour ?? 0
+      pointStartUTC = localToUTC(ymd.year, ymd.month, ymd.day, h, 0, 0, userTimezone)
+      pointEndUTC = new Date(pointStartUTC.getTime() + 60 * 60 * 1000 - 1)
     } else {
-      pointStart = new Date(localDate)
-      pointStart.setHours(0, 0, 0, 0)
-      pointEnd = new Date(localDate)
-      pointEnd.setHours(23, 59, 59, 999)
+      pointStartUTC = startOfDayUTC(ymd.year, ymd.month, ymd.day, userTimezone)
+      pointEndUTC = endOfDayUTC(ymd.year, ymd.month, ymd.day, userTimezone)
     }
 
     const byTag: Record<string, number> = {}
@@ -304,15 +325,14 @@ export const getListAnalytics = async (
 
     seriesTasks.forEach((task) => {
       if (!task.completedAt) return
-      const local = getLocalDate(task.completedAt as string)
-      if (local < pointStart || local > pointEnd) return
+      if (!inRange(task.completedAt as string, pointStartUTC, pointEndUTC)) return
       getTagIds(task).forEach((tagId) => {
         byTag[tagId] = (byTag[tagId] ?? 0) + 1
         total++
       })
     })
 
-    return { date: formatDateKey(localDate), label, byTag, total }
+    return { date: formatDateKey(ymd.year, ymd.month, ymd.day), label: point.label, byTag, total }
   })
 
   return {
@@ -321,7 +341,7 @@ export const getListAnalytics = async (
     series,
     seriesTags,
     period,
-    periodStart: seriesStart.toISOString(),
-    periodEnd: seriesEnd.toISOString(),
+    periodStart: seriesStartUTC.toISOString(),
+    periodEnd: seriesEndUTC.toISOString(),
   }
 }

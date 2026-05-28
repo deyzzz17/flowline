@@ -24,6 +24,12 @@ type ChartType = 'bar' | 'line'
 
 const PERIOD_LABELS: Record<Period, string> = { day: 'Day', week: 'Week', month: 'Month' }
 
+const MIN_OFFSET: Record<Period, number> = {
+  day: -90,
+  week: -13,
+  month: -3,
+}
+
 function DonutChart({ data, total }: { data: ListAnalyticsData['donut']; total: number }) {
   const [hovered, setHovered] = useState<string | null>(null)
 
@@ -213,9 +219,15 @@ export function ListAnalyticsClient({ initialData }: { initialData: ListAnalytic
     placeholderData: (prev) => prev,
   })
 
-  const navigate = useCallback((dir: 'prev' | 'next') => {
-    setOffset((o) => o + (dir === 'prev' ? -1 : 1))
-  }, [])
+  const navigate = useCallback(
+    (dir: 'prev' | 'next') => {
+      setOffset((o) => {
+        const next = o + (dir === 'prev' ? -1 : 1)
+        return Math.max(MIN_OFFSET[period], Math.min(0, next))
+      })
+    },
+    [period],
+  )
 
   const getPeriodLabel = () => {
     if (!data.periodStart) return ''
@@ -305,6 +317,7 @@ export function ListAnalyticsClient({ initialData }: { initialData: ListAnalytic
               size="icon"
               className="h-8 w-8"
               onClick={() => navigate('prev')}
+              disabled={offset <= MIN_OFFSET[period]}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
