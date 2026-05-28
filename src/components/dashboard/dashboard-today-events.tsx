@@ -1,6 +1,6 @@
 import { CalendarDays, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
-import { listCalendarEvents } from '@/api/calendar/actions'
+import { listFlowlineCalendarEvents } from '@/api/calendar/actions'
 
 function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString('en-US', {
@@ -13,22 +13,28 @@ function formatTime(dateStr: string): string {
 export async function DashboardTodayEvents() {
   const now = new Date()
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString()
+  const endOfDay = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    23,
+    59,
+    59,
+  ).toISOString()
 
   let events: { title: string; time: string; color: string }[] = []
 
   try {
-    const result = await listCalendarEvents(startOfDay, endOfDay)
+    const result = await listFlowlineCalendarEvents(startOfDay, endOfDay)
     events = (result.docs ?? [])
       .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
       .slice(0, 5)
       .map((e) => ({
         title: e.title,
-        time: e.allDay ? 'All day' : formatTime(e.startDate),
-        color: e.color ?? '#8b5cf6',
+        time: (e as any).allDay ? 'All day' : formatTime(e.startDate),
+        color: (e as any).color ?? '#8b5cf6',
       }))
-  } catch {
-  }
+  } catch {}
 
   return (
     <div className="rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm">
@@ -41,7 +47,6 @@ export async function DashboardTodayEvents() {
           {now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
         </span>
       </div>
-
       {events.length === 0 ? (
         <div className="px-5 py-6 text-center">
           <p className="text-xs text-muted-foreground/60">No events today</p>
@@ -63,7 +68,6 @@ export async function DashboardTodayEvents() {
           ))}
         </div>
       )}
-
       <div className="px-5 py-3">
         <Link
           href="/calendar"
