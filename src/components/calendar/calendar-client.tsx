@@ -188,9 +188,23 @@ export function CalendarClient() {
   } = useCalendar()
 
   const isMobile = useIsMobile()
+
+  const handleNavigate = (dir: 'prev' | 'next' | 'today') => {
+    if (isMobile && view === 'week' && dir !== 'today') {
+      navigate(dir === 'prev' ? 'prev3' : 'next3')
+    } else {
+      navigate(dir)
+    }
+  }
+
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+    // TouchSensor avec délai pour distinguer scroll et drag sur mobile
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 300, tolerance: 8 },
+    }),
   )
 
   const [pendingTaskDrop, setPendingTaskDrop] = useState<{
@@ -316,7 +330,7 @@ export function CalendarClient() {
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 sm:h-8 sm:w-8"
-                onClick={() => navigate('prev')}
+                onClick={() => handleNavigate('prev')}
               >
                 <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Button>
@@ -324,7 +338,7 @@ export function CalendarClient() {
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 sm:h-8 sm:w-8"
-                onClick={() => navigate('next')}
+                onClick={() => handleNavigate('next')}
               >
                 <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Button>
@@ -332,7 +346,7 @@ export function CalendarClient() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate('today')}
+              onClick={() => handleNavigate('today')}
               className="h-7 sm:h-8 text-xs px-2 sm:px-3"
             >
               Today

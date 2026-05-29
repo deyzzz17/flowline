@@ -148,7 +148,7 @@ export const useCalendar = () => {
       const params = new URLSearchParams(searchParams.toString())
       params.set('view', newView)
       params.set('date', formatDateForUrl(newDate))
-      router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+      router.push(`${pathname}?${params.toString()}`, { scroll: false })
     },
     [router, pathname, searchParams],
   )
@@ -518,25 +518,34 @@ export const useCalendar = () => {
   })
 
   const navigate = useCallback(
-    (direction: 'prev' | 'next' | 'today') => {
+    (direction: 'prev' | 'next' | 'today' | 'prev3' | 'next3') => {
       if (direction === 'today') {
         pushUrl(view, new Date())
         return
       }
       const d = new Date(currentDate)
-      switch (view) {
-        case 'year':
-          d.setFullYear(d.getFullYear() + (direction === 'next' ? 1 : -1))
+      switch (direction) {
+        case 'prev3':
+          d.setDate(d.getDate() - 3)
           break
-        case 'month':
-          d.setMonth(d.getMonth() + (direction === 'next' ? 1 : -1))
+        case 'next3':
+          d.setDate(d.getDate() + 3)
           break
-        case 'week':
-          d.setDate(d.getDate() + (direction === 'next' ? 7 : -7))
-          break
-        case 'day':
-          d.setDate(d.getDate() + (direction === 'next' ? 1 : -1))
-          break
+        default:
+          switch (view) {
+            case 'year':
+              d.setFullYear(d.getFullYear() + (direction === 'next' ? 1 : -1))
+              break
+            case 'month':
+              d.setMonth(d.getMonth() + (direction === 'next' ? 1 : -1))
+              break
+            case 'week':
+              d.setDate(d.getDate() + (direction === 'next' ? 7 : -7))
+              break
+            case 'day':
+              d.setDate(d.getDate() + (direction === 'next' ? 1 : -1))
+              break
+          }
       }
       pushUrl(view, d)
     },

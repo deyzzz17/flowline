@@ -254,6 +254,7 @@ export function CalendarEventBlock({
       <div
         {...(!isGoogle ? listeners : {})}
         {...(!isGoogle ? attributes : {})}
+        style={!isGoogle ? { touchAction: 'none' } : undefined}
         className={cn(
           'absolute inset-0 bottom-3 px-1.5 pt-0.5',
           !isGoogle && 'cursor-grab active:cursor-grabbing',

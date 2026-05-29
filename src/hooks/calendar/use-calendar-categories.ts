@@ -28,8 +28,7 @@ export const useCalendarCategories = () => {
   }))
 
   const createMutation = useMutation({
-    mutationFn: (data: { name: string; color: string }) =>
-      api.calendar.categories.create(data),
+    mutationFn: (data: { name: string; color: string }) => api.calendar.categories.create(data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['calendar-categories'] }),
     onError: () => toast.error('Failed to create category'),
   })
@@ -43,20 +42,43 @@ export const useCalendarCategories = () => {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api.calendar.categories.delete(id),
+
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ['calendar-categories'] })
       const previous = queryClient.getQueryData(['calendar-categories'])
+
       queryClient.setQueryData(['calendar-categories'], (old: any) => ({
         ...old,
         docs: (old?.docs ?? []).filter((c: any) => c.id !== id),
       }))
+
+      queryClient.setQueriesData<{ docs: any[] }>(
+        { queryKey: ['calendar-events-flowline'] },
+        (old) => {
+          if (!old) return old
+          return {
+            ...old,
+            docs: old.docs.filter((e) => {
+              const catId = typeof e.categoryId === 'number' ? e.categoryId : null
+              return catId !== id
+            }),
+          }
+        },
+      )
+
       return { previous }
     },
+
     onError: (_, __, context) => {
       queryClient.setQueryData(['calendar-categories'], context?.previous)
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] })
       toast.error('Failed to delete category')
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['calendar-categories'] }),
+
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar-categories'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] })
+    },
   })
 
   return {

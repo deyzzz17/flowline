@@ -37,7 +37,7 @@ export function CalendarItemPill({ item, onClick, isDragging, compact }: Calenda
         isDragging && 'opacity-50 scale-95 cursor-grabbing',
         !isDragging && 'cursor-pointer hover:brightness-110',
       )}
-      style={{ backgroundColor: `${color}20`, color }}
+      style={{ backgroundColor: `${color}20`, color, touchAction: 'none' }}
     >
       <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
       <div className="flex-1 min-w-0">
