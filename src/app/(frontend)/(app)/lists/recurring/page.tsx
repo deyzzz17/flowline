@@ -13,7 +13,7 @@ export default async function RecurringPage() {
 
   return (
     <ProtectedRoute>
-      <div className="relative  px-4 pb-16 sm:px-6 lg:px-10">
+      <div className="relative px-4 pb-16 sm:px-6 lg:px-10">
         <div className="relative z-10">
           <HydrationBoundary state={dehydrate(queryClient)}>
             <RecurringClient />
