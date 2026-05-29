@@ -69,10 +69,9 @@ export function SessionRatingDialog({
   const [isSaving, setIsSaving] = useState(false)
   const queryClient = useQueryClient()
 
-  const hasCategory = !!config?.categoryName
   const hasTask = !!config?.taskId && !!config?.taskTitle
 
-  const canSubmit = (hasCategory ? rating > 0 : true) && (!hasTask || taskCompleted !== null)
+  const canSubmit = !hasTask || taskCompleted !== null
 
   const completeTaskMutation = useMutation({
     mutationFn: (id: number) => api.tasks.toggleStatus(id, 'active'),
@@ -80,7 +79,10 @@ export function SessionRatingDialog({
   })
 
   const handleClose = async () => {
-    if (!config) return
+    if (!config) {
+      onClose()
+      return
+    }
     setIsSaving(true)
 
     try {
@@ -148,42 +150,41 @@ export function SessionRatingDialog({
         </DialogHeader>
 
         <div className="space-y-6 py-2">
-          {hasCategory && (
-            <p className="text-center text-sm text-muted-foreground">
-              How was your{' '}
-              <span className="font-medium text-foreground">{config.categoryName}</span> session?
-            </p>
-          )}
-          {!hasCategory && hasTask && (
-            <p className="text-center text-sm text-muted-foreground">Great work on your session!</p>
-          )}
+          <p className="text-center text-sm text-muted-foreground">
+            {config?.categoryName ? (
+              <>
+                How was your{' '}
+                <span className="font-medium text-foreground">{config.categoryName}</span> session?
+              </>
+            ) : (
+              'How was your focus session?'
+            )}
+          </p>
 
-          {hasCategory && (
-            <div className="flex flex-col items-center gap-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground/60">
-                Rate your session
-              </p>
-              <div className="flex items-center gap-0.5" onMouseLeave={() => setHovered(0)}>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <div
-                    key={star}
-                    className="relative cursor-pointer p-1"
-                    onMouseMove={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect()
-                      setHovered(e.clientX - rect.left < rect.width / 2 ? star - 0.5 : star)
-                    }}
-                    onClick={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect()
-                      setRating(e.clientX - rect.left < rect.width / 2 ? star - 0.5 : star)
-                    }}
-                  >
-                    <StarIcon fill={getStarFill(star)} />
-                  </div>
-                ))}
-              </div>
-              <p className="h-4 text-xs text-muted-foreground/70">{ratingLabel}</p>
+          <div className="flex flex-col items-center gap-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground/60">
+              Rate your focus quality
+            </p>
+            <div className="flex items-center gap-0.5" onMouseLeave={() => setHovered(0)}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <div
+                  key={star}
+                  className="relative cursor-pointer p-1"
+                  onMouseMove={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect()
+                    setHovered(e.clientX - rect.left < rect.width / 2 ? star - 0.5 : star)
+                  }}
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect()
+                    setRating(e.clientX - rect.left < rect.width / 2 ? star - 0.5 : star)
+                  }}
+                >
+                  <StarIcon fill={getStarFill(star)} />
+                </div>
+              ))}
             </div>
-          )}
+            <p className="h-4 text-xs text-muted-foreground/70">{ratingLabel}</p>
+          </div>
 
           {hasTask && (
             <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-3">
