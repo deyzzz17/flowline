@@ -1,8 +1,15 @@
 'use client'
 
-import { useState } from 'react'
-import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import {
+  DndContext,
+  DragEndEvent,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import { ChevronLeft, ChevronRight, Plus, MoreHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import {
@@ -14,6 +21,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   useCalendar,
   type CalendarView,
@@ -39,13 +52,22 @@ const VIEW_LABELS: Record<CalendarView, string> = {
   day: 'Day',
 }
 
-function getHeaderTitle(date: Date, view: CalendarView): string {
+function getHeaderTitle(date: Date, view: CalendarView, isMobile: boolean): string {
   switch (view) {
     case 'year':
       return String(date.getFullYear())
     case 'month':
-      return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+      return isMobile
+        ? date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+        : date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
     case 'week': {
+      if (isMobile) {
+        const start = new Date(date)
+        start.setDate(start.getDate() - 1)
+        const end = new Date(date)
+        end.setDate(end.getDate() + 1)
+        return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString('en-US', { day: 'numeric' })}`
+      }
       const start = new Date(date)
       start.setDate(start.getDate() - start.getDay())
       const end = new Date(start)
@@ -56,12 +78,14 @@ function getHeaderTitle(date: Date, view: CalendarView): string {
       return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
     }
     case 'day':
-      return date.toLocaleDateString('en-US', {
-        weekday: 'long',
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric',
-      })
+      return isMobile
+        ? date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+        : date.toLocaleDateString('en-US', {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+          })
   }
 }
 
@@ -127,6 +151,17 @@ type PendingMove = { type: 'move'; item: CalendarEvent; targetDate: Date }
 type PendingResize = { type: 'resize'; item: CalendarEvent; newEndDate: Date }
 type PendingAction = PendingMove | PendingResize
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+  return isMobile
+}
+
 export function CalendarClient() {
   const {
     view,
@@ -152,7 +187,11 @@ export function CalendarClient() {
     deleteMutation,
   } = useCalendar()
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+  const isMobile = useIsMobile()
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+  )
 
   const [pendingTaskDrop, setPendingTaskDrop] = useState<{
     task: CalendarTask
@@ -247,6 +286,8 @@ export function CalendarClient() {
     deleteMutation.mutate({ id, scope, originalDate })
   }
 
+  const headerTitle = getHeaderTitle(currentDate, view, isMobile)
+
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <TaskTimePicker
@@ -268,73 +309,97 @@ export function CalendarClient() {
       />
 
       <div className="flex flex-col h-full">
-        <div className="flex items-center justify-between px-4 py-3 sm:px-6 border-b border-border/40 bg-background/95 backdrop-blur-sm shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1">
+        <div className="flex items-center justify-between px-3 py-2 sm:px-6 sm:py-3 border-b border-border/40 bg-background/95 backdrop-blur-sm shrink-0 gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            <div className="flex items-center gap-0.5">
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="h-7 w-7 sm:h-8 sm:w-8"
                 onClick={() => navigate('prev')}
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="h-7 w-7 sm:h-8 sm:w-8"
                 onClick={() => navigate('next')}
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Button>
             </div>
             <Button
               variant="outline"
               size="sm"
               onClick={() => navigate('today')}
-              className="h-8 text-xs"
+              className="h-7 sm:h-8 text-xs px-2 sm:px-3"
             >
               Today
             </Button>
-            <h2 className="text-sm font-semibold text-foreground">
-              {getHeaderTitle(currentDate, view)}
+            <h2 className="text-xs sm:text-sm font-semibold text-foreground truncate max-w-[120px] sm:max-w-none">
+              {headerTitle}
             </h2>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-0.5 rounded-xl border border-border/60 bg-muted/30 p-1">
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex items-center gap-0.5 rounded-xl border border-border/60 bg-muted/30 p-0.5 sm:p-1">
               {(['year', 'month', 'week', 'day'] as CalendarView[]).map((v) => (
                 <button
                   key={v}
                   type="button"
                   onClick={() => setView(v)}
                   className={cn(
-                    'rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-150',
+                    'rounded-lg text-xs font-medium transition-all duration-150',
+                    isMobile ? 'px-1.5 py-1' : 'px-3 py-1.5',
                     view === v
                       ? 'bg-background text-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
-                  {VIEW_LABELS[v]}
+                  {isMobile ? VIEW_LABELS[v][0] : VIEW_LABELS[v]}
                 </button>
               ))}
             </div>
+
             <Button
               size="sm"
               onClick={() => openNewEvent(new Date())}
-              className="h-8 gap-1.5 text-xs"
+              className="h-7 sm:h-8 gap-1 sm:gap-1.5 text-xs px-2 sm:px-3"
             >
               <Plus className="h-3.5 w-3.5" />
-              New event
+              <span className="hidden sm:inline">New event</span>
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setGoogleDialogOpen(true)}
-              className="h-8 gap-1.5 text-xs"
-            >
-              <GoogleIcon className="h-3.5 w-3.5" />
-              {isConnected ? 'Google Calendar' : 'Connect Google'}
-            </Button>
+
+            {isMobile ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                    <MoreHorizontal className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => setGoogleDialogOpen(true)}
+                    className="gap-2 text-xs"
+                  >
+                    <GoogleIcon className="h-3.5 w-3.5" />
+                    {isConnected ? 'Google Calendar' : 'Connect Google'}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setGoogleDialogOpen(true)}
+                className="h-8 gap-1.5 text-xs"
+              >
+                <GoogleIcon className="h-3.5 w-3.5" />
+                {isConnected ? 'Google Calendar' : 'Connect Google'}
+              </Button>
+            )}
+
             <GoogleCalendarDialog open={googleDialogOpen} onOpenChange={setGoogleDialogOpen} />
           </div>
         </div>
@@ -363,6 +428,7 @@ export function CalendarClient() {
               onClickCell={goToDay}
               onClickItem={openEdit}
               onDoubleClickDay={openNewEvent}
+              isMobile={isMobile}
             />
           )}
           {view === 'week' && (
@@ -374,6 +440,7 @@ export function CalendarClient() {
               onResizeEnd={handleResizeEnd}
               getItemDisplayHeight={getItemDisplayHeight}
               onDoubleClickSlot={openNewEvent}
+              isMobile={isMobile}
             />
           )}
           {view === 'day' && (

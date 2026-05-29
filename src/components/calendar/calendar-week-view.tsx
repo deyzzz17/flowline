@@ -34,6 +34,14 @@ function getWeekDays(currentDate: Date): Date[] {
   })
 }
 
+function getThreeDays(currentDate: Date): Date[] {
+  return Array.from({ length: 3 }, (_, i) => {
+    const d = new Date(currentDate)
+    d.setDate(d.getDate() - 1 + i)
+    return d
+  })
+}
+
 function isAllDay(item: CalendarItem): boolean {
   return item.type === 'event' && (item as CalendarEvent).allDay
 }
@@ -278,6 +286,7 @@ interface CalendarWeekViewProps {
   onClickItem: (item: CalendarItem) => void
   onResizeEnd: (item: CalendarItem, newEndDate: Date) => void
   getItemDisplayHeight: (item: CalendarItem) => number
+  isMobile?: boolean
 }
 
 export function CalendarWeekView({
@@ -287,8 +296,9 @@ export function CalendarWeekView({
   onDoubleClickSlot,
   onClickItem,
   onResizeEnd,
+  isMobile = false,
 }: CalendarWeekViewProps) {
-  const days = getWeekDays(currentDate)
+  const days = isMobile ? getThreeDays(currentDate) : getWeekDays(currentDate)
   const today = new Date()
   const { formatHourLabel } = useTimeFormat()
   const { getHoliday } = usePublicHolidays(currentDate.getFullYear())
@@ -309,11 +319,12 @@ export function CalendarWeekView({
 
   const totalGridHeight = SLOT_HEIGHT * 24
 
+  const timeColWidth = isMobile ? 'w-10' : 'w-14'
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <div className="flex shrink-0 border-b border-border/40 bg-background z-20">
-        <div className="w-14 shrink-0 border-r border-border/40" />
-
+        <div className={cn(timeColWidth, 'shrink-0 border-r border-border/40')} />
         <div className="flex flex-1 min-w-0">
           {days.map((date, i) => {
             const isToday = date.toDateString() === today.toDateString()
@@ -346,14 +357,13 @@ export function CalendarWeekView({
           })}
         </div>
       </div>
-
+      
       {hasAnyAllDay && (
         <div className="flex shrink-0 border-b border-border/40 bg-background z-10">
           <div
-            className="w-14 shrink-0 border-r border-border/40"
+            className={cn(timeColWidth, 'shrink-0 border-r border-border/40')}
             style={{ height: allDayBandHeight }}
           />
-
           <div className="flex flex-1 min-w-0">
             {days.map((date, i) => {
               const allDayItems = allDayByDay[i]
@@ -385,16 +395,16 @@ export function CalendarWeekView({
           </div>
         </div>
       )}
-      
+
       <div className="flex flex-1 overflow-y-auto overflow-x-hidden min-h-0">
         <div
-          className="w-14 shrink-0 border-r border-border/40 relative"
+          className={cn(timeColWidth, 'shrink-0 border-r border-border/40 relative')}
           style={{ height: totalGridHeight }}
         >
           {HOURS.map((h) => (
             <div
               key={h}
-              className="absolute right-0 flex items-start justify-end pr-2"
+              className="absolute right-0 flex items-start justify-end pr-1.5"
               style={{ top: h * SLOT_HEIGHT - 8, height: SLOT_HEIGHT }}
             >
               {h !== 0 && (
