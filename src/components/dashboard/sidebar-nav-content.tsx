@@ -419,10 +419,10 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
             {habitsOpen && (
               <div className="mt-0.5 ml-3 space-y-0.5 border-l border-border/50 pl-3">
                 <Link
-                  {...navLink('/habits')}
+                  {...navLink('/habits/habits-view')}
                   className={cn(
                     'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
-                    isActive('/habits')
+                    isActive('/habits/habits-view')
                       ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                   )}
@@ -431,10 +431,10 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
                   Habits
                 </Link>
                 <Link
-                  {...navLink('/habits-analytics')}
+                  {...navLink('/habits/habits-analytics')}
                   className={cn(
                     'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
-                    isActive('/habits-analytics')
+                    isActive('/habits/habits-analytics')
                       ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                   )}

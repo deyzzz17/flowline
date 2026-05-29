@@ -7,7 +7,6 @@ import { cn } from '@/lib/utils'
 import { type HabitAnalytics } from '@/api/habits/actions'
 import { format, parseISO } from 'date-fns'
 
-// GitHub-style heatmap
 function Heatmap({ data }: { data: HabitAnalytics['heatmapData']; color?: string }) {
   if (data.length === 0) return null
 
@@ -100,7 +99,7 @@ export function HabitsAnalyticsClient({ initialData }: HabitsAnalyticsClientProp
     return (
       <div className="mx-auto max-w-2xl px-4 pb-16 pt-8 sm:px-6">
         <Link
-          href="/habits"
+          href="/habits/habits-view"
           className="mb-6 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
@@ -117,9 +116,9 @@ export function HabitsAnalyticsClient({ initialData }: HabitsAnalyticsClientProp
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 pb-16 pt-8 sm:px-6">
+    <div className="pt-8">
       <Link
-        href="/habits"
+        href="/habits/habits-view"
         className="mb-6 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
@@ -200,8 +199,8 @@ export function HabitsAnalyticsClient({ initialData }: HabitsAnalyticsClientProp
             .sort((a, b) => b.completionRate30d - a.completionRate30d)
             .map((habit) => (
               <Link
-                key={habit.id}
-                href={`/habits/${habit.id}`}
+                key={habit.slug}
+                href={`/habits/${habit.slug}`}
                 className="flex items-center gap-4 px-5 py-3.5 hover:bg-muted/30 transition-colors"
               >
                 <div

@@ -448,25 +448,17 @@ export interface Habit {
   id: number;
   userId: string;
   name: string;
+  /**
+   * Auto-generated from name + userId
+   */
+  slug?: string | null;
   description?: string | null;
   color?: string | null;
   categoryTag?: string | null;
   frequency: 'daily' | 'days_of_week' | 'times_per_week';
-  /**
-   * Used when frequency = days_of_week
-   */
   daysOfWeek?: ('mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun')[] | null;
-  /**
-   * Used when frequency = times_per_week
-   */
   timesPerWeek?: number | null;
-  /**
-   * Set to archive without deleting
-   */
   archivedAt?: string | null;
-  /**
-   * Display order
-   */
   order?: number | null;
   updatedAt: string;
   createdAt: string;
@@ -846,6 +838,7 @@ export interface GoogleCalendarSyncsSelect<T extends boolean = true> {
 export interface HabitsSelect<T extends boolean = true> {
   userId?: T;
   name?: T;
+  slug?: T;
   description?: T;
   color?: T;
   categoryTag?: T;

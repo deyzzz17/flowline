@@ -41,6 +41,7 @@ export interface HabitData {
 
 export interface HabitWithStats {
   id: number
+  slug: string
   name: string
   description?: string | null
   color: string
@@ -56,7 +57,7 @@ export interface HabitWithStats {
 }
 
 export interface HabitDetail extends HabitWithStats {
-  completions: string[] 
+  completions: string[]
   weeklyCompletions: { week: string; count: number; target: number }[]
 }
 
@@ -69,6 +70,7 @@ export interface HabitAnalytics {
   heatmapData: { date: string; count: number; total: number }[]
   perHabit: {
     id: number
+    slug: string
     name: string
     color: string
     currentStreak: number
@@ -94,7 +96,6 @@ function computeStreaks(
       d = getDateKey(prev)
     }
 
-    // Longest streak
     const sorted = Array.from(completionDates).sort()
     let longest = 0
     let run = 0
@@ -130,7 +131,10 @@ function computeStreaks(
     let d = new Date(today + 'T12:00:00')
     while (true) {
       const key = getDateKey(d)
-      if (key > today) { d = addDays(d, -1); continue }
+      if (key > today) {
+        d = addDays(d, -1)
+        continue
+      }
       if (isDayTarget(key)) {
         if (completionDates.has(key)) {
           current++
@@ -143,7 +147,7 @@ function computeStreaks(
       if (d < new Date('2020-01-01')) break
     }
 
-    return { current, longest: current } 
+    return { current, longest: current }
   }
 
   if (habit.frequency === 'times_per_week') {
@@ -238,10 +242,7 @@ export const listHabits = async (): Promise<HabitWithStats[]> => {
   const { docs: habits } = await payload.find({
     collection: 'habits',
     where: {
-      and: [
-        { userId: { equals: userId } },
-        { archivedAt: { exists: false } },
-      ],
+      and: [{ userId: { equals: userId } }, { archivedAt: { exists: false } }],
     },
     sort: 'order',
     limit: 0,
@@ -275,6 +276,7 @@ export const listHabits = async (): Promise<HabitWithStats[]> => {
 
     return {
       id: habit.id,
+      slug: (habit as any).slug ?? '',
       name: habit.name,
       description: (habit as any).description ?? null,
       color: (habit as any).color ?? '#8b5cf6',
@@ -321,7 +323,10 @@ export const getHabitDetail = async (habitId: number): Promise<HabitDetail | nul
   const today = getTodayKey()
 
   const weeklyCompletions = Array.from({ length: 12 }, (_, i) => {
-    const weekStart = addDays(new Date(today + 'T12:00:00'), -i * 7 - (new Date().getDay() + 6) % 7)
+    const weekStart = addDays(
+      new Date(today + 'T12:00:00'),
+      -i * 7 - ((new Date().getDay() + 6) % 7),
+    )
     let count = 0
     let target = 0
     for (let d = 0; d < 7; d++) {
@@ -349,6 +354,7 @@ export const getHabitDetail = async (habitId: number): Promise<HabitDetail | nul
 
   return {
     id: habit.id,
+    slug: (habit as any).slug ?? '',
     name: habit.name,
     description: (habit as any).description ?? null,
     color: (habit as any).color ?? '#8b5cf6',
@@ -461,7 +467,9 @@ export const toggleHabitCompletion = async (habitId: number, dateStr?: string) =
         and: [
           { userId: { equals: userId } },
           { habitId: { equals: habitId } },
-          { completedAt: { greater_than_equal: new Date(targetDate + 'T00:00:00Z').toISOString() } },
+          {
+            completedAt: { greater_than_equal: new Date(targetDate + 'T00:00:00Z').toISOString() },
+          },
           { completedAt: { less_than_equal: new Date(targetDate + 'T23:59:59Z').toISOString() } },
         ],
       },
@@ -531,14 +539,17 @@ export const getHabitAnalytics = async (): Promise<HabitAnalytics> => {
       .filter((c) => getDateKey(new Date(c.completedAt as string)) === today)
       .map((c) => c.habitId),
   )
-  
+
   const perHabit = habits.map((habit) => {
     const habitCompletions = completions.filter((c) => c.habitId === habit.id)
-    const dates = new Set(habitCompletions.map((c) => getDateKey(new Date(c.completedAt as string))))
+    const dates = new Set(
+      habitCompletions.map((c) => getDateKey(new Date(c.completedAt as string))),
+    )
     const { current, longest } = computeStreaks(dates, habit as any)
     const rate = computeCompletionRate(dates, habit as any)
     return {
       id: habit.id,
+      slug: (habit as any).slug ?? '',
       name: habit.name,
       color: (habit as any).color ?? '#8b5cf6',
       currentStreak: current,
@@ -549,9 +560,7 @@ export const getHabitAnalytics = async (): Promise<HabitAnalytics> => {
 
   const bestStreak = perHabit.reduce<{ habitName: string; streak: number } | null>(
     (best, h) =>
-      h.longestStreak > (best?.streak ?? 0)
-        ? { habitName: h.name, streak: h.longestStreak }
-        : best,
+      h.longestStreak > (best?.streak ?? 0) ? { habitName: h.name, streak: h.longestStreak } : best,
     null,
   )
 
@@ -572,7 +581,11 @@ export const getHabitAnalytics = async (): Promise<HabitAnalytics> => {
 
       if (isTarget) {
         total++
-        if (completions.some((c) => c.habitId === habit.id && getDateKey(new Date(c.completedAt as string)) === key)) {
+        if (
+          completions.some(
+            (c) => c.habitId === habit.id && getDateKey(new Date(c.completedAt as string)) === key,
+          )
+        ) {
           count++
         }
       }
@@ -593,4 +606,25 @@ export const getHabitAnalytics = async (): Promise<HabitAnalytics> => {
     heatmapData,
     perHabit,
   }
+}
+
+export const getHabitBySlug = async (slug: string): Promise<HabitDetail | null> => {
+  const userId = await getUserId()
+  if (!userId) return null
+
+  const payload = await getPayload({ config })
+  const { docs } = await payload.find({
+    collection: 'habits',
+    where: {
+      and: [
+        { userId: { equals: userId } },
+        { slug: { equals: slug } },
+        { archivedAt: { exists: false } },
+      ],
+    },
+    limit: 1,
+  })
+
+  if (!docs[0]) return null
+  return getHabitDetail(docs[0].id)
 }

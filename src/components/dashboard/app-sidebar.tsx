@@ -424,16 +424,16 @@ export function AppSidebar() {
                     <CollapsibleContent>
                       <SidebarMenuSub>
                         <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={isActive('/habits')}>
-                            <Link href={nav('/habits')}>
+                          <SidebarMenuSubButton asChild isActive={isActive('/habits/habits-view')}>
+                            <Link href={nav('/habits/habits-view')}>
                               <Flame className="h-3.5 w-3.5" />
                               Habits
                             </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                         <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={isActive('/habits-analytics')}>
-                            <Link href={nav('/habits-analytics')}>
+                          <SidebarMenuSubButton asChild isActive={isActive('/habits/habits-analytics')}>
+                            <Link href={nav('/habits/habits-analytics')}>
                               <BarChart2 className="h-3.5 w-3.5" />
                               Analytics
                             </Link>

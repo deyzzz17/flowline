@@ -6,6 +6,16 @@ export const Habits: CollectionConfig = {
   fields: [
     { name: 'userId', type: 'text', required: true, index: true },
     { name: 'name', type: 'text', required: true },
+    {
+      name: 'slug',
+      type: 'text',
+      required: false,
+      index: true,
+      admin: {
+        readOnly: false,
+        description: 'Auto-generated from name + userId',
+      },
+    },
     { name: 'description', type: 'textarea', required: false },
     { name: 'color', type: 'text', defaultValue: '#8b5cf6', required: false },
     { name: 'categoryTag', type: 'text', required: false },
@@ -35,7 +45,6 @@ export const Habits: CollectionConfig = {
         { label: 'Sunday', value: 'sun' },
       ],
       admin: {
-        description: 'Used when frequency = days_of_week',
         condition: (_, s) => s?.frequency === 'days_of_week',
       },
     },
@@ -46,22 +55,38 @@ export const Habits: CollectionConfig = {
       min: 1,
       max: 7,
       admin: {
-        description: 'Used when frequency = times_per_week',
         condition: (_, s) => s?.frequency === 'times_per_week',
       },
     },
-    {
-      name: 'archivedAt',
-      type: 'date',
-      required: false,
-      admin: { description: 'Set to archive without deleting' },
-    },
-    {
-      name: 'order',
-      type: 'number',
-      required: false,
-      defaultValue: 0,
-      admin: { description: 'Display order' },
-    },
+    { name: 'archivedAt', type: 'date', required: false },
+    { name: 'order', type: 'number', required: false, defaultValue: 0 },
   ],
+  hooks: {
+    beforeChange: [
+      async ({ data, req, operation, originalDoc }) => {
+        const userId = data.userId ?? originalDoc?.userId
+        const name = data.name
+
+        if (name) {
+          const base = name
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-|-$/g, '')
+
+          const userSuffix = userId
+            ? userId
+                .slice(-4)
+                .toLowerCase()
+                .replace(/[^a-z0-9]/g, '')
+            : ''
+
+          data.slug = userSuffix ? `${base}-${userSuffix}` : base
+        }
+
+        return data
+      },
+    ],
+  },
 }

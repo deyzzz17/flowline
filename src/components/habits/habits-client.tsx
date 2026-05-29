@@ -29,7 +29,13 @@ import {
 import { toast } from 'sonner'
 
 const DAY_LABELS: Record<string, string> = {
-  mon: 'Mo', tue: 'Tu', wed: 'We', thu: 'Th', fri: 'Fr', sat: 'Sa', sun: 'Su',
+  mon: 'Mo',
+  tue: 'Tu',
+  wed: 'We',
+  thu: 'Th',
+  fri: 'Fr',
+  sat: 'Sa',
+  sun: 'Su',
 }
 const ALL_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 
@@ -61,16 +67,36 @@ function CompletionRing({ rate, color }: { rate: number; color: string }) {
   const dash = (rate / 100) * circ
   return (
     <svg width="44" height="44" viewBox="0 0 44 44">
-      <circle cx="22" cy="22" r={r} fill="none" stroke="currentColor" strokeWidth="4"
-        className="text-muted/30" />
-      <circle cx="22" cy="22" r={r} fill="none" stroke={color} strokeWidth="4"
+      <circle
+        cx="22"
+        cy="22"
+        r={r}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="4"
+        className="text-muted/30"
+      />
+      <circle
+        cx="22"
+        cy="22"
+        r={r}
+        fill="none"
+        stroke={color}
+        strokeWidth="4"
         strokeLinecap="round"
         strokeDasharray={`${dash} ${circ - dash}`}
         strokeDashoffset={circ / 4}
         style={{ transform: 'rotate(-90deg)', transformOrigin: '50% 50%' }}
       />
-      <text x="22" y="26" textAnchor="middle" fontSize="10" fontWeight="600"
-        fill="currentColor" className="text-foreground">
+      <text
+        x="22"
+        y="26"
+        textAnchor="middle"
+        fontSize="10"
+        fontWeight="600"
+        fill="currentColor"
+        className="text-foreground"
+      >
         {rate}%
       </text>
     </svg>
@@ -98,12 +124,16 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
 
   const handleToggle = async (habit: HabitWithStats) => {
     setTogglingId(habit.id)
-    // Optimistic
     setHabits((prev) =>
       prev.map((h) =>
         h.id === habit.id
-          ? { ...h, completedToday: !h.completedToday,
-              currentStreak: !h.completedToday ? h.currentStreak + 1 : Math.max(0, h.currentStreak - 1) }
+          ? {
+              ...h,
+              completedToday: !h.completedToday,
+              currentStreak: !h.completedToday
+                ? h.currentStreak + 1
+                : Math.max(0, h.currentStreak - 1),
+            }
           : h,
       ),
     )
@@ -117,7 +147,10 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
 
   const handleCreate = async (data: HabitData) => {
     const result = await createHabit(data)
-    if ('error' in result) { toast.error('Failed to create habit'); return }
+    if ('error' in result) {
+      toast.error('Failed to create habit')
+      return
+    }
     toast.success('Habit created')
     setFormOpen(false)
     refresh()
@@ -126,7 +159,10 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
   const handleUpdate = async (data: HabitData) => {
     if (!editingHabit) return
     const result = await updateHabit(editingHabit.id, data)
-    if ('error' in result) { toast.error('Failed to update habit'); return }
+    if ('error' in result) {
+      toast.error('Failed to update habit')
+      return
+    }
     toast.success('Habit updated')
     setEditingHabit(null)
     refresh()
@@ -134,7 +170,10 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
 
   const handleArchive = async (habit: HabitWithStats) => {
     const result = await archiveHabit(habit.id)
-    if ('error' in result) { toast.error('Failed to archive habit'); return }
+    if ('error' in result) {
+      toast.error('Failed to archive habit')
+      return
+    }
     toast.success('Habit archived')
     setHabits((prev) => prev.filter((h) => h.id !== habit.id))
   }
@@ -142,7 +181,10 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
   const handleDelete = async () => {
     if (!deleteTarget) return
     const result = await deleteHabit(deleteTarget.id)
-    if ('error' in result) { toast.error('Failed to delete habit'); return }
+    if ('error' in result) {
+      toast.error('Failed to delete habit')
+      return
+    }
     toast.success('Habit deleted')
     setHabits((prev) => prev.filter((h) => h.id !== deleteTarget.id))
     setDeleteTarget(null)
@@ -151,7 +193,7 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
   const todayCompleted = habits.filter((h) => h.completedToday).length
 
   return (
-    <div className="mx-auto max-w-2xl px-4 pb-16 pt-8 sm:px-6">
+    <div className="pt-8">
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -160,15 +202,13 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
               Habits
             </p>
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Daily habits
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Daily habits</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {todayCompleted}/{habits.length} completed today
           </p>
         </div>
         <div className="flex items-center gap-2 mt-1">
-          <Link href="/habits/analytics">
+          <Link href="/habits/habits-analytics">
             <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs">
               <BarChart2 className="h-3.5 w-3.5" />
               Analytics
@@ -186,7 +226,9 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div
               className="h-full rounded-full bg-orange-500 transition-all duration-500"
-              style={{ width: `${habits.length > 0 ? (todayCompleted / habits.length) * 100 : 0}%` }}
+              style={{
+                width: `${habits.length > 0 ? (todayCompleted / habits.length) * 100 : 0}%`,
+              }}
             />
           </div>
         </div>
@@ -198,9 +240,7 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
             <Flame className="h-8 w-8 text-orange-500" />
           </div>
           <p className="text-base font-semibold text-foreground">No habits yet</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Start building routines that stick.
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">Start building routines that stick.</p>
           <Button className="mt-6 gap-2" onClick={() => setFormOpen(true)}>
             <Plus className="h-4 w-4" />
             Create your first habit
@@ -229,7 +269,11 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
                       ? 'border-transparent text-white'
                       : 'border-border/60 text-transparent hover:border-current',
                   )}
-                  style={habit.completedToday ? { backgroundColor: habit.color } : { borderColor: habit.color + '60' }}
+                  style={
+                    habit.completedToday
+                      ? { backgroundColor: habit.color }
+                      : { borderColor: habit.color + '60' }
+                  }
                 >
                   {togglingId === habit.id ? (
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -242,12 +286,14 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
                   )}
                 </button>
 
-                <Link href={`/habits/${habit.id}`} className="flex-1 min-w-0">
+                <Link href={`/habits/${habit.slug}`} className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span
                       className={cn(
                         'text-sm font-semibold transition-colors',
-                        habit.completedToday ? 'line-through text-muted-foreground/60' : 'text-foreground',
+                        habit.completedToday
+                          ? 'line-through text-muted-foreground/60'
+                          : 'text-foreground',
                       )}
                     >
                       {habit.name}
@@ -268,19 +314,25 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
 
                 <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                   <Button
-                    variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
                     onClick={() => setEditingHabit(habit)}
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
                   <Button
-                    variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-muted-foreground"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-muted-foreground"
                     onClick={() => handleArchive(habit)}
                   >
                     <Archive className="h-3.5 w-3.5" />
                   </Button>
                   <Button
-                    variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
                     onClick={() => setDeleteTarget(habit)}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -299,7 +351,11 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
                           ? 'text-white'
                           : 'bg-muted text-muted-foreground/40',
                       )}
-                      style={habit.daysOfWeek?.includes(day) ? { backgroundColor: habit.color } : undefined}
+                      style={
+                        habit.daysOfWeek?.includes(day)
+                          ? { backgroundColor: habit.color }
+                          : undefined
+                      }
                     >
                       {DAY_LABELS[day]}
                     </span>
@@ -316,25 +372,29 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
         </div>
       )}
 
-      <HabitFormDialog
-        open={formOpen}
-        onOpenChange={setFormOpen}
-        onSubmit={handleCreate}
-      />
+      <HabitFormDialog open={formOpen} onOpenChange={setFormOpen} onSubmit={handleCreate} />
 
       <HabitFormDialog
         open={!!editingHabit}
-        onOpenChange={(v) => { if (!v) setEditingHabit(null) }}
+        onOpenChange={(v) => {
+          if (!v) setEditingHabit(null)
+        }}
         onSubmit={handleUpdate}
         initialData={editingHabit ?? undefined}
       />
 
-      <AlertDialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null) }}>
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => {
+          if (!v) setDeleteTarget(null)
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this habit?</AlertDialogTitle>
             <AlertDialogDescription>
-              <strong>{deleteTarget?.name}</strong> and all its completion history will be permanently deleted.
+              <strong>{deleteTarget?.name}</strong> and all its completion history will be
+              permanently deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
