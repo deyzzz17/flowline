@@ -20,7 +20,9 @@ export default async function HabitDetailPage({ params }: Props) {
   if (!habit) notFound()
   return (
     <ProtectedRoute>
-      <HabitDetailClient habit={habit} />
+      <div className="relative px-4 pb-16 sm:px-6 lg:px-10">
+        <HabitDetailClient habit={habit} />
+      </div>
     </ProtectedRoute>
   )
 }
