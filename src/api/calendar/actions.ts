@@ -124,8 +124,28 @@ export const updateCalendarCategory = async (id: number, data: Partial<CalendarC
 
 export const deleteCalendarCategory = async (id: number) => {
   try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
     const payload = await getPayload({ config })
+
+    const { docs: relatedEvents } = await payload.find({
+      collection: 'calendar-events',
+      where: {
+        and: [
+          { userId: { equals: userId } },
+          { categoryId: { equals: id } },
+        ],
+      },
+      limit: 0,
+    })
+
+    for (const event of relatedEvents) {
+      await payload.delete({ collection: 'calendar-events', id: event.id })
+    }
+
     await payload.delete({ collection: 'calendar-categories', id })
+
     return ok(true)
   } catch {
     return err('Error deleting category')

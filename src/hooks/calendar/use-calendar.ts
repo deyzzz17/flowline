@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import { api } from '@/api'
 import {
   type CalendarEventData,
@@ -53,6 +55,7 @@ export type CalendarItem = CalendarEvent | CalendarTask
 
 const SLOT_HEIGHT = 56
 const MIN_DURATION_MIN = 15
+const VALID_VIEWS: CalendarView[] = ['year', 'month', 'week', 'day']
 
 function minutesToPx(minutes: number) {
   return (minutes / 60) * SLOT_HEIGHT
@@ -117,9 +120,49 @@ function mapEvent(e: any) {
   }
 }
 
+function parseViewFromUrl(raw: string | null): CalendarView {
+  if (raw && VALID_VIEWS.includes(raw as CalendarView)) return raw as CalendarView
+  return 'month'
+}
+
+function parseDateFromUrl(raw: string | null): Date {
+  if (!raw) return new Date()
+  const d = new Date(raw)
+  return isNaN(d.getTime()) ? new Date() : d
+}
+
+function formatDateForUrl(date: Date): string {
+  return date.toISOString().slice(0, 10)
+}
+
 export const useCalendar = () => {
-  const [view, setView] = useState<CalendarView>('month')
-  const [currentDate, setCurrentDate] = useState(new Date())
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  const view = parseViewFromUrl(searchParams.get('view'))
+  const currentDate = parseDateFromUrl(searchParams.get('date'))
+
+  const pushUrl = useCallback(
+    (newView: CalendarView, newDate: Date) => {
+      const params = new URLSearchParams(searchParams.toString())
+      params.set('view', newView)
+      params.set('date', formatDateForUrl(newDate))
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+    },
+    [router, pathname, searchParams],
+  )
+
+  const setView = useCallback((v: CalendarView) => pushUrl(v, currentDate), [pushUrl, currentDate])
+
+  const setCurrentDate = useCallback(
+    (d: Date | ((prev: Date) => Date)) => {
+      const next = typeof d === 'function' ? d(currentDate) : d
+      pushUrl(view, next)
+    },
+    [pushUrl, view, currentDate],
+  )
+
   const [selectedItem, setSelectedItem] = useState<CalendarItem | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [newEventDate, setNewEventDate] = useState<Date | null>(null)
@@ -477,29 +520,27 @@ export const useCalendar = () => {
   const navigate = useCallback(
     (direction: 'prev' | 'next' | 'today') => {
       if (direction === 'today') {
-        setCurrentDate(new Date())
+        pushUrl(view, new Date())
         return
       }
-      setCurrentDate((prev) => {
-        const d = new Date(prev)
-        switch (view) {
-          case 'year':
-            d.setFullYear(d.getFullYear() + (direction === 'next' ? 1 : -1))
-            break
-          case 'month':
-            d.setMonth(d.getMonth() + (direction === 'next' ? 1 : -1))
-            break
-          case 'week':
-            d.setDate(d.getDate() + (direction === 'next' ? 7 : -7))
-            break
-          case 'day':
-            d.setDate(d.getDate() + (direction === 'next' ? 1 : -1))
-            break
-        }
-        return d
-      })
+      const d = new Date(currentDate)
+      switch (view) {
+        case 'year':
+          d.setFullYear(d.getFullYear() + (direction === 'next' ? 1 : -1))
+          break
+        case 'month':
+          d.setMonth(d.getMonth() + (direction === 'next' ? 1 : -1))
+          break
+        case 'week':
+          d.setDate(d.getDate() + (direction === 'next' ? 7 : -7))
+          break
+        case 'day':
+          d.setDate(d.getDate() + (direction === 'next' ? 1 : -1))
+          break
+      }
+      pushUrl(view, d)
     },
-    [view],
+    [view, currentDate, pushUrl],
   )
 
   const openNewEvent = useCallback((date: Date) => {
@@ -640,12 +681,18 @@ export const useCalendar = () => {
     [eventsWithOverrides, tasksWithOverrides, isCategoryVisible, isGoogleCalendarVisible],
   )
 
+  const goToDay = useCallback((date: Date) => pushUrl('day', date), [pushUrl])
+
+  const goToMonth = useCallback((date: Date) => pushUrl('month', date), [pushUrl])
+
   return {
     view,
     setView,
     currentDate,
     setCurrentDate,
     navigate,
+    goToDay,
+    goToMonth,
     events: eventsWithOverrides,
     tasks: tasksWithOverrides,
     from,

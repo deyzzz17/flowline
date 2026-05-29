@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -132,8 +132,9 @@ export function CalendarClient() {
     view,
     setView,
     currentDate,
-    setCurrentDate,
     navigate,
+    goToDay,
+    goToMonth,
     getItemsForDate,
     getItemDisplayHeight,
     selectedItem,
@@ -159,21 +160,6 @@ export function CalendarClient() {
   } | null>(null)
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
 
-  const goToDay = useCallback(
-    (date: Date) => {
-      setCurrentDate(date)
-      setView('day')
-    },
-    [setCurrentDate, setView],
-  )
-  const goToMonth = useCallback(
-    (date: Date) => {
-      setCurrentDate(date)
-      setView('month')
-    },
-    [setCurrentDate, setView],
-  )
-
   const { isConnected } = useGoogleCalendar()
   const [googleDialogOpen, setGoogleDialogOpen] = useState(false)
 
@@ -188,8 +174,6 @@ export function CalendarClient() {
     if (!over) return
     const item = active.data.current?.item
     if (!item) return
-
-    // Bloque les events Google (read-only)
     if (item.source === 'google') return
 
     const targetDate = new Date(over.id as string)
@@ -209,9 +193,7 @@ export function CalendarClient() {
 
   const handleResizeEnd = (item: CalendarItem, newEndDate: Date) => {
     if (item.type === 'event') {
-      // Bloque les events Google (read-only)
       if ((item as CalendarEvent).source === 'google') return
-
       if (isRecurringEvent(item as CalendarEvent)) {
         setPendingAction({ type: 'resize', item: item as CalendarEvent, newEndDate })
       } else {
@@ -254,14 +236,8 @@ export function CalendarClient() {
 
   const handleSave = (data: CalendarEventData, scope?: EditScope, originalDate?: string) => {
     if (selectedItem?.type === 'event') {
-      // Les events Google sont read-only
       if ((selectedItem as CalendarEvent).source === 'google') return
-      updateMutation.mutate({
-        id: selectedItem.id as number,
-        data,
-        scope,
-        originalDate,
-      })
+      updateMutation.mutate({ id: selectedItem.id as number, data, scope, originalDate })
     } else {
       createMutation.mutate(data)
     }
@@ -359,7 +335,6 @@ export function CalendarClient() {
               <GoogleIcon className="h-3.5 w-3.5" />
               {isConnected ? 'Google Calendar' : 'Connect Google'}
             </Button>
-
             <GoogleCalendarDialog open={googleDialogOpen} onOpenChange={setGoogleDialogOpen} />
           </div>
         </div>
