@@ -55,8 +55,12 @@ function computeElapsed(persisted: PersistedTimer): number {
   return persisted.accumulatedSeconds + secondsSinceStart
 }
 
+
 function buildState(totalElapsed: number, config: SessionConfig | null) {
-  if (!config || config.sessionDuration === 0) {
+  if (
+    !config ||
+    (config.sessionDuration === 0 && config.workDuration === 0 && config.breakDuration === 0)
+  ) {
     return {
       phase: 'free' as TimerPhase,
       displayHours: Math.floor(totalElapsed / 3600),
@@ -66,6 +70,64 @@ function buildState(totalElapsed: number, config: SessionConfig | null) {
       totalElapsed,
       sessionDuration: 0,
       currentPhaseDuration: 0,
+      config,
+    }
+  }
+
+  if (config.sessionDuration === 0 && (config.workDuration > 0 || config.breakDuration > 0)) {
+    const workDur = config.workDuration || 0
+    const breakDur = config.breakDuration || 0
+
+    if (workDur > 0 && breakDur === 0) {
+      const posInCycle = totalElapsed % workDur
+      const remaining = workDur - posInCycle
+      return {
+        phase: 'work' as TimerPhase,
+        displayHours: Math.floor(remaining / 3600),
+        displayMinutes: Math.floor((remaining % 3600) / 60),
+        displaySeconds: remaining % 60,
+        progress: remaining / workDur,
+        totalElapsed,
+        sessionDuration: 0,
+        currentPhaseDuration: workDur,
+        config,
+      }
+    }
+
+    if (breakDur > 0 && workDur === 0) {
+      const posInCycle = totalElapsed % breakDur
+      const remaining = breakDur - posInCycle
+      return {
+        phase: 'break' as TimerPhase,
+        displayHours: Math.floor(remaining / 3600),
+        displayMinutes: Math.floor((remaining % 3600) / 60),
+        displaySeconds: remaining % 60,
+        progress: remaining / breakDur,
+        totalElapsed,
+        sessionDuration: 0,
+        currentPhaseDuration: breakDur,
+        config,
+      }
+    }
+
+    const cycleDuration = workDur + breakDur
+    const positionInCycle = totalElapsed % cycleDuration
+    const isWork = positionInCycle < workDur
+    const phase: TimerPhase = isWork ? 'work' : 'break'
+    const timeInPhase = isWork ? positionInCycle : positionInCycle - workDur
+    const phaseDuration = isWork ? workDur : breakDur
+    const phaseRemaining = phaseDuration - timeInPhase
+    const progress = phaseDuration > 0 ? phaseRemaining / phaseDuration : 0
+
+    return {
+      phase,
+      displayHours: Math.floor(phaseRemaining / 3600),
+      displayMinutes: Math.floor((phaseRemaining % 3600) / 60),
+      displaySeconds: phaseRemaining % 60,
+      progress: Math.max(0, Math.min(1, progress)),
+      totalElapsed,
+      sessionDuration: 0,
+      currentPhaseDuration: phaseDuration,
       config,
     }
   }
@@ -112,10 +174,13 @@ function buildState(totalElapsed: number, config: SessionConfig | null) {
 }
 
 function getPhase(elapsed: number, config: SessionConfig): TimerPhase {
-  if (config.workDuration === 0) return 'work'
-  const cycleDuration = config.workDuration + config.breakDuration
+  const workDur = config.workDuration || 0
+  const breakDur = config.breakDuration || 0
+  if (workDur === 0 && breakDur === 0) return 'work'
+  if (breakDur === 0) return 'work'
+  const cycleDuration = workDur + breakDur
   const positionInCycle = elapsed % cycleDuration
-  return positionInCycle < config.workDuration ? 'work' : 'break'
+  return positionInCycle < workDur ? 'work' : 'break'
 }
 
 export const useTimer = () => {
@@ -155,7 +220,9 @@ export const useTimer = () => {
 
   const { playPhaseChange, playSessionEnd } = useTimerSounds()
 
-  const isFreeMode = !config || config.sessionDuration === 0
+  const isFreeMode =
+    !config ||
+    (config.sessionDuration === 0 && config.workDuration === 0 && config.breakDuration === 0)
 
   const stopInterval = useCallback(() => {
     if (intervalRef.current) {
@@ -169,9 +236,7 @@ export const useTimer = () => {
       if (ratingTriggeredRef.current) return
       ratingTriggeredRef.current = true
       playSessionEnd()
-      if (cfg.categoryName || cfg.taskId) {
-        setTimeout(() => setRatingOpen(true), 800)
-      }
+      setTimeout(() => setRatingOpen(true), 800)
     },
     [playSessionEnd],
   )
@@ -185,7 +250,10 @@ export const useTimer = () => {
         const next = accumulatedSeconds + secondsElapsed
 
         setTotalElapsed((prev) => {
-          if (currentConfig && currentConfig.workDuration > 0) {
+          if (
+            currentConfig &&
+            (currentConfig.workDuration > 0 || currentConfig.breakDuration > 0)
+          ) {
             const prevPhase = getPhase(prev, currentConfig)
             const nextPhase = getPhase(next, currentConfig)
             if (prevPhase !== nextPhase) {
@@ -232,11 +300,9 @@ export const useTimer = () => {
         if (!persisted?.isRunning) return
         const correctedElapsed = computeElapsed(persisted)
         setTotalElapsed(correctedElapsed)
-
         startInterval(persisted.config, persisted.accumulatedSeconds, persisted.startTimestamp)
       }
     }
-
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [startInterval])
@@ -246,7 +312,6 @@ export const useTimer = () => {
     stopInterval()
     setIsRunning(false)
     stateRef.current.isRunning = false
-
     setTotalElapsed((prev) => {
       saveToStorage({
         startTimestamp: 0,
@@ -267,7 +332,6 @@ export const useTimer = () => {
       setIsRunning(true)
       stateRef.current.isRunning = true
       if (!hasStarted) setHasStarted(true)
-
       setTotalElapsed((prev) => {
         saveToStorage({
           startTimestamp,
@@ -285,7 +349,7 @@ export const useTimer = () => {
   const reset = useCallback(() => {
     pause()
 
-    if (hasStarted && totalElapsed > 0 && (config?.categoryName || config?.taskId)) {
+    if (hasStarted && totalElapsed >= 5) {
       if (!ratingTriggeredRef.current) {
         ratingTriggeredRef.current = true
         playSessionEnd()
@@ -301,7 +365,7 @@ export const useTimer = () => {
     setRatingOpen(false)
     ratingTriggeredRef.current = false
     lastPhaseRef.current = 'work'
-  }, [pause, hasStarted, totalElapsed, config, playSessionEnd])
+  }, [pause, hasStarted, totalElapsed, playSessionEnd])
 
   const forceReset = useCallback(() => {
     stopInterval()
@@ -320,7 +384,6 @@ export const useTimer = () => {
     (sessionConfig: SessionConfig) => {
       stopInterval()
       const startTimestamp = Date.now()
-
       setTotalElapsed(0)
       setHasStarted(true)
       setIsRunning(true)
@@ -328,7 +391,6 @@ export const useTimer = () => {
       ratingTriggeredRef.current = false
       lastPhaseRef.current = 'work'
       stateRef.current = { isRunning: true, config: sessionConfig, hasStarted: true }
-
       saveToStorage({
         startTimestamp,
         accumulatedSeconds: 0,
@@ -336,7 +398,6 @@ export const useTimer = () => {
         config: sessionConfig,
         hasStarted: true,
       })
-
       startInterval(sessionConfig, 0, startTimestamp)
     },
     [stopInterval, startInterval],
