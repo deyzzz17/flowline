@@ -2,7 +2,17 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { Flame, Plus, BarChart2, Check, Pencil, Trash2, Archive, Loader2, X } from 'lucide-react'
+import {
+  Flame,
+  Plus,
+  BarChart2,
+  Check,
+  Pencil,
+  Trash2,
+  Archive,
+  Loader2,
+  Target,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,6 +26,7 @@ import {
   type HabitData,
 } from '@/api/habits/actions'
 import { HabitFormDialog } from './habit-form-dialog'
+import { HabitTrackingDialog } from './habit-tracking-dialog'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -103,6 +114,17 @@ function CompletionRing({ rate, color }: { rate: number; color: string }) {
   )
 }
 
+function GoalBadge({ habit }: { habit: HabitWithStats }) {
+  const goal = habit.goal
+  if (!goal?.description) return null
+  return (
+    <div className="flex items-center gap-1.5 mt-1">
+      <Target className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+      <span className="text-[11px] text-muted-foreground/60 truncate">{goal.description}</span>
+    </div>
+  )
+}
+
 interface HabitsClientProps {
   initialHabits: HabitWithStats[]
 }
@@ -115,6 +137,8 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
   const [isPending, startTransition] = useTransition()
   const [togglingId, setTogglingId] = useState<number | null>(null)
 
+  const [trackingHabit, setTrackingHabit] = useState<HabitWithStats | null>(null)
+
   const refresh = () => {
     startTransition(async () => {
       const fresh = await listHabits()
@@ -123,18 +147,66 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
   }
 
   const handleToggle = async (habit: HabitWithStats) => {
+    if (habit.completedToday) {
+      setTogglingId(habit.id)
+      setHabits((prev) =>
+        prev.map((h) =>
+          h.id === habit.id
+            ? { ...h, completedToday: false, currentStreak: Math.max(0, h.currentStreak - 1) }
+            : h,
+        ),
+      )
+      await toggleHabitCompletion(habit.id)
+      setTogglingId(null)
+      return
+    }
+
+    const activeFields = (habit.trackingFields ?? []).filter((f) => f.enabled)
+    if (activeFields.length > 0) {
+      setTrackingHabit(habit)
+      return
+    }
+
     setTogglingId(habit.id)
     setHabits((prev) =>
       prev.map((h) =>
-        h.id === habit.id
-          ? {
-              ...h,
-              completedToday: !h.completedToday,
-              currentStreak: !h.completedToday
-                ? h.currentStreak + 1
-                : Math.max(0, h.currentStreak - 1),
-            }
-          : h,
+        h.id === habit.id ? { ...h, completedToday: true, currentStreak: h.currentStreak + 1 } : h,
+      ),
+    )
+    const result = await toggleHabitCompletion(habit.id)
+    if ('error' in result) {
+      toast.error('Failed to update habit')
+      refresh()
+    }
+    setTogglingId(null)
+  }
+
+  const handleTrackingSubmit = async (values: Record<string, number | string | boolean>) => {
+    if (!trackingHabit) return
+    const habit = trackingHabit
+    setTrackingHabit(null)
+    setTogglingId(habit.id)
+    setHabits((prev) =>
+      prev.map((h) =>
+        h.id === habit.id ? { ...h, completedToday: true, currentStreak: h.currentStreak + 1 } : h,
+      ),
+    )
+    const result = await toggleHabitCompletion(habit.id, undefined, values)
+    if ('error' in result) {
+      toast.error('Failed to update habit')
+      refresh()
+    }
+    setTogglingId(null)
+  }
+
+  const handleTrackingSkip = async () => {
+    if (!trackingHabit) return
+    const habit = trackingHabit
+    setTrackingHabit(null)
+    setTogglingId(habit.id)
+    setHabits((prev) =>
+      prev.map((h) =>
+        h.id === habit.id ? { ...h, completedToday: true, currentStreak: h.currentStreak + 1 } : h,
       ),
     )
     const result = await toggleHabitCompletion(habit.id)
@@ -306,6 +378,7 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
                     )}
                   </div>
                   <p className="mt-0.5 text-xs text-muted-foreground">{frequencyLabel(habit)}</p>
+                  <GoalBadge habit={habit} />
                 </Link>
 
                 <div className="shrink-0">
@@ -324,7 +397,7 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-muted-foreground"
+                    className="h-7 w-7 text-muted-foreground"
                     onClick={() => handleArchive(habit)}
                   >
                     <Archive className="h-3.5 w-3.5" />
@@ -372,8 +445,17 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
         </div>
       )}
 
-      <HabitFormDialog open={formOpen} onOpenChange={setFormOpen} onSubmit={handleCreate} />
+      <HabitTrackingDialog
+        open={!!trackingHabit}
+        habitName={trackingHabit?.name ?? ''}
+        habitColor={trackingHabit?.color ?? '#8b5cf6'}
+        fields={(trackingHabit?.trackingFields ?? []).filter((f) => f.enabled)}
+        onSubmit={handleTrackingSubmit}
+        onSkip={handleTrackingSkip}
+        onClose={() => setTrackingHabit(null)}
+      />
 
+      <HabitFormDialog open={formOpen} onOpenChange={setFormOpen} onSubmit={handleCreate} />
       <HabitFormDialog
         open={!!editingHabit}
         onOpenChange={(v) => {

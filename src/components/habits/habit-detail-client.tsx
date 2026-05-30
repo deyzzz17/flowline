@@ -2,10 +2,16 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Flame, Check, Calendar } from 'lucide-react'
+import { ArrowLeft, Flame, Check, Calendar, Target, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { toggleHabitCompletion, getHabitDetail, type HabitDetail } from '@/api/habits/actions'
+import {
+  toggleHabitCompletion,
+  getHabitDetail,
+  type HabitDetail,
+  type HabitGoal,
+} from '@/api/habits/actions'
+import { HabitTrackingDialog } from './habit-tracking-dialog'
 import { toast } from 'sonner'
 import { format, parseISO, endOfMonth, eachDayOfInterval } from 'date-fns'
 
@@ -73,7 +79,6 @@ function MonthCalendar({
               )}
               style={{
                 backgroundColor: done ? color : undefined,
-                // outline remplace ring (ringColor n'est pas une propriété CSS valide)
                 outline: isToday && !done ? `1.5px solid ${color}` : undefined,
                 outlineOffset: isToday && !done ? '1px' : undefined,
               }}
@@ -87,6 +92,51 @@ function MonthCalendar({
   )
 }
 
+function GoalProgress({ goal }: { goal: HabitGoal }) {
+  if (!goal.description) return null
+
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card/40 p-5 space-y-3">
+      <div className="flex items-center gap-2">
+        <Target className="h-4 w-4 text-violet-500" />
+        <p className="text-sm font-semibold text-foreground">Goal</p>
+        {goal.endOnReach && (
+          <span className="rounded-full bg-orange-500/10 px-2 py-0.5 text-[10px] font-medium text-orange-600 dark:text-orange-400">
+            Ends on reach
+          </span>
+        )}
+        {!goal.endOnReach && goal.type === 'field' && (
+          <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium text-violet-600 dark:text-violet-400">
+            Milestone
+          </span>
+        )}
+      </div>
+      <p className="text-sm text-foreground font-medium">{goal.description}</p>
+      {goal.type === 'field' && goal.targetValue && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>Target: {goal.targetValue}</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-violet-500 transition-all"
+              style={{ width: '0%' }}
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground/60">
+            Track values in each completion to see progress here.
+          </p>
+        </div>
+      )}
+      {goal.type === 'manual' && (
+        <p className="text-xs text-muted-foreground/60">
+          Mark this goal as complete manually when ready.
+        </p>
+      )}
+    </div>
+  )
+}
+
 interface HabitDetailClientProps {
   habit: HabitDetail
 }
@@ -94,6 +144,7 @@ interface HabitDetailClientProps {
 export function HabitDetailClient({ habit: initialHabit }: HabitDetailClientProps) {
   const [habit, setHabit] = useState(initialHabit)
   const [isPending, startTransition] = useTransition()
+  const [trackingOpen, setTrackingOpen] = useState(false)
 
   const refresh = () => {
     startTransition(async () => {
@@ -103,13 +154,24 @@ export function HabitDetailClient({ habit: initialHabit }: HabitDetailClientProp
   }
 
   const handleToggle = async () => {
-    setHabit((prev) => ({
-      ...prev,
-      completedToday: !prev.completedToday,
-      currentStreak: !prev.completedToday
-        ? prev.currentStreak + 1
-        : Math.max(0, prev.currentStreak - 1),
-    }))
+    if (habit.completedToday) {
+      setHabit((prev) => ({
+        ...prev,
+        completedToday: false,
+        currentStreak: Math.max(0, prev.currentStreak - 1),
+      }))
+      await toggleHabitCompletion(habit.id)
+      refresh()
+      return
+    }
+
+    const activeFields = (habit.trackingFields ?? []).filter((f) => f.enabled)
+    if (activeFields.length > 0) {
+      setTrackingOpen(true)
+      return
+    }
+
+    setHabit((prev) => ({ ...prev, completedToday: true, currentStreak: prev.currentStreak + 1 }))
     const result = await toggleHabitCompletion(habit.id)
     if ('error' in result) {
       toast.error('Failed to update')
@@ -119,16 +181,34 @@ export function HabitDetailClient({ habit: initialHabit }: HabitDetailClientProp
     }
   }
 
+  const handleTrackingSubmit = async (values: Record<string, number | string | boolean>) => {
+    setTrackingOpen(false)
+    setHabit((prev) => ({ ...prev, completedToday: true, currentStreak: prev.currentStreak + 1 }))
+    const result = await toggleHabitCompletion(habit.id, undefined, values)
+    if ('error' in result) {
+      toast.error('Failed to update')
+    }
+    refresh()
+  }
+
+  const handleTrackingSkip = async () => {
+    setTrackingOpen(false)
+    setHabit((prev) => ({ ...prev, completedToday: true, currentStreak: prev.currentStreak + 1 }))
+    await toggleHabitCompletion(habit.id)
+    refresh()
+  }
+
   const completionSet = new Set(habit.completions)
   const now = new Date()
-
   const months = Array.from({ length: 3 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
     return { year: d.getFullYear(), month: d.getMonth() }
   }).reverse()
 
+  const activeTrackingFields = (habit.trackingFields ?? []).filter((f) => f.enabled)
+
   return (
-    <div className="pt-8">
+    <div className="px-4 pb-16 pt-8 sm:px-6 lg:px-10">
       <Link
         href="/habits/habits-view"
         className="mb-6 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
@@ -150,6 +230,11 @@ export function HabitDetailClient({ habit: initialHabit }: HabitDetailClientProp
             <p className="mt-1 text-sm text-muted-foreground">{habit.description}</p>
           )}
           <p className="mt-1 text-xs text-muted-foreground/60">{frequencyLabel(habit)}</p>
+          {activeTrackingFields.length > 0 && (
+            <p className="mt-1 text-xs text-muted-foreground/50">
+              Tracks: {activeTrackingFields.map((f) => f.label).join(', ')}
+            </p>
+          )}
         </div>
         <Button
           onClick={handleToggle}
@@ -170,7 +255,7 @@ export function HabitDetailClient({ habit: initialHabit }: HabitDetailClientProp
         </Button>
       </div>
 
-      <div className="mb-8 grid grid-cols-3 gap-3">
+      <div className="mb-6 grid grid-cols-3 gap-3">
         {[
           {
             label: 'Current streak',
@@ -184,7 +269,7 @@ export function HabitDetailClient({ habit: initialHabit }: HabitDetailClientProp
             label: 'Longest streak',
             value: habit.longestStreak,
             suffix: habit.longestStreak === 1 ? 'day' : 'days',
-            icon: Flame,
+            icon: TrendingUp,
             color: 'text-violet-500',
             bg: 'bg-violet-500/10',
           },
@@ -218,7 +303,13 @@ export function HabitDetailClient({ habit: initialHabit }: HabitDetailClientProp
         ))}
       </div>
 
-      <div className="mb-8 rounded-2xl border border-border/60 bg-card/40 p-5">
+      {habit.goal && (
+        <div className="mb-6">
+          <GoalProgress goal={habit.goal} />
+        </div>
+      )}
+
+      <div className="mb-6 rounded-2xl border border-border/60 bg-card/40 p-5">
         <p className="mb-4 text-sm font-semibold text-foreground">Weekly progress</p>
         <div className="space-y-2">
           {habit.weeklyCompletions.slice(-8).map((week) => {
@@ -260,6 +351,16 @@ export function HabitDetailClient({ habit: initialHabit }: HabitDetailClientProp
           ))}
         </div>
       </div>
+
+      <HabitTrackingDialog
+        open={trackingOpen}
+        habitName={habit.name}
+        habitColor={habit.color}
+        fields={activeTrackingFields}
+        onSubmit={handleTrackingSubmit}
+        onSkip={handleTrackingSkip}
+        onClose={() => setTrackingOpen(false)}
+      />
     </div>
   )
 }

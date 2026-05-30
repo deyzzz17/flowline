@@ -15,6 +15,7 @@ import { generateOccurrences } from '@/api/calendar/calendar-recurrence'
 import { useCalendarFilter } from '@/components/calendar/calendar-filter-context'
 import type { Task } from '@/payload-types'
 import { toast } from 'sonner'
+import { getHabitCalendarEvents, type HabitCalendarEvent } from '@/api/habits-calendar/actions'
 
 export type CalendarView = 'year' | 'month' | 'week' | 'day'
 
@@ -39,6 +40,11 @@ export interface CalendarEvent {
   googleEventId?: string | null
   activeAdjustment?: SeriesAdjustment | null
   type: 'event'
+}
+
+interface RawFlowlineEvent extends CalendarEvent {
+  exceptions: { date: string }[]
+  adjustments: SeriesAdjustment[]
 }
 
 export interface CalendarTask {
@@ -97,7 +103,7 @@ function getViewRange(date: Date, view: CalendarView): { from: Date; to: Date } 
   }
 }
 
-function mapEvent(e: any) {
+function mapEvent(e: any): RawFlowlineEvent {
   return {
     id: e.id,
     title: e.title,
@@ -116,6 +122,7 @@ function mapEvent(e: any) {
     googleCalendarId: e.googleCalendarId ?? null,
     googleCalendarName: e.googleCalendarName ?? null,
     googleEventId: e.googleEventId ?? null,
+    activeAdjustment: null,
     type: 'event' as const,
   }
 }
@@ -194,16 +201,49 @@ export const useCalendar = () => {
     staleTime: Infinity,
   })
 
-  const rawEvents = useMemo(
+  const { data: habitEventsData } = useQuery({
+    queryKey: ['calendar-events-habits', from.toISOString(), to.toISOString()],
+    queryFn: () => getHabitCalendarEvents(from.toISOString(), to.toISOString()),
+    staleTime: 5 * 60_000,
+  })
+
+  const rawFlowlineEvents = useMemo(
     () => [...(eventsData?.docs ?? []), ...(googleEventsData?.docs ?? [])].map(mapEvent),
     [eventsData, googleEventsData],
+  )
+
+  const rawHabitEvents = useMemo(
+    (): CalendarEvent[] =>
+      (habitEventsData ?? []).map((h: HabitCalendarEvent) => ({
+        id: h.id,
+        title: h.title,
+        startDate: h.startDate,
+        endDate: h.endDate,
+        allDay: false,
+        color: h.color,
+        categoryId: null,
+        recurrence: null,
+        recurrenceId: null,
+        originalDate: null,
+        isOccurrence: false,
+        optimisticKey: h.id,
+        source: 'habit' as any,
+        googleCalendarId: null,
+        googleCalendarName: null,
+        googleEventId: null,
+        activeAdjustment: null,
+        type: 'event' as const,
+        habitId: h.habitId,
+        habitSlug: h.habitSlug,
+      })),
+    [habitEventsData],
   )
 
   const events: CalendarEvent[] = useMemo(() => {
     const result: CalendarEvent[] = []
 
-    const googleEvents = rawEvents.filter((e) => e.source === 'google')
-    const flowlineEvents = rawEvents.filter((e) => e.source !== 'google')
+    const googleEvents = rawFlowlineEvents.filter((e) => e.source === 'google')
+    const flowlineEvents = rawFlowlineEvents.filter((e) => e.source !== 'google')
 
     const parents = flowlineEvents.filter((e) => e.recurrence?.frequency && !e.recurrenceId)
     const overrides = flowlineEvents.filter((e) => e.recurrenceId)
@@ -225,18 +265,18 @@ export const useCalendar = () => {
     )
 
     for (const parent of parents) {
-      const exceptions = new Set(
-        (parent.exceptions ?? []).map((ex) => new Date(ex.date).toISOString().slice(0, 10)),
+      const exceptions = new Set<string>(
+        parent.exceptions.map((ex) => new Date(ex.date).toISOString().slice(0, 10)),
       )
-      const overrideDates = new Set(
+      const overrideDates = new Set<string>(
         overrides
           .filter((o) => o.recurrenceId === parent.id)
           .map((o) => new Date(o.originalDate ?? o.startDate).toISOString().slice(0, 10)),
       )
-      const allExceptions = new Set([...exceptions, ...overrideDates])
+      const allExceptions = new Set<string>([...exceptions, ...overrideDates])
 
       const occurrences = generateOccurrences(
-        { ...parent, adjustments: parent.adjustments ?? [] },
+        { ...parent, adjustments: parent.adjustments },
         from,
         to,
         allExceptions,
@@ -275,8 +315,10 @@ export const useCalendar = () => {
       })),
     )
 
+    result.push(...rawHabitEvents)
+
     return result
-  }, [rawEvents, from, to])
+  }, [rawFlowlineEvents, rawHabitEvents, from, to])
 
   const tasks: CalendarTask[] = useMemo(() => {
     const allTasks = (tasksData?.docs ?? []) as Task[]
@@ -558,10 +600,20 @@ export const useCalendar = () => {
     setDialogOpen(true)
   }, [])
 
-  const openEdit = useCallback((item: CalendarItem) => {
-    setSelectedItem(item)
-    setDialogOpen(true)
-  }, [])
+  const openEdit = useCallback(
+    (item: CalendarItem) => {
+      if (item.type === 'event') {
+        const ev = item as CalendarEvent
+        if ((ev as any).source === 'habit' && (ev as any).habitSlug) {
+          router.push(`/habits/${(ev as any).habitSlug}`)
+          return
+        }
+      }
+      setSelectedItem(item)
+      setDialogOpen(true)
+    },
+    [router],
+  )
 
   const moveEvent = useCallback(
     (
@@ -666,7 +718,7 @@ export const useCalendar = () => {
       }
 
       const dayEvents = eventsWithOverrides.filter((e) => {
-        if (!isCategoryVisible(e.categoryId)) return false
+        if ((e as any).source !== 'habit' && !isCategoryVisible(e.categoryId)) return false
         if (e.source === 'google' && e.googleCalendarId) {
           if (!isGoogleCalendarVisible(e.googleCalendarId)) return false
         }
@@ -691,7 +743,6 @@ export const useCalendar = () => {
   )
 
   const goToDay = useCallback((date: Date) => pushUrl('day', date), [pushUrl])
-
   const goToMonth = useCallback((date: Date) => pushUrl('month', date), [pushUrl])
 
   return {

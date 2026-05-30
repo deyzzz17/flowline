@@ -11,10 +11,7 @@ export const Habits: CollectionConfig = {
       type: 'text',
       required: false,
       index: true,
-      admin: {
-        readOnly: false,
-        description: 'Auto-generated from name + userId',
-      },
+      admin: { description: 'Auto-generated from name + userId' },
     },
     { name: 'description', type: 'textarea', required: false },
     { name: 'color', type: 'text', defaultValue: '#8b5cf6', required: false },
@@ -44,9 +41,7 @@ export const Habits: CollectionConfig = {
         { label: 'Saturday', value: 'sat' },
         { label: 'Sunday', value: 'sun' },
       ],
-      admin: {
-        condition: (_, s) => s?.frequency === 'days_of_week',
-      },
+      admin: { condition: (_, s) => s?.frequency === 'days_of_week' },
     },
     {
       name: 'timesPerWeek',
@@ -54,16 +49,80 @@ export const Habits: CollectionConfig = {
       required: false,
       min: 1,
       max: 7,
-      admin: {
-        condition: (_, s) => s?.frequency === 'times_per_week',
-      },
+      admin: { condition: (_, s) => s?.frequency === 'times_per_week' },
+    },
+    {
+      name: 'startDate',
+      type: 'date',
+      required: false,
+      admin: { description: 'Optional start date for the habit' },
     },
     { name: 'archivedAt', type: 'date', required: false },
     { name: 'order', type: 'number', required: false, defaultValue: 0 },
+
+    { name: 'showInCalendar', type: 'checkbox', defaultValue: false },
+    {
+      name: 'calendarMode',
+      type: 'select',
+      required: false,
+      options: [
+        { label: 'Fixed time', value: 'time' },
+        { label: 'Relative to event', value: 'relative' },
+      ],
+      admin: { condition: (_, s) => s?.showInCalendar },
+    },
+    {
+      name: 'habitTime',
+      type: 'text',
+      required: false,
+      admin: {
+        description: 'HH:mm format',
+        condition: (_, s) => s?.showInCalendar && s?.calendarMode === 'time',
+      },
+    },
+    {
+      name: 'habitDuration',
+      type: 'number',
+      required: false,
+      admin: {
+        description: 'Duration in minutes',
+        condition: (_, s) => s?.showInCalendar,
+      },
+    },
+    {
+      name: 'relativePosition',
+      type: 'select',
+      required: false,
+      options: [
+        { label: 'Before event', value: 'before' },
+        { label: 'After event', value: 'after' },
+      ],
+      admin: { condition: (_, s) => s?.showInCalendar && s?.calendarMode === 'relative' },
+    },
+    {
+      name: 'relativeEventId',
+      type: 'number',
+      required: false,
+      admin: { condition: (_, s) => s?.showInCalendar && s?.calendarMode === 'relative' },
+    },
+
+    {
+      name: 'trackingFields',
+      type: 'json',
+      required: false,
+      admin: { description: 'Array of TrackingField objects' },
+    },
+
+    {
+      name: 'goal',
+      type: 'json',
+      required: false,
+      admin: { description: 'HabitGoal object' },
+    },
   ],
   hooks: {
     beforeChange: [
-      async ({ data, req, operation, originalDoc }) => {
+      async ({ data, originalDoc }) => {
         const userId = data.userId ?? originalDoc?.userId
         const name = data.name
 

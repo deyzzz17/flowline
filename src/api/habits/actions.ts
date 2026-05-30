@@ -28,6 +28,22 @@ function addDays(date: Date, n: number): Date {
   return d
 }
 
+export interface TrackingField {
+  key: string
+  label: string
+  type: 'number' | 'text' | 'boolean'
+  isDefault: boolean
+  enabled: boolean
+}
+
+export interface HabitGoal {
+  type: 'field' | 'manual'
+  fieldKey?: string
+  targetValue?: number
+  endOnReach?: boolean
+  description?: string
+}
+
 export interface HabitData {
   name: string
   description?: string
@@ -37,6 +53,15 @@ export interface HabitData {
   daysOfWeek?: string[]
   timesPerWeek?: number
   order?: number
+  startDate?: string
+  showInCalendar?: boolean
+  calendarMode?: 'time' | 'relative'
+  habitTime?: string
+  habitDuration?: number
+  relativePosition?: 'before' | 'after'
+  relativeEventId?: number | null
+  trackingFields?: TrackingField[]
+  goal?: HabitGoal | null
 }
 
 export interface HabitWithStats {
@@ -54,6 +79,15 @@ export interface HabitWithStats {
   completedToday: boolean
   completionRate30d: number
   order: number
+  startDate?: string | null
+  showInCalendar?: boolean
+  calendarMode?: 'time' | 'relative' | null
+  habitTime?: string | null
+  habitDuration?: number | null
+  relativePosition?: 'before' | 'after' | null
+  relativeEventId?: number | null
+  trackingFields?: TrackingField[]
+  goal?: HabitGoal | null
 }
 
 export interface HabitDetail extends HabitWithStats {
@@ -95,7 +129,6 @@ function computeStreaks(
       prev.setDate(prev.getDate() - 1)
       d = getDateKey(prev)
     }
-
     const sorted = Array.from(completionDates).sort()
     let longest = 0
     let run = 0
@@ -115,18 +148,15 @@ function computeStreaks(
       if (run > longest) longest = run
       prev = dateStr
     }
-
     return { current, longest }
   }
 
   if (habit.frequency === 'days_of_week' && habit.daysOfWeek?.length) {
     const targetDays = new Set(habit.daysOfWeek)
-
     const isDayTarget = (dateStr: string) => {
       const day = DAY_NAMES[new Date(dateStr + 'T12:00:00').getDay()]
       return targetDays.has(day)
     }
-
     let current = 0
     let d = new Date(today + 'T12:00:00')
     while (true) {
@@ -146,7 +176,6 @@ function computeStreaks(
       d = addDays(d, -1)
       if (d < new Date('2020-01-01')) break
     }
-
     return { current, longest: current }
   }
 
@@ -155,18 +184,14 @@ function computeStreaks(
     const weekMap = new Map<string, number>()
     for (const dateStr of completionDates) {
       const d = new Date(dateStr + 'T12:00:00')
-      const dow = d.getDay()
       const monday = new Date(d)
-      monday.setDate(d.getDate() - ((dow + 6) % 7))
+      monday.setDate(d.getDate() - ((d.getDay() + 6) % 7))
       const weekKey = getDateKey(monday)
       weekMap.set(weekKey, (weekMap.get(weekKey) ?? 0) + 1)
     }
-
     const todayDate = new Date(today + 'T12:00:00')
-    const todayDow = todayDate.getDay()
     const currentMonday = new Date(todayDate)
-    currentMonday.setDate(todayDate.getDate() - ((todayDow + 6) % 7))
-
+    currentMonday.setDate(todayDate.getDate() - ((todayDate.getDay() + 6) % 7))
     let current = 0
     let weekStart = new Date(currentMonday)
     while (true) {
@@ -175,13 +200,13 @@ function computeStreaks(
       if (count >= target) {
         current++
       } else if (wk === getDateKey(currentMonday)) {
+        // Semaine en cours pas encore terminée — ne rompt pas le streak
       } else {
         break
       }
       weekStart = addDays(weekStart, -7)
       if (weekStart < new Date('2020-01-01')) break
     }
-
     return { current, longest: current }
   }
 
@@ -197,11 +222,9 @@ function computeCompletionRate(
   const today = new Date(getTodayKey(timezone) + 'T12:00:00')
   let targets = 0
   let completed = 0
-
   for (let i = 0; i < days; i++) {
     const d = addDays(today, -i)
     const key = getDateKey(d)
-
     if (habit.frequency === 'daily') {
       targets++
       if (completionDates.has(key)) completed++
@@ -213,7 +236,6 @@ function computeCompletionRate(
       }
     }
   }
-
   if (habit.frequency === 'times_per_week') {
     const target = habit.timesPerWeek ?? 1
     const weeks = Math.ceil(days / 7)
@@ -229,8 +251,36 @@ function computeCompletionRate(
       completed += Math.min(weekCount, target)
     }
   }
-
   return targets > 0 ? Math.round((completed / targets) * 100) : 0
+}
+
+function mapHabitDoc(
+  habit: any,
+): Omit<
+  HabitWithStats,
+  'currentStreak' | 'longestStreak' | 'completedToday' | 'completionRate30d'
+> {
+  return {
+    id: habit.id,
+    slug: habit.slug ?? '',
+    name: habit.name,
+    description: habit.description ?? null,
+    color: habit.color ?? '#8b5cf6',
+    categoryTag: habit.categoryTag ?? null,
+    frequency: habit.frequency,
+    daysOfWeek: habit.daysOfWeek ?? [],
+    timesPerWeek: habit.timesPerWeek ?? undefined,
+    order: habit.order ?? 0,
+    startDate: habit.startDate ?? null,
+    showInCalendar: habit.showInCalendar ?? false,
+    calendarMode: habit.calendarMode ?? null,
+    habitTime: habit.habitTime ?? null,
+    habitDuration: habit.habitDuration ?? null,
+    relativePosition: habit.relativePosition ?? null,
+    relativeEventId: habit.relativeEventId ?? null,
+    trackingFields: (habit.trackingFields as TrackingField[] | null) ?? [],
+    goal: (habit.goal as HabitGoal | null) ?? null,
+  }
 }
 
 export const listHabits = async (): Promise<HabitWithStats[]> => {
@@ -238,7 +288,6 @@ export const listHabits = async (): Promise<HabitWithStats[]> => {
   if (!userId) return []
 
   const payload = await getPayload({ config })
-
   const { docs: habits } = await payload.find({
     collection: 'habits',
     where: {
@@ -269,26 +318,14 @@ export const listHabits = async (): Promise<HabitWithStats[]> => {
     const completionDates = new Set(
       habitCompletions.map((c) => getDateKey(new Date(c.completedAt as string))),
     )
-
     const { current, longest } = computeStreaks(completionDates, habit as any)
     const rate = computeCompletionRate(completionDates, habit as any)
-    const completedToday = completionDates.has(today)
-
     return {
-      id: habit.id,
-      slug: (habit as any).slug ?? '',
-      name: habit.name,
-      description: (habit as any).description ?? null,
-      color: (habit as any).color ?? '#8b5cf6',
-      categoryTag: (habit as any).categoryTag ?? null,
-      frequency: habit.frequency as any,
-      daysOfWeek: (habit as any).daysOfWeek ?? [],
-      timesPerWeek: (habit as any).timesPerWeek ?? undefined,
+      ...mapHabitDoc(habit),
       currentStreak: current,
       longestStreak: longest,
-      completedToday,
+      completedToday: completionDates.has(today),
       completionRate30d: rate,
-      order: (habit as any).order ?? 0,
     }
   })
 }
@@ -317,7 +354,6 @@ export const getHabitDetail = async (habitId: number): Promise<HabitDetail | nul
   const completionDates = new Set(
     completions.map((c) => getDateKey(new Date(c.completedAt as string))),
   )
-
   const { current, longest } = computeStreaks(completionDates, habit as any)
   const rate = computeCompletionRate(completionDates, habit as any)
   const today = getTodayKey()
@@ -334,7 +370,6 @@ export const getHabitDetail = async (habitId: number): Promise<HabitDetail | nul
       if (day > new Date()) continue
       const key = getDateKey(day)
       const dayName = DAY_NAMES[day.getDay()]
-
       if ((habit as any).frequency === 'daily') {
         target++
         if (completionDates.has(key)) count++
@@ -348,25 +383,15 @@ export const getHabitDetail = async (habitId: number): Promise<HabitDetail | nul
         if (completionDates.has(key)) count++
       }
     }
-    const weekLabel = getDateKey(weekStart)
-    return { week: weekLabel, count, target }
+    return { week: getDateKey(weekStart), count, target }
   }).reverse()
 
   return {
-    id: habit.id,
-    slug: (habit as any).slug ?? '',
-    name: habit.name,
-    description: (habit as any).description ?? null,
-    color: (habit as any).color ?? '#8b5cf6',
-    categoryTag: (habit as any).categoryTag ?? null,
-    frequency: (habit as any).frequency,
-    daysOfWeek: (habit as any).daysOfWeek ?? [],
-    timesPerWeek: (habit as any).timesPerWeek ?? undefined,
+    ...mapHabitDoc(habit),
     currentStreak: current,
     longestStreak: longest,
     completedToday: completionDates.has(today),
     completionRate30d: rate,
-    order: (habit as any).order ?? 0,
     completions: Array.from(completionDates).sort(),
     weeklyCompletions,
   }
@@ -390,7 +415,16 @@ export const createHabit = async (data: HabitData) => {
         daysOfWeek: data.daysOfWeek as any,
         timesPerWeek: data.timesPerWeek,
         order: data.order ?? 0,
-      },
+        startDate: data.startDate ?? undefined,
+        showInCalendar: data.showInCalendar ?? false,
+        calendarMode: data.calendarMode ?? undefined,
+        habitTime: data.habitTime ?? undefined,
+        habitDuration: data.habitDuration ?? undefined,
+        relativePosition: data.relativePosition ?? undefined,
+        relativeEventId: data.relativeEventId ?? undefined,
+        trackingFields: data.trackingFields ? JSON.stringify(data.trackingFields) : undefined,
+        goal: data.goal ? JSON.stringify(data.goal) : undefined,
+      } as any,
     })
     return ok(habit)
   } catch (e) {
@@ -414,7 +448,20 @@ export const updateHabit = async (id: number, data: Partial<HabitData>) => {
         ...(data.daysOfWeek !== undefined && { daysOfWeek: data.daysOfWeek as any }),
         ...(data.timesPerWeek !== undefined && { timesPerWeek: data.timesPerWeek }),
         ...(data.order !== undefined && { order: data.order }),
-      },
+        ...(data.startDate !== undefined && { startDate: data.startDate }),
+        ...(data.showInCalendar !== undefined && { showInCalendar: data.showInCalendar }),
+        ...(data.calendarMode !== undefined && { calendarMode: data.calendarMode }),
+        ...(data.habitTime !== undefined && { habitTime: data.habitTime }),
+        ...(data.habitDuration !== undefined && { habitDuration: data.habitDuration }),
+        ...(data.relativePosition !== undefined && { relativePosition: data.relativePosition }),
+        ...(data.relativeEventId !== undefined && { relativeEventId: data.relativeEventId }),
+        ...(data.trackingFields !== undefined && {
+          trackingFields: data.trackingFields ? JSON.stringify(data.trackingFields) : null,
+        }),
+        ...(data.goal !== undefined && {
+          goal: data.goal ? JSON.stringify(data.goal) : null,
+        }),
+      } as any,
     })
     return ok(updated)
   } catch {
@@ -452,7 +499,11 @@ export const deleteHabit = async (id: number) => {
   }
 }
 
-export const toggleHabitCompletion = async (habitId: number, dateStr?: string) => {
+export const toggleHabitCompletion = async (
+  habitId: number,
+  dateStr?: string,
+  trackingValues?: Record<string, number | string | boolean>,
+) => {
   try {
     const userId = await getUserId()
     if (!userId) return err('Not authenticated')
@@ -460,7 +511,6 @@ export const toggleHabitCompletion = async (habitId: number, dateStr?: string) =
     const payload = await getPayload({ config })
     const targetDate = dateStr ?? getTodayKey()
 
-    // Check if already completed
     const { docs: existing } = await payload.find({
       collection: 'habit-completions',
       where: {
@@ -486,7 +536,8 @@ export const toggleHabitCompletion = async (habitId: number, dateStr?: string) =
           userId,
           habitId,
           completedAt: new Date(targetDate + 'T12:00:00Z').toISOString(),
-        },
+          trackingValues: trackingValues ? JSON.stringify(trackingValues) : undefined,
+        } as any,
       })
       return ok({ completed: true })
     }
@@ -510,7 +561,6 @@ export const getHabitAnalytics = async (): Promise<HabitAnalytics> => {
   if (!userId) return empty
 
   const payload = await getPayload({ config })
-
   const { docs: habits } = await payload.find({
     collection: 'habits',
     where: {
@@ -568,29 +618,24 @@ export const getHabitAnalytics = async (): Promise<HabitAnalytics> => {
     const d = addDays(new Date(today + 'T12:00:00'), -i)
     const key = getDateKey(d)
     const dayName = DAY_NAMES[d.getDay()]
-
     let total = 0
     let count = 0
-
     for (const habit of habits) {
       const h = habit as any
       let isTarget = false
       if (h.frequency === 'daily') isTarget = true
       else if (h.frequency === 'days_of_week') isTarget = (h.daysOfWeek ?? []).includes(dayName)
-      else if (h.frequency === 'times_per_week') isTarget = true // simplified
-
+      else if (h.frequency === 'times_per_week') isTarget = true
       if (isTarget) {
         total++
         if (
           completions.some(
             (c) => c.habitId === habit.id && getDateKey(new Date(c.completedAt as string)) === key,
           )
-        ) {
+        )
           count++
-        }
       }
     }
-
     return { date: key, count, total }
   }).reverse()
 

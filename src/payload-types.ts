@@ -458,8 +458,48 @@ export interface Habit {
   frequency: 'daily' | 'days_of_week' | 'times_per_week';
   daysOfWeek?: ('mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun')[] | null;
   timesPerWeek?: number | null;
+  /**
+   * Optional start date for the habit
+   */
+  startDate?: string | null;
   archivedAt?: string | null;
   order?: number | null;
+  showInCalendar?: boolean | null;
+  calendarMode?: ('time' | 'relative') | null;
+  /**
+   * HH:mm format
+   */
+  habitTime?: string | null;
+  /**
+   * Duration in minutes
+   */
+  habitDuration?: number | null;
+  relativePosition?: ('before' | 'after') | null;
+  relativeEventId?: number | null;
+  /**
+   * Array of TrackingField objects
+   */
+  trackingFields?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * HabitGoal object
+   */
+  goal?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -473,6 +513,18 @@ export interface HabitCompletion {
   habitId: number;
   completedAt: string;
   note?: string | null;
+  /**
+   * Record<fieldKey, number | string | boolean>
+   */
+  trackingValues?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -845,8 +897,17 @@ export interface HabitsSelect<T extends boolean = true> {
   frequency?: T;
   daysOfWeek?: T;
   timesPerWeek?: T;
+  startDate?: T;
   archivedAt?: T;
   order?: T;
+  showInCalendar?: T;
+  calendarMode?: T;
+  habitTime?: T;
+  habitDuration?: T;
+  relativePosition?: T;
+  relativeEventId?: T;
+  trackingFields?: T;
+  goal?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -859,6 +920,7 @@ export interface HabitCompletionsSelect<T extends boolean = true> {
   habitId?: T;
   completedAt?: T;
   note?: T;
+  trackingValues?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -14,5 +14,11 @@ export const HabitCompletions: CollectionConfig = {
       admin: { date: { pickerAppearance: 'dayOnly' } },
     },
     { name: 'note', type: 'text', required: false },
+    {
+      name: 'trackingValues',
+      type: 'json',
+      required: false,
+      admin: { description: 'Record<fieldKey, number | string | boolean>' },
+    },
   ],
 }
