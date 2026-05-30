@@ -93,9 +93,8 @@ export function HabitTrackingDialog({
   onSkip,
   onClose,
 }: HabitTrackingDialogProps) {
-  const [values, setValues] = useState<Record<string, number | string | boolean>>(() =>
-    Object.fromEntries(fields.filter((f) => f.type === 'number').map((f) => [f.key, 0])),
-  )
+  const fieldsKey = fields.map((f) => f.key).join(',')
+  const [values, setValues] = useState<Record<string, number | string | boolean>>({})
   const [expanded, setExpanded] = useState(true)
 
   if (!open) return null
@@ -155,7 +154,7 @@ export function HabitTrackingDialog({
         </div>
 
         {expanded && (
-          <div className="px-5 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
+          <div key={fieldsKey} className="px-5 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
             <p className="text-xs text-muted-foreground">
               Track your progress — fill in what you can, skip the rest.
             </p>

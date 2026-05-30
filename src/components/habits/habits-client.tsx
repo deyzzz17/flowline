@@ -491,7 +491,6 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
       )}
 
       <HabitTrackingDialog
-        key={trackingHabit?.id}
         open={!!trackingHabit}
         habitName={trackingHabit?.name ?? ''}
         habitColor={trackingHabit?.color ?? '#8b5cf6'}
