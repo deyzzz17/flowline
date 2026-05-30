@@ -93,6 +93,7 @@ export interface HabitWithStats {
 export interface HabitDetail extends HabitWithStats {
   completions: string[]
   weeklyCompletions: { week: string; count: number; target: number }[]
+  trackingData: TrackingDataPoint[]
 }
 
 export interface HabitAnalytics {
@@ -111,6 +112,11 @@ export interface HabitAnalytics {
     longestStreak: number
     completionRate30d: number
   }[]
+}
+
+export interface TrackingDataPoint {
+  date: string
+  values: Record<string, number | string | boolean>
 }
 
 function computeStreaks(
@@ -394,6 +400,20 @@ export const getHabitDetail = async (habitId: number): Promise<HabitDetail | nul
     completionRate30d: rate,
     completions: Array.from(completionDates).sort(),
     weeklyCompletions,
+    trackingData: completions
+      .filter((c) => (c as any).trackingValues)
+      .map((c) => {
+        let values: Record<string, number | string | boolean> = {}
+        try {
+          const raw = (c as any).trackingValues
+          values = typeof raw === 'string' ? JSON.parse(raw) : raw
+        } catch {}
+        return {
+          date: getDateKey(new Date(c.completedAt as string)),
+          values,
+        }
+      })
+      .sort((a, b) => a.date.localeCompare(b.date)),
   }
 }
 

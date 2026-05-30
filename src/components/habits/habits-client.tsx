@@ -125,6 +125,21 @@ function GoalBadge({ habit }: { habit: HabitWithStats }) {
   )
 }
 
+function recalcRate(habit: HabitWithStats, adding: boolean): number {
+  let targets = 30
+  if (habit.frequency === 'days_of_week') {
+    targets = Math.round((30 * (habit.daysOfWeek?.length ?? 5)) / 7)
+  } else if (habit.frequency === 'times_per_week') {
+    targets = Math.round((30 * (habit.timesPerWeek ?? 1)) / 7)
+  }
+  if (targets === 0) return habit.completionRate30d
+  const currentCompleted = Math.round((habit.completionRate30d / 100) * targets)
+  const newCompleted = adding
+    ? Math.min(targets, currentCompleted + 1)
+    : Math.max(0, currentCompleted - 1)
+  return Math.round((newCompleted / targets) * 100)
+}
+
 interface HabitsClientProps {
   initialHabits: HabitWithStats[]
 }
@@ -148,11 +163,17 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
 
   const handleToggle = async (habit: HabitWithStats) => {
     if (habit.completedToday) {
+      const newRate = recalcRate(habit, false)
       setTogglingId(habit.id)
       setHabits((prev) =>
         prev.map((h) =>
           h.id === habit.id
-            ? { ...h, completedToday: false, currentStreak: Math.max(0, h.currentStreak - 1) }
+            ? {
+                ...h,
+                completedToday: false,
+                currentStreak: Math.max(0, h.currentStreak - 1),
+                completionRate30d: newRate,
+              }
             : h,
         ),
       )
@@ -167,10 +188,18 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
       return
     }
 
+    const newRate = recalcRate(habit, true)
     setTogglingId(habit.id)
     setHabits((prev) =>
       prev.map((h) =>
-        h.id === habit.id ? { ...h, completedToday: true, currentStreak: h.currentStreak + 1 } : h,
+        h.id === habit.id
+          ? {
+              ...h,
+              completedToday: true,
+              currentStreak: h.currentStreak + 1,
+              completionRate30d: newRate,
+            }
+          : h,
       ),
     )
     const result = await toggleHabitCompletion(habit.id)
@@ -184,11 +213,19 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
   const handleTrackingSubmit = async (values: Record<string, number | string | boolean>) => {
     if (!trackingHabit) return
     const habit = trackingHabit
+    const newRate = recalcRate(habit, true)
     setTrackingHabit(null)
     setTogglingId(habit.id)
     setHabits((prev) =>
       prev.map((h) =>
-        h.id === habit.id ? { ...h, completedToday: true, currentStreak: h.currentStreak + 1 } : h,
+        h.id === habit.id
+          ? {
+              ...h,
+              completedToday: true,
+              currentStreak: h.currentStreak + 1,
+              completionRate30d: newRate,
+            }
+          : h,
       ),
     )
     const result = await toggleHabitCompletion(habit.id, undefined, values)
@@ -202,11 +239,19 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
   const handleTrackingSkip = async () => {
     if (!trackingHabit) return
     const habit = trackingHabit
+    const newRate = recalcRate(habit, true)
     setTrackingHabit(null)
     setTogglingId(habit.id)
     setHabits((prev) =>
       prev.map((h) =>
-        h.id === habit.id ? { ...h, completedToday: true, currentStreak: h.currentStreak + 1 } : h,
+        h.id === habit.id
+          ? {
+              ...h,
+              completedToday: true,
+              currentStreak: h.currentStreak + 1,
+              completionRate30d: newRate,
+            }
+          : h,
       ),
     )
     const result = await toggleHabitCompletion(habit.id)
