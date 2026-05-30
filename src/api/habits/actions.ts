@@ -260,6 +260,18 @@ function computeCompletionRate(
   return targets > 0 ? Math.round((completed / targets) * 100) : 0
 }
 
+function parseJsonField<T>(raw: any): T | null {
+  if (!raw) return null
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw) as T
+    } catch {
+      return null
+    }
+  }
+  return raw as T
+}
+
 function mapHabitDoc(
   habit: any,
 ): Omit<
@@ -284,8 +296,8 @@ function mapHabitDoc(
     habitDuration: habit.habitDuration ?? null,
     relativePosition: habit.relativePosition ?? null,
     relativeEventId: habit.relativeEventId ?? null,
-    trackingFields: (habit.trackingFields as TrackingField[] | null) ?? [],
-    goal: (habit.goal as HabitGoal | null) ?? null,
+    trackingFields: parseJsonField<TrackingField[]>(habit.trackingFields) ?? [],
+    goal: parseJsonField<HabitGoal>(habit.goal) ?? null,
   }
 }
 

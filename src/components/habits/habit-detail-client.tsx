@@ -541,6 +541,7 @@ export function HabitDetailClient({ habit: initialHabit }: HabitDetailClientProp
       </div>
 
       <HabitTrackingDialog
+        key={habit.id}
         open={trackingOpen}
         habitName={habit.name}
         habitColor={habit.color}

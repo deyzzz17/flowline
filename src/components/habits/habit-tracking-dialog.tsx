@@ -52,7 +52,9 @@ function FieldInput({
           type="button"
           onClick={() => onChange(Math.max(0, Number(value ?? 0) - 1))}
           className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/60 text-sm hover:bg-muted"
-        >−</button>
+        >
+          −
+        </button>
         <input
           type="number"
           value={value === undefined ? '' : String(value)}
@@ -64,11 +66,13 @@ function FieldInput({
           type="button"
           onClick={() => onChange(Number(value ?? 0) + 1)}
           className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/60 text-sm hover:bg-muted"
-        >+</button>
+        >
+          +
+        </button>
       </div>
     )
   }
-  
+
   return (
     <input
       type="text"
@@ -89,7 +93,9 @@ export function HabitTrackingDialog({
   onSkip,
   onClose,
 }: HabitTrackingDialogProps) {
-  const [values, setValues] = useState<Record<string, number | string | boolean>>({})
+  const [values, setValues] = useState<Record<string, number | string | boolean>>(() =>
+    Object.fromEntries(fields.filter((f) => f.type === 'number').map((f) => [f.key, 0])),
+  )
   const [expanded, setExpanded] = useState(true)
 
   if (!open) return null
@@ -134,7 +140,9 @@ export function HabitTrackingDialog({
               onClick={() => setExpanded((v) => !v)}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted transition-colors"
             >
-              <ChevronDown className={cn('h-4 w-4 transition-transform', expanded && 'rotate-180')} />
+              <ChevronDown
+                className={cn('h-4 w-4 transition-transform', expanded && 'rotate-180')}
+              />
             </button>
             <button
               type="button"
