@@ -299,7 +299,7 @@ function HabitFormInner({
         }
       : { showInCalendar: false }
 
-    const goalConfig: HabitGoal | null =
+    const goalConfig =
       goalOpen && goalDescription.trim()
         ? {
             type: goalType,
@@ -308,7 +308,9 @@ function HabitFormInner({
             endOnReach: goalType === 'field' ? goalEndOnReach : undefined,
             description: goalDescription.trim(),
           }
-        : null
+        : goalOpen === false && !goalDescription.trim()
+          ? undefined
+          : null
 
     await onSubmit({
       name: name.trim(),
@@ -320,7 +322,7 @@ function HabitFormInner({
       timesPerWeek: frequency === 'times_per_week' ? timesPerWeek : undefined,
       startDate: startDate || undefined,
       trackingFields,
-      goal: goalConfig,
+      goal: goalConfig as HabitGoal | null | undefined,
       ...calendarConfig,
     } as any)
     setIsPending(false)
