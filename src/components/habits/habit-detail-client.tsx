@@ -18,6 +18,7 @@ import { HabitTrackingCharts } from './habit-tracking-charts'
 import { type HabitTrackingAnalyticsResult } from '@/api/habits-analytics/actions'
 import { toast } from 'sonner'
 import { format, parseISO, endOfMonth, eachDayOfInterval } from 'date-fns'
+import confetti from 'canvas-confetti'
 
 const DAY_LABELS: Record<string, string> = {
   mon: 'Mo',
@@ -172,7 +173,7 @@ function GoalSection({
         )}
       </div>
       <p className="text-base font-bold text-foreground leading-snug">{goal.description}</p>
-      {goal.type === 'field' && fieldProgress.length > 0 && (
+      {goal.type === 'field' && fieldProgress.length > 0 && !isCompleted && (
         <div className="space-y-3 max-w-xs mx-auto w-full">
           {fieldProgress.map((fp) => (
             <div key={fp.fieldKey} className="space-y-1">
@@ -311,6 +312,32 @@ export function HabitDetailClient({
       ...prev,
       goalCompletedAt: wasCompleted ? null : new Date().toISOString(),
     }))
+
+    if (!wasCompleted) {
+      confetti({
+        particleCount: 120,
+        spread: 80,
+        origin: { y: 0.6 },
+        colors: [habit.color, '#f97316', '#8b5cf6', '#10b981', '#f59e0b'],
+      })
+      setTimeout(() => {
+        confetti({
+          particleCount: 60,
+          spread: 100,
+          origin: { y: 0.55, x: 0.3 },
+          colors: [habit.color, '#ec4899', '#6366f1'],
+        })
+      }, 200)
+      setTimeout(() => {
+        confetti({
+          particleCount: 60,
+          spread: 100,
+          origin: { y: 0.55, x: 0.7 },
+          colors: [habit.color, '#0ea5e9', '#84cc16'],
+        })
+      }, 350)
+    }
+
     const result = await markGoalComplete(habit.id, !wasCompleted)
     if ('error' in result) {
       toast.error('Failed to update goal')
