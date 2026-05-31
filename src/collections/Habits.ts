@@ -119,6 +119,12 @@ export const Habits: CollectionConfig = {
       required: false,
       admin: { description: 'HabitGoal object' },
     },
+    {
+      name: 'goals',
+      type: 'json',
+      required: false,
+      admin: { description: 'Array of HabitGoal objects' },
+    },
     { name: 'goalCompletedAt', type: 'date', required: false },
   ],
   hooks: {
