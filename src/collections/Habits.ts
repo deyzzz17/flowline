@@ -119,6 +119,7 @@ export const Habits: CollectionConfig = {
       required: false,
       admin: { description: 'HabitGoal object' },
     },
+    { name: 'goalCompletedAt', type: 'date', required: false },
   ],
   hooks: {
     beforeChange: [

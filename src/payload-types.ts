@@ -500,6 +500,7 @@ export interface Habit {
     | number
     | boolean
     | null;
+  goalCompletedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -908,6 +909,7 @@ export interface HabitsSelect<T extends boolean = true> {
   relativeEventId?: T;
   trackingFields?: T;
   goal?: T;
+  goalCompletedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

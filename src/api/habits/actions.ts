@@ -88,6 +88,7 @@ export interface HabitWithStats {
   relativeEventId?: number | null
   trackingFields?: TrackingField[]
   goal?: HabitGoal | null
+  goalCompletedAt?: string | null
 }
 
 export interface HabitDetail extends HabitWithStats {
@@ -298,6 +299,7 @@ function mapHabitDoc(
     relativeEventId: habit.relativeEventId ?? null,
     trackingFields: parseJsonField<TrackingField[]>(habit.trackingFields) ?? [],
     goal: parseJsonField<HabitGoal>(habit.goal) ?? null,
+    goalCompletedAt: habit.goalCompletedAt ?? null,
   }
 }
 
@@ -704,4 +706,24 @@ export const getHabitBySlug = async (slug: string): Promise<HabitDetail | null> 
 
   if (!docs[0]) return null
   return getHabitDetail(docs[0].id)
+}
+
+export const markGoalComplete = async (habitId: number, completed: boolean) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+    const payload = await getPayload({ config })
+    const habit = await payload.findByID({ collection: 'habits', id: habitId })
+    if (!habit || (habit as any).userId !== userId) return err('Not authorized')
+    await payload.update({
+      collection: 'habits',
+      id: habitId,
+      data: {
+        goalCompletedAt: completed ? new Date().toISOString() : null,
+      } as any,
+    })
+    return ok({ completed })
+  } catch {
+    return err('Error updating goal')
+  }
 }

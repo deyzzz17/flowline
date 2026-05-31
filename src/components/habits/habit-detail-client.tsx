@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   toggleHabitCompletion,
+  markGoalComplete,
   getHabitDetail,
   type HabitDetail,
   type HabitGoal,
@@ -61,7 +62,6 @@ function MonthCalendar({
   const lastDay = endOfMonth(firstDay)
   const days = eachDayOfInterval({ start: firstDay, end: lastDay })
   const startDow = (firstDay.getDay() + 6) % 7
-
   return (
     <div>
       <p className="mb-2 text-xs font-semibold text-muted-foreground">
@@ -105,25 +105,55 @@ function MonthCalendar({
   )
 }
 
-function GoalSection({ goal, color }: { goal: HabitGoal; color: string }) {
+function GoalSection({
+  goal,
+  color,
+  trackingData,
+  goalCompletedAt,
+  onToggleComplete,
+  isPending,
+}: {
+  goal: HabitGoal
+  color: string
+  trackingData: TrackingDataPoint[]
+  goalCompletedAt?: string | null
+  onToggleComplete: () => void
+  isPending: boolean
+}) {
   if (!goal.description) return null
 
   const isMilestone = goal.type === 'field' && !goal.endOnReach
   const isEndGoal = goal.type === 'field' && goal.endOnReach
   const isManual = goal.type === 'manual'
+  const isCompleted = !!goalCompletedAt
+
+  let currentValue = 0
+  let progressPct = 0
+  if (goal.type === 'field' && goal.fieldKey && goal.targetValue) {
+    currentValue = trackingData.reduce((sum, point) => {
+      const v = point.values[goal.fieldKey!]
+      return sum + (typeof v === 'number' ? v : 0)
+    }, 0)
+    progressPct = Math.min(100, Math.round((currentValue / goal.targetValue) * 100))
+  }
 
   return (
     <div
       className="relative overflow-hidden rounded-2xl p-6 text-center space-y-4"
       style={{
-        background: `linear-gradient(135deg, ${color}18 0%, ${color}08 50%, ${color}14 100%)`,
-        border: `1px solid ${color}30`,
+        background: isCompleted
+          ? `linear-gradient(135deg, ${color}25 0%, ${color}12 50%, ${color}20 100%)`
+          : `linear-gradient(135deg, ${color}18 0%, ${color}08 50%, ${color}14 100%)`,
+        border: `1px solid ${isCompleted ? color + '60' : color + '30'}`,
       }}
     >
       <div className="flex justify-center">
         <div
-          className="flex h-12 w-12 items-center justify-center rounded-2xl shadow-sm"
-          style={{ backgroundColor: `${color}20`, border: `1px solid ${color}30` }}
+          className="flex h-12 w-12 items-center justify-center rounded-2xl shadow-sm transition-all"
+          style={{
+            backgroundColor: isCompleted ? `${color}40` : `${color}20`,
+            border: `1px solid ${color}30`,
+          }}
         >
           <Trophy className="h-6 w-6" style={{ color }} />
         </div>
@@ -136,7 +166,12 @@ function GoalSection({ goal, color }: { goal: HabitGoal; color: string }) {
         >
           {isManual ? 'Goal' : isMilestone ? 'Milestone' : 'End goal'}
         </span>
-        {isEndGoal && (
+        {isCompleted && (
+          <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+            ✓ Completed
+          </span>
+        )}
+        {isEndGoal && !isCompleted && (
           <span className="rounded-full bg-orange-500/15 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">
             Ends on reach
           </span>
@@ -150,25 +185,58 @@ function GoalSection({ goal, color }: { goal: HabitGoal; color: string }) {
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground">Progress</span>
             <span className="font-semibold" style={{ color }}>
-              — / {goal.targetValue}
+              {currentValue} / {goal.targetValue}
+              {progressPct > 0 && (
+                <span className="ml-1 text-muted-foreground font-normal">({progressPct}%)</span>
+              )}
             </span>
           </div>
           <div className="h-2.5 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
             <div
               className="h-full rounded-full transition-all duration-700"
-              style={{ width: '0%', backgroundColor: color }}
+              style={{ width: `${progressPct}%`, backgroundColor: color }}
             />
           </div>
-          <p className="text-[10px] text-muted-foreground/60">
-            Track values each session to see progress
-          </p>
+          {trackingData.length === 0 && (
+            <p className="text-[10px] text-muted-foreground/60">
+              Track values each session to see progress
+            </p>
+          )}
         </div>
       )}
 
       {isManual && (
-        <p className="text-xs text-muted-foreground/70">
-          Mark this goal as complete manually when you&pos;re ready.
-        </p>
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={onToggleComplete}
+            disabled={isPending}
+            className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
+            style={
+              isCompleted
+                ? { backgroundColor: `${color}20`, color, border: `1.5px solid ${color}50` }
+                : { backgroundColor: color, color: 'white', border: `1.5px solid ${color}` }
+            }
+          >
+            <Check className="h-4 w-4" strokeWidth={3} />
+            {isCompleted ? 'Mark as incomplete' : 'Mark as complete'}
+          </button>
+        </div>
+      )}
+
+      {goal.type === 'field' && progressPct >= 100 && !isCompleted && (
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={onToggleComplete}
+            disabled={isPending}
+            className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
+            style={{ backgroundColor: color, color: 'white', border: `1.5px solid ${color}` }}
+          >
+            <Trophy className="h-4 w-4" />
+            Claim goal!
+          </button>
+        </div>
       )}
 
       <div
@@ -182,8 +250,6 @@ function GoalSection({ goal, color }: { goal: HabitGoal; color: string }) {
     </div>
   )
 }
-
-const DEFAULT_CHART_FIELDS = ['reps', 'duration', 'mood', 'energy', 'difficulty']
 
 function CustomTooltip({ active, payload, label, unit }: any) {
   if (!active || !payload?.length) return null
@@ -211,7 +277,6 @@ function TrackingChart({
     .map((d) => ({
       date: format(parseISO(d.date), 'MMM d'),
       value: field.type === 'number' ? Number(d.values[field.key]) : undefined,
-      rawDate: d.date,
     }))
     .filter((p) => p.value !== undefined)
 
@@ -230,12 +295,10 @@ function TrackingChart({
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold text-foreground">{field.label}</p>
-        {points.length > 0 && (
-          <span className="text-[11px] text-muted-foreground">
-            avg {Math.round(points.reduce((s, p) => s + (p.value ?? 0), 0) / points.length)}
-            {unit}
-          </span>
-        )}
+        <span className="text-[11px] text-muted-foreground">
+          avg {Math.round(points.reduce((s, p) => s + (p.value ?? 0), 0) / points.length)}
+          {unit}
+        </span>
       </div>
       <ResponsiveContainer width="100%" height={80}>
         {isScale ? (
@@ -287,19 +350,9 @@ function TrackingChart({
 }
 
 function TrackingChartsSection({ habit }: { habit: HabitDetail }) {
-  const activeFields = (habit.trackingFields ?? []).filter(
-    (f) => f.enabled && f.type === 'number' && DEFAULT_CHART_FIELDS.includes(f.key),
-  )
-
-  const customNumberFields = (habit.trackingFields ?? []).filter(
-    (f) => f.enabled && f.type === 'number' && !DEFAULT_CHART_FIELDS.includes(f.key),
-  )
-
-  const chartsFields = [...activeFields, ...customNumberFields]
-
+  const chartsFields = (habit.trackingFields ?? []).filter((f) => f.enabled && f.type === 'number')
   if (chartsFields.length === 0) return null
   if (!habit.trackingData || habit.trackingData.length === 0) return null
-
   return (
     <div className="rounded-2xl border border-border/60 bg-card/40 p-5 space-y-6">
       <div className="flex items-center gap-2">
@@ -325,11 +378,7 @@ function TrackingChartsSection({ habit }: { habit: HabitDetail }) {
   )
 }
 
-interface HabitDetailClientProps {
-  habit: HabitDetail
-}
-
-export function HabitDetailClient({ habit: initialHabit }: HabitDetailClientProps) {
+export function HabitDetailClient({ habit: initialHabit }: { habit: HabitDetail }) {
   const [habit, setHabit] = useState(initialHabit)
   const [isPending, startTransition] = useTransition()
   const [trackingOpen, setTrackingOpen] = useState(false)
@@ -382,6 +431,22 @@ export function HabitDetailClient({ habit: initialHabit }: HabitDetailClientProp
     refresh()
   }
 
+  const handleToggleGoal = async () => {
+    const wasCompleted = !!habit.goalCompletedAt
+    setHabit((prev) => ({
+      ...prev,
+      goalCompletedAt: wasCompleted ? null : new Date().toISOString(),
+    }))
+    const result = await markGoalComplete(habit.id, !wasCompleted)
+    if ('error' in result) {
+      toast.error('Failed to update goal')
+      setHabit((prev) => ({
+        ...prev,
+        goalCompletedAt: wasCompleted ? new Date().toISOString() : null,
+      }))
+    }
+  }
+
   const completionSet = new Set(habit.completions)
   const now = new Date()
   const months = Array.from({ length: 3 }, (_, i) => {
@@ -394,7 +459,7 @@ export function HabitDetailClient({ habit: initialHabit }: HabitDetailClientProp
   return (
     <div className="px-4 pb-16 pt-8 sm:px-6 lg:px-10">
       <Link
-        href="/habits/habits-view"
+        href="/habits"
         className="mb-6 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
@@ -489,7 +554,14 @@ export function HabitDetailClient({ habit: initialHabit }: HabitDetailClientProp
 
       {habit.goal && (
         <div className="mb-6">
-          <GoalSection goal={habit.goal} color={habit.color} />
+          <GoalSection
+            goal={habit.goal}
+            color={habit.color}
+            trackingData={habit.trackingData ?? []}
+            goalCompletedAt={(habit as any).goalCompletedAt}
+            onToggleComplete={handleToggleGoal}
+            isPending={isPending}
+          />
         </div>
       )}
 
