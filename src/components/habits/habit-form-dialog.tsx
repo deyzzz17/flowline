@@ -62,6 +62,7 @@ const DEFAULT_TRACKING_FIELDS: Omit<TrackingField, 'enabled'>[] = [
 ]
 
 type TrackingFieldType = 'number' | 'text' | 'boolean'
+type FieldTarget = { fieldKey: string; targetValue: number }
 
 function parseJsonField<T>(raw: any): T | null {
   if (!raw) return null
@@ -108,15 +109,21 @@ function getInitialState(initialData?: HabitWithStats) {
       trackingOpen: false,
       goalOpen: false,
       goalType: 'manual' as 'field' | 'manual',
-      goalFieldKey: '',
-      goalTargetValue: 10,
       goalEndOnReach: false,
       goalDescription: '',
+      goalFieldTargets: [] as FieldTarget[],
     }
   }
 
   const savedFields = parseJsonField<TrackingField[]>(initialData.trackingFields)
   const goal = parseJsonField<HabitGoal>(initialData.goal)
+
+  let goalFieldTargets: FieldTarget[] = []
+  if (goal?.fieldTargets) {
+    goalFieldTargets = goal.fieldTargets
+  } else if (goal?.fieldKey) {
+    goalFieldTargets = [{ fieldKey: goal.fieldKey, targetValue: goal.targetValue ?? 10 }]
+  }
 
   return {
     name: initialData.name,
@@ -138,10 +145,9 @@ function getInitialState(initialData?: HabitWithStats) {
     trackingOpen: (savedFields ?? []).some((f) => f.enabled),
     goalOpen: !!goal?.description,
     goalType: (goal?.type ?? 'manual') as 'field' | 'manual',
-    goalFieldKey: goal?.fieldKey ?? '',
-    goalTargetValue: goal?.targetValue ?? 10,
     goalEndOnReach: goal?.endOnReach ?? false,
     goalDescription: goal?.description ?? '',
+    goalFieldTargets,
   }
 }
 
@@ -219,10 +225,9 @@ function HabitFormInner({
   const [trackingOpen, setTrackingOpen] = useState(init.trackingOpen)
   const [goalOpen, setGoalOpen] = useState(init.goalOpen)
   const [goalType, setGoalType] = useState(init.goalType)
-  const [goalFieldKey, setGoalFieldKey] = useState(init.goalFieldKey)
-  const [goalTargetValue, setGoalTargetValue] = useState(init.goalTargetValue)
   const [goalEndOnReach, setGoalEndOnReach] = useState(init.goalEndOnReach)
   const [goalDescription, setGoalDescription] = useState(init.goalDescription)
+  const [goalFieldTargets, setGoalFieldTargets] = useState<FieldTarget[]>(init.goalFieldTargets)
   const [newFieldLabel, setNewFieldLabel] = useState('')
   const [newFieldType, setNewFieldType] = useState<TrackingFieldType>('number')
   const [showAddField, setShowAddField] = useState(false)
@@ -277,7 +282,21 @@ function HabitFormInner({
 
   const removeCustomField = (key: string) => {
     setTrackingFields((prev) => prev.filter((f) => f.key !== key))
-    if (goalFieldKey === key) setGoalFieldKey('')
+    setGoalFieldTargets((prev) => prev.filter((t) => t.fieldKey !== key))
+  }
+
+  const toggleGoalField = (key: string) => {
+    setGoalFieldTargets((prev) => {
+      const exists = prev.find((t) => t.fieldKey === key)
+      if (exists) return prev.filter((t) => t.fieldKey !== key)
+      return [...prev, { fieldKey: key, targetValue: 10 }]
+    })
+  }
+
+  const setGoalFieldTargetValue = (key: string, value: number) => {
+    setGoalFieldTargets((prev) =>
+      prev.map((t) => (t.fieldKey === key ? { ...t, targetValue: Math.max(1, value) } : t)),
+    )
   }
 
   const enabledFields = trackingFields.filter((f) => f.enabled)
@@ -303,8 +322,7 @@ function HabitFormInner({
       goalOpen && goalDescription.trim()
         ? {
             type: goalType,
-            fieldKey: goalType === 'field' ? goalFieldKey : undefined,
-            targetValue: goalType === 'field' ? goalTargetValue : undefined,
+            fieldTargets: goalType === 'field' ? goalFieldTargets : undefined,
             endOnReach: goalType === 'field' ? goalEndOnReach : undefined,
             description: goalDescription.trim(),
           }
@@ -844,48 +862,95 @@ function HabitFormInner({
             </button>
           ))}
         </div>
+
         {goalType === 'field' && (
           <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Tracking field</Label>
+            <div className="space-y-2">
+              <Label className="text-xs">Tracking fields & targets</Label>
               {enabledFields.filter((f) => f.type === 'number').length === 0 ? (
                 <p className="text-xs text-muted-foreground/60 py-1">
                   Enable a number field in Tracking fields first.
                 </p>
               ) : (
-                <div className="flex flex-wrap gap-1.5">
+                <div className="space-y-2">
                   {enabledFields
                     .filter((f) => f.type === 'number')
-                    .map((field) => (
-                      <button
-                        key={field.key}
-                        type="button"
-                        onClick={() => setGoalFieldKey(field.key)}
-                        className={cn(
-                          'rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
-                          goalFieldKey === field.key
-                            ? 'border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                            : 'border-border/60 text-muted-foreground hover:bg-muted',
-                        )}
-                      >
-                        {field.label}
-                      </button>
-                    ))}
+                    .map((field) => {
+                      const target = goalFieldTargets.find((t) => t.fieldKey === field.key)
+                      const isSelected = !!target
+                      return (
+                        <div key={field.key} className="space-y-1.5">
+                          <button
+                            type="button"
+                            onClick={() => toggleGoalField(field.key)}
+                            className={cn(
+                              'flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium transition-all text-left',
+                              isSelected
+                                ? 'border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                                : 'border-border/60 text-muted-foreground hover:bg-muted',
+                            )}
+                          >
+                            <div
+                              className={cn(
+                                'h-3.5 w-3.5 shrink-0 rounded border-2 flex items-center justify-center transition-all',
+                                isSelected ? 'bg-violet-500 border-violet-500' : 'border-border/60',
+                              )}
+                            >
+                              {isSelected && (
+                                <Check className="h-2 w-2 text-white" strokeWidth={3} />
+                              )}
+                            </div>
+                            <span className="flex-1">{field.label}</span>
+                          </button>
+                          {isSelected && (
+                            <div className="flex items-center gap-2 pl-6">
+                              <span className="text-[11px] text-muted-foreground shrink-0">
+                                Target:
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setGoalFieldTargetValue(
+                                      field.key,
+                                      (target?.targetValue ?? 10) - 1,
+                                    )
+                                  }
+                                  className="flex h-6 w-6 items-center justify-center rounded-md border border-border/60 text-xs hover:bg-muted"
+                                >
+                                  −
+                                </button>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={target?.targetValue ?? 10}
+                                  onChange={(e) =>
+                                    setGoalFieldTargetValue(field.key, Number(e.target.value))
+                                  }
+                                  className="w-16 h-6 rounded-md border border-border/60 bg-background px-2 text-center text-xs outline-none focus:border-primary/40"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setGoalFieldTargetValue(
+                                      field.key,
+                                      (target?.targetValue ?? 10) + 1,
+                                    )
+                                  }
+                                  className="flex h-6 w-6 items-center justify-center rounded-md border border-border/60 text-xs hover:bg-muted"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                 </div>
               )}
             </div>
-            {goalFieldKey && (
-              <div className="space-y-1.5">
-                <Label className="text-xs">Target value</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  value={goalTargetValue}
-                  onChange={(e) => setGoalTargetValue(Number(e.target.value))}
-                  className="h-9 text-sm"
-                />
-              </div>
-            )}
+
             <button
               type="button"
               onClick={() => setGoalEndOnReach((v) => !v)}
@@ -895,8 +960,8 @@ function HabitFormInner({
                 <p className="text-sm font-medium text-foreground">End habit on reach</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {goalEndOnReach
-                    ? 'Habit ends when target is reached'
-                    : 'Target is a milestone, habit continues'}
+                    ? 'Habit ends when all targets are reached'
+                    : 'Targets are milestones, habit continues'}
                 </p>
               </div>
               <div

@@ -38,10 +38,11 @@ export interface TrackingField {
 
 export interface HabitGoal {
   type: 'field' | 'manual'
-  fieldKey?: string
-  targetValue?: number
+  fieldTargets?: HabitGoalFieldTarget[]
   endOnReach?: boolean
   description?: string
+  fieldKey?: string
+  targetValue?: number
 }
 
 export interface HabitData {
@@ -118,6 +119,11 @@ export interface HabitAnalytics {
 export interface TrackingDataPoint {
   date: string
   values: Record<string, number | string | boolean>
+}
+
+export interface HabitGoalFieldTarget {
+  fieldKey: string
+  targetValue: number
 }
 
 function computeStreaks(

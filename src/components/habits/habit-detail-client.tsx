@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Flame, Check, Calendar, Target, TrendingUp, Trophy } from 'lucide-react'
+import { ArrowLeft, Flame, Check, Calendar, TrendingUp, Trophy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -127,15 +127,20 @@ function GoalSection({
   const isManual = goal.type === 'manual'
   const isCompleted = !!goalCompletedAt
 
-  let currentValue = 0
-  let progressPct = 0
-  if (goal.type === 'field' && goal.fieldKey && goal.targetValue) {
-    currentValue = trackingData.reduce((sum, point) => {
-      const v = point.values[goal.fieldKey!]
+  const fieldTargets =
+    goal.fieldTargets ??
+    (goal.fieldKey ? [{ fieldKey: goal.fieldKey, targetValue: goal.targetValue ?? 10 }] : [])
+
+  const fieldProgress = fieldTargets.map((target) => {
+    const current = trackingData.reduce((sum, point) => {
+      const v = point.values[target.fieldKey]
       return sum + (typeof v === 'number' ? v : 0)
     }, 0)
-    progressPct = Math.min(100, Math.round((currentValue / goal.targetValue) * 100))
-  }
+    const pct = Math.min(100, Math.round((current / target.targetValue) * 100))
+    return { ...target, current, pct }
+  })
+
+  const allReached = fieldProgress.length > 0 && fieldProgress.every((f) => f.pct >= 100)
 
   return (
     <div
@@ -180,25 +185,29 @@ function GoalSection({
 
       <p className="text-base font-bold text-foreground leading-snug">{goal.description}</p>
 
-      {goal.type === 'field' && goal.targetValue && (
-        <div className="space-y-1.5 max-w-xs mx-auto">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Progress</span>
-            <span className="font-semibold" style={{ color }}>
-              {currentValue} / {goal.targetValue}
-              {progressPct > 0 && (
-                <span className="ml-1 text-muted-foreground font-normal">({progressPct}%)</span>
-              )}
-            </span>
-          </div>
-          <div className="h-2.5 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
-            <div
-              className="h-full rounded-full transition-all duration-700"
-              style={{ width: `${progressPct}%`, backgroundColor: color }}
-            />
-          </div>
+      {goal.type === 'field' && fieldProgress.length > 0 && (
+        <div className="space-y-3 max-w-xs mx-auto w-full">
+          {fieldProgress.map((fp) => (
+            <div key={fp.fieldKey} className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground capitalize">{fp.fieldKey}</span>
+                <span className="font-semibold" style={{ color }}>
+                  {fp.current} / {fp.targetValue}
+                  {fp.pct > 0 && (
+                    <span className="ml-1 text-muted-foreground font-normal">({fp.pct}%)</span>
+                  )}
+                </span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+                <div
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{ width: `${fp.pct}%`, backgroundColor: color }}
+                />
+              </div>
+            </div>
+          ))}
           {trackingData.length === 0 && (
-            <p className="text-[10px] text-muted-foreground/60">
+            <p className="text-[10px] text-muted-foreground/60 text-center">
               Track values each session to see progress
             </p>
           )}
@@ -224,7 +233,7 @@ function GoalSection({
         </div>
       )}
 
-      {goal.type === 'field' && progressPct >= 100 && !isCompleted && (
+      {goal.type === 'field' && allReached && !isCompleted && (
         <div className="flex justify-center">
           <button
             type="button"
@@ -459,7 +468,7 @@ export function HabitDetailClient({ habit: initialHabit }: { habit: HabitDetail 
   return (
     <div className="px-4 pb-16 pt-8 sm:px-6 lg:px-10">
       <Link
-        href="/habits"
+        href="/habits/habits-view"
         className="mb-6 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
@@ -558,7 +567,7 @@ export function HabitDetailClient({ habit: initialHabit }: { habit: HabitDetail 
             goal={habit.goal}
             color={habit.color}
             trackingData={habit.trackingData ?? []}
-            goalCompletedAt={(habit as any).goalCompletedAt}
+            goalCompletedAt={habit.goalCompletedAt}
             onToggleComplete={handleToggleGoal}
             isPending={isPending}
           />
