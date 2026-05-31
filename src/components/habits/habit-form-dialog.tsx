@@ -841,26 +841,35 @@ function HabitFormInner({
           />
         </div>
         <div className="grid grid-cols-2 gap-1.5">
-          {(
-            [
-              { value: 'manual', label: 'Manual check' },
-              { value: 'field', label: 'Field target' },
-            ] as const
-          ).map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setGoalType(opt.value)}
-              className={cn(
-                'rounded-xl border py-2 text-xs font-medium transition-all',
-                goalType === opt.value
+          <button
+            type="button"
+            onClick={() => setGoalType('manual')}
+            className={cn(
+              'rounded-xl border py-2 text-xs font-medium transition-all',
+              goalType === 'manual'
+                ? 'border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                : 'border-border/60 text-muted-foreground hover:bg-muted',
+            )}
+          >
+            Manual check
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              enabledFields.filter((f) => f.type === 'number').length > 0 && setGoalType('field')
+            }
+            disabled={enabledFields.filter((f) => f.type === 'number').length === 0}
+            className={cn(
+              'rounded-xl border py-2 text-xs font-medium transition-all',
+              enabledFields.filter((f) => f.type === 'number').length === 0
+                ? 'border-border/30 text-muted-foreground/30 cursor-not-allowed'
+                : goalType === 'field'
                   ? 'border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400'
                   : 'border-border/60 text-muted-foreground hover:bg-muted',
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
+            )}
+          >
+            Field target
+          </button>
         </div>
 
         {goalType === 'field' && (
