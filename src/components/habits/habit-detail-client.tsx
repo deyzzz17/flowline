@@ -11,23 +11,13 @@ import {
   getHabitDetail,
   type HabitDetail,
   type HabitGoal,
-  type TrackingField,
   type TrackingDataPoint,
 } from '@/api/habits/actions'
 import { HabitTrackingDialog } from './habit-tracking-dialog'
+import { HabitTrackingCharts } from './habit-tracking-charts'
+import { type HabitTrackingAnalyticsResult } from '@/api/habits-analytics/actions'
 import { toast } from 'sonner'
 import { format, parseISO, endOfMonth, eachDayOfInterval } from 'date-fns'
-import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-} from 'recharts'
 
 const DAY_LABELS: Record<string, string> = {
   mon: 'Mo',
@@ -163,7 +153,6 @@ function GoalSection({
           <Trophy className="h-6 w-6" style={{ color }} />
         </div>
       </div>
-
       <div className="flex justify-center gap-2 flex-wrap">
         <span
           className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
@@ -182,9 +171,7 @@ function GoalSection({
           </span>
         )}
       </div>
-
       <p className="text-base font-bold text-foreground leading-snug">{goal.description}</p>
-
       {goal.type === 'field' && fieldProgress.length > 0 && (
         <div className="space-y-3 max-w-xs mx-auto w-full">
           {fieldProgress.map((fp) => (
@@ -213,7 +200,6 @@ function GoalSection({
           )}
         </div>
       )}
-
       {isManual && (
         <div className="flex justify-center">
           <button
@@ -232,7 +218,6 @@ function GoalSection({
           </button>
         </div>
       )}
-
       {goal.type === 'field' && allReached && !isCompleted && (
         <div className="flex justify-center">
           <button
@@ -247,7 +232,6 @@ function GoalSection({
           </button>
         </div>
       )}
-
       <div
         className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-10"
         style={{ backgroundColor: color }}
@@ -260,134 +244,15 @@ function GoalSection({
   )
 }
 
-function CustomTooltip({ active, payload, label, unit }: any) {
-  if (!active || !payload?.length) return null
-  return (
-    <div className="rounded-xl border border-border/60 bg-background/95 px-3 py-2 shadow-md text-xs">
-      <p className="text-muted-foreground mb-0.5">{label}</p>
-      <p className="font-semibold text-foreground">
-        {payload[0].value} {unit}
-      </p>
-    </div>
-  )
+interface HabitDetailClientProps {
+  habit: HabitDetail
+  initialTrackingAnalytics: HabitTrackingAnalyticsResult
 }
 
-function TrackingChart({
-  field,
-  data,
-  color,
-}: {
-  field: TrackingField
-  data: TrackingDataPoint[]
-  color: string
-}) {
-  const points = data
-    .filter((d) => d.values[field.key] !== undefined && d.values[field.key] !== '')
-    .map((d) => ({
-      date: format(parseISO(d.date), 'MMM d'),
-      value: field.type === 'number' ? Number(d.values[field.key]) : undefined,
-    }))
-    .filter((p) => p.value !== undefined)
-
-  if (points.length === 0) {
-    return (
-      <div className="flex h-24 items-center justify-center rounded-xl border border-dashed border-border/40">
-        <p className="text-xs text-muted-foreground/50">No data yet for {field.label}</p>
-      </div>
-    )
-  }
-
-  const isScale = ['mood', 'energy', 'difficulty'].includes(field.key)
-  const unit = field.key === 'duration' ? 'min' : ''
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold text-foreground">{field.label}</p>
-        <span className="text-[11px] text-muted-foreground">
-          avg {Math.round(points.reduce((s, p) => s + (p.value ?? 0), 0) / points.length)}
-          {unit}
-        </span>
-      </div>
-      <ResponsiveContainer width="100%" height={80}>
-        {isScale ? (
-          <BarChart data={points} margin={{ top: 0, right: 0, bottom: 0, left: -20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.06} />
-            <XAxis
-              dataKey="date"
-              tick={{ fontSize: 9, fill: 'currentColor', opacity: 0.4 }}
-              tickLine={false}
-              axisLine={false}
-            />
-            <YAxis
-              domain={[0, 10]}
-              tick={{ fontSize: 9, fill: 'currentColor', opacity: 0.4 }}
-              tickLine={false}
-              axisLine={false}
-            />
-            <Tooltip content={<CustomTooltip unit={unit} />} />
-            <Bar dataKey="value" fill={color} opacity={0.8} radius={[3, 3, 0, 0]} />
-          </BarChart>
-        ) : (
-          <LineChart data={points} margin={{ top: 4, right: 0, bottom: 0, left: -20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.06} />
-            <XAxis
-              dataKey="date"
-              tick={{ fontSize: 9, fill: 'currentColor', opacity: 0.4 }}
-              tickLine={false}
-              axisLine={false}
-            />
-            <YAxis
-              tick={{ fontSize: 9, fill: 'currentColor', opacity: 0.4 }}
-              tickLine={false}
-              axisLine={false}
-            />
-            <Tooltip content={<CustomTooltip unit={unit} />} />
-            <Line
-              type="monotone"
-              dataKey="value"
-              stroke={color}
-              strokeWidth={2}
-              dot={{ fill: color, r: 3 }}
-              activeDot={{ r: 5, fill: color }}
-            />
-          </LineChart>
-        )}
-      </ResponsiveContainer>
-    </div>
-  )
-}
-
-function TrackingChartsSection({ habit }: { habit: HabitDetail }) {
-  const chartsFields = (habit.trackingFields ?? []).filter((f) => f.enabled && f.type === 'number')
-  if (chartsFields.length === 0) return null
-  if (!habit.trackingData || habit.trackingData.length === 0) return null
-  return (
-    <div className="rounded-2xl border border-border/60 bg-card/40 p-5 space-y-6">
-      <div className="flex items-center gap-2">
-        <TrendingUp className="h-4 w-4 text-muted-foreground/60" />
-        <p className="text-sm font-semibold text-foreground">Tracking charts</p>
-      </div>
-      <div
-        className={cn(
-          'grid gap-6',
-          chartsFields.length === 1 ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2',
-        )}
-      >
-        {chartsFields.map((field) => (
-          <TrackingChart
-            key={field.key}
-            field={field}
-            data={habit.trackingData ?? []}
-            color={habit.color}
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-export function HabitDetailClient({ habit: initialHabit }: { habit: HabitDetail }) {
+export function HabitDetailClient({
+  habit: initialHabit,
+  initialTrackingAnalytics,
+}: HabitDetailClientProps) {
   const [habit, setHabit] = useState(initialHabit)
   const [isPending, startTransition] = useTransition()
   const [trackingOpen, setTrackingOpen] = useState(false)
@@ -464,6 +329,7 @@ export function HabitDetailClient({ habit: initialHabit }: { habit: HabitDetail 
   }).reverse()
 
   const activeTrackingFields = (habit.trackingFields ?? []).filter((f) => f.enabled)
+  const hasNumberFields = activeTrackingFields.some((f) => f.type === 'number')
 
   return (
     <div className="px-4 pb-16 pt-8 sm:px-6 lg:px-10">
@@ -599,9 +465,15 @@ export function HabitDetailClient({ habit: initialHabit }: { habit: HabitDetail 
         </div>
       </div>
 
-      <div className="mb-6">
-        <TrackingChartsSection habit={habit} />
-      </div>
+      {hasNumberFields && (
+        <div className="mb-6">
+          <HabitTrackingCharts
+            habitId={habit.id}
+            color={habit.color}
+            initialData={initialTrackingAnalytics}
+          />
+        </div>
+      )}
 
       <div className="rounded-2xl border border-border/60 bg-card/40 p-5">
         <div className="mb-4 flex items-center gap-2">
