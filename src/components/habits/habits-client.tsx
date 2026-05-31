@@ -115,12 +115,15 @@ function CompletionRing({ rate, color }: { rate: number; color: string }) {
 }
 
 function GoalBadge({ habit }: { habit: HabitWithStats }) {
-  const goal = habit.goal
-  if (!goal?.description) return null
+  const goals = habit.goals ?? []
+  const activeGoals = goals.filter((g) => !g.completedAt)
+  if (activeGoals.length === 0) return null
   return (
     <div className="flex items-center gap-1.5 mt-1">
       <Target className="h-3 w-3 text-muted-foreground/50 shrink-0" />
-      <span className="text-[11px] text-muted-foreground/60 truncate">{goal.description}</span>
+      <span className="text-[11px] text-muted-foreground/60 truncate">
+        {activeGoals.length === 1 ? activeGoals[0].description : `${activeGoals.length} goals`}
+      </span>
     </div>
   )
 }

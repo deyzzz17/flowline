@@ -42,11 +42,12 @@ export interface HabitGoalFieldTarget {
 }
 
 export interface HabitGoal {
+  id: string
   type: 'field' | 'manual'
+  description: string
   fieldTargets?: HabitGoalFieldTarget[]
   endOnReach?: boolean
-  description?: string
-  // Compatibilité anciens goals
+  completedAt?: string | null
   fieldKey?: string
   targetValue?: number
 }
@@ -68,7 +69,7 @@ export interface HabitData {
   relativePosition?: 'before' | 'after'
   relativeEventId?: number | null
   trackingFields?: TrackingField[]
-  goal?: HabitGoal | null
+  goals?: HabitGoal[]
 }
 
 export interface HabitWithStats {
@@ -94,8 +95,7 @@ export interface HabitWithStats {
   relativePosition?: 'before' | 'after' | null
   relativeEventId?: number | null
   trackingFields?: TrackingField[]
-  goal?: HabitGoal | null
-  goalCompletedAt?: string | null
+  goals?: HabitGoal[]
 }
 
 export interface HabitDetail extends HabitWithStats {
@@ -127,7 +127,41 @@ export interface TrackingDataPoint {
   values: Record<string, number | string | boolean>
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+function parseJsonField<T>(raw: any): T | null {
+  if (!raw) return null
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw) as T
+    } catch {
+      return null
+    }
+  }
+  return raw as T
+}
+
+function parseGoals(habit: any): HabitGoal[] {
+  const goals = parseJsonField<HabitGoal[]>(habit.goals)
+  if (goals && goals.length > 0) return goals
+
+  const old = parseJsonField<any>(habit.goal)
+  if (old?.description) {
+    return [
+      {
+        id: old.id ?? `goal_legacy_${habit.id}`,
+        type: old.type ?? 'manual',
+        description: old.description,
+        fieldTargets:
+          old.fieldTargets ??
+          (old.fieldKey
+            ? [{ fieldKey: old.fieldKey, targetValue: old.targetValue ?? 10 }]
+            : undefined),
+        endOnReach: old.endOnReach,
+        completedAt: habit.goalCompletedAt ?? old.completedAt ?? null,
+      },
+    ]
+  }
+  return []
+}
 
 function computeStreaks(
   completionDates: Set<string>,
@@ -185,7 +219,6 @@ function computeStreaks(
         if (completionDates.has(key)) {
           current++
         } else if (key === today) {
-          /* pas encore fait */
         } else {
           break
         }
@@ -217,7 +250,6 @@ function computeStreaks(
       if (count >= target) {
         current++
       } else if (wk === getDateKey(currentMonday)) {
-        /* semaine en cours */
       } else {
         break
       }
@@ -271,42 +303,47 @@ function computeCompletionRate(
   return targets > 0 ? Math.round((completed / targets) * 100) : 0
 }
 
-// Calcule le taux de complétion basé sur les fieldTargets d'un goal endOnReach.
-// Pour chaque fieldTarget, calcule current / targetValue en % puis fait la moyenne.
-function computeGoalFieldRate(completions: any[], goal: HabitGoal): number {
-  const fieldTargets =
-    goal.fieldTargets ??
-    (goal.fieldKey ? [{ fieldKey: goal.fieldKey, targetValue: goal.targetValue ?? 1 }] : [])
-
-  if (fieldTargets.length === 0) return 0
-
-  const pcts = fieldTargets.map((ft) => {
-    let total = 0
-    for (const c of completions) {
-      let values: Record<string, any> = {}
-      try {
-        const raw = (c as any).trackingValues
-        values = typeof raw === 'string' ? JSON.parse(raw) : (raw ?? {})
-      } catch {}
-      const v = values[ft.fieldKey]
-      if (typeof v === 'number') total += v
-    }
-    return Math.min(100, Math.round((total / ft.targetValue) * 100))
+function shouldUseGoalRate(goals: HabitGoal[]): boolean {
+  return goals.some((g) => {
+    if (g.type !== 'field' || !g.endOnReach) return false
+    const targets =
+      g.fieldTargets ??
+      (g.fieldKey ? [{ fieldKey: g.fieldKey, targetValue: g.targetValue ?? 1 }] : [])
+    return targets.length > 0
   })
-
-  return Math.round(pcts.reduce((s, p) => s + p, 0) / pcts.length)
 }
 
-function parseJsonField<T>(raw: any): T | null {
-  if (!raw) return null
-  if (typeof raw === 'string') {
-    try {
-      return JSON.parse(raw) as T
-    } catch {
-      return null
+function computeGoalFieldRate(completions: any[], goals: HabitGoal[]): number {
+  const endGoals = goals.filter((g) => {
+    if (g.type !== 'field' || !g.endOnReach) return false
+    const targets =
+      g.fieldTargets ??
+      (g.fieldKey ? [{ fieldKey: g.fieldKey, targetValue: g.targetValue ?? 1 }] : [])
+    return targets.length > 0
+  })
+  if (endGoals.length === 0) return 0
+
+  const allPcts: number[] = []
+  for (const goal of endGoals) {
+    const fieldTargets =
+      goal.fieldTargets ??
+      (goal.fieldKey ? [{ fieldKey: goal.fieldKey, targetValue: goal.targetValue ?? 1 }] : [])
+    for (const ft of fieldTargets) {
+      let total = 0
+      for (const c of completions) {
+        let values: Record<string, any> = {}
+        try {
+          const raw = (c as any).trackingValues
+          values = typeof raw === 'string' ? JSON.parse(raw) : (raw ?? {})
+        } catch {}
+        const v = values[ft.fieldKey]
+        if (typeof v === 'number') total += v
+      }
+      allPcts.push(Math.min(100, Math.round((total / ft.targetValue) * 100)))
     }
   }
-  return raw as T
+  if (allPcts.length === 0) return 0
+  return Math.round(allPcts.reduce((s, p) => s + p, 0) / allPcts.length)
 }
 
 function mapHabitDoc(
@@ -334,23 +371,9 @@ function mapHabitDoc(
     relativePosition: habit.relativePosition ?? null,
     relativeEventId: habit.relativeEventId ?? null,
     trackingFields: parseJsonField<TrackingField[]>(habit.trackingFields) ?? [],
-    goal: parseJsonField<HabitGoal>(habit.goal) ?? null,
-    goalCompletedAt: habit.goalCompletedAt ?? null,
+    goals: parseGoals(habit),
   }
 }
-
-// Détermine si on doit utiliser le taux basé sur les fieldTargets
-function shouldUseGoalRate(goal: HabitGoal | null | undefined): boolean {
-  if (!goal) return false
-  if (goal.type !== 'field') return false
-  if (!goal.endOnReach) return false
-  const targets =
-    goal.fieldTargets ??
-    (goal.fieldKey ? [{ fieldKey: goal.fieldKey, targetValue: goal.targetValue ?? 1 }] : [])
-  return targets.length > 0
-}
-
-// ── CRUD ──────────────────────────────────────────────────────────────────────
 
 export const listHabits = async (): Promise<HabitWithStats[]> => {
   const userId = await getUserId()
@@ -386,12 +409,9 @@ export const listHabits = async (): Promise<HabitWithStats[]> => {
       habitCompletions.map((c) => getDateKey(new Date(c.completedAt as string))),
     )
     const { current, longest } = computeStreaks(completionDates, habit as any)
-
-    const goal = parseJsonField<HabitGoal>((habit as any).goal)
-
-    // Si goal endOnReach avec fieldTargets → taux basé sur la progression vers l'objectif
-    const rate = shouldUseGoalRate(goal)
-      ? computeGoalFieldRate(habitCompletions, goal!)
+    const goals = parseGoals(habit)
+    const rate = shouldUseGoalRate(goals)
+      ? computeGoalFieldRate(habitCompletions, goals)
       : computeCompletionRate(completionDates, habit as any)
 
     return {
@@ -429,10 +449,9 @@ export const getHabitDetail = async (habitId: number): Promise<HabitDetail | nul
     completions.map((c) => getDateKey(new Date(c.completedAt as string))),
   )
   const { current, longest } = computeStreaks(completionDates, habit as any)
-
-  const goal = parseJsonField<HabitGoal>((habit as any).goal)
-  const rate = shouldUseGoalRate(goal)
-    ? computeGoalFieldRate(completions, goal!)
+  const goals = parseGoals(habit)
+  const rate = shouldUseGoalRate(goals)
+    ? computeGoalFieldRate(completions, goals)
     : computeCompletionRate(completionDates, habit as any)
 
   const today = getTodayKey()
@@ -512,7 +531,7 @@ export const createHabit = async (data: HabitData) => {
         relativePosition: data.relativePosition ?? undefined,
         relativeEventId: data.relativeEventId ?? undefined,
         trackingFields: data.trackingFields ? JSON.stringify(data.trackingFields) : undefined,
-        goal: data.goal ? JSON.stringify(data.goal) : undefined,
+        goals: data.goals ? JSON.stringify(data.goals) : undefined,
       } as any,
     })
     return ok(habit)
@@ -547,8 +566,8 @@ export const updateHabit = async (id: number, data: Partial<HabitData>) => {
         ...(data.trackingFields !== undefined && {
           trackingFields: data.trackingFields ? JSON.stringify(data.trackingFields) : null,
         }),
-        ...(data.goal !== undefined && {
-          goal: data.goal ? JSON.stringify(data.goal) : null,
+        ...(data.goals !== undefined && {
+          goals: data.goals ? JSON.stringify(data.goals) : null,
         }),
       } as any,
     })
@@ -682,12 +701,10 @@ export const getHabitAnalytics = async (): Promise<HabitAnalytics> => {
       habitCompletions.map((c) => getDateKey(new Date(c.completedAt as string))),
     )
     const { current, longest } = computeStreaks(dates, habit as any)
-
-    const goal = parseJsonField<HabitGoal>((habit as any).goal)
-    const rate = shouldUseGoalRate(goal)
-      ? computeGoalFieldRate(habitCompletions, goal!)
+    const goals = parseGoals(habit)
+    const rate = shouldUseGoalRate(goals)
+      ? computeGoalFieldRate(habitCompletions, goals)
       : computeCompletionRate(dates, habit as any)
-
     return {
       id: habit.id,
       slug: (habit as any).slug ?? '',
@@ -763,17 +780,23 @@ export const getHabitBySlug = async (slug: string): Promise<HabitDetail | null> 
   return getHabitDetail(docs[0].id)
 }
 
-export const markGoalComplete = async (habitId: number, completed: boolean) => {
+export const markGoalComplete = async (habitId: number, goalId: string, completed: boolean) => {
   try {
     const userId = await getUserId()
     if (!userId) return err('Not authenticated')
     const payload = await getPayload({ config })
     const habit = await payload.findByID({ collection: 'habits', id: habitId })
     if (!habit || (habit as any).userId !== userId) return err('Not authorized')
+
+    const goals = parseGoals(habit)
+    const updatedGoals = goals.map((g) =>
+      g.id === goalId ? { ...g, completedAt: completed ? new Date().toISOString() : null } : g,
+    )
+
     await payload.update({
       collection: 'habits',
       id: habitId,
-      data: { goalCompletedAt: completed ? new Date().toISOString() : null } as any,
+      data: { goals: JSON.stringify(updatedGoals) } as any,
     })
     return ok({ completed })
   } catch {

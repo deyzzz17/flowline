@@ -21,6 +21,8 @@ import {
   CalendarDays,
   Target,
   BarChart2,
+  Pencil,
+  Trophy,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useQuery } from '@tanstack/react-query'
@@ -63,6 +65,50 @@ const DEFAULT_TRACKING_FIELDS: Omit<TrackingField, 'enabled'>[] = [
 
 type TrackingFieldType = 'number' | 'text' | 'boolean'
 type FieldTarget = { fieldKey: string; targetValue: number }
+
+interface GoalDraft {
+  id: string
+  type: 'field' | 'manual'
+  description: string
+  fieldTargets: FieldTarget[]
+  endOnReach: boolean
+  completedAt?: string | null
+}
+
+function emptyGoalDraft(): GoalDraft {
+  return {
+    id: `goal_${Date.now()}`,
+    type: 'manual',
+    description: '',
+    fieldTargets: [],
+    endOnReach: false,
+    completedAt: null,
+  }
+}
+
+function draftFromGoal(goal: HabitGoal): GoalDraft {
+  return {
+    id: goal.id ?? `goal_${Date.now()}`,
+    type: goal.type,
+    description: goal.description ?? '',
+    fieldTargets:
+      goal.fieldTargets ??
+      (goal.fieldKey ? [{ fieldKey: goal.fieldKey, targetValue: goal.targetValue ?? 10 }] : []),
+    endOnReach: goal.endOnReach ?? false,
+    completedAt: goal.completedAt,
+  }
+}
+
+function draftToGoal(draft: GoalDraft): HabitGoal {
+  return {
+    id: draft.id,
+    type: draft.type,
+    description: draft.description,
+    fieldTargets: draft.type === 'field' ? draft.fieldTargets : undefined,
+    endOnReach: draft.type === 'field' ? draft.endOnReach : undefined,
+    completedAt: draft.completedAt,
+  }
+}
 
 function parseJsonField<T>(raw: any): T | null {
   if (!raw) return null
@@ -108,21 +154,21 @@ function getInitialState(initialData?: HabitWithStats) {
       calendarOpen: false,
       trackingOpen: false,
       goalOpen: false,
-      goalType: 'manual' as 'field' | 'manual',
-      goalEndOnReach: false,
-      goalDescription: '',
-      goalFieldTargets: [] as FieldTarget[],
+      goals: [] as HabitGoal[],
     }
   }
 
   const savedFields = parseJsonField<TrackingField[]>(initialData.trackingFields)
-  const goal = parseJsonField<HabitGoal>(initialData.goal)
 
-  let goalFieldTargets: FieldTarget[] = []
-  if (goal?.fieldTargets) {
-    goalFieldTargets = goal.fieldTargets
-  } else if (goal?.fieldKey) {
-    goalFieldTargets = [{ fieldKey: goal.fieldKey, targetValue: goal.targetValue ?? 10 }]
+  let goals: HabitGoal[] = []
+  const rawGoals = parseJsonField<HabitGoal[]>((initialData as any).goals)
+  if (rawGoals && rawGoals.length > 0) {
+    goals = rawGoals
+  } else {
+    const oldGoal = parseJsonField<HabitGoal>((initialData as any).goal)
+    if (oldGoal?.description) {
+      goals = [{ ...oldGoal, id: oldGoal.id ?? `goal_${Date.now()}` }]
+    }
   }
 
   return {
@@ -143,11 +189,8 @@ function getInitialState(initialData?: HabitWithStats) {
     trackingFields: buildTrackingFields(savedFields),
     calendarOpen: initialData.showInCalendar ?? false,
     trackingOpen: (savedFields ?? []).some((f) => f.enabled),
-    goalOpen: !!goal?.description,
-    goalType: (goal?.type ?? 'manual') as 'field' | 'manual',
-    goalEndOnReach: goal?.endOnReach ?? false,
-    goalDescription: goal?.description ?? '',
-    goalFieldTargets,
+    goalOpen: goals.length > 0,
+    goals,
   }
 }
 
@@ -195,6 +238,196 @@ function Section({
   )
 }
 
+function GoalForm({
+  draft,
+  enabledNumberFields,
+  onChange,
+  onSave,
+  onCancel,
+}: {
+  draft: GoalDraft
+  enabledNumberFields: TrackingField[]
+  onChange: (d: GoalDraft) => void
+  onSave: () => void
+  onCancel: () => void
+}) {
+  const canSave = draft.description.trim().length > 0
+
+  const toggleFieldTarget = (key: string) => {
+    const exists = draft.fieldTargets.find((t) => t.fieldKey === key)
+    onChange({
+      ...draft,
+      fieldTargets: exists
+        ? draft.fieldTargets.filter((t) => t.fieldKey !== key)
+        : [...draft.fieldTargets, { fieldKey: key, targetValue: 10 }],
+    })
+  }
+
+  const setTargetValue = (key: string, value: number) => {
+    onChange({
+      ...draft,
+      fieldTargets: draft.fieldTargets.map((t) =>
+        t.fieldKey === key ? { ...t, targetValue: Math.max(1, value) } : t,
+      ),
+    })
+  }
+
+  return (
+    <div className="rounded-xl border border-violet-500/20 bg-background p-4 space-y-3">
+      <Input
+        autoFocus
+        value={draft.description}
+        onChange={(e) => onChange({ ...draft, description: e.target.value })}
+        placeholder="e.g. Run 100km total, Complete 30 sessions..."
+        className="h-9 text-sm"
+      />
+
+      <div className="grid grid-cols-2 gap-1.5">
+        <button
+          type="button"
+          onClick={() => onChange({ ...draft, type: 'manual' })}
+          className={cn(
+            'rounded-xl border py-2 text-xs font-medium transition-all',
+            draft.type === 'manual'
+              ? 'border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400'
+              : 'border-border/60 text-muted-foreground hover:bg-muted',
+          )}
+        >
+          Manual check
+        </button>
+        <button
+          type="button"
+          onClick={() => enabledNumberFields.length > 0 && onChange({ ...draft, type: 'field' })}
+          disabled={enabledNumberFields.length === 0}
+          className={cn(
+            'rounded-xl border py-2 text-xs font-medium transition-all',
+            enabledNumberFields.length === 0
+              ? 'border-border/30 text-muted-foreground/30 cursor-not-allowed'
+              : draft.type === 'field'
+                ? 'border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                : 'border-border/60 text-muted-foreground hover:bg-muted',
+          )}
+        >
+          Field target
+        </button>
+      </div>
+
+      {draft.type === 'field' && enabledNumberFields.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">
+            Fields & targets
+          </p>
+          {enabledNumberFields.map((field) => {
+            const target = draft.fieldTargets.find((t) => t.fieldKey === field.key)
+            const isSelected = !!target
+            return (
+              <div key={field.key} className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => toggleFieldTarget(field.key)}
+                  className={cn(
+                    'flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-all text-left',
+                    isSelected
+                      ? 'border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                      : 'border-border/60 text-muted-foreground hover:bg-muted',
+                  )}
+                >
+                  <div
+                    className={cn(
+                      'h-3.5 w-3.5 shrink-0 rounded border-2 flex items-center justify-center',
+                      isSelected ? 'bg-violet-500 border-violet-500' : 'border-border/60',
+                    )}
+                  >
+                    {isSelected && <Check className="h-2 w-2 text-white" strokeWidth={3} />}
+                  </div>
+                  <span className="flex-1">{field.label}</span>
+                </button>
+                {isSelected && (
+                  <div className="flex items-center gap-2 pl-6">
+                    <span className="text-[11px] text-muted-foreground shrink-0">Target:</span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setTargetValue(field.key, (target?.targetValue ?? 10) - 1)}
+                        className="flex h-6 w-6 items-center justify-center rounded-md border border-border/60 text-xs hover:bg-muted"
+                      >
+                        −
+                      </button>
+                      <input
+                        type="number"
+                        min={1}
+                        value={target?.targetValue ?? 10}
+                        onChange={(e) => setTargetValue(field.key, Number(e.target.value))}
+                        className="w-14 h-6 rounded-md border border-border/60 bg-background px-2 text-center text-xs outline-none focus:border-primary/40"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setTargetValue(field.key, (target?.targetValue ?? 10) + 1)}
+                        className="flex h-6 w-6 items-center justify-center rounded-md border border-border/60 text-xs hover:bg-muted"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {draft.type === 'field' && (
+        <button
+          type="button"
+          onClick={() => onChange({ ...draft, endOnReach: !draft.endOnReach })}
+          className="flex w-full items-center justify-between rounded-xl border border-border/50 bg-muted/20 px-3 py-2.5 transition-all hover:bg-muted/40"
+        >
+          <div className="text-left">
+            <p className="text-xs font-medium text-foreground">End habit on reach</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              {draft.endOnReach
+                ? 'Habit ends when all targets are reached'
+                : 'Targets are milestones, habit continues'}
+            </p>
+          </div>
+          <div
+            className={cn(
+              'relative ml-3 h-5 w-9 shrink-0 rounded-full transition-colors',
+              draft.endOnReach ? 'bg-violet-500' : 'bg-muted-foreground/30',
+            )}
+          >
+            <span
+              className={cn(
+                'absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform',
+                draft.endOnReach ? 'translate-x-4' : 'translate-x-0',
+              )}
+            />
+          </div>
+        </button>
+      )}
+
+      <div className="flex gap-1.5 pt-1">
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={!canSave}
+          className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-foreground px-3 py-1.5 text-xs font-semibold text-background disabled:opacity-40"
+        >
+          <Check className="h-3 w-3" />
+          Save goal
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-lg border border-border/60 px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function HabitFormInner({
   initialData,
   onOpenChange,
@@ -224,10 +457,8 @@ function HabitFormInner({
   const [calendarOpen, setCalendarOpen] = useState(init.calendarOpen)
   const [trackingOpen, setTrackingOpen] = useState(init.trackingOpen)
   const [goalOpen, setGoalOpen] = useState(init.goalOpen)
-  const [goalType, setGoalType] = useState(init.goalType)
-  const [goalEndOnReach, setGoalEndOnReach] = useState(init.goalEndOnReach)
-  const [goalDescription, setGoalDescription] = useState(init.goalDescription)
-  const [goalFieldTargets, setGoalFieldTargets] = useState<FieldTarget[]>(init.goalFieldTargets)
+  const [goals, setGoals] = useState<HabitGoal[]>(init.goals)
+  const [editingGoal, setEditingGoal] = useState<GoalDraft | null>(null)
   const [newFieldLabel, setNewFieldLabel] = useState('')
   const [newFieldType, setNewFieldType] = useState<TrackingFieldType>('number')
   const [showAddField, setShowAddField] = useState(false)
@@ -282,25 +513,32 @@ function HabitFormInner({
 
   const removeCustomField = (key: string) => {
     setTrackingFields((prev) => prev.filter((f) => f.key !== key))
-    setGoalFieldTargets((prev) => prev.filter((t) => t.fieldKey !== key))
-  }
-
-  const toggleGoalField = (key: string) => {
-    setGoalFieldTargets((prev) => {
-      const exists = prev.find((t) => t.fieldKey === key)
-      if (exists) return prev.filter((t) => t.fieldKey !== key)
-      return [...prev, { fieldKey: key, targetValue: 10 }]
-    })
-  }
-
-  const setGoalFieldTargetValue = (key: string, value: number) => {
-    setGoalFieldTargets((prev) =>
-      prev.map((t) => (t.fieldKey === key ? { ...t, targetValue: Math.max(1, value) } : t)),
+    setGoals((prev) =>
+      prev.map((g) => ({
+        ...g,
+        fieldTargets: g.fieldTargets?.filter((t) => t.fieldKey !== key),
+      })),
     )
   }
 
+  const saveGoal = () => {
+    if (!editingGoal || !editingGoal.description.trim()) return
+    const goal = draftToGoal(editingGoal)
+    setGoals((prev) => {
+      const idx = prev.findIndex((g) => g.id === goal.id)
+      if (idx >= 0) return prev.map((g, i) => (i === idx ? goal : g))
+      return [...prev, goal]
+    })
+    setEditingGoal(null)
+  }
+
+  const removeGoal = (id: string) => setGoals((prev) => prev.filter((g) => g.id !== id))
+
   const enabledFields = trackingFields.filter((f) => f.enabled)
+  const enabledNumberFields = enabledFields.filter((f) => f.type === 'number')
   const enabledFieldsCount = enabledFields.length
+  const activeGoals = goals.filter((g) => !g.completedAt)
+  const completedGoals = goals.filter((g) => !!g.completedAt)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -318,18 +556,6 @@ function HabitFormInner({
         }
       : { showInCalendar: false }
 
-    const goalConfig =
-      goalOpen && goalDescription.trim()
-        ? {
-            type: goalType,
-            fieldTargets: goalType === 'field' ? goalFieldTargets : undefined,
-            endOnReach: goalType === 'field' ? goalEndOnReach : undefined,
-            description: goalDescription.trim(),
-          }
-        : goalOpen === false && !goalDescription.trim()
-          ? undefined
-          : null
-
     await onSubmit({
       name: name.trim(),
       description: description.trim() || undefined,
@@ -340,7 +566,7 @@ function HabitFormInner({
       timesPerWeek: frequency === 'times_per_week' ? timesPerWeek : undefined,
       startDate: startDate || undefined,
       trackingFields,
-      goal: goalConfig as HabitGoal | null | undefined,
+      goals: goals.length > 0 ? goals : [],
       ...calendarConfig,
     } as any)
     setIsPending(false)
@@ -822,172 +1048,96 @@ function HabitFormInner({
       </Section>
 
       <Section
-        title="Goal"
+        title="Goals"
         icon={Target}
         open={goalOpen}
         onToggle={() => setGoalOpen((v) => !v)}
-        badge={goalOpen && goalDescription.trim() ? 'Set' : 'Optional'}
+        badge={goals.length > 0 ? String(goals.length) : 'Optional'}
       >
         <p className="text-xs text-muted-foreground">
-          Set a goal to track your progress and stay motivated.
+          Add goals to track your progress and stay motivated.
         </p>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Goal description</Label>
-          <Input
-            value={goalDescription}
-            onChange={(e) => setGoalDescription(e.target.value)}
-            placeholder="e.g. Run 100km total, Complete 30 sessions..."
-            className="h-9 text-sm"
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-1.5">
-          <button
-            type="button"
-            onClick={() => setGoalType('manual')}
-            className={cn(
-              'rounded-xl border py-2 text-xs font-medium transition-all',
-              goalType === 'manual'
-                ? 'border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                : 'border-border/60 text-muted-foreground hover:bg-muted',
-            )}
-          >
-            Manual check
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              enabledFields.filter((f) => f.type === 'number').length > 0 && setGoalType('field')
-            }
-            disabled={enabledFields.filter((f) => f.type === 'number').length === 0}
-            className={cn(
-              'rounded-xl border py-2 text-xs font-medium transition-all',
-              enabledFields.filter((f) => f.type === 'number').length === 0
-                ? 'border-border/30 text-muted-foreground/30 cursor-not-allowed'
-                : goalType === 'field'
-                  ? 'border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                  : 'border-border/60 text-muted-foreground hover:bg-muted',
-            )}
-          >
-            Field target
-          </button>
-        </div>
 
-        {goalType === 'field' && (
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <Label className="text-xs">Tracking fields & targets</Label>
-              {enabledFields.filter((f) => f.type === 'number').length === 0 ? (
-                <p className="text-xs text-muted-foreground/60 py-1">
-                  Enable a number field in Tracking fields first.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {enabledFields
-                    .filter((f) => f.type === 'number')
-                    .map((field) => {
-                      const target = goalFieldTargets.find((t) => t.fieldKey === field.key)
-                      const isSelected = !!target
-                      return (
-                        <div key={field.key} className="space-y-1.5">
-                          <button
-                            type="button"
-                            onClick={() => toggleGoalField(field.key)}
-                            className={cn(
-                              'flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium transition-all text-left',
-                              isSelected
-                                ? 'border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                                : 'border-border/60 text-muted-foreground hover:bg-muted',
-                            )}
-                          >
-                            <div
-                              className={cn(
-                                'h-3.5 w-3.5 shrink-0 rounded border-2 flex items-center justify-center transition-all',
-                                isSelected ? 'bg-violet-500 border-violet-500' : 'border-border/60',
-                              )}
-                            >
-                              {isSelected && (
-                                <Check className="h-2 w-2 text-white" strokeWidth={3} />
-                              )}
-                            </div>
-                            <span className="flex-1">{field.label}</span>
-                          </button>
-                          {isSelected && (
-                            <div className="flex items-center gap-2 pl-6">
-                              <span className="text-[11px] text-muted-foreground shrink-0">
-                                Target:
-                              </span>
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setGoalFieldTargetValue(
-                                      field.key,
-                                      (target?.targetValue ?? 10) - 1,
-                                    )
-                                  }
-                                  className="flex h-6 w-6 items-center justify-center rounded-md border border-border/60 text-xs hover:bg-muted"
-                                >
-                                  −
-                                </button>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  value={target?.targetValue ?? 10}
-                                  onChange={(e) =>
-                                    setGoalFieldTargetValue(field.key, Number(e.target.value))
-                                  }
-                                  className="w-16 h-6 rounded-md border border-border/60 bg-background px-2 text-center text-xs outline-none focus:border-primary/40"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setGoalFieldTargetValue(
-                                      field.key,
-                                      (target?.targetValue ?? 10) + 1,
-                                    )
-                                  }
-                                  className="flex h-6 w-6 items-center justify-center rounded-md border border-border/60 text-xs hover:bg-muted"
-                                >
-                                  +
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                </div>
-              )}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setGoalEndOnReach((v) => !v)}
-              className="flex w-full items-center justify-between rounded-xl border border-border/50 bg-background px-4 py-3 transition-all hover:bg-muted/40"
-            >
-              <div className="text-left">
-                <p className="text-sm font-medium text-foreground">End habit on reach</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {goalEndOnReach
-                    ? 'Habit ends when all targets are reached'
-                    : 'Targets are milestones, habit continues'}
-                </p>
-              </div>
+        {activeGoals.length > 0 && !editingGoal && (
+          <div className="space-y-1.5">
+            {activeGoals.map((goal) => (
               <div
-                className={cn(
-                  'relative ml-4 h-5 w-9 shrink-0 rounded-full transition-colors',
-                  goalEndOnReach ? 'bg-violet-500' : 'bg-muted-foreground/30',
-                )}
+                key={goal.id}
+                className="flex items-center gap-2 rounded-xl border border-border/50 bg-background px-3 py-2.5"
               >
-                <span
-                  className={cn(
-                    'absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform',
-                    goalEndOnReach ? 'translate-x-4' : 'translate-x-0',
-                  )}
-                />
+                <Trophy className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-foreground truncate">{goal.description}</p>
+                  <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+                    {goal.type === 'manual'
+                      ? 'Manual'
+                      : `Field target${goal.endOnReach ? ' · ends on reach' : ' · milestone'}`}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingGoal(draftFromGoal(goal))}
+                  className="text-muted-foreground/40 hover:text-foreground transition-colors p-0.5"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeGoal(goal.id)}
+                  className="text-muted-foreground/40 hover:text-destructive transition-colors p-0.5"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
-            </button>
+            ))}
           </div>
+        )}
+
+        {completedGoals.length > 0 && !editingGoal && (
+          <div className="space-y-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/40">
+              Completed
+            </p>
+            {completedGoals.map((goal) => (
+              <div
+                key={goal.id}
+                className="flex items-center gap-2 rounded-xl border border-border/30 bg-muted/20 px-3 py-2 opacity-60"
+              >
+                <Check className="h-3 w-3 text-emerald-500 shrink-0" />
+                <p className="flex-1 text-xs text-muted-foreground truncate line-through">
+                  {goal.description}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => removeGoal(goal.id)}
+                  className="text-muted-foreground/30 hover:text-destructive transition-colors p-0.5"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {editingGoal && (
+          <GoalForm
+            draft={editingGoal}
+            enabledNumberFields={enabledNumberFields}
+            onChange={setEditingGoal}
+            onSave={saveGoal}
+            onCancel={() => setEditingGoal(null)}
+          />
+        )}
+
+        {!editingGoal && (
+          <button
+            type="button"
+            onClick={() => setEditingGoal(emptyGoalDraft())}
+            className="flex items-center gap-1.5 rounded-full border border-dashed border-border/60 px-3 py-1 text-xs text-muted-foreground hover:border-border hover:text-foreground transition-all"
+          >
+            <Plus className="h-3 w-3" />
+            Add goal
+          </button>
         )}
       </Section>
 

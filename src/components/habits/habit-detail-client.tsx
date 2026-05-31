@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Flame, Check, Calendar, TrendingUp, Trophy } from 'lucide-react'
+import { ArrowLeft, Flame, Check, Calendar, TrendingUp, Trophy, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,8 +17,8 @@ import { HabitTrackingDialog } from './habit-tracking-dialog'
 import { HabitTrackingCharts } from './habit-tracking-charts'
 import { type HabitTrackingAnalyticsResult } from '@/api/habits-analytics/actions'
 import { toast } from 'sonner'
-import { format, parseISO, endOfMonth, eachDayOfInterval } from 'date-fns'
 import confetti from 'canvas-confetti'
+import { format, parseISO, endOfMonth, eachDayOfInterval } from 'date-fns'
 
 const DAY_LABELS: Record<string, string> = {
   mon: 'Mo',
@@ -36,6 +36,18 @@ function frequencyLabel(habit: HabitDetail): string {
   if (habit.frequency === 'days_of_week' && habit.daysOfWeek?.length)
     return habit.daysOfWeek.map((d) => DAY_LABELS[d]).join(', ')
   return ''
+}
+
+function parseJsonField<T>(raw: any): T | null {
+  if (!raw) return null
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw) as T
+    } catch {
+      return null
+    }
+  }
+  return raw as T
 }
 
 function MonthCalendar({
@@ -96,27 +108,23 @@ function MonthCalendar({
   )
 }
 
-function GoalSection({
+function GoalCard({
   goal,
   color,
   trackingData,
-  goalCompletedAt,
   onToggleComplete,
   isPending,
 }: {
   goal: HabitGoal
   color: string
   trackingData: TrackingDataPoint[]
-  goalCompletedAt?: string | null
   onToggleComplete: () => void
   isPending: boolean
 }) {
-  if (!goal.description) return null
-
   const isMilestone = goal.type === 'field' && !goal.endOnReach
   const isEndGoal = goal.type === 'field' && goal.endOnReach
   const isManual = goal.type === 'manual'
-  const isCompleted = !!goalCompletedAt
+  const isCompleted = !!goal.completedAt
 
   const fieldTargets =
     goal.fieldTargets ??
@@ -135,46 +143,50 @@ function GoalSection({
 
   return (
     <div
-      className="relative overflow-hidden rounded-2xl p-6 text-center space-y-4"
+      className="relative overflow-hidden rounded-2xl p-5 space-y-3"
       style={{
         background: isCompleted
-          ? `linear-gradient(135deg, ${color}25 0%, ${color}12 50%, ${color}20 100%)`
+          ? `linear-gradient(135deg, ${color}15 0%, ${color}08 100%)`
           : `linear-gradient(135deg, ${color}18 0%, ${color}08 50%, ${color}14 100%)`,
-        border: `1px solid ${isCompleted ? color + '60' : color + '30'}`,
+        border: `1px solid ${isCompleted ? color + '40' : color + '30'}`,
+        opacity: isCompleted ? 0.75 : 1,
       }}
     >
-      <div className="flex justify-center">
+      <div className="flex items-start gap-3">
         <div
-          className="flex h-12 w-12 items-center justify-center rounded-2xl shadow-sm transition-all"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
           style={{
-            backgroundColor: isCompleted ? `${color}40` : `${color}20`,
-            border: `1px solid ${color}30`,
+            backgroundColor: isCompleted ? `${color}30` : `${color}20`,
+            border: `1px solid ${color}25`,
           }}
         >
-          <Trophy className="h-6 w-6" style={{ color }} />
+          <Trophy className="h-4 w-4" style={{ color }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+            <span
+              className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+              style={{ backgroundColor: `${color}20`, color }}
+            >
+              {isManual ? 'Goal' : isMilestone ? 'Milestone' : 'End goal'}
+            </span>
+            {isCompleted && (
+              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                ✓ Done
+              </span>
+            )}
+            {isEndGoal && !isCompleted && (
+              <span className="rounded-full bg-orange-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">
+                Ends on reach
+              </span>
+            )}
+          </div>
+          <p className="text-sm font-semibold text-foreground leading-snug">{goal.description}</p>
         </div>
       </div>
-      <div className="flex justify-center gap-2 flex-wrap">
-        <span
-          className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
-          style={{ backgroundColor: `${color}20`, color }}
-        >
-          {isManual ? 'Goal' : isMilestone ? 'Milestone' : 'End goal'}
-        </span>
-        {isCompleted && (
-          <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
-            ✓ Completed
-          </span>
-        )}
-        {isEndGoal && !isCompleted && (
-          <span className="rounded-full bg-orange-500/15 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">
-            Ends on reach
-          </span>
-        )}
-      </div>
-      <p className="text-base font-bold text-foreground leading-snug">{goal.description}</p>
+
       {goal.type === 'field' && fieldProgress.length > 0 && !isCompleted && (
-        <div className="space-y-3 max-w-xs mx-auto w-full">
+        <div className="space-y-2">
           {fieldProgress.map((fp) => (
             <div key={fp.fieldKey} className="space-y-1">
               <div className="flex items-center justify-between text-xs">
@@ -186,7 +198,7 @@ function GoalSection({
                   )}
                 </span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+              <div className="h-1.5 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
                 <div
                   className="h-full rounded-full transition-all duration-700"
                   style={{ width: `${fp.pct}%`, backgroundColor: color }}
@@ -195,52 +207,118 @@ function GoalSection({
             </div>
           ))}
           {trackingData.length === 0 && (
-            <p className="text-[10px] text-muted-foreground/60 text-center">
+            <p className="text-[10px] text-muted-foreground/50">
               Track values each session to see progress
             </p>
           )}
         </div>
       )}
+
       {isManual && (
-        <div className="flex justify-center">
-          <button
-            type="button"
-            onClick={onToggleComplete}
-            disabled={isPending}
-            className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
-            style={
-              isCompleted
-                ? { backgroundColor: `${color}20`, color, border: `1.5px solid ${color}50` }
-                : { backgroundColor: color, color: 'white', border: `1.5px solid ${color}` }
-            }
-          >
-            <Check className="h-4 w-4" strokeWidth={3} />
-            {isCompleted ? 'Mark as incomplete' : 'Mark as complete'}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onToggleComplete}
+          disabled={isPending}
+          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
+          style={
+            isCompleted
+              ? {
+                  backgroundColor: `${color}15`,
+                  color: color + 'aa',
+                  border: `1px solid ${color}30`,
+                }
+              : { backgroundColor: color, color: 'white', border: `1px solid ${color}` }
+          }
+        >
+          <Check className="h-3.5 w-3.5" strokeWidth={3} />
+          {isCompleted ? 'Mark as incomplete' : 'Mark as complete'}
+        </button>
       )}
+
       {goal.type === 'field' && allReached && !isCompleted && (
-        <div className="flex justify-center">
+        <button
+          type="button"
+          onClick={onToggleComplete}
+          disabled={isPending}
+          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
+          style={{ backgroundColor: color, color: 'white', border: `1px solid ${color}` }}
+        >
+          <Trophy className="h-3.5 w-3.5" />
+          Claim goal!
+        </button>
+      )}
+
+      {/* Déco */}
+      <div
+        className="pointer-events-none absolute -right-4 -top-4 h-16 w-16 rounded-full opacity-10"
+        style={{ backgroundColor: color }}
+      />
+    </div>
+  )
+}
+
+function GoalsSection({
+  goals,
+  color,
+  trackingData,
+  onToggleGoal,
+  isPending,
+}: {
+  goals: HabitGoal[]
+  color: string
+  trackingData: TrackingDataPoint[]
+  onToggleGoal: (goalId: string) => void
+  isPending: boolean
+}) {
+  const [showCompleted, setShowCompleted] = useState(false)
+
+  const activeGoals = goals.filter((g) => !g.completedAt)
+  const completedGoals = goals.filter((g) => !!g.completedAt)
+
+  if (goals.length === 0) return null
+
+  return (
+    <div className="space-y-3">
+      {activeGoals.map((goal) => (
+        <GoalCard
+          key={goal.id}
+          goal={goal}
+          color={color}
+          trackingData={trackingData}
+          onToggleComplete={() => onToggleGoal(goal.id)}
+          isPending={isPending}
+        />
+      ))}
+
+      {completedGoals.length > 0 && (
+        <div className="space-y-2">
           <button
             type="button"
-            onClick={onToggleComplete}
-            disabled={isPending}
-            className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
-            style={{ backgroundColor: color, color: 'white', border: `1.5px solid ${color}` }}
+            onClick={() => setShowCompleted((v) => !v)}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
           >
-            <Trophy className="h-4 w-4" />
-            Claim goal!
+            <ChevronDown
+              className={cn('h-3.5 w-3.5 transition-transform', showCompleted && 'rotate-180')}
+            />
+            {showCompleted ? 'Hide' : 'Show'} {completedGoals.length} completed goal
+            {completedGoals.length > 1 ? 's' : ''}
           </button>
+          {showCompleted && (
+            <div className="space-y-2">
+              {completedGoals.map((goal) => (
+                <GoalCard
+                  key={goal.id}
+                  goal={goal}
+                  color={color}
+                  trackingData={trackingData}
+                  onToggleComplete={() => onToggleGoal(goal.id)}
+                  isPending={isPending}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
-      <div
-        className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-10"
-        style={{ backgroundColor: color }}
-      />
-      <div
-        className="pointer-events-none absolute -bottom-4 -left-4 h-16 w-16 rounded-full opacity-10"
-        style={{ backgroundColor: color }}
-      />
     </div>
   )
 }
@@ -306,12 +384,17 @@ export function HabitDetailClient({
     refresh()
   }
 
-  const handleToggleGoal = async () => {
-    const wasCompleted = !!habit.goalCompletedAt
-    setHabit((prev) => ({
-      ...prev,
-      goalCompletedAt: wasCompleted ? null : new Date().toISOString(),
-    }))
+  const handleToggleGoal = async (goalId: string) => {
+    const goals: HabitGoal[] = parseJsonField<HabitGoal[]>((habit as any).goals) ?? []
+    const goal = goals.find((g) => g.id === goalId)
+    if (!goal) return
+
+    const wasCompleted = !!goal.completedAt
+
+    const updatedGoals = goals.map((g) =>
+      g.id === goalId ? { ...g, completedAt: wasCompleted ? null : new Date().toISOString() } : g,
+    )
+    setHabit((prev) => ({ ...prev, goals: updatedGoals }) as any)
 
     if (!wasCompleted) {
       confetti({
@@ -320,33 +403,44 @@ export function HabitDetailClient({
         origin: { y: 0.6 },
         colors: [habit.color, '#f97316', '#8b5cf6', '#10b981', '#f59e0b'],
       })
-      setTimeout(() => {
-        confetti({
-          particleCount: 60,
-          spread: 100,
-          origin: { y: 0.55, x: 0.3 },
-          colors: [habit.color, '#ec4899', '#6366f1'],
-        })
-      }, 200)
-      setTimeout(() => {
-        confetti({
-          particleCount: 60,
-          spread: 100,
-          origin: { y: 0.55, x: 0.7 },
-          colors: [habit.color, '#0ea5e9', '#84cc16'],
-        })
-      }, 350)
+      setTimeout(
+        () =>
+          confetti({
+            particleCount: 60,
+            spread: 100,
+            origin: { y: 0.55, x: 0.3 },
+            colors: [habit.color, '#ec4899', '#6366f1'],
+          }),
+        200,
+      )
+      setTimeout(
+        () =>
+          confetti({
+            particleCount: 60,
+            spread: 100,
+            origin: { y: 0.55, x: 0.7 },
+            colors: [habit.color, '#0ea5e9', '#84cc16'],
+          }),
+        350,
+      )
     }
 
-    const result = await markGoalComplete(habit.id, !wasCompleted)
+    const result = await markGoalComplete(habit.id, goalId, !wasCompleted)
     if ('error' in result) {
       toast.error('Failed to update goal')
-      setHabit((prev) => ({
-        ...prev,
-        goalCompletedAt: wasCompleted ? new Date().toISOString() : null,
-      }))
+      setHabit((prev) => ({ ...prev, goals }) as any)
+    } else {
+      refresh()
     }
   }
+
+  const goals: HabitGoal[] = (() => {
+    const rawGoals = parseJsonField<HabitGoal[]>((habit as any).goals)
+    if (rawGoals && rawGoals.length > 0) return rawGoals
+    const oldGoal = parseJsonField<HabitGoal>((habit as any).goal)
+    if (oldGoal?.description) return [{ ...oldGoal, id: oldGoal.id ?? 'legacy' }]
+    return []
+  })()
 
   const completionSet = new Set(habit.completions)
   const now = new Date()
@@ -361,7 +455,7 @@ export function HabitDetailClient({
   return (
     <div className="px-4 pb-16 pt-8 sm:px-6 lg:px-10">
       <Link
-        href="/habits/habits-view"
+        href="/habits"
         className="mb-6 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
@@ -454,14 +548,13 @@ export function HabitDetailClient({
         ))}
       </div>
 
-      {habit.goal && (
+      {goals.length > 0 && (
         <div className="mb-6">
-          <GoalSection
-            goal={habit.goal}
+          <GoalsSection
+            goals={goals}
             color={habit.color}
             trackingData={habit.trackingData ?? []}
-            goalCompletedAt={habit.goalCompletedAt}
-            onToggleComplete={handleToggleGoal}
+            onToggleGoal={handleToggleGoal}
             isPending={isPending}
           />
         </div>
