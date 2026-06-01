@@ -25,6 +25,7 @@ import {
   listHabits,
   type HabitWithStats,
   type HabitData,
+  HabitGoal,
 } from '@/api/habits/actions'
 import { HabitFormDialog } from './habit-form-dialog'
 import { HabitTrackingDialog } from './habit-tracking-dialog'
