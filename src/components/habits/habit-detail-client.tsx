@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Flame, Check, Calendar, TrendingUp, Trophy, ChevronDown } from 'lucide-react'
+import { ArrowLeft, Flame, Check, Calendar, TrendingUp, Trophy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -124,7 +124,6 @@ function GoalCard({
   const isMilestone = goal.type === 'field' && !goal.endOnReach
   const isEndGoal = goal.type === 'field' && goal.endOnReach
   const isManual = goal.type === 'manual'
-  const isCompleted = !!goal.completedAt
 
   const fieldTargets =
     goal.fieldTargets ??
@@ -143,50 +142,39 @@ function GoalCard({
 
   return (
     <div
-      className="relative overflow-hidden rounded-2xl p-5 space-y-3"
+      className="relative overflow-hidden rounded-2xl p-6 text-center space-y-4"
       style={{
-        background: isCompleted
-          ? `linear-gradient(135deg, ${color}15 0%, ${color}08 100%)`
-          : `linear-gradient(135deg, ${color}18 0%, ${color}08 50%, ${color}14 100%)`,
-        border: `1px solid ${isCompleted ? color + '40' : color + '30'}`,
-        opacity: isCompleted ? 0.75 : 1,
+        background: `linear-gradient(135deg, ${color}18 0%, ${color}08 50%, ${color}14 100%)`,
+        border: `1px solid ${color}30`,
       }}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex justify-center">
         <div
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
-          style={{
-            backgroundColor: isCompleted ? `${color}30` : `${color}20`,
-            border: `1px solid ${color}25`,
-          }}
+          className="flex h-10 w-10 items-center justify-center rounded-xl"
+          style={{ backgroundColor: `${color}20`, border: `1px solid ${color}25` }}
         >
-          <Trophy className="h-4 w-4" style={{ color }} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap mb-0.5">
-            <span
-              className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-              style={{ backgroundColor: `${color}20`, color }}
-            >
-              {isManual ? 'Goal' : isMilestone ? 'Milestone' : 'End goal'}
-            </span>
-            {isCompleted && (
-              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
-                ✓ Done
-              </span>
-            )}
-            {isEndGoal && !isCompleted && (
-              <span className="rounded-full bg-orange-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">
-                Ends on reach
-              </span>
-            )}
-          </div>
-          <p className="text-sm font-semibold text-foreground leading-snug">{goal.description}</p>
+          <Trophy className="h-5 w-5" style={{ color }} />
         </div>
       </div>
 
-      {goal.type === 'field' && fieldProgress.length > 0 && !isCompleted && (
-        <div className="space-y-2">
+      <div className="flex justify-center gap-2 flex-wrap">
+        <span
+          className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
+          style={{ backgroundColor: `${color}20`, color }}
+        >
+          {isManual ? 'Goal' : isMilestone ? 'Milestone' : 'End goal'}
+        </span>
+        {isEndGoal && (
+          <span className="rounded-full bg-orange-500/15 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">
+            Ends on reach
+          </span>
+        )}
+      </div>
+
+      <p className="text-sm font-semibold text-foreground leading-snug">{goal.description}</p>
+
+      {goal.type === 'field' && fieldProgress.length > 0 && (
+        <div className="space-y-2 max-w-xs mx-auto w-full">
           {fieldProgress.map((fp) => (
             <div key={fp.fieldKey} className="space-y-1">
               <div className="flex items-center justify-between text-xs">
@@ -215,110 +203,43 @@ function GoalCard({
       )}
 
       {isManual && (
-        <button
-          type="button"
-          onClick={onToggleComplete}
-          disabled={isPending}
-          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
-          style={
-            isCompleted
-              ? {
-                  backgroundColor: `${color}15`,
-                  color: color + 'aa',
-                  border: `1px solid ${color}30`,
-                }
-              : { backgroundColor: color, color: 'white', border: `1px solid ${color}` }
-          }
-        >
-          <Check className="h-3.5 w-3.5" strokeWidth={3} />
-          {isCompleted ? 'Mark as incomplete' : 'Mark as complete'}
-        </button>
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={onToggleComplete}
+            disabled={isPending}
+            className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold transition-all"
+            style={{ backgroundColor: color, color: 'white', border: `1px solid ${color}` }}
+          >
+            <Check className="h-3.5 w-3.5" strokeWidth={3} />
+            Mark as complete
+          </button>
+        </div>
       )}
 
-      {goal.type === 'field' && allReached && !isCompleted && (
-        <button
-          type="button"
-          onClick={onToggleComplete}
-          disabled={isPending}
-          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
-          style={{ backgroundColor: color, color: 'white', border: `1px solid ${color}` }}
-        >
-          <Trophy className="h-3.5 w-3.5" />
-          Claim goal!
-        </button>
+      {goal.type === 'field' && allReached && (
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={onToggleComplete}
+            disabled={isPending}
+            className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold transition-all"
+            style={{ backgroundColor: color, color: 'white', border: `1px solid ${color}` }}
+          >
+            <Trophy className="h-3.5 w-3.5" />
+            Claim goal!
+          </button>
+        </div>
       )}
 
-      {/* Déco */}
       <div
         className="pointer-events-none absolute -right-4 -top-4 h-16 w-16 rounded-full opacity-10"
         style={{ backgroundColor: color }}
       />
-    </div>
-  )
-}
-
-function GoalsSection({
-  goals,
-  color,
-  trackingData,
-  onToggleGoal,
-  isPending,
-}: {
-  goals: HabitGoal[]
-  color: string
-  trackingData: TrackingDataPoint[]
-  onToggleGoal: (goalId: string) => void
-  isPending: boolean
-}) {
-  const [showCompleted, setShowCompleted] = useState(false)
-
-  const activeGoals = goals.filter((g) => !g.completedAt)
-  const completedGoals = goals.filter((g) => !!g.completedAt)
-
-  if (goals.length === 0) return null
-
-  return (
-    <div className="space-y-3">
-      {activeGoals.map((goal) => (
-        <GoalCard
-          key={goal.id}
-          goal={goal}
-          color={color}
-          trackingData={trackingData}
-          onToggleComplete={() => onToggleGoal(goal.id)}
-          isPending={isPending}
-        />
-      ))}
-
-      {completedGoals.length > 0 && (
-        <div className="space-y-2">
-          <button
-            type="button"
-            onClick={() => setShowCompleted((v) => !v)}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
-          >
-            <ChevronDown
-              className={cn('h-3.5 w-3.5 transition-transform', showCompleted && 'rotate-180')}
-            />
-            {showCompleted ? 'Hide' : 'Show'} {completedGoals.length} completed goal
-            {completedGoals.length > 1 ? 's' : ''}
-          </button>
-          {showCompleted && (
-            <div className="space-y-2">
-              {completedGoals.map((goal) => (
-                <GoalCard
-                  key={goal.id}
-                  goal={goal}
-                  color={color}
-                  trackingData={trackingData}
-                  onToggleComplete={() => onToggleGoal(goal.id)}
-                  isPending={isPending}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      <div
+        className="pointer-events-none absolute -bottom-3 -left-3 h-10 w-10 rounded-full opacity-10"
+        style={{ backgroundColor: color }}
+      />
     </div>
   )
 }
@@ -390,7 +311,6 @@ export function HabitDetailClient({
     if (!goal) return
 
     const wasCompleted = !!goal.completedAt
-
     const updatedGoals = goals.map((g) =>
       g.id === goalId ? { ...g, completedAt: wasCompleted ? null : new Date().toISOString() } : g,
     )
@@ -441,6 +361,9 @@ export function HabitDetailClient({
     if (oldGoal?.description) return [{ ...oldGoal, id: oldGoal.id ?? 'legacy' }]
     return []
   })()
+
+  const activeGoals = goals.filter((g) => !g.completedAt)
+  const completedGoals = goals.filter((g) => !!g.completedAt)
 
   const completionSet = new Set(habit.completions)
   const now = new Date()
@@ -548,15 +471,18 @@ export function HabitDetailClient({
         ))}
       </div>
 
-      {goals.length > 0 && (
-        <div className="mb-6">
-          <GoalsSection
-            goals={goals}
-            color={habit.color}
-            trackingData={habit.trackingData ?? []}
-            onToggleGoal={handleToggleGoal}
-            isPending={isPending}
-          />
+      {activeGoals.length > 0 && (
+        <div className="mb-6 space-y-3">
+          {activeGoals.map((goal) => (
+            <GoalCard
+              key={goal.id}
+              goal={goal}
+              color={habit.color}
+              trackingData={habit.trackingData ?? []}
+              onToggleComplete={() => handleToggleGoal(goal.id)}
+              isPending={isPending}
+            />
+          ))}
         </div>
       )}
 
@@ -612,6 +538,31 @@ export function HabitDetailClient({
           ))}
         </div>
       </div>
+
+      {completedGoals.length > 0 && (
+        <div className="mt-6 space-y-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/40">
+            Completed goals
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {completedGoals.map((goal) => (
+              <button
+                key={goal.id}
+                type="button"
+                onClick={() => handleToggleGoal(goal.id)}
+                disabled={isPending}
+                title="Click to mark as incomplete"
+                className="flex items-center gap-1.5 rounded-xl border border-border/30 bg-muted/30 px-3 py-1.5 transition-all hover:bg-muted/50 hover:border-border/50"
+              >
+                <Trophy className="h-3 w-3 shrink-0 text-emerald-500" />
+                <span className="text-xs font-medium text-muted-foreground/70 max-w-[160px] truncate">
+                  {goal.description}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <HabitTrackingDialog
         key={habit.id}
