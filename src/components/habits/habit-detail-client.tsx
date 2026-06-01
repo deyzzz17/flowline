@@ -540,11 +540,11 @@ export function HabitDetailClient({
       </div>
 
       {completedGoals.length > 0 && (
-        <div className="mt-6 space-y-2">
+        <div className="mt-6 space-y-3">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/40">
             Completed goals
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-3">
             {completedGoals.map((goal) => (
               <button
                 key={goal.id}
@@ -552,10 +552,18 @@ export function HabitDetailClient({
                 onClick={() => handleToggleGoal(goal.id)}
                 disabled={isPending}
                 title="Click to mark as incomplete"
-                className="flex items-center gap-1.5 rounded-xl border border-border/30 bg-muted/30 px-3 py-1.5 transition-all hover:bg-muted/50 hover:border-border/50"
+                className="flex flex-col items-center justify-center gap-2 rounded-2xl p-4 transition-all hover:scale-105 hover:brightness-110"
+                style={{
+                  width: '100px',
+                  minHeight: '100px',
+                  background: `linear-gradient(135deg, ${habit.color}cc 0%, ${habit.color}99 100%)`,
+                }}
               >
-                <Trophy className="h-3 w-3 shrink-0 text-emerald-500" />
-                <span className="text-xs font-medium text-muted-foreground/70 max-w-[160px] truncate">
+                <Trophy
+                  className="h-7 w-7"
+                  style={{ color: habit.color, filter: 'brightness(2)' }}
+                />
+                <span className="text-[11px] font-semibold text-white text-center leading-tight line-clamp-2">
                   {goal.description}
                 </span>
               </button>
