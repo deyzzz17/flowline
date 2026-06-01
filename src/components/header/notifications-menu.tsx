@@ -1,11 +1,10 @@
 'use client'
 
-import { Bell, X } from 'lucide-react'
+import { Bell, X, Trophy } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { useNotifications } from '@/hooks/header/use-notifications'
 import { useRouter, usePathname } from 'next/navigation'
-import { format } from 'date-fns'
 
 function ensureHighlightStyle() {
   if (typeof window === 'undefined') return
@@ -28,14 +27,11 @@ function ensureHighlightStyle() {
 
 function highlightTask(taskId: number) {
   ensureHighlightStyle()
-
   document.querySelectorAll('[data-task-id].mention-highlighted').forEach((el) => {
     el.classList.remove('mention-highlighted')
   })
-
   const el = document.querySelector(`[data-task-id="${taskId}"]`) as HTMLElement | null
   if (!el) return
-
   el.scrollIntoView({ behavior: 'smooth', block: 'center' })
   setTimeout(() => {
     el.classList.add('mention-highlighted')
@@ -57,16 +53,21 @@ export const NotificationsMenu = () => {
   const router = useRouter()
   const pathname = usePathname()
 
-  const handleNotifClick = (taskId: number, listSlug: string) => {
+  const handleNotifClick = (notif: typeof notifications[0]) => {
     setOpen(false)
-    const targetPath = `/lists/${listSlug}`
-    const isSamePage = pathname === targetPath
 
+    if (notif.level === 'goal_claim' && notif.habitSlug) {
+      router.push(`/habits/${notif.habitSlug}`)
+      return
+    }
+
+    const targetPath = `/lists/${notif.listSlug}`
+    const isSamePage = pathname === targetPath
     if (isSamePage) {
-      tryHighlight(taskId)
+      tryHighlight(notif.taskId)
     } else {
       router.push(targetPath)
-      setTimeout(() => tryHighlight(taskId), 300)
+      setTimeout(() => tryHighlight(notif.taskId), 300)
     }
   }
 
@@ -126,35 +127,43 @@ export const NotificationsMenu = () => {
               >
                 <button
                   type="button"
-                  onClick={() => handleNotifClick(notif.taskId, notif.listSlug)}
+                  onClick={() => handleNotifClick(notif)}
                   className="flex flex-1 items-start gap-3 text-left"
-                >
-                  <div
-                    className="mt-0.5 h-2 w-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: notif.listColor }}
-                  />
+                > 
+                  {notif.level === 'goal_claim' ? (
+                    <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+                      style={{ backgroundColor: notif.listColor + '25' }}>
+                      <Trophy className="h-3 w-3" style={{ color: notif.listColor }} />
+                    </div>
+                  ) : (
+                    <div
+                      className="mt-0.5 h-2 w-2 shrink-0 rounded-full mt-1.5"
+                      style={{ backgroundColor: notif.listColor }}
+                    />
+                  )}
+
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-foreground truncate">
-                      {notif.taskTitle}
+                      {notif.level === 'goal_claim' ? notif.taskTitle : notif.taskTitle}
                     </p>
                     <p className="text-[10px] text-muted-foreground/70 mt-0.5 truncate">
-                      {notif.listName}
+                      {notif.level === 'goal_claim' ? notif.goalDescription : notif.listName}
                     </p>
                     <div className="mt-1.5 flex items-center gap-1.5">
                       <span
                         className={cn(
-                          'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                          notif.level === 'today'
-                            ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                            : notif.level === 'urgent'
-                              ? 'bg-destructive/10 text-destructive'
-                              : 'bg-orange-500/10 text-orange-500 dark:text-orange-400',
+                          'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                          notif.level === 'goal_claim'
+                            ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                            : notif.level === 'today'
+                              ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                              : notif.level === 'urgent'
+                                ? 'bg-destructive/10 text-destructive'
+                                : 'bg-orange-500/10 text-orange-500 dark:text-orange-400',
                         )}
                       >
+                        {notif.level === 'goal_claim' && <Trophy className="h-2.5 w-2.5" />}
                         {notif.message}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground/50">
-                        {format(new Date(notif.dueDate), 'MMM d')}
                       </span>
                     </div>
                   </div>

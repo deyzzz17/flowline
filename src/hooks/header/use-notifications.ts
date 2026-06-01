@@ -3,9 +3,11 @@
 import { useState, useRef, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
+import { listHabits } from '@/api/habits/actions'
 import type { Task } from '@/payload-types'
+import type { HabitWithStats, HabitGoal } from '@/api/habits/actions'
 
-export type NotificationLevel = 'today' | 'urgent' | 'warning'
+export type NotificationLevel = 'today' | 'urgent' | 'warning' | 'goal_claim'
 
 export interface TaskNotification {
   id: string
@@ -17,6 +19,8 @@ export interface TaskNotification {
   level: NotificationLevel
   message: string
   dueDate: string
+  habitSlug?: string
+  goalDescription?: string
 }
 
 function isSameCalendarDay(a: Date, b: Date): boolean {
@@ -60,8 +64,7 @@ function buildNotifications(tasks: Task[]): TaskNotification[] {
         message: 'Due today',
         dueDate: task.dueDate,
       })
-    }
-    else if (dueDayStart === tomorrowStart) {
+    } else if (dueDayStart === tomorrowStart) {
       notifications.push({
         id: `urgent-${task.id}`,
         taskId: task.id,
@@ -73,8 +76,7 @@ function buildNotifications(tasks: Task[]): TaskNotification[] {
         message: 'Due tomorrow',
         dueDate: task.dueDate,
       })
-    }
-    else if (dueDayStart === twoDaysStart) {
+    } else if (dueDayStart === twoDaysStart) {
       notifications.push({
         id: `warning-${task.id}`,
         taskId: task.id,
@@ -89,9 +91,49 @@ function buildNotifications(tasks: Task[]): TaskNotification[] {
     }
   }
 
-  // Trier : today en premier, puis urgent, puis warning
-  const order: Record<NotificationLevel, number> = { today: 0, urgent: 1, warning: 2 }
+  const order: Record<NotificationLevel, number> = { today: 0, urgent: 1, warning: 2, goal_claim: 3 }
   return notifications.sort((a, b) => order[a.level] - order[b.level])
+}
+
+function buildGoalClaimNotifications(habits: HabitWithStats[]): TaskNotification[] {
+  const notifications: TaskNotification[] = []
+
+  for (const habit of habits) {
+    const goals: HabitGoal[] = (() => {
+      const raw = (habit as any).goals
+      if (!raw) return []
+      if (typeof raw === 'string') { try { return JSON.parse(raw) } catch { return [] } }
+      if (Array.isArray(raw)) return raw
+      return []
+    })()
+
+    for (const goal of goals) {
+      if (goal.completedAt) continue
+      if (goal.type !== 'field' || !goal.endOnReach) continue
+
+      const fieldTargets = goal.fieldTargets
+        ?? (goal.fieldKey ? [{ fieldKey: goal.fieldKey, targetValue: goal.targetValue ?? 1 }] : [])
+      if (fieldTargets.length === 0) continue
+      
+      if (habit.completionRate30d < 100) continue
+
+      notifications.push({
+        id: `goal-claim-${habit.id}-${goal.id}`,
+        taskId: habit.id,
+        taskTitle: habit.name,
+        listName: goal.description,
+        listSlug: habit.slug,
+        listColor: habit.color,
+        level: 'goal_claim',
+        message: 'Goal ready to claim!',
+        dueDate: new Date().toISOString(),
+        habitSlug: habit.slug,
+        goalDescription: goal.description,
+      })
+    }
+  }
+
+  return notifications
 }
 
 export const useNotifications = () => {
@@ -108,10 +150,19 @@ export const useNotifications = () => {
     refetchInterval: 30_000,
   })
 
-  const allNotifications = useMemo(
-    () => buildNotifications((data?.docs ?? []) as Task[]),
-    [data],
-  )
+  const { data: habitsData } = useQuery({
+    queryKey: ['habits'],
+    queryFn: () => listHabits(),
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 120_000,
+  })
+
+  const allNotifications = useMemo(() => {
+    const taskNotifs = buildNotifications((data?.docs ?? []) as Task[])
+    const goalNotifs = buildGoalClaimNotifications(habitsData ?? [])
+    return [...taskNotifs, ...goalNotifs]
+  }, [data, habitsData])
 
   const notifications = useMemo(
     () => allNotifications.filter((n) => !dismissedIds.has(n.id)),

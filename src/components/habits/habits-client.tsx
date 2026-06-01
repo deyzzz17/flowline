@@ -12,6 +12,7 @@ import {
   Archive,
   Loader2,
   Target,
+  Trophy,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -141,6 +142,26 @@ function recalcRate(habit: HabitWithStats, adding: boolean): number {
     ? Math.min(targets, currentCompleted + 1)
     : Math.max(0, currentCompleted - 1)
   return Math.round((newCompleted / targets) * 100)
+}
+
+function hasClaimableGoal(habit: HabitWithStats): boolean {
+  const goals: HabitGoal[] = (() => {
+    const raw = (habit as any).goals
+    if (!raw) return []
+    if (typeof raw === 'string') {
+      try {
+        return JSON.parse(raw)
+      } catch {
+        return []
+      }
+    }
+    if (Array.isArray(raw)) return raw
+    return []
+  })()
+  return goals.some((g) => {
+    if (g.completedAt || g.type !== 'field' || !g.endOnReach) return false
+    return habit.completionRate30d >= 100
+  })
 }
 
 interface HabitsClientProps {
@@ -375,7 +396,9 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
                 'group relative rounded-2xl border bg-background transition-all',
                 habit.completedToday
                   ? 'border-border/30 opacity-75'
-                  : 'border-border/60 hover:border-border',
+                  : hasClaimableGoal(habit)
+                    ? 'border-amber-500/50 shadow-[0_0_0_1px_rgba(245,158,11,0.2)]'
+                    : 'border-border/60 hover:border-border',
               )}
             >
               <div className="flex items-center gap-4 p-4">
@@ -405,6 +428,17 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
                     />
                   )}
                 </button>
+
+                {hasClaimableGoal(habit) && (
+                  <Link href={`/habits/${habit.slug}`} className="shrink-0">
+                    <div className="flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/30 px-2 py-0.5">
+                      <Trophy className="h-3 w-3 text-amber-500" />
+                      <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                        Claim
+                      </span>
+                    </div>
+                  </Link>
+                )}
 
                 <Link href={`/habits/${habit.slug}`} className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
