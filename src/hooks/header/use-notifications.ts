@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
 import { listHabits } from '@/api/habits/actions'
 import type { Task } from '@/payload-types'
-import type { HabitWithStats, HabitGoal } from '@/api/habits/actions'
+import type { HabitWithStats } from '@/api/habits/actions'
 
 export type NotificationLevel = 'today' | 'urgent' | 'warning' | 'goal_claim'
 
@@ -44,8 +44,12 @@ function buildNotifications(tasks: Task[]): TaskNotification[] {
 
   for (const task of tasks) {
     if (task.status !== 'active' || !task.dueDate) continue
-
-    type ListObj = { id: number; name: string; slug: string; category?: { color?: string | null } | null }
+    type ListObj = {
+      id: number
+      name: string
+      slug: string
+      category?: { color?: string | null } | null
+    }
     const list = task.list && typeof task.list === 'object' ? (task.list as ListObj) : null
     if (!list) continue
 
@@ -91,7 +95,12 @@ function buildNotifications(tasks: Task[]): TaskNotification[] {
     }
   }
 
-  const order: Record<NotificationLevel, number> = { today: 0, urgent: 1, warning: 2, goal_claim: 3 }
+  const order: Record<NotificationLevel, number> = {
+    today: 0,
+    urgent: 1,
+    warning: 2,
+    goal_claim: 3,
+  }
   return notifications.sort((a, b) => order[a.level] - order[b.level])
 }
 
@@ -99,26 +108,17 @@ function buildGoalClaimNotifications(habits: HabitWithStats[]): TaskNotification
   const notifications: TaskNotification[] = []
 
   for (const habit of habits) {
-    const goals: HabitGoal[] = (() => {
-      const raw = (habit as any).goals
-      if (!raw) return []
-      if (typeof raw === 'string') { try { return JSON.parse(raw) } catch { return [] } }
-      if (Array.isArray(raw)) return raw
-      return []
-    })()
+    const claimableIds = habit.claimableGoalIds ?? []
+    if (claimableIds.length === 0) continue
 
-    for (const goal of goals) {
-      if (goal.completedAt) continue
-      if (goal.type !== 'field' || !goal.endOnReach) continue
+    const goals = habit.goals ?? []
 
-      const fieldTargets = goal.fieldTargets
-        ?? (goal.fieldKey ? [{ fieldKey: goal.fieldKey, targetValue: goal.targetValue ?? 1 }] : [])
-      if (fieldTargets.length === 0) continue
-      
-      if (habit.completionRate30d < 100) continue
+    for (const goalId of claimableIds) {
+      const goal = goals.find((g) => g.id === goalId)
+      if (!goal) continue
 
       notifications.push({
-        id: `goal-claim-${habit.id}-${goal.id}`,
+        id: `goal-claim-${habit.id}-${goalId}`,
         taskId: habit.id,
         taskTitle: habit.name,
         listName: goal.description,

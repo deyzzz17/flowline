@@ -146,23 +146,7 @@ function recalcRate(habit: HabitWithStats, adding: boolean): number {
 }
 
 function hasClaimableGoal(habit: HabitWithStats): boolean {
-  const goals: HabitGoal[] = (() => {
-    const raw = (habit as any).goals
-    if (!raw) return []
-    if (typeof raw === 'string') {
-      try {
-        return JSON.parse(raw)
-      } catch {
-        return []
-      }
-    }
-    if (Array.isArray(raw)) return raw
-    return []
-  })()
-  return goals.some((g) => {
-    if (g.completedAt || g.type !== 'field' || !g.endOnReach) return false
-    return habit.completionRate30d >= 100
-  })
+  return (habit.claimableGoalIds?.length ?? 0) > 0
 }
 
 interface HabitsClientProps {
