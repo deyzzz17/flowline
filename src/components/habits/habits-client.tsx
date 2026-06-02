@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import {
   Flame,
@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   toggleHabitCompletion,
   createHabit,
@@ -25,7 +26,6 @@ import {
   listHabits,
   type HabitWithStats,
   type HabitData,
-  HabitGoal,
 } from '@/api/habits/actions'
 import { HabitFormDialog } from './habit-form-dialog'
 import { HabitTrackingDialog } from './habit-tracking-dialog'
@@ -130,6 +130,10 @@ function GoalBadge({ habit }: { habit: HabitWithStats }) {
   )
 }
 
+function hasClaimableGoal(habit: HabitWithStats): boolean {
+  return (habit.claimableGoalIds?.length ?? 0) > 0
+}
+
 function recalcRate(habit: HabitWithStats, adding: boolean): number {
   let targets = 30
   if (habit.frequency === 'days_of_week') {
@@ -145,37 +149,41 @@ function recalcRate(habit: HabitWithStats, adding: boolean): number {
   return Math.round((newCompleted / targets) * 100)
 }
 
-function hasClaimableGoal(habit: HabitWithStats): boolean {
-  return (habit.claimableGoalIds?.length ?? 0) > 0
-}
-
 interface HabitsClientProps {
   initialHabits: HabitWithStats[]
 }
 
 export function HabitsClient({ initialHabits }: HabitsClientProps) {
-  const [habits, setHabits] = useState(initialHabits)
+  const queryClient = useQueryClient()
+
+  const { data: habitsData = initialHabits } = useQuery({
+    queryKey: ['habits'],
+    queryFn: () => listHabits(),
+    initialData: initialHabits,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  })
+
+  const [optimisticHabits, setOptimisticHabits] = useState<HabitWithStats[] | null>(null)
+  const habits = optimisticHabits ?? habitsData
+
   const [formOpen, setFormOpen] = useState(false)
   const [editingHabit, setEditingHabit] = useState<HabitWithStats | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<HabitWithStats | null>(null)
-  const [isPending, startTransition] = useTransition()
   const [togglingId, setTogglingId] = useState<number | null>(null)
-
   const [trackingHabit, setTrackingHabit] = useState<HabitWithStats | null>(null)
 
   const refresh = () => {
-    startTransition(async () => {
-      const fresh = await listHabits()
-      setHabits(fresh)
-    })
+    setOptimisticHabits(null)
+    queryClient.invalidateQueries({ queryKey: ['habits'] })
   }
 
   const handleToggle = async (habit: HabitWithStats) => {
     if (habit.completedToday) {
       const newRate = recalcRate(habit, false)
       setTogglingId(habit.id)
-      setHabits((prev) =>
-        prev.map((h) =>
+      setOptimisticHabits((prev) =>
+        (prev ?? habitsData).map((h) =>
           h.id === habit.id
             ? {
                 ...h,
@@ -188,6 +196,7 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
       )
       await toggleHabitCompletion(habit.id)
       setTogglingId(null)
+      refresh()
       return
     }
 
@@ -199,8 +208,8 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
 
     const newRate = recalcRate(habit, true)
     setTogglingId(habit.id)
-    setHabits((prev) =>
-      prev.map((h) =>
+    setOptimisticHabits((prev) =>
+      (prev ?? habitsData).map((h) =>
         h.id === habit.id
           ? {
               ...h,
@@ -212,11 +221,12 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
       ),
     )
     const result = await toggleHabitCompletion(habit.id)
+    setTogglingId(null)
     if ('error' in result) {
       toast.error('Failed to update habit')
-      refresh()
+      setOptimisticHabits(null)
     }
-    setTogglingId(null)
+    refresh()
   }
 
   const handleTrackingSubmit = async (values: Record<string, number | string | boolean>) => {
@@ -225,8 +235,8 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
     const newRate = recalcRate(habit, true)
     setTrackingHabit(null)
     setTogglingId(habit.id)
-    setHabits((prev) =>
-      prev.map((h) =>
+    setOptimisticHabits((prev) =>
+      (prev ?? habitsData).map((h) =>
         h.id === habit.id
           ? {
               ...h,
@@ -238,11 +248,12 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
       ),
     )
     const result = await toggleHabitCompletion(habit.id, undefined, values)
+    setTogglingId(null)
     if ('error' in result) {
       toast.error('Failed to update habit')
-      refresh()
+      setOptimisticHabits(null)
     }
-    setTogglingId(null)
+    refresh()
   }
 
   const handleTrackingSkip = async () => {
@@ -251,8 +262,8 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
     const newRate = recalcRate(habit, true)
     setTrackingHabit(null)
     setTogglingId(habit.id)
-    setHabits((prev) =>
-      prev.map((h) =>
+    setOptimisticHabits((prev) =>
+      (prev ?? habitsData).map((h) =>
         h.id === habit.id
           ? {
               ...h,
@@ -264,11 +275,12 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
       ),
     )
     const result = await toggleHabitCompletion(habit.id)
+    setTogglingId(null)
     if ('error' in result) {
       toast.error('Failed to update habit')
-      refresh()
+      setOptimisticHabits(null)
     }
-    setTogglingId(null)
+    refresh()
   }
 
   const handleCreate = async (data: HabitData) => {
@@ -301,7 +313,8 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
       return
     }
     toast.success('Habit archived')
-    setHabits((prev) => prev.filter((h) => h.id !== habit.id))
+    setOptimisticHabits((prev) => (prev ?? habitsData).filter((h) => h.id !== habit.id))
+    refresh()
   }
 
   const handleDelete = async () => {
@@ -312,8 +325,9 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
       return
     }
     toast.success('Habit deleted')
-    setHabits((prev) => prev.filter((h) => h.id !== deleteTarget.id))
+    setOptimisticHabits((prev) => (prev ?? habitsData).filter((h) => h.id !== deleteTarget.id))
     setDeleteTarget(null)
+    refresh()
   }
 
   const todayCompleted = habits.filter((h) => h.completedToday).length

@@ -44,12 +44,7 @@ function buildNotifications(tasks: Task[]): TaskNotification[] {
 
   for (const task of tasks) {
     if (task.status !== 'active' || !task.dueDate) continue
-    type ListObj = {
-      id: number
-      name: string
-      slug: string
-      category?: { color?: string | null } | null
-    }
+    type ListObj = { id: number; name: string; slug: string; category?: { color?: string | null } | null }
     const list = task.list && typeof task.list === 'object' ? (task.list as ListObj) : null
     if (!list) continue
 
@@ -57,71 +52,27 @@ function buildNotifications(tasks: Task[]): TaskNotification[] {
     const dueDayStart = startOfDay(dueDate).getTime()
 
     if (isSameCalendarDay(dueDate, now)) {
-      notifications.push({
-        id: `today-${task.id}`,
-        taskId: task.id,
-        taskTitle: task.title,
-        listName: list.name,
-        listSlug: list.slug,
-        listColor: list.category?.color ?? '#8b5cf6',
-        level: 'today',
-        message: 'Due today',
-        dueDate: task.dueDate,
-      })
+      notifications.push({ id: `today-${task.id}`, taskId: task.id, taskTitle: task.title, listName: list.name, listSlug: list.slug, listColor: list.category?.color ?? '#8b5cf6', level: 'today', message: 'Due today', dueDate: task.dueDate })
     } else if (dueDayStart === tomorrowStart) {
-      notifications.push({
-        id: `urgent-${task.id}`,
-        taskId: task.id,
-        taskTitle: task.title,
-        listName: list.name,
-        listSlug: list.slug,
-        listColor: list.category?.color ?? '#8b5cf6',
-        level: 'urgent',
-        message: 'Due tomorrow',
-        dueDate: task.dueDate,
-      })
+      notifications.push({ id: `urgent-${task.id}`, taskId: task.id, taskTitle: task.title, listName: list.name, listSlug: list.slug, listColor: list.category?.color ?? '#8b5cf6', level: 'urgent', message: 'Due tomorrow', dueDate: task.dueDate })
     } else if (dueDayStart === twoDaysStart) {
-      notifications.push({
-        id: `warning-${task.id}`,
-        taskId: task.id,
-        taskTitle: task.title,
-        listName: list.name,
-        listSlug: list.slug,
-        listColor: list.category?.color ?? '#8b5cf6',
-        level: 'warning',
-        message: 'Due in 2 days',
-        dueDate: task.dueDate,
-      })
+      notifications.push({ id: `warning-${task.id}`, taskId: task.id, taskTitle: task.title, listName: list.name, listSlug: list.slug, listColor: list.category?.color ?? '#8b5cf6', level: 'warning', message: 'Due in 2 days', dueDate: task.dueDate })
     }
   }
 
-  const order: Record<NotificationLevel, number> = {
-    today: 0,
-    urgent: 1,
-    warning: 2,
-    goal_claim: 3,
-  }
+  const order: Record<NotificationLevel, number> = { today: 0, urgent: 1, warning: 2, goal_claim: 3 }
   return notifications.sort((a, b) => order[a.level] - order[b.level])
 }
 
 function buildGoalClaimNotifications(habits: HabitWithStats[]): TaskNotification[] {
-  console.log('buildGoalClaim - habits count:', habits.length)
-  for (const h of habits) {
-    console.log(h.name, '| claimableGoalIds:', h.claimableGoalIds, '| goals:', h.goals?.length)
-  }
-
   const notifications: TaskNotification[] = []
-
   for (const habit of habits) {
     const claimableIds = habit.claimableGoalIds ?? []
     if (claimableIds.length === 0) continue
-
     const goals = habit.goals ?? []
-
     for (const goalId of claimableIds) {
       const goal = goals.find((g) => g.id === goalId)
       if (!goal) continue
-
       notifications.push({
         id: `goal-claim-${habit.id}-${goalId}`,
         taskId: habit.id,
@@ -137,7 +88,6 @@ function buildGoalClaimNotifications(habits: HabitWithStats[]): TaskNotification
       })
     }
   }
-
   return notifications
 }
 
@@ -157,20 +107,12 @@ export const useNotifications = () => {
 
   const { data: habitsData } = useQuery({
     queryKey: ['habits'],
-    queryFn: async () => {
-      const result = await listHabits()
-      for (const h of result) {
-        if (!h.goals?.length) continue
-        console.log('habit:', h.name)
-        console.log('  goals:', JSON.stringify(h.goals))
-        console.log('  claimableGoalIds:', h.claimableGoalIds)
-      }
-      return result
-    },
-    staleTime: 60_000,
+    queryFn: () => listHabits(),
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
-    refetchInterval: 120_000,
+    refetchInterval: 60_000,
   })
+
   const allNotifications = useMemo(() => {
     const taskNotifs = buildNotifications((data?.docs ?? []) as Task[])
     const goalNotifs = buildGoalClaimNotifications(habitsData ?? [])
@@ -204,13 +146,5 @@ export const useNotifications = () => {
     forceUpdate((c) => c + 1)
   }
 
-  return {
-    open,
-    setOpen: handleOpen,
-    notifications,
-    hasUnread,
-    count: notifications.length,
-    dismiss,
-    dismissAll,
-  }
+  return { open, setOpen: handleOpen, notifications, hasUnread, count: notifications.length, dismiss, dismissAll }
 }
