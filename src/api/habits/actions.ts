@@ -350,7 +350,7 @@ function computeClaimableGoalIds(completions: any[], goals: HabitGoal[]): string
   const claimable: string[] = []
   for (const goal of goals) {
     if (goal.completedAt) continue
-    if (goal.type !== 'field' || !goal.endOnReach) continue
+    if (goal.type !== 'field') continue
     const fieldTargets =
       goal.fieldTargets ??
       (goal.fieldKey ? [{ fieldKey: goal.fieldKey, targetValue: goal.targetValue ?? 1 }] : [])

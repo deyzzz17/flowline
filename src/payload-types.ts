@@ -489,7 +489,7 @@ export interface Habit {
     | boolean
     | null;
   /**
-   * HabitGoal object
+   * Legacy single HabitGoal — migré vers goals[]
    */
   goal?:
     | {
@@ -500,6 +500,7 @@ export interface Habit {
     | number
     | boolean
     | null;
+  goalCompletedAt?: string | null;
   /**
    * Array of HabitGoal objects
    */
@@ -512,7 +513,6 @@ export interface Habit {
     | number
     | boolean
     | null;
-  goalCompletedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -921,8 +921,8 @@ export interface HabitsSelect<T extends boolean = true> {
   relativeEventId?: T;
   trackingFields?: T;
   goal?: T;
-  goals?: T;
   goalCompletedAt?: T;
+  goals?: T;
   updatedAt?: T;
   createdAt?: T;
 }
