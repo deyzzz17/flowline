@@ -1,5 +1,4 @@
 import type { CollectionConfig } from 'payload'
-
 export const HabitCompletions: CollectionConfig = {
   slug: 'habit-completions',
   admin: { useAsTitle: 'habitId' },

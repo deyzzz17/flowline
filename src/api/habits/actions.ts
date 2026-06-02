@@ -367,18 +367,6 @@ function computeClaimableGoalIds(completions: any[], goals: HabitGoal[]): string
         const v = values[ft.fieldKey]
         if (typeof v === 'number') total += v
       }
-      console.log(
-        'goal:',
-        goal.id,
-        '| field:',
-        ft.fieldKey,
-        '| total:',
-        total,
-        '| target:',
-        ft.targetValue,
-        '| reached:',
-        total >= ft.targetValue,
-      )
       return total >= ft.targetValue
     })
 
@@ -443,14 +431,6 @@ export const listHabits = async (): Promise<HabitWithStats[]> => {
   })
 
   const today = getTodayKey()
-
-  console.log(
-    'completions sample:',
-    completions.slice(0, 3).map((c) => ({
-      habitId: c.habitId,
-      trackingValues: (c as any).trackingValues,
-    })),
-  )
 
   return habits.map((habit) => {
     const habitCompletions = completions.filter((c) => c.habitId === habit.id)

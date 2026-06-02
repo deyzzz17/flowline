@@ -152,12 +152,22 @@ export const useNotifications = () => {
 
   const { data: habitsData } = useQuery({
     queryKey: ['habits'],
-    queryFn: () => listHabits(),
+    queryFn: async () => {
+      const result = await listHabits()
+      console.log(
+        'habits from query:',
+        result.map((h) => ({
+          name: h.name,
+          claimableGoalIds: h.claimableGoalIds,
+          goals: h.goals?.length,
+        })),
+      )
+      return result
+    },
     staleTime: 60_000,
     refetchOnWindowFocus: true,
     refetchInterval: 120_000,
   })
-
   const allNotifications = useMemo(() => {
     const taskNotifs = buildNotifications((data?.docs ?? []) as Task[])
     const goalNotifs = buildGoalClaimNotifications(habitsData ?? [])
