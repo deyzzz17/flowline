@@ -418,13 +418,19 @@ export const listHabits = async (): Promise<HabitWithStats[]> => {
 
   if (habits.length === 0) return []
 
-  const thirtyDaysAgo = addDays(new Date(), -30)
+  const hasEndOnReachGoals = habits.some((h) => {
+    const goals = parseGoals(h)
+    return goals.some((g) => g.type === 'field' && g.endOnReach && !g.completedAt)
+  })
+
+  const fromDate = hasEndOnReachGoals ? new Date('2020-01-01') : addDays(new Date(), -30)
+
   const { docs: completions } = await payload.find({
     collection: 'habit-completions',
     where: {
       and: [
         { userId: { equals: userId } },
-        { completedAt: { greater_than_equal: thirtyDaysAgo.toISOString() } },
+        { completedAt: { greater_than_equal: fromDate.toISOString() } },
       ],
     },
     limit: 0,
