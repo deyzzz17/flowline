@@ -105,6 +105,11 @@ function buildNotifications(tasks: Task[]): TaskNotification[] {
 }
 
 function buildGoalClaimNotifications(habits: HabitWithStats[]): TaskNotification[] {
+  console.log('buildGoalClaim - habits count:', habits.length)
+  for (const h of habits) {
+    console.log(h.name, '| claimableGoalIds:', h.claimableGoalIds, '| goals:', h.goals?.length)
+  }
+
   const notifications: TaskNotification[] = []
 
   for (const habit of habits) {
@@ -154,14 +159,12 @@ export const useNotifications = () => {
     queryKey: ['habits'],
     queryFn: async () => {
       const result = await listHabits()
-      console.log(
-        'habits from query:',
-        result.map((h) => ({
-          name: h.name,
-          claimableGoalIds: h.claimableGoalIds,
-          goals: h.goals?.length,
-        })),
-      )
+      for (const h of result) {
+        if (!h.goals?.length) continue
+        console.log('habit:', h.name)
+        console.log('  goals:', JSON.stringify(h.goals))
+        console.log('  claimableGoalIds:', h.claimableGoalIds)
+      }
       return result
     },
     staleTime: 60_000,
