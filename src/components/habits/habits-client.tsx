@@ -40,7 +40,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { HabitArchivesDrawer } from './habit-archives-drawer'
+import { HabitArchivesDrawer } from './habits-archives-drawer'
 
 const DAY_LABELS: Record<string, string> = {
   mon: 'Mo',
