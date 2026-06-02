@@ -24,11 +24,14 @@ import {
   archiveHabit,
   deleteHabit,
   listHabits,
+  listArchivedHabits,
   type HabitWithStats,
   type HabitData,
+  type ArchivedHabit,
 } from '@/api/habits/actions'
 import { HabitFormDialog } from './habit-form-dialog'
 import { HabitTrackingDialog } from './habit-tracking-dialog'
+import { HabitArchivesDrawer } from './habits-archives-drawer'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,7 +43,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { HabitArchivesDrawer } from './habits-archives-drawer'
 
 const DAY_LABELS: Record<string, string> = {
   mon: 'Mo',
@@ -178,7 +180,6 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
   const [optimisticState, setOptimisticState] = useState<Map<number, Partial<HabitWithStats>>>(
     new Map(),
   )
-
   const habits = habitsWithOverrides.map((h) => {
     const opt = optimisticState.get(h.id)
     return opt ? { ...h, ...opt } : h
@@ -189,7 +190,23 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
   const [deleteTarget, setDeleteTarget] = useState<HabitWithStats | null>(null)
   const [togglingId, setTogglingId] = useState<number | null>(null)
   const [trackingHabit, setTrackingHabit] = useState<HabitWithStats | null>(null)
+
   const [archivesOpen, setArchivesOpen] = useState(false)
+  const [archives, setArchives] = useState<ArchivedHabit[] | null>(null)
+  const [archivesLoading, setArchivesLoading] = useState(false)
+
+  const handleOpenArchives = async () => {
+    setArchivesOpen(true)
+    setArchivesLoading(true)
+    const data = await listArchivedHabits()
+    setArchives(data)
+    setArchivesLoading(false)
+  }
+
+  const handleCloseArchives = () => {
+    setArchivesOpen(false)
+    setArchives(null)
+  }
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ['habits'] })
@@ -364,12 +381,12 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
             {todayCompleted}/{habits.length} completed today
           </p>
         </div>
-        <div className="flex items-center gap-2 mt-1">
+        <div className="flex items-center gap-2 mt-1 flex-wrap justify-end">
           <Button
             variant="outline"
             size="sm"
             className="gap-1.5 h-8 text-xs"
-            onClick={() => setArchivesOpen(true)}
+            onClick={handleOpenArchives}
           >
             <Archive className="h-3.5 w-3.5" />
             Archives
@@ -597,11 +614,14 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
 
       <HabitArchivesDrawer
         open={archivesOpen}
-        onClose={() => setArchivesOpen(false)}
+        archives={archives}
+        loading={archivesLoading}
+        onClose={handleCloseArchives}
         onRestored={() => {
-          setArchivesOpen(false)
+          handleCloseArchives()
           refresh()
         }}
+        onDeleted={(id) => setArchives((prev) => prev?.filter((h) => h.id !== id) ?? null)}
       />
     </div>
   )

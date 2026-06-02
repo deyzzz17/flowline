@@ -5,21 +5,28 @@ import { X, Archive, RotateCcw, Trash2, Flame, Calendar, Loader2 } from 'lucide-
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import {
-  listArchivedHabits,
-  restoreHabit,
-  deleteHabit,
-  type ArchivedHabit,
-} from '@/api/habits/actions'
+import { restoreHabit, deleteHabit, type ArchivedHabit } from '@/api/habits/actions'
 import { toast } from 'sonner'
 import { formatDistanceToNow } from 'date-fns'
 import { useQueryClient } from '@tanstack/react-query'
 
 const DAY_LABELS: Record<string, string> = {
-  mon: 'Mo', tue: 'Tu', wed: 'We', thu: 'Th', fri: 'Fr', sat: 'Sa', sun: 'Su',
+  mon: 'Mo',
+  tue: 'Tu',
+  wed: 'We',
+  thu: 'Th',
+  fri: 'Fr',
+  sat: 'Sa',
+  sun: 'Su',
 }
 
 function frequencyLabel(habit: ArchivedHabit): string {
@@ -40,29 +47,26 @@ function daysUntilDeletion(archivedAt: string): number {
 
 interface HabitArchivesDrawerProps {
   open: boolean
+  archives: ArchivedHabit[] | null
+  loading: boolean
   onClose: () => void
   onRestored: () => void
+  onDeleted: (id: number) => void
 }
 
-export function HabitArchivesDrawer({ open, onClose, onRestored }: HabitArchivesDrawerProps) {
+export function HabitArchivesDrawer({
+  open,
+  archives,
+  loading,
+  onClose,
+  onRestored,
+  onDeleted,
+}: HabitArchivesDrawerProps) {
   const queryClient = useQueryClient()
-  const [archives, setArchives] = useState<ArchivedHabit[] | null>(null)
-  const [loading, setLoading] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<ArchivedHabit | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  const loadArchives = async () => {
-    setLoading(true)
-    const data = await listArchivedHabits()
-    setArchives(data)
-    setLoading(false)
-  }
-
-  if (open && archives === null && !loading) {
-    loadArchives()
-  }
-
-  const handleRestore = async (habit: ArchivedHabit) => {
+  const handleRestore = (habit: ArchivedHabit) => {
     startTransition(async () => {
       const result = await restoreHabit(habit.id)
       if ('error' in result) {
@@ -70,13 +74,12 @@ export function HabitArchivesDrawer({ open, onClose, onRestored }: HabitArchives
         return
       }
       toast.success(`${habit.name} restored`)
-      setArchives((prev) => prev?.filter((h) => h.id !== habit.id) ?? null)
       queryClient.invalidateQueries({ queryKey: ['habits'] })
       onRestored()
     })
   }
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!deleteTarget) return
     startTransition(async () => {
       const result = await deleteHabit(deleteTarget.id)
@@ -85,7 +88,7 @@ export function HabitArchivesDrawer({ open, onClose, onRestored }: HabitArchives
         return
       }
       toast.success(`${deleteTarget.name} permanently deleted`)
-      setArchives((prev) => prev?.filter((h) => h.id !== deleteTarget.id) ?? null)
+      onDeleted(deleteTarget.id)
       setDeleteTarget(null)
     })
   }
@@ -107,8 +110,11 @@ export function HabitArchivesDrawer({ open, onClose, onRestored }: HabitArchives
               </span>
             )}
           </div>
-          <button type="button" onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -124,7 +130,7 @@ export function HabitArchivesDrawer({ open, onClose, onRestored }: HabitArchives
             <div className="flex items-center justify-center py-16">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/40" />
             </div>
-          ) : archives === null || archives.length === 0 ? (
+          ) : !archives || archives.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
                 <Archive className="h-5 w-5 text-muted-foreground/40" />
@@ -140,13 +146,22 @@ export function HabitArchivesDrawer({ open, onClose, onRestored }: HabitArchives
                 const daysLeft = daysUntilDeletion(habit.archivedAt)
                 const isUrgent = daysLeft <= 7
                 return (
-                  <div key={habit.id}
-                    className="rounded-2xl border border-border/60 bg-card/40 p-4 space-y-3">
+                  <div
+                    key={habit.id}
+                    className="rounded-2xl border border-border/60 bg-card/40 p-4 space-y-3"
+                  >
                     <div className="flex items-start gap-3">
-                      <div className="h-2.5 w-2.5 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: habit.color }} />
+                      <div
+                        className="h-2.5 w-2.5 rounded-full mt-1.5 shrink-0"
+                        style={{ backgroundColor: habit.color }}
+                      />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-foreground truncate">{habit.name}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{frequencyLabel(habit)}</p>
+                        <p className="text-sm font-semibold text-foreground truncate">
+                          {habit.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {frequencyLabel(habit)}
+                        </p>
                         {habit.categoryTag && (
                           <span className="mt-1 inline-block rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                             {habit.categoryTag}
@@ -159,13 +174,15 @@ export function HabitArchivesDrawer({ open, onClose, onRestored }: HabitArchives
                       <div className="flex items-center gap-1.5">
                         <Flame className="h-3 w-3 text-orange-500" />
                         <span className="text-[11px] text-muted-foreground">
-                          Best streak: <strong className="text-foreground">{habit.longestStreak}d</strong>
+                          Best streak:{' '}
+                          <strong className="text-foreground">{habit.longestStreak}d</strong>
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <Calendar className="h-3 w-3 text-violet-500" />
                         <span className="text-[11px] text-muted-foreground">
-                          <strong className="text-foreground">{habit.totalCompletions}</strong> completions
+                          <strong className="text-foreground">{habit.totalCompletions}</strong>{' '}
+                          completions
                         </span>
                       </div>
                     </div>
@@ -173,25 +190,39 @@ export function HabitArchivesDrawer({ open, onClose, onRestored }: HabitArchives
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-[10px] text-muted-foreground/60">
-                          Archived {formatDistanceToNow(new Date(habit.archivedAt), { addSuffix: true })}
+                          Archived{' '}
+                          {formatDistanceToNow(new Date(habit.archivedAt), { addSuffix: true })}
                         </p>
-                        <p className={cn('text-[10px] font-medium mt-0.5',
-                          isUrgent ? 'text-destructive' : 'text-muted-foreground/50'
-                        )}>
-                          {daysLeft === 0 ? 'Deletes today' : `Deletes in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`}
+                        <p
+                          className={cn(
+                            'text-[10px] font-medium mt-0.5',
+                            isUrgent ? 'text-destructive' : 'text-muted-foreground/50',
+                          )}
+                        >
+                          {daysLeft === 0
+                            ? 'Deletes today'
+                            : `Deletes in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`}
                         </p>
                       </div>
 
                       <div className="flex items-center gap-1.5">
-                        <Button variant="outline" size="sm" className="h-7 gap-1 text-xs"
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 gap-1 text-xs"
                           disabled={isPending}
-                          onClick={() => handleRestore(habit)}>
+                          onClick={() => handleRestore(habit)}
+                        >
                           <RotateCcw className="h-3 w-3" />
                           Restore
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
                           disabled={isPending}
-                          onClick={() => setDeleteTarget(habit)}>
+                          onClick={() => setDeleteTarget(habit)}
+                        >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
@@ -203,18 +234,26 @@ export function HabitArchivesDrawer({ open, onClose, onRestored }: HabitArchives
           )}
         </div>
       </div>
-      
-      <AlertDialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null) }}>
+
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => {
+          if (!v) setDeleteTarget(null)
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete permanently?</AlertDialogTitle>
             <AlertDialogDescription>
-              <strong>{deleteTarget?.name}</strong> and all its completion history will be permanently deleted. This cannot be undone.
+              <strong>{deleteTarget?.name}</strong> and all its completion history will be
+              permanently deleted. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} variant="destructive">Delete permanently</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} variant="destructive">
+              Delete permanently
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
