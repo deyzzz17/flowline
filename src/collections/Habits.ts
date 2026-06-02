@@ -117,17 +117,61 @@ export const Habits: CollectionConfig = {
       name: 'goal',
       type: 'json',
       required: false,
-      admin: { description: 'HabitGoal object' },
+      admin: { description: 'Legacy single HabitGoal — migré vers goals[]' },
     },
+    { name: 'goalCompletedAt', type: 'date', required: false },
+
     {
       name: 'goals',
       type: 'json',
       required: false,
       admin: { description: 'Array of HabitGoal objects' },
     },
-    { name: 'goalCompletedAt', type: 'date', required: false },
   ],
   hooks: {
+    afterRead: [
+      ({ doc }) => {
+        const rawGoals = doc.goals
+        const hasGoals = Array.isArray(rawGoals)
+          ? rawGoals.length > 0
+          : typeof rawGoals === 'string'
+            ? (() => {
+                try {
+                  const p = JSON.parse(rawGoals)
+                  return Array.isArray(p) && p.length > 0
+                } catch {
+                  return false
+                }
+              })()
+            : false
+
+        if (!hasGoals && doc.goal) {
+          try {
+            const oldGoal = typeof doc.goal === 'string' ? JSON.parse(doc.goal) : doc.goal
+            if (oldGoal?.description) {
+              doc.goals = JSON.stringify([
+                {
+                  id: oldGoal.id ?? `goal_legacy_${doc.id}`,
+                  type: oldGoal.type ?? 'manual',
+                  description: oldGoal.description,
+                  fieldTargets:
+                    oldGoal.fieldTargets ??
+                    (oldGoal.fieldKey
+                      ? [{ fieldKey: oldGoal.fieldKey, targetValue: oldGoal.targetValue ?? 10 }]
+                      : undefined),
+                  endOnReach: oldGoal.endOnReach ?? false,
+                  completedAt: doc.goalCompletedAt
+                    ? new Date(doc.goalCompletedAt).toISOString()
+                    : (oldGoal.completedAt ?? null),
+                },
+              ])
+            }
+          } catch {}
+        }
+
+        return doc
+      },
+    ],
     beforeChange: [
       async ({ data, originalDoc }) => {
         const userId = data.userId ?? originalDoc?.userId
