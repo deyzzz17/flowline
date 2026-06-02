@@ -128,6 +128,20 @@ export interface TrackingDataPoint {
   values: Record<string, number | string | boolean>
 }
 
+export interface ArchivedHabit {
+  id: number
+  slug: string
+  name: string
+  color: string
+  categoryTag?: string | null
+  frequency: 'daily' | 'days_of_week' | 'times_per_week'
+  daysOfWeek?: string[]
+  timesPerWeek?: number
+  archivedAt: string
+  longestStreak: number
+  totalCompletions: number
+}
+
 function parseJsonField<T>(raw: any): T | null {
   if (!raw) return null
   if (typeof raw === 'string') {
@@ -841,5 +855,76 @@ export const markGoalComplete = async (habitId: number, goalId: string, complete
     return ok({ completed })
   } catch {
     return err('Error updating goal')
+  }
+}
+
+
+export const listArchivedHabits = async (): Promise<ArchivedHabit[]> => {
+  const userId = await getUserId()
+  if (!userId) return []
+ 
+  const payload = await getPayload({ config })
+  const { docs: habits } = await payload.find({
+    collection: 'habits',
+    where: {
+      and: [
+        { userId: { equals: userId } },
+        { archivedAt: { exists: true } },
+      ],
+    },
+    sort: '-archivedAt',
+    limit: 0,
+  })
+ 
+  if (habits.length === 0) return []
+ 
+  const habitIds = habits.map((h) => h.id)
+  const { docs: completions } = await payload.find({
+    collection: 'habit-completions',
+    where: { userId: { equals: userId } },
+    limit: 0,
+  })
+ 
+  return habits.map((habit) => {
+    const habitCompletions = completions.filter((c) => c.habitId === habit.id)
+    const completionDates = new Set(
+      habitCompletions.map((c) => getDateKey(new Date(c.completedAt as string))),
+    )
+    const { longest } = computeStreaks(completionDates, habit as any)
+ 
+    return {
+      id: habit.id,
+      slug: (habit as any).slug ?? '',
+      name: habit.name,
+      color: (habit as any).color ?? '#8b5cf6',
+      categoryTag: (habit as any).categoryTag ?? null,
+      frequency: (habit as any).frequency,
+      daysOfWeek: (habit as any).daysOfWeek ?? [],
+      timesPerWeek: (habit as any).timesPerWeek ?? undefined,
+      archivedAt: new Date((habit as any).archivedAt).toISOString(),
+      longestStreak: longest,
+      totalCompletions: habitCompletions.length,
+    }
+  })
+}
+ 
+export const restoreHabit = async (id: number) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+    const payload = await getPayload({ config })
+    const habit = await payload.findByID({ collection: 'habits', id })
+    if (!habit || (habit as any).userId !== userId) return err('Not authorized')
+ 
+    await payload.update({
+      collection: 'habits',
+      id,
+      data: {
+        archivedAt: null,
+      } as any,
+    })
+    return ok(true)
+  } catch {
+    return err('Error restoring habit')
   }
 }
