@@ -372,6 +372,16 @@ function computeClaimableGoalIds(completions: any[], goals: HabitGoal[]): string
 
     if (allReached) claimable.push(goal.id)
   }
+  console.log(
+    'checking goal',
+    goal.id,
+    'fieldTargets:',
+    fieldTargets,
+    'total:',
+    total,
+    'target:',
+    ft.targetValue,
+  )
   return claimable
 }
 
@@ -431,6 +441,14 @@ export const listHabits = async (): Promise<HabitWithStats[]> => {
   })
 
   const today = getTodayKey()
+
+  console.log(
+    'completions sample:',
+    completions.slice(0, 3).map((c) => ({
+      habitId: c.habitId,
+      trackingValues: (c as any).trackingValues,
+    })),
+  )
 
   return habits.map((habit) => {
     const habitCompletions = completions.filter((c) => c.habitId === habit.id)
