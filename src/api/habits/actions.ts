@@ -367,21 +367,23 @@ function computeClaimableGoalIds(completions: any[], goals: HabitGoal[]): string
         const v = values[ft.fieldKey]
         if (typeof v === 'number') total += v
       }
+      console.log(
+        'goal:',
+        goal.id,
+        '| field:',
+        ft.fieldKey,
+        '| total:',
+        total,
+        '| target:',
+        ft.targetValue,
+        '| reached:',
+        total >= ft.targetValue,
+      )
       return total >= ft.targetValue
     })
 
     if (allReached) claimable.push(goal.id)
   }
-  console.log(
-    'checking goal',
-    goal.id,
-    'fieldTargets:',
-    fieldTargets,
-    'total:',
-    total,
-    'target:',
-    ft.targetValue,
-  )
   return claimable
 }
 
