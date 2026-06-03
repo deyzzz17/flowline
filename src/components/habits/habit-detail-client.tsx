@@ -17,7 +17,7 @@ import {
 } from '@/api/habits/actions'
 import { HabitTrackingDialog } from './habit-tracking-dialog'
 import { HabitTrackingCharts } from './habit-tracking-charts'
-import { type HabitTrackingAnalyticsResult } from '@/api/habits/habit-tracking-analytics-actions'
+import { type HabitTrackingAnalyticsResult } from '@/api/habits-analytics/actions'
 import { toast } from 'sonner'
 import confetti from 'canvas-confetti'
 import { format, parseISO, endOfMonth, eachDayOfInterval } from 'date-fns'
@@ -278,7 +278,7 @@ function EndOnReachDialog({
           </div>
           <AlertDialogTitle className="text-center">All goals reached! 🎉</AlertDialogTitle>
           <AlertDialogDescription className="text-center">
-            You've completed all end goals for <strong>{habitName}</strong>. What would you like to
+            You have completed all end goals for <strong>{habitName}</strong>. What would you like to
             do with this habit?
           </AlertDialogDescription>
         </AlertDialogHeader>
