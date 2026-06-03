@@ -294,14 +294,6 @@ function EndOnReachDialog({
           <Button variant="destructive" onClick={onDelete} disabled={isPending} className="w-full">
             Delete habit
           </Button>
-          <Button
-            variant="ghost"
-            onClick={() => {}}
-            disabled={isPending}
-            className="w-full text-muted-foreground text-xs"
-          >
-            Keep it active
-          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
