@@ -267,19 +267,21 @@ function EndOnReachDialog({
   return (
     <AlertDialog open={open}>
       <AlertDialogContent className="max-w-sm">
-        <AlertDialogHeader className="flex flex-col items-center text-center gap-2">
+        <div className="flex flex-col items-center text-center gap-3 mb-4">
           <div
             className="flex h-14 w-14 items-center justify-center rounded-2xl"
             style={{ backgroundColor: `${habitColor}20`, border: `1px solid ${habitColor}30` }}
           >
             <Trophy className="h-7 w-7" style={{ color: habitColor }} />
           </div>
-          <AlertDialogTitle className="text-center">All goals reached! 🎉</AlertDialogTitle>
-          <AlertDialogDescription className="text-center">
-            You have completed all end goals for <strong>{habitName}</strong>. What would you like
-            to do with this habit?
-          </AlertDialogDescription>
-        </AlertDialogHeader>
+          <div className="space-y-1.5">
+            <h2 className="text-lg font-semibold text-foreground">All goals reached! 🎉</h2>
+            <p className="text-sm text-muted-foreground">
+              You have completed all end goals for <strong>{habitName}</strong>. What would you like
+              to do with this habit?
+            </p>
+          </div>
+        </div>
         <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
           <Button
             onClick={onArchive}
@@ -588,7 +590,7 @@ export function HabitDetailClient({
           ))}
         </div>
       )}
-      
+
       <div className="mb-6 rounded-2xl border border-border/60 bg-card/40 p-5">
         <p className="mb-4 text-sm font-semibold text-foreground">Weekly progress</p>
         <div className="space-y-2">
@@ -613,7 +615,7 @@ export function HabitDetailClient({
           })}
         </div>
       </div>
-      
+
       {hasNumberFields && (
         <div className="mb-6">
           <HabitTrackingCharts
