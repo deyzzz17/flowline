@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button'
 import {
   toggleHabitCompletion,
   markGoalComplete,
+  archiveHabit,
+  deleteHabit,
   getHabitDetail,
   type HabitDetail,
   type HabitGoal,
@@ -15,10 +17,19 @@ import {
 } from '@/api/habits/actions'
 import { HabitTrackingDialog } from './habit-tracking-dialog'
 import { HabitTrackingCharts } from './habit-tracking-charts'
-import { type HabitTrackingAnalyticsResult } from '@/api/habits-analytics/actions'
+import { type HabitTrackingAnalyticsResult } from '@/api/habits/habit-tracking-analytics-actions'
 import { toast } from 'sonner'
 import confetti from 'canvas-confetti'
 import { format, parseISO, endOfMonth, eachDayOfInterval } from 'date-fns'
+import { useRouter } from 'next/navigation'
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+} from '@/components/ui/alert-dialog'
 
 const DAY_LABELS: Record<string, string> = {
   mon: 'Mo',
@@ -156,7 +167,6 @@ function GoalCard({
           <Trophy className="h-5 w-5" style={{ color }} />
         </div>
       </div>
-
       <div className="flex justify-center gap-2 flex-wrap">
         <span
           className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
@@ -170,9 +180,7 @@ function GoalCard({
           </span>
         )}
       </div>
-
       <p className="text-sm font-semibold text-foreground leading-snug">{goal.description}</p>
-
       {goal.type === 'field' && fieldProgress.length > 0 && (
         <div className="space-y-2 max-w-xs mx-auto w-full">
           {fieldProgress.map((fp) => (
@@ -201,7 +209,6 @@ function GoalCard({
           )}
         </div>
       )}
-
       {isManual && (
         <div className="flex justify-center">
           <button
@@ -216,7 +223,6 @@ function GoalCard({
           </button>
         </div>
       )}
-
       {goal.type === 'field' && allReached && (
         <div className="flex justify-center">
           <button
@@ -231,7 +237,6 @@ function GoalCard({
           </button>
         </div>
       )}
-
       <div
         className="pointer-events-none absolute -right-4 -top-4 h-16 w-16 rounded-full opacity-10"
         style={{ backgroundColor: color }}
@@ -244,6 +249,65 @@ function GoalCard({
   )
 }
 
+function EndOnReachDialog({
+  open,
+  habitName,
+  habitColor,
+  onArchive,
+  onDelete,
+  isPending,
+}: {
+  open: boolean
+  habitName: string
+  habitColor: string
+  onArchive: () => void
+  onDelete: () => void
+  isPending: boolean
+}) {
+  return (
+    <AlertDialog open={open}>
+      <AlertDialogContent className="max-w-sm">
+        <AlertDialogHeader>
+          <div className="flex justify-center mb-2">
+            <div
+              className="flex h-14 w-14 items-center justify-center rounded-2xl"
+              style={{ backgroundColor: `${habitColor}20`, border: `1px solid ${habitColor}30` }}
+            >
+              <Trophy className="h-7 w-7" style={{ color: habitColor }} />
+            </div>
+          </div>
+          <AlertDialogTitle className="text-center">All goals reached! 🎉</AlertDialogTitle>
+          <AlertDialogDescription className="text-center">
+            You've completed all end goals for <strong>{habitName}</strong>. What would you like to
+            do with this habit?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
+          <Button
+            onClick={onArchive}
+            disabled={isPending}
+            className="w-full gap-2"
+            style={{ backgroundColor: habitColor, color: 'white', borderColor: habitColor }}
+          >
+            Archive habit
+          </Button>
+          <Button variant="destructive" onClick={onDelete} disabled={isPending} className="w-full">
+            Delete habit
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => {}}
+            disabled={isPending}
+            className="w-full text-muted-foreground text-xs"
+          >
+            Keep it active
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
 interface HabitDetailClientProps {
   habit: HabitDetail
   initialTrackingAnalytics: HabitTrackingAnalyticsResult
@@ -253,9 +317,11 @@ export function HabitDetailClient({
   habit: initialHabit,
   initialTrackingAnalytics,
 }: HabitDetailClientProps) {
+  const router = useRouter()
   const [habit, setHabit] = useState(initialHabit)
   const [isPending, startTransition] = useTransition()
   const [trackingOpen, setTrackingOpen] = useState(false)
+  const [endOnReachDialogOpen, setEndOnReachDialogOpen] = useState(false)
 
   const refresh = () => {
     startTransition(async () => {
@@ -349,9 +415,46 @@ export function HabitDetailClient({
     if ('error' in result) {
       toast.error('Failed to update goal')
       setHabit((prev) => ({ ...prev, goals }) as any)
-    } else {
-      refresh()
+      return
     }
+
+    if (!wasCompleted) {
+      const freshGoals = updatedGoals
+      const endOnReachGoals = freshGoals.filter((g) => g.type === 'field' && g.endOnReach)
+      const allEndOnReachClaimed =
+        endOnReachGoals.length > 0 && endOnReachGoals.every((g) => !!g.completedAt)
+      if (allEndOnReachClaimed) {
+        setTimeout(() => setEndOnReachDialogOpen(true), 800)
+      }
+    }
+
+    refresh()
+  }
+
+  const handleArchiveHabit = () => {
+    startTransition(async () => {
+      const result = await archiveHabit(habit.id)
+      if ('error' in result) {
+        toast.error('Failed to archive habit')
+        return
+      }
+      toast.success('Habit archived')
+      setEndOnReachDialogOpen(false)
+      router.push('/habits')
+    })
+  }
+
+  const handleDeleteHabit = () => {
+    startTransition(async () => {
+      const result = await deleteHabit(habit.id)
+      if ('error' in result) {
+        toast.error('Failed to delete habit')
+        return
+      }
+      toast.success('Habit deleted')
+      setEndOnReachDialogOpen(false)
+      router.push('/habits')
+    })
   }
 
   const goals: HabitGoal[] = (() => {
@@ -378,7 +481,7 @@ export function HabitDetailClient({
   return (
     <div className="px-4 pb-16 pt-8 sm:px-6 lg:px-10">
       <Link
-        href="/habits/habits-view"
+        href="/habits"
         className="mb-6 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
@@ -540,7 +643,7 @@ export function HabitDetailClient({
       </div>
 
       {completedGoals.length > 0 && (
-        <div className="mt-6 space-y-3">
+        <div className="mt-6 space-y-2">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/40">
             Completed goals
           </p>
@@ -581,6 +684,15 @@ export function HabitDetailClient({
         onSubmit={handleTrackingSubmit}
         onSkip={handleTrackingSkip}
         onClose={() => setTrackingOpen(false)}
+      />
+
+      <EndOnReachDialog
+        open={endOnReachDialogOpen}
+        habitName={habit.name}
+        habitColor={habit.color}
+        onArchive={handleArchiveHabit}
+        onDelete={handleDeleteHabit}
+        isPending={isPending}
       />
     </div>
   )
