@@ -267,14 +267,12 @@ function EndOnReachDialog({
   return (
     <AlertDialog open={open}>
       <AlertDialogContent className="max-w-sm">
-        <AlertDialogHeader>
-          <div className="flex justify-center mb-2">
-            <div
-              className="flex h-14 w-14 items-center justify-center rounded-2xl"
-              style={{ backgroundColor: `${habitColor}20`, border: `1px solid ${habitColor}30` }}
-            >
-              <Trophy className="h-7 w-7" style={{ color: habitColor }} />
-            </div>
+        <AlertDialogHeader className="flex flex-col items-center text-center gap-2">
+          <div
+            className="flex h-14 w-14 items-center justify-center rounded-2xl"
+            style={{ backgroundColor: `${habitColor}20`, border: `1px solid ${habitColor}30` }}
+          >
+            <Trophy className="h-7 w-7" style={{ color: habitColor }} />
           </div>
           <AlertDialogTitle className="text-center">All goals reached! 🎉</AlertDialogTitle>
           <AlertDialogDescription className="text-center">
@@ -369,10 +367,6 @@ export function HabitDetailClient({
     if (!goal) return
 
     const wasCompleted = !!goal.completedAt
-    const updatedGoals = goals.map((g) =>
-      g.id === goalId ? { ...g, completedAt: wasCompleted ? null : new Date().toISOString() } : g,
-    )
-    setHabit((prev) => ({ ...prev, goals: updatedGoals }) as any)
 
     if (!wasCompleted) {
       confetti({
@@ -401,26 +395,40 @@ export function HabitDetailClient({
           }),
         350,
       )
-    }
 
-    const result = await markGoalComplete(habit.id, goalId, !wasCompleted)
-    if ('error' in result) {
-      toast.error('Failed to update goal')
-      setHabit((prev) => ({ ...prev, goals }) as any)
-      return
-    }
-
-    if (!wasCompleted) {
-      const freshGoals = updatedGoals
-      const endOnReachGoals = freshGoals.filter((g) => g.type === 'field' && g.endOnReach)
-      const allEndOnReachClaimed =
-        endOnReachGoals.length > 0 && endOnReachGoals.every((g) => !!g.completedAt)
-      if (allEndOnReachClaimed) {
-        setTimeout(() => setEndOnReachDialogOpen(true), 800)
+      const result = await markGoalComplete(habit.id, goalId, true)
+      if ('error' in result) {
+        toast.error('Failed to update goal')
+        return
       }
-    }
 
-    refresh()
+      setTimeout(() => {
+        const updatedGoals = goals.map((g) =>
+          g.id === goalId ? { ...g, completedAt: new Date().toISOString() } : g,
+        )
+        setHabit((prev) => ({ ...prev, goals: updatedGoals }) as any)
+
+        const endOnReachGoals = updatedGoals.filter((g) => g.type === 'field' && g.endOnReach)
+        const allEndOnReachClaimed =
+          endOnReachGoals.length > 0 && endOnReachGoals.every((g) => !!g.completedAt)
+        if (allEndOnReachClaimed) {
+          setTimeout(() => setEndOnReachDialogOpen(true), 300)
+        }
+
+        refresh()
+      }, 1500)
+    } else {
+      const updatedGoals = goals.map((g) => (g.id === goalId ? { ...g, completedAt: null } : g))
+      setHabit((prev) => ({ ...prev, goals: updatedGoals }) as any)
+
+      const result = await markGoalComplete(habit.id, goalId, false)
+      if ('error' in result) {
+        toast.error('Failed to update goal')
+        setHabit((prev) => ({ ...prev, goals }) as any)
+        return
+      }
+      refresh()
+    }
   }
 
   const handleArchiveHabit = () => {
@@ -580,7 +588,7 @@ export function HabitDetailClient({
           ))}
         </div>
       )}
-
+      
       <div className="mb-6 rounded-2xl border border-border/60 bg-card/40 p-5">
         <p className="mb-4 text-sm font-semibold text-foreground">Weekly progress</p>
         <div className="space-y-2">
@@ -605,7 +613,7 @@ export function HabitDetailClient({
           })}
         </div>
       </div>
-
+      
       {hasNumberFields && (
         <div className="mb-6">
           <HabitTrackingCharts
