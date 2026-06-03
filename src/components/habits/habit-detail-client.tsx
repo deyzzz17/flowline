@@ -278,8 +278,8 @@ function EndOnReachDialog({
           </div>
           <AlertDialogTitle className="text-center">All goals reached! 🎉</AlertDialogTitle>
           <AlertDialogDescription className="text-center">
-            You have completed all end goals for <strong>{habitName}</strong>. What would you like to
-            do with this habit?
+            You have completed all end goals for <strong>{habitName}</strong>. What would you like
+            to do with this habit?
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
@@ -440,7 +440,7 @@ export function HabitDetailClient({
       }
       toast.success('Habit archived')
       setEndOnReachDialogOpen(false)
-      router.push('/habits')
+      router.push('/habits/habits-view')
     })
   }
 
@@ -453,7 +453,7 @@ export function HabitDetailClient({
       }
       toast.success('Habit deleted')
       setEndOnReachDialogOpen(false)
-      router.push('/habits')
+      router.push('/habits/habits-view')
     })
   }
 
@@ -481,7 +481,7 @@ export function HabitDetailClient({
   return (
     <div className="px-4 pb-16 pt-8 sm:px-6 lg:px-10">
       <Link
-        href="/habits"
+        href="/habits/habits-view"
         className="mb-6 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
