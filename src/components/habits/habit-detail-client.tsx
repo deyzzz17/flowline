@@ -22,14 +22,8 @@ import { toast } from 'sonner'
 import confetti from 'canvas-confetti'
 import { format, parseISO, endOfMonth, eachDayOfInterval } from 'date-fns'
 import { useRouter } from 'next/navigation'
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-} from '@/components/ui/alert-dialog'
+import { AlertDialog, AlertDialogContent, AlertDialogFooter } from '@/components/ui/alert-dialog'
+import { useSearchParams, usePathname } from 'next/navigation'
 
 const DAY_LABELS: Record<string, string> = {
   mon: 'Mo',
@@ -313,7 +307,22 @@ export function HabitDetailClient({
   const [habit, setHabit] = useState(initialHabit)
   const [isPending, startTransition] = useTransition()
   const [trackingOpen, setTrackingOpen] = useState(false)
-  const [endOnReachDialogOpen, setEndOnReachDialogOpen] = useState(false)
+
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
+  const endOnReachDialogOpen = searchParams.get('allGoalsReached') === '1'
+
+  const openEndOnReachDialog = () => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('allGoalsReached', '1')
+    router.replace(`${pathname}?${params.toString()}`)
+  }
+
+  const closeEndOnReachDialog = () => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('allGoalsReached')
+    router.replace(`${pathname}?${params.toString()}`)
+  }
 
   const refresh = () => {
     startTransition(async () => {
@@ -414,7 +423,7 @@ export function HabitDetailClient({
         const allEndOnReachClaimed =
           endOnReachGoals.length > 0 && endOnReachGoals.every((g) => !!g.completedAt)
         if (allEndOnReachClaimed) {
-          setTimeout(() => setEndOnReachDialogOpen(true), 300)
+          setTimeout(() => openEndOnReachDialog())
         }
 
         refresh()
@@ -441,7 +450,7 @@ export function HabitDetailClient({
         return
       }
       toast.success('Habit archived')
-      setEndOnReachDialogOpen(false)
+      closeEndOnReachDialog()
       router.push('/habits/habits-view')
     })
   }
@@ -454,7 +463,7 @@ export function HabitDetailClient({
         return
       }
       toast.success('Habit deleted')
-      setEndOnReachDialogOpen(false)
+      closeEndOnReachDialog()
       router.push('/habits/habits-view')
     })
   }
