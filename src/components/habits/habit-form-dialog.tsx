@@ -180,7 +180,9 @@ function getInitialState(initialData?: HabitWithStats) {
     frequency: initialData.frequency,
     daysOfWeek: initialData.daysOfWeek ?? ['mon', 'tue', 'wed', 'thu', 'fri'],
     timesPerWeek: initialData.timesPerWeek ?? 3,
-    startDate: initialData.startDate ?? new Date().toISOString().split('T')[0],
+    startDate: initialData.startDate
+      ? new Date(initialData.startDate).toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0],
     showInCalendar: initialData.showInCalendar ?? false,
     calendarMode: (initialData.calendarMode ?? 'time') as 'time' | 'relative',
     habitTime: initialData.habitTime ?? '08:00',
