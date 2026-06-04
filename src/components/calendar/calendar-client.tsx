@@ -199,12 +199,8 @@ export function CalendarClient() {
   }
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 300, tolerance: 8 },
-    }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 8 } }),
   )
 
   const [pendingTaskDrop, setPendingTaskDrop] = useState<{
@@ -212,9 +208,9 @@ export function CalendarClient() {
     targetDate: Date
   } | null>(null)
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
-
   const { isConnected } = useGoogleCalendar()
   const [googleDialogOpen, setGoogleDialogOpen] = useState(false)
+
   const [habitDialog, setHabitDialog] = useState<{
     open: boolean
     habitId: number
@@ -225,6 +221,29 @@ export function CalendarClient() {
     startDate: string
     endDate: string
   } | null>(null)
+
+  const handleClickItem = useCallback(
+    (item: CalendarItem) => {
+      if (item.type === 'event') {
+        const ev = item as CalendarEvent
+        if ((ev as any).source === 'habit') {
+          setHabitDialog({
+            open: true,
+            habitId: (ev as any).habitId,
+            habitSlug: (ev as any).habitSlug,
+            habitName: ev.title,
+            habitColor: ev.color,
+            habitDescription: ev.description ?? null,
+            startDate: ev.startDate,
+            endDate: ev.endDate,
+          })
+          return
+        }
+      }
+      openEdit(item)
+    },
+    [openEdit],
+  )
 
   const isRecurringEvent = (item: CalendarItem): item is CalendarEvent => {
     if (item.type !== 'event') return false
@@ -237,7 +256,7 @@ export function CalendarClient() {
     if (!over) return
     const item = active.data.current?.item
     if (!item) return
-    if (item.source === 'google') return
+    if (item.source === 'google' || item.source === 'habit') return
 
     const targetDate = new Date(over.id as string)
     const hasSpecificHour = targetDate.getHours() !== 0 || targetDate.getMinutes() !== 0
@@ -257,6 +276,7 @@ export function CalendarClient() {
   const handleResizeEnd = (item: CalendarItem, newEndDate: Date) => {
     if (item.type === 'event') {
       if ((item as CalendarEvent).source === 'google') return
+      if ((item as any).source === 'habit') return
       if (isRecurringEvent(item as CalendarEvent)) {
         setPendingAction({ type: 'resize', item: item as CalendarEvent, newEndDate })
       } else {
@@ -311,29 +331,6 @@ export function CalendarClient() {
   }
 
   const headerTitle = getHeaderTitle(currentDate, view, isMobile)
-
-  const handleClickItem = useCallback(
-    (item: CalendarItem) => {
-      if (item.type === 'event') {
-        const ev = item as CalendarEvent
-        if ((ev as any).source === 'habit') {
-          setHabitDialog({
-            open: true,
-            habitId: (ev as any).habitId,
-            habitSlug: (ev as any).habitSlug,
-            habitName: ev.title,
-            habitColor: ev.color,
-            habitDescription: ev.description ?? null,
-            startDate: ev.startDate,
-            endDate: ev.endDate,
-          })
-          return
-        }
-      }
-      openEdit(item)
-    },
-    [openEdit],
-  )
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
@@ -473,7 +470,7 @@ export function CalendarClient() {
               getItemsForDate={getItemsForDate}
               onClickDay={goToDay}
               onClickCell={goToDay}
-              onClickItem={openEdit}
+              onClickItem={handleClickItem}
               onDoubleClickDay={openNewEvent}
               isMobile={isMobile}
             />
@@ -483,7 +480,7 @@ export function CalendarClient() {
               currentDate={currentDate}
               getItemsForDate={getItemsForDate}
               onClickSlot={goToDay}
-              onClickItem={openEdit}
+              onClickItem={handleClickItem}
               onResizeEnd={handleResizeEnd}
               getItemDisplayHeight={getItemDisplayHeight}
               onDoubleClickSlot={openNewEvent}
@@ -495,7 +492,7 @@ export function CalendarClient() {
               currentDate={currentDate}
               getItemsForDate={getItemsForDate}
               onClickSlot={openNewEvent}
-              onClickItem={openEdit}
+              onClickItem={handleClickItem}
               onResizeEnd={handleResizeEnd}
               getItemDisplayHeight={getItemDisplayHeight}
             />
