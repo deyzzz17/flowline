@@ -694,7 +694,7 @@ function HabitFormInner({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setRepeatEveryDays((v) => Math.max(2, v - 1))}
+                  onClick={() => setRepeatEveryDays((v: number) => Math.max(2, v - 1))}
                   className="flex h-7 w-7 items-center justify-center rounded-lg border border-border/60 text-sm hover:bg-muted"
                 >
                   −
