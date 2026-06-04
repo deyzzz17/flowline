@@ -163,7 +163,7 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
 
   const { data: serverHabits = initialHabits } = useQuery({
     queryKey: ['habits'],
-    queryFn: () => listHabits(),
+    queryFn: () => listHabits(Intl.DateTimeFormat().resolvedOptions().timeZone),
     initialData: initialHabits,
     staleTime: 30_000,
     refetchOnWindowFocus: true,

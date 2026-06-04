@@ -157,6 +157,7 @@ function parseJsonField<T>(raw: any): T | null {
 function parseGoals(habit: any): HabitGoal[] {
   const goals = parseJsonField<HabitGoal[]>(habit.goals)
   if (goals && goals.length > 0) return goals
+
   const old = parseJsonField<any>(habit.goal)
   if (old?.description) {
     return [
@@ -186,12 +187,17 @@ function computeStreaks(
 
   if (habit.frequency === 'daily') {
     let current = 0
-    let d = today
+    const yesterday = getDateKey(addDays(new Date(today + 'T12:00:00'), -1), timezone)
+    let startDate = today
+    if (!completionDates.has(today) && completionDates.has(yesterday)) {
+      startDate = yesterday
+    }
+    let d = startDate
     while (completionDates.has(d)) {
       current++
-      const prev = new Date(d)
+      const prev = new Date(d + 'T12:00:00')
       prev.setDate(prev.getDate() - 1)
-      d = getDateKey(prev)
+      d = getDateKey(prev, timezone)
     }
     const sorted = Array.from(completionDates).sort()
     let longest = 0
@@ -360,40 +366,11 @@ function computeGoalFieldRate(completions: any[], goals: HabitGoal[]): number {
   return Math.round(allPcts.reduce((s, p) => s + p, 0) / allPcts.length)
 }
 
-function computeClaimableGoalIds(completions: any[], goals: HabitGoal[]): string[] {
-  const claimable: string[] = []
-  for (const goal of goals) {
-    if (goal.completedAt) continue
-    if (goal.type !== 'field') continue
-    const fieldTargets =
-      goal.fieldTargets ??
-      (goal.fieldKey ? [{ fieldKey: goal.fieldKey, targetValue: goal.targetValue ?? 1 }] : [])
-    if (fieldTargets.length === 0) continue
-
-    const allReached = fieldTargets.every((ft) => {
-      let total = 0
-      for (const c of completions) {
-        let values: Record<string, any> = {}
-        try {
-          const raw = (c as any).trackingValues
-          values = typeof raw === 'string' ? JSON.parse(raw) : (raw ?? {})
-        } catch {}
-        const v = values[ft.fieldKey]
-        if (typeof v === 'number') total += v
-      }
-      return total >= ft.targetValue
-    })
-
-    if (allReached) claimable.push(goal.id)
-  }
-  return claimable
-}
-
 function mapHabitDoc(
   habit: any,
 ): Omit<
   HabitWithStats,
-  'currentStreak' | 'longestStreak' | 'completedToday' | 'completionRate30d' | 'claimableGoalIds'
+  'currentStreak' | 'longestStreak' | 'completedToday' | 'completionRate30d'
 > {
   return {
     id: habit.id,
@@ -418,10 +395,9 @@ function mapHabitDoc(
   }
 }
 
-export const listHabits = async (): Promise<HabitWithStats[]> => {
+export const listHabits = async (timezone = 'UTC'): Promise<HabitWithStats[]> => {
   const userId = await getUserId()
   if (!userId) return []
-
   const payload = await getPayload({ config })
   const { docs: habits } = await payload.find({
     collection: 'habits',
@@ -429,54 +405,38 @@ export const listHabits = async (): Promise<HabitWithStats[]> => {
     sort: 'order',
     limit: 0,
   })
-
   if (habits.length === 0) return []
-
-  const hasEndOnReachGoals = habits.some((h) => {
-    const goals = parseGoals(h)
-    return goals.some((g) => g.type === 'field' && g.endOnReach && !g.completedAt)
-  })
-
-  const fromDate = hasEndOnReachGoals ? new Date('2020-01-01') : addDays(new Date(), -30)
-
+  const thirtyDaysAgo = addDays(new Date(), -30)
   const { docs: completions } = await payload.find({
     collection: 'habit-completions',
     where: {
       and: [
         { userId: { equals: userId } },
-        { completedAt: { greater_than_equal: fromDate.toISOString() } },
+        { completedAt: { greater_than_equal: thirtyDaysAgo.toISOString() } },
       ],
     },
     limit: 0,
   })
-
-  const today = getTodayKey()
-
+  const today = getTodayKey(timezone)
   return habits.map((habit) => {
     const habitCompletions = completions.filter((c) => c.habitId === habit.id)
     const completionDates = new Set(
-      habitCompletions.map((c) => getDateKey(new Date(c.completedAt as string))),
+      habitCompletions.map((c) => getDateKey(new Date(c.completedAt as string), timezone)),
     )
-    const { current, longest } = computeStreaks(completionDates, habit as any)
+    const { current, longest } = computeStreaks(completionDates, habit as any, timezone)
     const goals = parseGoals(habit)
-
     const rate = shouldUseGoalRate(goals)
       ? computeGoalFieldRate(habitCompletions, goals)
-      : computeCompletionRate(completionDates, habit as any)
-
-    const claimableGoalIds = computeClaimableGoalIds(habitCompletions, goals)
-
+      : computeCompletionRate(completionDates, habit as any, timezone)
     return {
       ...mapHabitDoc(habit),
       currentStreak: current,
       longestStreak: longest,
       completedToday: completionDates.has(today),
       completionRate30d: rate,
-      claimableGoalIds,
     }
   })
 }
-
 export const getHabitDetail = async (habitId: number): Promise<HabitDetail | null> => {
   const userId = await getUserId()
   if (!userId) return null
@@ -506,8 +466,6 @@ export const getHabitDetail = async (habitId: number): Promise<HabitDetail | nul
   const rate = shouldUseGoalRate(goals)
     ? computeGoalFieldRate(completions, goals)
     : computeCompletionRate(completionDates, habit as any)
-
-  const claimableGoalIds = computeClaimableGoalIds(completions, goals)
 
   const today = getTodayKey()
 
@@ -545,7 +503,6 @@ export const getHabitDetail = async (habitId: number): Promise<HabitDetail | nul
     longestStreak: longest,
     completedToday: completionDates.has(today),
     completionRate30d: rate,
-    claimableGoalIds,
     completions: Array.from(completionDates).sort(),
     weeklyCompletions,
     trackingData: completions
@@ -843,10 +800,12 @@ export const markGoalComplete = async (habitId: number, goalId: string, complete
     const payload = await getPayload({ config })
     const habit = await payload.findByID({ collection: 'habits', id: habitId })
     if (!habit || (habit as any).userId !== userId) return err('Not authorized')
+
     const goals = parseGoals(habit)
     const updatedGoals = goals.map((g) =>
       g.id === goalId ? { ...g, completedAt: completed ? new Date().toISOString() : null } : g,
     )
+
     await payload.update({
       collection: 'habits',
       id: habitId,
@@ -858,40 +817,36 @@ export const markGoalComplete = async (habitId: number, goalId: string, complete
   }
 }
 
-
 export const listArchivedHabits = async (): Promise<ArchivedHabit[]> => {
   const userId = await getUserId()
   if (!userId) return []
- 
+
   const payload = await getPayload({ config })
   const { docs: habits } = await payload.find({
     collection: 'habits',
     where: {
-      and: [
-        { userId: { equals: userId } },
-        { archivedAt: { exists: true } },
-      ],
+      and: [{ userId: { equals: userId } }, { archivedAt: { exists: true } }],
     },
     sort: '-archivedAt',
     limit: 0,
   })
- 
+
   if (habits.length === 0) return []
- 
+
   const habitIds = habits.map((h) => h.id)
   const { docs: completions } = await payload.find({
     collection: 'habit-completions',
     where: { userId: { equals: userId } },
     limit: 0,
   })
- 
+
   return habits.map((habit) => {
     const habitCompletions = completions.filter((c) => c.habitId === habit.id)
     const completionDates = new Set(
       habitCompletions.map((c) => getDateKey(new Date(c.completedAt as string))),
     )
     const { longest } = computeStreaks(completionDates, habit as any)
- 
+
     return {
       id: habit.id,
       slug: (habit as any).slug ?? '',
@@ -907,7 +862,7 @@ export const listArchivedHabits = async (): Promise<ArchivedHabit[]> => {
     }
   })
 }
- 
+
 export const restoreHabit = async (id: number) => {
   try {
     const userId = await getUserId()
@@ -915,7 +870,7 @@ export const restoreHabit = async (id: number) => {
     const payload = await getPayload({ config })
     const habit = await payload.findByID({ collection: 'habits', id })
     if (!habit || (habit as any).userId !== userId) return err('Not authorized')
- 
+
     await payload.update({
       collection: 'habits',
       id,
