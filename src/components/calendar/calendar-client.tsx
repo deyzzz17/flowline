@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -44,6 +44,7 @@ import type { CalendarEventData, EditScope } from '@/api/calendar/actions'
 import { GoogleCalendarDialog } from './google-calendar-dialog'
 import { useGoogleCalendar } from '@/hooks/calendar/use-google-calendar'
 import { GoogleIcon } from '../icons/google-icon'
+import { HabitCalendarDialog } from './habit-calendar-dialog'
 
 const VIEW_LABELS: Record<CalendarView, string> = {
   year: 'Year',
@@ -201,7 +202,6 @@ export function CalendarClient() {
     useSensor(PointerSensor, {
       activationConstraint: { distance: 8 },
     }),
-    // TouchSensor avec délai pour distinguer scroll et drag sur mobile
     useSensor(TouchSensor, {
       activationConstraint: { delay: 300, tolerance: 8 },
     }),
@@ -215,6 +215,16 @@ export function CalendarClient() {
 
   const { isConnected } = useGoogleCalendar()
   const [googleDialogOpen, setGoogleDialogOpen] = useState(false)
+  const [habitDialog, setHabitDialog] = useState<{
+    open: boolean
+    habitId: number
+    habitSlug: string
+    habitName: string
+    habitColor: string
+    habitDescription?: string | null
+    startDate: string
+    endDate: string
+  } | null>(null)
 
   const isRecurringEvent = (item: CalendarItem): item is CalendarEvent => {
     if (item.type !== 'event') return false
@@ -301,6 +311,29 @@ export function CalendarClient() {
   }
 
   const headerTitle = getHeaderTitle(currentDate, view, isMobile)
+
+  const handleClickItem = useCallback(
+    (item: CalendarItem) => {
+      if (item.type === 'event') {
+        const ev = item as CalendarEvent
+        if ((ev as any).source === 'habit') {
+          setHabitDialog({
+            open: true,
+            habitId: (ev as any).habitId,
+            habitSlug: (ev as any).habitSlug,
+            habitName: ev.title,
+            habitColor: ev.color,
+            habitDescription: ev.description ?? null,
+            startDate: ev.startDate,
+            endDate: ev.endDate,
+          })
+          return
+        }
+      }
+      openEdit(item)
+    },
+    [openEdit],
+  )
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
@@ -480,6 +513,20 @@ export function CalendarClient() {
         isSaving={createMutation.isPending || updateMutation.isPending}
         isDeleting={deleteMutation.isPending}
       />
+
+      {habitDialog && (
+        <HabitCalendarDialog
+          open={habitDialog.open}
+          habitId={habitDialog.habitId}
+          habitSlug={habitDialog.habitSlug}
+          habitName={habitDialog.habitName}
+          habitColor={habitDialog.habitColor}
+          habitDescription={habitDialog.habitDescription}
+          startDate={habitDialog.startDate}
+          endDate={habitDialog.endDate}
+          onClose={() => setHabitDialog(null)}
+        />
+      )}
     </DndContext>
   )
 }

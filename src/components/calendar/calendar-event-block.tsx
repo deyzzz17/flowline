@@ -73,6 +73,7 @@ export function CalendarEventBlock({
   const { formatTime } = useTimeFormat()
 
   const isGoogle = item.type === 'event' && (item as CalendarEvent).source === 'google'
+  const isHabit = item.type === 'event' && (item as any).source === 'habit'
 
   const draggableId =
     item.type === 'event'
@@ -82,8 +83,7 @@ export function CalendarEventBlock({
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: draggableId,
     data: { item },
-    // Désactive le drag pour les events Google
-    disabled: isGoogle,
+    disabled: isGoogle || isHabit,
   })
 
   const top = getItemTop(item, viewDate)
@@ -238,8 +238,9 @@ export function CalendarEventBlock({
         left: paddingX,
         right: paddingX,
         height,
-        backgroundColor: `${color}22`,
+        backgroundColor: isHabit ? `${color}18` : `${color}22`,
         borderLeft: `3px solid ${color}`,
+        borderLeftStyle: isHabit ? 'dashed' : 'solid',
         zIndex: isDragging ? 50 : 10,
         ...style,
       }}
@@ -248,16 +249,17 @@ export function CalendarEventBlock({
         continuesPrevDay ? 'rounded-t-none' : 'rounded-t-lg',
         continuesNextDay ? 'rounded-b-none' : 'rounded-b-lg',
         isDragging && 'opacity-40',
-        isGoogle ? 'cursor-default' : '',
+        isGoogle || isHabit ? 'cursor-pointer' : '',
       )}
     >
       <div
-        {...(!isGoogle ? listeners : {})}
-        {...(!isGoogle ? attributes : {})}
-        style={!isGoogle ? { touchAction: 'none' } : undefined}
+        {...(!isGoogle && !isHabit ? listeners : {})}
+        {...(!isGoogle && !isHabit ? attributes : {})}
+        style={!isGoogle && !isHabit ? { touchAction: 'none' } : undefined}
         className={cn(
           'absolute inset-0 bottom-3 px-1.5 pt-0.5',
-          !isGoogle && 'cursor-grab active:cursor-grabbing',
+          !isGoogle && !isHabit && 'cursor-grab active:cursor-grabbing',
+          (isGoogle || isHabit) && 'cursor-pointer',
         )}
         onClick={(e) => {
           e.stopPropagation()
@@ -282,7 +284,7 @@ export function CalendarEventBlock({
         )}
       </div>
 
-      {!continuesNextDay && !isGoogle && (
+      {!continuesNextDay && !isGoogle && !isHabit && (
         <div
           onMouseDown={handleResizeMouseDown}
           onTouchStart={handleResizeTouchStart}
