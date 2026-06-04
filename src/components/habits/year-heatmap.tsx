@@ -96,9 +96,8 @@ export function YearHeatmap({ initialData }: YearHeatmapProps) {
   }
 
   const handleMouseEnter = (e: React.MouseEvent, cell: Cell) => {
-    if (!cell || !containerRef.current) return
+    if (!cell) return
     const rect = (e.target as HTMLElement).getBoundingClientRect()
-    const containerRect = containerRef.current.getBoundingClientRect()
     const dateLabel = new Date(cell.date + 'T12:00:00').toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -110,8 +109,8 @@ export function YearHeatmap({ initialData }: YearHeatmapProps) {
         : `${dateLabel}: ${cell.count}/${cell.total} completed`
     setTooltip({
       visible: true,
-      x: rect.left - containerRect.left + rect.width / 2,
-      y: rect.top - containerRect.top - 6,
+      x: rect.left + rect.width / 2,
+      y: rect.top - 6,
       text,
     })
   }
@@ -165,7 +164,7 @@ export function YearHeatmap({ initialData }: YearHeatmapProps) {
       >
         {tooltip.visible && (
           <div
-            className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full rounded-md bg-foreground px-2 py-1 text-[10px] font-medium text-background shadow-md whitespace-nowrap"
+            className="pointer-events-none fixed z-[9999] -translate-x-1/2 -translate-y-full rounded-md bg-foreground px-2 py-1 text-[10px] font-medium text-background shadow-md whitespace-nowrap"
             style={{ left: tooltip.x, top: tooltip.y }}
           >
             {tooltip.text}
