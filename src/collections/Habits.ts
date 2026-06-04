@@ -24,6 +24,7 @@ export const Habits: CollectionConfig = {
       options: [
         { label: 'Every day', value: 'daily' },
         { label: 'Specific days of the week', value: 'days_of_week' },
+        { label: 'Every X days', value: 'every_x_days' },
         { label: 'X times per week', value: 'times_per_week' },
       ],
     },
@@ -42,6 +43,14 @@ export const Habits: CollectionConfig = {
         { label: 'Sunday', value: 'sun' },
       ],
       admin: { condition: (_, s) => s?.frequency === 'days_of_week' },
+    },
+    {
+      name: 'repeatEveryDays',
+      type: 'number',
+      required: false,
+      min: 2,
+      max: 365,
+      admin: { condition: (_, s) => s?.frequency === 'every_x_days' },
     },
     {
       name: 'timesPerWeek',
@@ -120,7 +129,6 @@ export const Habits: CollectionConfig = {
       admin: { description: 'Legacy single HabitGoal — migré vers goals[]' },
     },
     { name: 'goalCompletedAt', type: 'date', required: false },
-
     {
       name: 'goals',
       type: 'json',

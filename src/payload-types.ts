@@ -455,8 +455,9 @@ export interface Habit {
   description?: string | null;
   color?: string | null;
   categoryTag?: string | null;
-  frequency: 'daily' | 'days_of_week' | 'times_per_week';
+  frequency: 'daily' | 'days_of_week' | 'every_x_days' | 'times_per_week';
   daysOfWeek?: ('mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun')[] | null;
+  repeatEveryDays?: number | null;
   timesPerWeek?: number | null;
   /**
    * Optional start date for the habit
@@ -909,6 +910,7 @@ export interface HabitsSelect<T extends boolean = true> {
   categoryTag?: T;
   frequency?: T;
   daysOfWeek?: T;
+  repeatEveryDays?: T;
   timesPerWeek?: T;
   startDate?: T;
   archivedAt?: T;

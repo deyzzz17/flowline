@@ -155,6 +155,7 @@ function getInitialState(initialData?: HabitWithStats) {
       trackingOpen: false,
       goalOpen: false,
       goals: [] as HabitGoal[],
+      repeatEveryDays: 2,
     }
   }
 
@@ -191,6 +192,7 @@ function getInitialState(initialData?: HabitWithStats) {
     trackingOpen: (savedFields ?? []).some((f) => f.enabled),
     goalOpen: goals.length > 0,
     goals,
+    repeatEveryDays: (initialData as any).repeatEveryDays ?? 2,
   }
 }
 
@@ -463,6 +465,7 @@ function HabitFormInner({
   const [newFieldType, setNewFieldType] = useState<TrackingFieldType>('number')
   const [showAddField, setShowAddField] = useState(false)
   const [isPending, setIsPending] = useState(false)
+  const [repeatEveryDays, setRepeatEveryDays] = useState(init.repeatEveryDays)
 
   const { data: calendarEvents } = useQuery({
     queryKey: ['calendar-events-flowline-recurring', startDate, frequency],
@@ -563,6 +566,7 @@ function HabitFormInner({
       categoryTag: categoryTag.trim() || undefined,
       frequency,
       daysOfWeek: frequency === 'days_of_week' ? daysOfWeek : undefined,
+      repeatEveryDays: frequency === 'every_x_days' ? repeatEveryDays : undefined,
       timesPerWeek: frequency === 'times_per_week' ? timesPerWeek : undefined,
       startDate: startDate || undefined,
       trackingFields,
@@ -645,6 +649,7 @@ function HabitFormInner({
               [
                 { value: 'daily', label: 'Every day' },
                 { value: 'days_of_week', label: 'Custom days' },
+                { value: 'every_x_days', label: 'Every X days' },
                 { value: 'times_per_week', label: 'X per week' },
               ] as const
             ).map((opt) => (
@@ -681,6 +686,29 @@ function HabitFormInner({
                   {day.label}
                 </button>
               ))}
+            </div>
+          )}
+          {frequency === 'every_x_days' && (
+            <div className="flex items-center gap-3 pt-1">
+              <span className="text-xs text-muted-foreground">Repeat every</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRepeatEveryDays((v) => Math.max(2, v - 1))}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-border/60 text-sm hover:bg-muted"
+                >
+                  −
+                </button>
+                <span className="w-6 text-center text-sm font-semibold">{repeatEveryDays}</span>
+                <button
+                  type="button"
+                  onClick={() => setRepeatEveryDays((v: number) => Math.max(2, v - 1))}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-border/60 text-sm hover:bg-muted"
+                >
+                  +
+                </button>
+              </div>
+              <span className="text-xs text-muted-foreground">days</span>
             </div>
           )}
           {frequency === 'times_per_week' && (

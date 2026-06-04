@@ -57,6 +57,7 @@ const ALL_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 
 function frequencyLabel(habit: HabitWithStats): string {
   if (habit.frequency === 'daily') return 'Every day'
+  if (habit.frequency === 'every_x_days') return `Every ${habit.repeatEveryDays ?? 2} days`
   if (habit.frequency === 'times_per_week') return `${habit.timesPerWeek}× per week`
   if (habit.frequency === 'days_of_week' && habit.daysOfWeek?.length) {
     if (habit.daysOfWeek.length === 7) return 'Every day'

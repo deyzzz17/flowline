@@ -57,7 +57,7 @@ export interface HabitData {
   description?: string
   color?: string
   categoryTag?: string
-  frequency: 'daily' | 'days_of_week' | 'times_per_week'
+  frequency: 'daily' | 'days_of_week' | 'times_per_week' | 'every_x_days'
   daysOfWeek?: string[]
   timesPerWeek?: number
   order?: number
@@ -70,6 +70,7 @@ export interface HabitData {
   relativeEventId?: number | null
   trackingFields?: TrackingField[]
   goals?: HabitGoal[]
+  repeatEveryDays?: number
 }
 
 export interface HabitWithStats {
@@ -79,7 +80,7 @@ export interface HabitWithStats {
   description?: string | null
   color: string
   categoryTag?: string | null
-  frequency: 'daily' | 'days_of_week' | 'times_per_week'
+  frequency: 'daily' | 'days_of_week' | 'times_per_week' | 'every_x_days'
   daysOfWeek?: string[]
   timesPerWeek?: number
   currentStreak: number
@@ -97,6 +98,7 @@ export interface HabitWithStats {
   trackingFields?: TrackingField[]
   goals?: HabitGoal[]
   claimableGoalIds?: string[]
+  repeatEveryDays?: number
 }
 
 export interface HabitDetail extends HabitWithStats {
@@ -246,6 +248,7 @@ function computeStreaks(
       d = addDays(d, -1)
       if (d < new Date('2020-01-01')) break
     }
+
     return { current, longest: current }
   }
 
@@ -275,6 +278,34 @@ function computeStreaks(
       }
       weekStart = addDays(weekStart, -7)
       if (weekStart < new Date('2020-01-01')) break
+    }
+    return { current, longest: current }
+  }
+
+  if (habit.frequency === 'every_x_days') {
+    const interval = (habit as any).repeatEveryDays ?? 2
+    let current = 0
+    let d = new Date(today + 'T12:00:00')
+    while (true) {
+      const key = getDateKey(d, timezone)
+      if (key > today) {
+        d = addDays(d, -1)
+        continue
+      }
+      let found = false
+      for (let i = 0; i < interval; i++) {
+        const check = getDateKey(addDays(d, -i), timezone)
+        if (completionDates.has(check)) {
+          found = true
+          break
+        }
+      }
+      if (found) {
+        current++
+        d = addDays(d, -interval)
+      } else {
+        break
+      }
     }
     return { current, longest: current }
   }
