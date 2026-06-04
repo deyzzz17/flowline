@@ -180,7 +180,7 @@ function getInitialState(initialData?: HabitWithStats) {
     frequency: initialData.frequency,
     daysOfWeek: initialData.daysOfWeek ?? ['mon', 'tue', 'wed', 'thu', 'fri'],
     timesPerWeek: initialData.timesPerWeek ?? 3,
-    startDate: initialData.startDate ?? '',
+    startDate: initialData.startDate ?? new Date().toISOString().split('T')[0],
     showInCalendar: initialData.showInCalendar ?? false,
     calendarMode: (initialData.calendarMode ?? 'time') as 'time' | 'relative',
     habitTime: initialData.habitTime ?? '08:00',
@@ -535,14 +535,30 @@ function HabitFormInner({
         }
       } else if (frequency === 'every_x_days') {
         if (eventFreq === 'daily' && eventInterval === repeatEveryDays) {
-          compatible = true
-          compatLabel = startDate
-            ? 'Perfect match — verify start date'
-            : 'Match — set start date to align'
+          // Vérifie l'alignement des dates si on a les deux
+          const habitStart = startDate ? new Date(startDate) : null
+          const eventStart = e.startDate ? new Date(e.startDate) : null
+
+          if (habitStart && eventStart) {
+            const diffDays = Math.round(
+              Math.abs(habitStart.getTime() - eventStart.getTime()) / (1000 * 60 * 60 * 24),
+            )
+            const aligned = diffDays % repeatEveryDays === 0
+            if (aligned) {
+              compatible = true
+              compatLabel = 'Perfect match'
+            } else {
+              compatible = false
+              compatLabel = `Misaligned — ${diffDays % repeatEveryDays}d offset`
+            }
+          } else {
+            compatible = true
+            compatLabel = 'Set start dates to verify alignment'
+          }
         } else if (eventFreq === 'daily' && eventInterval === 1) {
           compatible = true
           compatLabel = 'Compatible — event is daily'
-        } else if (eventFreq === 'daily' && eventInterval !== repeatEveryDays) {
+        } else if (eventFreq === 'daily') {
           compatible = false
           compatLabel = `Incompatible — event every ${eventInterval}d vs habit every ${repeatEveryDays}d`
         } else {
@@ -553,6 +569,8 @@ function HabitFormInner({
 
       return { ...e, compatible, compatLabel }
     })
+    .filter((e: any) => e.compatible)
+    .sort((a: any, b: any) => a.title.localeCompare(b.title))
     .sort((a: any, b: any) => (b.compatible ? 1 : 0) - (a.compatible ? 1 : 0))
 
   const toggleDay = (day: string) =>
@@ -957,14 +975,7 @@ function HabitFormInner({
                             <span className="block truncate font-medium text-foreground">
                               {e.title}
                             </span>
-                            <span
-                              className={cn(
-                                'text-[10px]',
-                                e.compatible ? 'text-emerald-500' : 'text-amber-500',
-                              )}
-                            >
-                              {e.compatLabel}
-                            </span>
+                            <span className="text-[10px] text-emerald-500/70">{e.compatLabel}</span>
                           </div>
                           {relativeEventId === e.id && (
                             <Check className="h-3.5 w-3.5 text-violet-500 shrink-0" />
