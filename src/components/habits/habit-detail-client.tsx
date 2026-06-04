@@ -14,6 +14,7 @@ import {
   type HabitDetail,
   type HabitGoal,
   type TrackingDataPoint,
+  HabitWithStats,
 } from '@/api/habits/actions'
 import { HabitTrackingDialog } from './habit-tracking-dialog'
 import { HabitTrackingCharts } from './habit-tracking-charts'
@@ -24,6 +25,7 @@ import { format, parseISO, endOfMonth, eachDayOfInterval } from 'date-fns'
 import { useRouter } from 'next/navigation'
 import { AlertDialog, AlertDialogContent, AlertDialogFooter } from '@/components/ui/alert-dialog'
 import { useSearchParams, usePathname } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 
 const DAY_LABELS: Record<string, string> = {
   mon: 'Mo',
@@ -312,6 +314,8 @@ export function HabitDetailClient({
   const pathname = usePathname()
   const endOnReachDialogOpen = searchParams.get('allGoalsReached') === '1'
 
+  const queryClient = useQueryClient()
+
   const openEndOnReachDialog = () => {
     const params = new URLSearchParams(searchParams.toString())
     params.set('allGoalsReached', '1')
@@ -451,6 +455,10 @@ export function HabitDetailClient({
       }
       toast.success('Habit archived')
       closeEndOnReachDialog()
+      queryClient.setQueryData(
+        ['habits'],
+        (old: HabitWithStats[] | undefined) => old?.filter((h) => h.id !== habit.id) ?? [],
+      )
       router.push('/habits/habits-view')
     })
   }
@@ -464,6 +472,10 @@ export function HabitDetailClient({
       }
       toast.success('Habit deleted')
       closeEndOnReachDialog()
+      queryClient.setQueryData(
+        ['habits'],
+        (old: HabitWithStats[] | undefined) => old?.filter((h) => h.id !== habit.id) ?? [],
+      )
       router.push('/habits/habits-view')
     })
   }
