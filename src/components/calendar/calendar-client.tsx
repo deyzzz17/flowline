@@ -269,7 +269,13 @@ export function CalendarClient() {
     const key = item.optimisticKey
 
     if (pendingAction.type === 'move') {
-      moveEvent(item.id as number, pendingAction.targetDate, scope, occDate, key)
+      let targetDate = pendingAction.targetDate
+      if (scope === 'thisAndFollowing') {
+        const origStart = new Date(occDate)
+        targetDate = new Date(pendingAction.targetDate)
+        targetDate.setHours(origStart.getHours(), origStart.getMinutes(), 0, 0)
+      }
+      moveEvent(item.id as number, targetDate, scope, occDate, key)
     } else {
       resizeEvent(item.id as number, pendingAction.newEndDate, scope, occDate, key)
       if (view === 'day') {
