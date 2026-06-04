@@ -5,6 +5,7 @@ import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
+import { generateOccurrences } from '@/api/calendar/calendar-recurrence'
 
 const getUserId = async () => {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -21,16 +22,6 @@ export interface HabitCalendarEvent {
   endDate: string
   allDay: boolean
   type: 'habit'
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function isSameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  )
 }
 
 const DAY_MAP: Record<string, number> = {
@@ -80,114 +71,77 @@ function generateHabitOccurrences(habit: any, from: Date, to: Date): Date[] {
   return dates
 }
 
-// Vérifie si l'event récurrent de référence tombe ce jour-là
-function doesRefEventOccurOnDate(refEvent: any, date: Date): boolean {
-  if (!refEvent?.recurrence?.frequency) {
-    return isSameDay(new Date(refEvent.startDate), date)
-  }
-
-  const recurrence = refEvent.recurrence
-  const eventStart = new Date(refEvent.startDate)
-  eventStart.setHours(0, 0, 0, 0)
-  const checkDate = new Date(date)
-  checkDate.setHours(0, 0, 0, 0)
-
-  if (checkDate < eventStart) return false
-
-  // Vérifie les exceptions (occurrences supprimées)
-  const exceptions: string[] = (refEvent.exceptions ?? []).map((ex: any) =>
-    new Date(ex.date).toISOString().slice(0, 10),
-  )
-  if (exceptions.includes(checkDate.toISOString().slice(0, 10))) return false
-
-  const interval = recurrence.interval ?? 1
-
-  if (recurrence.frequency === 'daily') {
-    const diffDays = Math.round(
-      (checkDate.getTime() - eventStart.getTime()) / (1000 * 60 * 60 * 24),
-    )
-    return diffDays % interval === 0
-  }
-
-  if (recurrence.frequency === 'weekly') {
-    if (recurrence.daysOfWeek?.length) {
-      const dayNumbers = new Set(
-        recurrence.daysOfWeek.map((d: string) =>
-          isNaN(Number(d)) ? (DAY_MAP[d] ?? -1) : Number(d),
-        ),
-      )
-      if (!dayNumbers.has(date.getDay())) return false
-      const diffDays = Math.round(
-        (checkDate.getTime() - eventStart.getTime()) / (1000 * 60 * 60 * 24),
-      )
-      const weekDiff = Math.floor(diffDays / 7)
-      return weekDiff % interval === 0
-    }
-    const diffDays = Math.round(
-      (checkDate.getTime() - eventStart.getTime()) / (1000 * 60 * 60 * 24),
-    )
-    return diffDays % (interval * 7) === 0
-  }
-
-  if (recurrence.frequency === 'monthly') {
-    if (date.getDate() !== eventStart.getDate()) return false
-    const diffMonths =
-      (date.getFullYear() - eventStart.getFullYear()) * 12 +
-      (date.getMonth() - eventStart.getMonth())
-    return diffMonths % interval === 0
-  }
-
-  if (recurrence.frequency === 'yearly') {
-    if (date.getDate() !== eventStart.getDate()) return false
-    if (date.getMonth() !== eventStart.getMonth()) return false
-    return (date.getFullYear() - eventStart.getFullYear()) % interval === 0
-  }
-
-  return false
-}
-
-interface ResolvedOccurrence {
+interface RefOccurrence {
+  date: Date
   startDate: Date
   endDate: Date
 }
 
-function resolveRefEventOccurrence(
+function buildRefEventOccurrences(
   refEvent: any,
   overrides: any[],
-  date: Date,
-): ResolvedOccurrence {
-  const dateKey = date.toISOString().slice(0, 10)
+  from: Date,
+  to: Date,
+): Map<string, RefOccurrence> {
+  const map = new Map<string, RefOccurrence>()
 
-  const override = overrides.find((o) => {
-    const origDate = o.originalDate ?? o.startDate
-    return new Date(origDate).toISOString().slice(0, 10) === dateKey
-  })
-  if (override) {
-    return {
-      startDate: new Date(override.startDate),
-      endDate: new Date(override.endDate),
-    }
+  if (!refEvent?.recurrence?.frequency) {
+    const d = new Date(refEvent.startDate)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    map.set(key, {
+      date: d,
+      startDate: new Date(refEvent.startDate),
+      endDate: new Date(refEvent.endDate),
+    })
+    return map
   }
 
-  const adjustments: any[] = (refEvent.adjustments ?? [])
-    .filter((adj: any) => new Date(adj.fromDate) <= date)
-    .sort((a: any, b: any) => new Date(b.fromDate).getTime() - new Date(a.fromDate).getTime())
+  const overrideDates = new Set<string>(
+    overrides.map((o) => {
+      const d = new Date(o.originalDate ?? o.startDate)
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    }),
+  )
 
-  const adj = adjustments[0]
+  const exceptions = new Set<string>([
+    ...((refEvent.exceptions ?? []) as { date: string }[]).map((ex) =>
+      new Date(ex.date).toISOString().slice(0, 10),
+    ),
+    ...overrideDates,
+  ])
 
-  const baseStart = new Date(refEvent.startDate)
-  const baseEnd = new Date(refEvent.endDate)
-  const duration = baseEnd.getTime() - baseStart.getTime()
+  const occurrences = generateOccurrences(
+    {
+      startDate: refEvent.startDate,
+      endDate: refEvent.endDate,
+      recurrence: refEvent.recurrence,
+      adjustments: refEvent.adjustments ?? [],
+    },
+    from,
+    to,
+    exceptions,
+  )
 
-  const refStart = adj?.startDate ? new Date(adj.startDate) : baseStart
-  const refEnd = adj?.endDate ? new Date(adj.endDate) : baseEnd
-  const adjDuration = refEnd.getTime() - refStart.getTime()
+  for (const occ of occurrences) {
+    const key = `${occ.date.getFullYear()}-${String(occ.date.getMonth() + 1).padStart(2, '0')}-${String(occ.date.getDate()).padStart(2, '0')}`
+    map.set(key, {
+      date: occ.date,
+      startDate: occ.date,
+      endDate: occ.endDate,
+    })
+  }
 
-  const occStart = new Date(date)
-  occStart.setHours(refStart.getHours(), refStart.getMinutes(), 0, 0)
-  const occEnd = new Date(occStart.getTime() + (adj ? adjDuration : duration))
+  for (const override of overrides) {
+    const d = new Date(override.originalDate ?? override.startDate)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    map.set(key, {
+      date: d,
+      startDate: new Date(override.startDate),
+      endDate: new Date(override.endDate),
+    })
+  }
 
-  return { startDate: occStart, endDate: occEnd }
+  return map
 }
 
 export const getHabitCalendarEvents = async (
@@ -215,6 +169,11 @@ export const getHabitCalendarEvents = async (
 
   const fromDate = new Date(from)
   const toDate = new Date(to)
+  const widerFrom = new Date(fromDate)
+  widerFrom.setDate(widerFrom.getDate() - 7)
+  const widerTo = new Date(toDate)
+  widerTo.setDate(widerTo.getDate() + 7)
+
   const events: HabitCalendarEvent[] = []
 
   for (const habit of habits) {
@@ -225,27 +184,30 @@ export const getHabitCalendarEvents = async (
     habitStart.setHours(0, 0, 0, 0)
     const effectiveFrom = habitStart > fromDate ? habitStart : fromDate
 
-    let refEvent: any = null
-    let refEventOverrides: any[] = []
+    let refOccurrences: Map<string, RefOccurrence> = new Map()
 
     if (h.calendarMode === 'relative' && h.relativeEventId) {
       try {
-        refEvent = await payload.findByID({
+        const refEvent = await payload.findByID({
           collection: 'calendar-events',
           id: h.relativeEventId,
         })
-        const { docs: overrideDocs } = await payload.find({
-          collection: 'calendar-events',
-          where: {
-            and: [
-              { recurrenceId: { equals: h.relativeEventId } },
-              { startDate: { greater_than_equal: fromDate.toISOString() } },
-              { startDate: { less_than_equal: toDate.toISOString() } },
-            ],
-          },
-          limit: 500,
-        })
-        refEventOverrides = overrideDocs
+
+        if (refEvent) {
+          const { docs: overrideDocs } = await payload.find({
+            collection: 'calendar-events',
+            where: {
+              and: [
+                { recurrenceId: { equals: h.relativeEventId } },
+                { originalDate: { greater_than_equal: widerFrom.toISOString() } },
+                { originalDate: { less_than_equal: widerTo.toISOString() } },
+              ],
+            },
+            limit: 500,
+          })
+
+          refOccurrences = buildRefEventOccurrences(refEvent, overrideDocs, widerFrom, widerTo)
+        }
       } catch {}
     }
 
@@ -255,18 +217,21 @@ export const getHabitCalendarEvents = async (
       let eventStart: Date
       let eventEnd: Date
 
-      if (h.calendarMode === 'relative' && refEvent) {
-        if (!doesRefEventOccurOnDate(refEvent, occDate)) continue
+      if (h.calendarMode === 'relative' && refOccurrences.size > 0) {
+        const dayKey = `${occDate.getFullYear()}-${String(occDate.getMonth() + 1).padStart(2, '0')}-${String(occDate.getDate()).padStart(2, '0')}`
+        const refOcc = refOccurrences.get(dayKey)
 
-        const resolved = resolveRefEventOccurrence(refEvent, refEventOverrides, occDate)
+        if (!refOcc) continue
 
         if (h.relativePosition === 'before') {
-          eventEnd = new Date(resolved.startDate)
+          eventEnd = new Date(refOcc.startDate)
           eventStart = new Date(eventEnd.getTime() - duration)
         } else {
-          eventStart = new Date(resolved.endDate)
+          eventStart = new Date(refOcc.endDate)
           eventEnd = new Date(eventStart.getTime() + duration)
         }
+      } else if (h.calendarMode === 'relative' && refOccurrences.size === 0) {
+        continue
       } else {
         const [hours, minutes] = (h.habitTime ?? '08:00').split(':').map(Number)
         eventStart = new Date(occDate)
