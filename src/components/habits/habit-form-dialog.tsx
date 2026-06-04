@@ -143,7 +143,7 @@ function getInitialState(initialData?: HabitWithStats) {
       frequency: 'daily' as HabitData['frequency'],
       daysOfWeek: ['mon', 'tue', 'wed', 'thu', 'fri'],
       timesPerWeek: 3,
-      startDate: '',
+      startDate: new Date().toISOString().split('T')[0],
       showInCalendar: false,
       calendarMode: 'time' as 'time' | 'relative',
       habitTime: '08:00',
@@ -480,14 +480,80 @@ function HabitFormInner({
   })
 
   const uniqueRecurringEvents = (calendarEvents?.docs ?? [])
-    .filter((e: any) => {
-      if (!e.recurrence?.frequency) return false
-      if (frequency === 'daily' && e.recurrence.frequency === 'daily') return true
-      if (frequency === 'days_of_week' && e.recurrence.frequency === 'weekly') return true
-      if (frequency === 'times_per_week') return true
-      return false
-    })
+    .filter((e: any) => !!e.recurrence?.frequency)
     .filter((e: any, idx: number, arr: any[]) => arr.findIndex((x: any) => x.id === e.id) === idx)
+    .map((e: any) => {
+      const eventFreq: string = e.recurrence?.frequency ?? ''
+      const eventInterval: number = e.recurrence?.interval ?? 1
+      const eventDays: string[] = e.recurrence?.daysOfWeek ?? []
+
+      let compatible = false
+      let compatLabel = ''
+
+      if (frequency === 'daily') {
+        if (eventFreq === 'daily' && eventInterval === 1) {
+          compatible = true
+          compatLabel = 'Perfect match'
+        } else {
+          compatible = false
+          compatLabel = 'Incompatible — event not daily'
+        }
+      } else if (frequency === 'days_of_week') {
+        if (eventFreq === 'weekly') {
+          if (eventDays.length === 0) {
+            compatible = true
+            compatLabel = 'Check day alignment'
+          } else {
+            const eventDaySet = new Set(eventDays)
+            const allCovered = daysOfWeek.every((d) => eventDaySet.has(d))
+            const exactMatch = allCovered && daysOfWeek.length === eventDays.length
+            if (exactMatch) {
+              compatible = true
+              compatLabel = 'Perfect match'
+            } else if (allCovered) {
+              compatible = true
+              compatLabel = 'Compatible — event has more days'
+            } else {
+              compatible = false
+              compatLabel = 'Incompatible — days mismatch'
+            }
+          }
+        } else if (eventFreq === 'daily' && eventInterval === 1) {
+          compatible = true
+          compatLabel = 'Compatible — event is daily'
+        } else {
+          compatible = false
+          compatLabel = 'Incompatible frequency'
+        }
+      } else if (frequency === 'times_per_week') {
+        if (eventFreq === 'weekly' || (eventFreq === 'daily' && eventInterval === 1)) {
+          compatible = true
+          compatLabel = 'Compatible — align days manually'
+        } else {
+          compatible = false
+          compatLabel = 'Incompatible frequency'
+        }
+      } else if (frequency === 'every_x_days') {
+        if (eventFreq === 'daily' && eventInterval === repeatEveryDays) {
+          compatible = true
+          compatLabel = startDate
+            ? 'Perfect match — verify start date'
+            : 'Match — set start date to align'
+        } else if (eventFreq === 'daily' && eventInterval === 1) {
+          compatible = true
+          compatLabel = 'Compatible — event is daily'
+        } else if (eventFreq === 'daily' && eventInterval !== repeatEveryDays) {
+          compatible = false
+          compatLabel = `Incompatible — event every ${eventInterval}d vs habit every ${repeatEveryDays}d`
+        } else {
+          compatible = false
+          compatLabel = 'Incompatible frequency'
+        }
+      }
+
+      return { ...e, compatible, compatLabel }
+    })
+    .sort((a: any, b: any) => (b.compatible ? 1 : 0) - (a.compatible ? 1 : 0))
 
   const toggleDay = (day: string) =>
     setDaysOfWeek((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]))
@@ -694,7 +760,7 @@ function HabitFormInner({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setRepeatEveryDays((v: number) => Math.max(2, v - 1))}
+                  onClick={() => setRepeatEveryDays((v: number) => Math.max(2, v + 1))}
                   className="flex h-7 w-7 items-center justify-center rounded-lg border border-border/60 text-sm hover:bg-muted"
                 >
                   −
@@ -887,9 +953,19 @@ function HabitFormInner({
                             className="h-2 w-2 rounded-full shrink-0"
                             style={{ backgroundColor: e.color }}
                           />
-                          <span className="flex-1 truncate font-medium text-foreground">
-                            {e.title}
-                          </span>
+                          <div className="flex-1 min-w-0">
+                            <span className="block truncate font-medium text-foreground">
+                              {e.title}
+                            </span>
+                            <span
+                              className={cn(
+                                'text-[10px]',
+                                e.compatible ? 'text-emerald-500' : 'text-amber-500',
+                              )}
+                            >
+                              {e.compatLabel}
+                            </span>
+                          </div>
                           {relativeEventId === e.id && (
                             <Check className="h-3.5 w-3.5 text-violet-500 shrink-0" />
                           )}
