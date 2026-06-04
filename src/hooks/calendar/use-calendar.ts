@@ -42,11 +42,6 @@ export interface CalendarEvent {
   type: 'event'
 }
 
-interface RawFlowlineEvent extends CalendarEvent {
-  exceptions: { date: string }[]
-  adjustments: SeriesAdjustment[]
-}
-
 export interface CalendarTask {
   id: number
   title: string
@@ -103,7 +98,7 @@ function getViewRange(date: Date, view: CalendarView): { from: Date; to: Date } 
   }
 }
 
-function mapEvent(e: any): RawFlowlineEvent {
+function mapEvent(e: any) {
   return {
     id: e.id,
     title: e.title,
@@ -122,7 +117,6 @@ function mapEvent(e: any): RawFlowlineEvent {
     googleCalendarId: e.googleCalendarId ?? null,
     googleCalendarName: e.googleCalendarName ?? null,
     googleEventId: e.googleEventId ?? null,
-    activeAdjustment: null,
     type: 'event' as const,
   }
 }
@@ -204,10 +198,10 @@ export const useCalendar = () => {
   const { data: habitEventsData } = useQuery({
     queryKey: ['calendar-events-habits', from.toISOString(), to.toISOString()],
     queryFn: () => getHabitCalendarEvents(from.toISOString(), to.toISOString()),
-    staleTime: 5 * 60_000,
+    staleTime: 0,
   })
 
-  const rawFlowlineEvents = useMemo(
+  const rawEvents = useMemo(
     () => [...(eventsData?.docs ?? []), ...(googleEventsData?.docs ?? [])].map(mapEvent),
     [eventsData, googleEventsData],
   )
@@ -233,8 +227,8 @@ export const useCalendar = () => {
         googleEventId: null,
         activeAdjustment: null,
         type: 'event' as const,
-        habitId: h.habitId,
-        habitSlug: h.habitSlug,
+        habitId: (h as any).habitId,
+        habitSlug: (h as any).habitSlug,
       })),
     [habitEventsData],
   )
@@ -242,8 +236,8 @@ export const useCalendar = () => {
   const events: CalendarEvent[] = useMemo(() => {
     const result: CalendarEvent[] = []
 
-    const googleEvents = rawFlowlineEvents.filter((e) => e.source === 'google')
-    const flowlineEvents = rawFlowlineEvents.filter((e) => e.source !== 'google')
+    const googleEvents = rawEvents.filter((e) => e.source === 'google')
+    const flowlineEvents = rawEvents.filter((e) => e.source !== 'google')
 
     const parents = flowlineEvents.filter((e) => e.recurrence?.frequency && !e.recurrenceId)
     const overrides = flowlineEvents.filter((e) => e.recurrenceId)
@@ -265,18 +259,18 @@ export const useCalendar = () => {
     )
 
     for (const parent of parents) {
-      const exceptions = new Set<string>(
-        parent.exceptions.map((ex) => new Date(ex.date).toISOString().slice(0, 10)),
+      const exceptions = new Set(
+        (parent.exceptions ?? []).map((ex) => new Date(ex.date).toISOString().slice(0, 10)),
       )
-      const overrideDates = new Set<string>(
+      const overrideDates = new Set(
         overrides
           .filter((o) => o.recurrenceId === parent.id)
           .map((o) => new Date(o.originalDate ?? o.startDate).toISOString().slice(0, 10)),
       )
-      const allExceptions = new Set<string>([...exceptions, ...overrideDates])
+      const allExceptions = new Set([...exceptions, ...overrideDates])
 
       const occurrences = generateOccurrences(
-        { ...parent, adjustments: parent.adjustments },
+        { ...parent, adjustments: parent.adjustments ?? [] },
         from,
         to,
         allExceptions,
@@ -318,7 +312,7 @@ export const useCalendar = () => {
     result.push(...rawHabitEvents)
 
     return result
-  }, [rawFlowlineEvents, rawHabitEvents, from, to])
+  }, [rawEvents, rawHabitEvents, from, to])
 
   const tasks: CalendarTask[] = useMemo(() => {
     const allTasks = (tasksData?.docs ?? []) as Task[]
@@ -475,11 +469,13 @@ export const useCalendar = () => {
         if (key) clearOptimistic(key)
         else clearOptimisticDate('event', id)
         queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] })
+        queryClient.invalidateQueries({ queryKey: ['calendar-events-habits'] })
       } else {
         queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] }).then(() => {
           if (key) clearOptimistic(key)
           else clearOptimisticDate('event', id)
         })
+        queryClient.invalidateQueries({ queryKey: ['calendar-events-habits'] })
       }
       if (dialogOpen) {
         toast.success('Event updated')
@@ -520,6 +516,7 @@ export const useCalendar = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-habits'] })
       toast.success('Event deleted')
       setDialogOpen(false)
       setSelectedItem(null)
@@ -718,7 +715,8 @@ export const useCalendar = () => {
       }
 
       const dayEvents = eventsWithOverrides.filter((e) => {
-        if ((e as any).source !== 'habit' && !isCategoryVisible(e.categoryId)) return false
+        const isHabit = (e as any).source === 'habit'
+        if (!isHabit && !isCategoryVisible(e.categoryId)) return false
         if (e.source === 'google' && e.googleCalendarId) {
           if (!isGoogleCalendarVisible(e.googleCalendarId)) return false
         }
