@@ -265,17 +265,11 @@ export function CalendarClient() {
   const handleScopeSelect = (scope: EditScope) => {
     if (!pendingAction) return
     const { item } = pendingAction
-    const occDate = item.occurrenceDate ?? item.startDate
+    const occDate = item.occurrenceDate ?? item.originalDate ?? item.startDate
     const key = item.optimisticKey
 
     if (pendingAction.type === 'move') {
-      let targetDate = pendingAction.targetDate
-      if (scope === 'thisAndFollowing') {
-        const origStart = new Date(occDate)
-        targetDate = new Date(pendingAction.targetDate)
-        targetDate.setHours(origStart.getHours(), origStart.getMinutes(), 0, 0)
-      }
-      moveEvent(item.id as number, targetDate, scope, occDate, key)
+      moveEvent(item.id as number, pendingAction.targetDate, scope, occDate, key)
     } else {
       resizeEvent(item.id as number, pendingAction.newEndDate, scope, occDate, key)
       if (view === 'day') {

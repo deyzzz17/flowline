@@ -672,7 +672,8 @@ export const useCalendar = () => {
         id,
         data: { endDate: newEndDate.toISOString() },
         scope: scope ?? (event?.isOccurrence ? 'this' : 'all'),
-        originalDate: originalDate ?? event?.occurrenceDate ?? event?.startDate,
+        originalDate:
+          originalDate ?? event?.occurrenceDate ?? event?.originalDate ?? event?.startDate,
         optimisticKey: key,
       })
     },
