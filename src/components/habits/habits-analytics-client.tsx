@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Flame, Check, BarChart2, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { type HabitAnalytics } from '@/api/habits/actions'
+import { type TrophyAnalyticsResult } from '@/api/habits-analytics/goal-trophy-analytics-actions'
+import { TrophyAnalyticsChart } from './trophy-analytics-chart'
 import { parseISO } from 'date-fns'
 
 const MONTH_LABELS = [
@@ -33,18 +35,16 @@ interface TooltipState {
 
 function Heatmap({ data }: { data: HabitAnalytics['heatmapData'] }) {
   const [tooltip, setTooltip] = useState<TooltipState>({ visible: false, x: 0, y: 0, text: '' })
-  const containerRef = useRef<HTMLDivElement>(null)
 
   if (data.length === 0) return null
 
   type Cell = { date: string; count: number; total: number } | null
-
   const columns: Cell[][] = []
   let currentCol: Cell[] = []
 
   if (data.length > 0) {
     const firstDate = parseISO(data[0].date)
-    const firstDow = (firstDate.getDay() + 6) % 7 // Mon=0
+    const firstDow = (firstDate.getDay() + 6) % 7
     for (let i = 0; i < firstDow; i++) currentCol.push(null)
   }
 
@@ -85,10 +85,12 @@ function Heatmap({ data }: { data: HabitAnalytics['heatmapData'] }) {
     return 'bg-violet-500 dark:bg-violet-400'
   }
 
+  const containerDivRef = { current: null as HTMLDivElement | null }
+
   const handleMouseEnter = (e: React.MouseEvent, cell: Cell) => {
-    if (!cell || !containerRef.current) return
+    if (!cell || !containerDivRef.current) return
     const rect = (e.target as HTMLElement).getBoundingClientRect()
-    const containerRect = containerRef.current.getBoundingClientRect()
+    const containerRect = containerDivRef.current.getBoundingClientRect()
     const text =
       cell.total === 0
         ? `${cell.date}: no target`
@@ -101,13 +103,16 @@ function Heatmap({ data }: { data: HabitAnalytics['heatmapData'] }) {
     })
   }
 
-  const handleMouseLeave = () => setTooltip((t) => ({ ...t, visible: false }))
-
   const CELL = 11
   const GAP = 2
 
   return (
-    <div ref={containerRef} className="relative select-none">
+    <div
+      ref={(n) => {
+        containerDivRef.current = n
+      }}
+      className="relative select-none"
+    >
       {tooltip.visible && (
         <div
           className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full rounded-md bg-foreground px-2 py-1 text-[10px] font-medium text-background shadow-md whitespace-nowrap"
@@ -117,7 +122,6 @@ function Heatmap({ data }: { data: HabitAnalytics['heatmapData'] }) {
           <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-foreground" />
         </div>
       )}
-
       <div className="flex mb-1 pl-7">
         {columns.map((_, ci) => {
           const mp = monthPositions.find((m) => m.colIndex === ci)
@@ -132,7 +136,6 @@ function Heatmap({ data }: { data: HabitAnalytics['heatmapData'] }) {
           )
         })}
       </div>
-
       <div className="flex gap-0">
         <div className="flex flex-col mr-1" style={{ gap: GAP, width: 24 }}>
           {Array.from({ length: 7 }, (_, row) => (
@@ -145,7 +148,6 @@ function Heatmap({ data }: { data: HabitAnalytics['heatmapData'] }) {
             </div>
           ))}
         </div>
-
         <div className="flex" style={{ gap: GAP }}>
           {columns.map((col, ci) => (
             <div key={ci} className="flex flex-col" style={{ gap: GAP }}>
@@ -158,14 +160,13 @@ function Heatmap({ data }: { data: HabitAnalytics['heatmapData'] }) {
                     cell ? getCellClass(getIntensity(cell)) : 'bg-transparent',
                   )}
                   onMouseEnter={cell ? (e) => handleMouseEnter(e, cell) : undefined}
-                  onMouseLeave={handleMouseLeave}
+                  onMouseLeave={() => setTooltip((t) => ({ ...t, visible: false }))}
                 />
               ))}
             </div>
           ))}
         </div>
       </div>
-
       <div className="mt-2 flex items-center justify-end gap-1">
         <span className="text-[10px] text-muted-foreground/50">Less</span>
         {[0, 0.25, 0.5, 0.75, 1].map((v, i) => (
@@ -183,9 +184,13 @@ function Heatmap({ data }: { data: HabitAnalytics['heatmapData'] }) {
 
 interface HabitsAnalyticsClientProps {
   initialData: HabitAnalytics
+  initialTrophyData: TrophyAnalyticsResult
 }
 
-export function HabitsAnalyticsClient({ initialData }: HabitsAnalyticsClientProps) {
+export function HabitsAnalyticsClient({
+  initialData,
+  initialTrophyData,
+}: HabitsAnalyticsClientProps) {
   const [data] = useState(initialData)
 
   if (data.totalHabits === 0) {
@@ -282,6 +287,10 @@ export function HabitsAnalyticsClient({ initialData }: HabitsAnalyticsClientProp
       <div className="mb-6 rounded-2xl border border-border/60 bg-card/40 p-5 overflow-x-auto">
         <p className="mb-4 text-sm font-semibold text-foreground">Completion heatmap</p>
         <Heatmap data={data.heatmapData} />
+      </div>
+
+      <div className="mb-6">
+        <TrophyAnalyticsChart initialData={initialTrophyData} initialPeriod="month" />
       </div>
 
       <div className="rounded-2xl border border-border/60 bg-card/40 overflow-hidden">
