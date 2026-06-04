@@ -597,20 +597,10 @@ export const useCalendar = () => {
     setDialogOpen(true)
   }, [])
 
-  const openEdit = useCallback(
-    (item: CalendarItem) => {
-      if (item.type === 'event') {
-        const ev = item as CalendarEvent
-        if ((ev as any).source === 'habit' && (ev as any).habitSlug) {
-          router.push(`/habits/${(ev as any).habitSlug}`)
-          return
-        }
-      }
-      setSelectedItem(item)
-      setDialogOpen(true)
-    },
-    [router],
-  )
+  const openEdit = useCallback((item: CalendarItem) => {
+    setSelectedItem(item)
+    setDialogOpen(true)
+  }, [])
 
   const moveEvent = useCallback(
     (
