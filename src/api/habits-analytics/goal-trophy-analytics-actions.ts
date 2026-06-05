@@ -91,7 +91,7 @@ function getBuckets(
   from: Date,
   to: Date,
 ): { label: string; dateKey: string; from: Date; to: Date }[] {
-  const fmt = (d: Date) => new Intl.DateTimeFormat('en-CA').format(d)
+  const fmtDate = (d: Date) => new Intl.DateTimeFormat('en-CA').format(d)
 
   if (period === 'day') {
     const buckets = []
@@ -102,7 +102,7 @@ function getBuckets(
       end.setHours(h, 59, 59, 999)
       buckets.push({
         label: `${String(h).padStart(2, '0')}:00`,
-        dateKey: start.toISOString(),
+        dateKey: `${fmtDate(from)}|${h}`,
         from: start,
         to: end,
       })
@@ -117,7 +117,7 @@ function getBuckets(
       d.setDate(d.getDate() + i)
       const end = new Date(d)
       end.setHours(23, 59, 59, 999)
-      return { label: DAYS[i], dateKey: fmt(d), from: d, to: end }
+      return { label: DAYS[i], dateKey: fmtDate(d), from: d, to: end }
     })
   }
 
@@ -129,7 +129,7 @@ function getBuckets(
       end.setHours(23, 59, 59, 999)
       buckets.push({
         label: String(cur.getDate()),
-        dateKey: fmt(cur),
+        dateKey: fmtDate(cur),
         from: new Date(cur),
         to: end,
       })
@@ -156,7 +156,7 @@ function getBuckets(
     const mFrom = new Date(from.getFullYear(), i, 1)
     const mTo = new Date(from.getFullYear(), i + 1, 0)
     mTo.setHours(23, 59, 59, 999)
-    return { label: MONTHS[i], dateKey: fmt(mFrom), from: mFrom, to: mTo }
+    return { label: MONTHS[i], dateKey: fmtDate(mFrom), from: mFrom, to: mTo }
   })
 }
 

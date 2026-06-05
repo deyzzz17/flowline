@@ -29,10 +29,11 @@ function niceYAxis(maxVal: number): { domain: [number, number]; ticks: number[] 
 
 function formatTooltipLabel(point: any, period: TrophyPeriod): string {
   if (period === 'day') {
-    const date = new Date(point.dateKey)
-    const h = date.getHours()
+    const [datePart, hourPart] = point.dateKey.split('|')
+    const h = parseInt(hourPart, 10)
     const hourStart = `${String(h).padStart(2, '0')}:00`
     const hourEnd = `${String(h + 1).padStart(2, '0')}:00`
+    const date = new Date(datePart + 'T12:00:00')
     const dateStr = date.toLocaleDateString('en-US', {
       weekday: 'short',
       month: 'short',
@@ -42,11 +43,19 @@ function formatTooltipLabel(point: any, period: TrophyPeriod): string {
   }
   if (period === 'week') {
     const date = new Date(point.dateKey + 'T12:00:00')
-    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    })
   }
   if (period === 'month') {
     const date = new Date(point.dateKey + 'T12:00:00')
-    return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    return date.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    })
   }
   if (period === 'year') {
     const date = new Date(point.dateKey + 'T12:00:00')
