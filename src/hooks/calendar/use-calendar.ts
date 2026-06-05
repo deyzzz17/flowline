@@ -337,20 +337,51 @@ export const useCalendar = () => {
       })
   }, [tasksData])
 
-  const eventsWithOverrides = useMemo(
-    () =>
-      events.map((e) => {
-        const key = e.optimisticKey ?? `event-${e.id}`
-        const override = optimisticOverrides.get(key)
-        if (!override) return e
+  const eventsWithOverrides = useMemo(() => {
+    return events.map((e) => {
+      const key = e.optimisticKey ?? `event-${e.id}`
+      const override = optimisticOverrides.get(key)
+
+      if (override) {
         return {
           ...e,
           startDate: override.startDate ?? e.startDate,
           endDate: override.endDate ?? e.endDate,
         }
-      }),
-    [events, optimisticOverrides],
-  )
+      }
+
+      if (e.isOccurrence && typeof e.id === 'number') {
+        const seriesPrefix = `event-${e.id}-`
+        let seriesOverride: { startDate?: string; endDate?: string } | null = null
+
+        for (const [k, v] of optimisticOverrides.entries()) {
+          if (k.startsWith(seriesPrefix) && v.startDate && v.endDate) {
+            seriesOverride = v
+            break
+          }
+        }
+
+        if (seriesOverride?.startDate && seriesOverride?.endDate) {
+          const overrideStart = new Date(seriesOverride.startDate)
+          const overrideEnd = new Date(seriesOverride.endDate)
+          const overrideDuration = overrideEnd.getTime() - overrideStart.getTime()
+
+          const occStart = new Date(e.startDate)
+          const newStart = new Date(occStart)
+          newStart.setHours(overrideStart.getHours(), overrideStart.getMinutes(), 0, 0)
+          const newEnd = new Date(newStart.getTime() + overrideDuration)
+
+          return {
+            ...e,
+            startDate: newStart.toISOString(),
+            endDate: newEnd.toISOString(),
+          }
+        }
+      }
+
+      return e
+    })
+  }, [events, optimisticOverrides])
 
   const tasksWithOverrides = useMemo(
     () =>
