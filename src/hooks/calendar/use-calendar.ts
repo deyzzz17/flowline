@@ -339,14 +339,11 @@ export const useCalendar = () => {
         const key = e.optimisticKey ?? `event-${e.id}`
         const override = optimisticOverrides.get(key)
         if (!override) return e
-        const duration = new Date(e.endDate).getTime() - new Date(e.startDate).getTime()
-        const newStart = override.startDate ?? e.startDate
-        const newEnd = override.endDate
-          ? override.endDate
-          : override.startDate
-            ? new Date(new Date(override.startDate).getTime() + duration).toISOString()
-            : e.endDate
-        return { ...e, startDate: newStart, endDate: newEnd }
+        return {
+          ...e,
+          startDate: override.startDate ?? e.startDate,
+          endDate: override.endDate ?? e.endDate,
+        }
       }),
     [events, optimisticOverrides],
   )
@@ -360,10 +357,10 @@ export const useCalendar = () => {
     [tasks, optimisticOverrides],
   )
 
-  const setOptimisticMove = useCallback((key: string, startDate: string) => {
+  const setOptimisticMove = useCallback((key: string, startDate: string, endDate: string) => {
     setOptimisticOverrides((prev) => {
       const next = new Map(prev)
-      next.set(key, { startDate })
+      next.set(key, { startDate, endDate })
       return next
     })
   }, [])
@@ -620,18 +617,22 @@ export const useCalendar = () => {
       if (event.source === 'google') return
 
       const key = event.optimisticKey ?? `event-${id}`
-      const duration = new Date(event.endDate).getTime() - new Date(event.startDate).getTime()
 
-      setOptimisticMove(key, newStartDate.toISOString())
+      const originalEvent = events.find((e) => e.optimisticKey === key) ?? event
+      const duration =
+        new Date(originalEvent.endDate).getTime() - new Date(originalEvent.startDate).getTime()
+      const newEndDate = new Date(newStartDate.getTime() + duration)
+
+      setOptimisticMove(key, newStartDate.toISOString(), newEndDate.toISOString())
 
       updateMutation.mutate({
         id,
         data: {
           startDate: newStartDate.toISOString(),
-          endDate: new Date(newStartDate.getTime() + duration).toISOString(),
+          endDate: newEndDate.toISOString(),
         },
         scope: scope ?? (event.isOccurrence ? 'this' : 'all'),
-        originalDate: originalDate ?? event.occurrenceDate ?? event.startDate,
+        originalDate: originalDate ?? event.occurrenceDate ?? event.originalDate ?? event.startDate,
         optimisticKey: key,
       })
     },
