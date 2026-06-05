@@ -233,7 +233,9 @@ export function CalendarEventBlock({
     <div
       ref={(node) => {
         blockRef.current = node
-        if (!continuesPrevDay) setNodeRef(node)
+        if (!continuesPrevDay) {
+          setNodeRef(node)
+        }
       }}
       style={{
         position: 'absolute',
@@ -245,13 +247,13 @@ export function CalendarEventBlock({
         borderLeft: `3px solid ${color}`,
         borderLeftStyle: isHabit ? 'dashed' : 'solid',
         zIndex: isDragging ? 50 : 10,
-        opacity: continuesPrevDay ? 0.7 : isDragging ? 0.4 : 1,
         ...style,
       }}
       className={cn(
         'overflow-hidden select-none',
         continuesPrevDay ? 'rounded-t-none' : 'rounded-t-lg',
         continuesNextDay ? 'rounded-b-none' : 'rounded-b-lg',
+        isDragging && 'opacity-40',
         isGoogle || isHabit ? 'cursor-pointer' : '',
       )}
     >
@@ -278,10 +280,10 @@ export function CalendarEventBlock({
               fontSize: height < 24 ? '9px' : height < 32 ? '10px' : '11px',
             }}
           >
-            {continuesPrevDay ? `↑ ${item.title}` : item.title}
+            {item.title}
           </p>
         )}
-        {height > 32 && !continuesPrevDay && (
+        {height > 32 && (
           <p className="text-[10px] leading-tight" style={{ color, opacity: 0.7 }}>
             {formatTime(startDate)} – {formatTime(endDate)}
           </p>

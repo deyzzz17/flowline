@@ -700,6 +700,11 @@ export const useCalendar = () => {
       const m = date.getMonth()
       const d = date.getDate()
 
+      const dayStart = new Date(date)
+      dayStart.setHours(0, 0, 0, 0)
+      const dayEnd = new Date(date)
+      dayEnd.setHours(23, 59, 59, 999)
+
       const sameLocalDate = (iso: string) => {
         const dt = new Date(iso)
         return dt.getFullYear() === y && dt.getMonth() === m && dt.getDate() === d
@@ -715,16 +720,20 @@ export const useCalendar = () => {
 
         const start = new Date(e.startDate)
         const end = new Date(e.endDate)
-        const dayStart = new Date(date)
-        dayStart.setHours(0, 0, 0, 0)
-        const dayEnd = new Date(date)
-        dayEnd.setHours(23, 59, 59, 999)
 
         if (!(start <= dayEnd && end >= dayStart)) return false
 
-        const key = (e as CalendarEvent).optimisticKey
-        if (key && optimisticOverrides.has(key) && start < dayStart) {
-          return false
+        const key = e.optimisticKey
+        if (key && optimisticOverrides.has(key)) {
+          const override = optimisticOverrides.get(key)!
+          if (override.startDate) {
+            const newStart = new Date(override.startDate)
+            const newEnd = new Date(
+              newStart.getTime() +
+                (new Date(e.endDate).getTime() - new Date(e.startDate).getTime()),
+            )
+            if (!(newStart <= dayEnd && newEnd >= dayStart)) return false
+          }
         }
 
         return true
@@ -738,7 +747,14 @@ export const useCalendar = () => {
         return new Date(aDate).getTime() - new Date(bDate).getTime()
       })
     },
-    [eventsWithOverrides, tasksWithOverrides, isCategoryVisible, isGoogleCalendarVisible],
+    [
+      eventsWithOverrides,
+      tasksWithOverrides,
+      isCategoryVisible,
+      isGoogleCalendarVisible,
+      habitsVisible,
+      optimisticOverrides,
+    ],
   )
 
   const goToDay = useCallback((date: Date) => pushUrl('day', date), [pushUrl])
