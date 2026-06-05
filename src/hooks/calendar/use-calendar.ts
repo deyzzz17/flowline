@@ -338,39 +338,46 @@ export const useCalendar = () => {
   }, [tasksData])
 
   const eventsWithOverrides = useMemo(() => {
+    // Trouve tous les overrides de série (event-{id}-{iso})
+    // et extrait le décalage d'heure pour chaque série
+    const seriesTimeOverrides = new Map<
+      number,
+      { hours: number; minutes: number; durationMs: number }
+    >()
+
+    for (const [key, override] of optimisticOverrides.entries()) {
+      if (!override.startDate || !override.endDate) continue
+      const match = key.match(/^event-(\d+)-/)
+      if (!match) continue
+      const seriesId = parseInt(match[1])
+      const newStart = new Date(override.startDate)
+      const newEnd = new Date(override.endDate)
+      seriesTimeOverrides.set(seriesId, {
+        hours: newStart.getHours(),
+        minutes: newStart.getMinutes(),
+        durationMs: newEnd.getTime() - newStart.getTime(),
+      })
+    }
+
     return events.map((e) => {
       const key = e.optimisticKey ?? `event-${e.id}`
-      const override = optimisticOverrides.get(key)
+      const direct = optimisticOverrides.get(key)
 
-      if (override) {
+      if (direct) {
         return {
           ...e,
-          startDate: override.startDate ?? e.startDate,
-          endDate: override.endDate ?? e.endDate,
+          startDate: direct.startDate ?? e.startDate,
+          endDate: direct.endDate ?? e.endDate,
         }
       }
 
       if (e.isOccurrence && typeof e.id === 'number') {
-        const seriesPrefix = `event-${e.id}-`
-        let seriesOverride: { startDate?: string; endDate?: string } | null = null
-
-        for (const [k, v] of optimisticOverrides.entries()) {
-          if (k.startsWith(seriesPrefix) && v.startDate && v.endDate) {
-            seriesOverride = v
-            break
-          }
-        }
-
-        if (seriesOverride?.startDate && seriesOverride?.endDate) {
-          const overrideStart = new Date(seriesOverride.startDate)
-          const overrideEnd = new Date(seriesOverride.endDate)
-          const overrideDuration = overrideEnd.getTime() - overrideStart.getTime()
-
-          const occStart = new Date(e.startDate)
-          const newStart = new Date(occStart)
-          newStart.setHours(overrideStart.getHours(), overrideStart.getMinutes(), 0, 0)
-          const newEnd = new Date(newStart.getTime() + overrideDuration)
-
+        const seriesOverride = seriesTimeOverrides.get(e.id)
+        if (seriesOverride) {
+          const occDate = new Date(e.startDate)
+          const newStart = new Date(occDate)
+          newStart.setHours(seriesOverride.hours, seriesOverride.minutes, 0, 0)
+          const newEnd = new Date(newStart.getTime() + seriesOverride.durationMs)
           return {
             ...e,
             startDate: newStart.toISOString(),
