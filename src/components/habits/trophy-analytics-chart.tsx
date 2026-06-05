@@ -27,13 +27,18 @@ function niceYAxis(maxVal: number): { domain: [number, number]; ticks: number[] 
   return { domain: [0, niceMax], ticks }
 }
 
-function formatTooltipLabel(point: any, period: TrophyPeriod, periodLabel: string): string {
+function formatTooltipLabel(point: any, period: TrophyPeriod): string {
   if (period === 'day') {
-    const hour = point.label
-    const [h] = hour.split(':')
-    const end = `${String(Number(h) + 1).padStart(2, '0')}:00`
-    const dateStr = periodLabel // ex: "Tuesday, June 4, 2026"
-    return `${dateStr}, ${hour}–${end}`
+    const date = new Date(point.dateKey)
+    const h = date.getHours()
+    const hourStart = `${String(h).padStart(2, '0')}:00`
+    const hourEnd = `${String(h + 1).padStart(2, '0')}:00`
+    const dateStr = date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    })
+    return `${dateStr}, ${hourStart}–${hourEnd}`
   }
   if (period === 'week') {
     const date = new Date(point.dateKey + 'T12:00:00')
@@ -116,7 +121,7 @@ export function TrophyAnalyticsChart({
     if (!active || !payload?.length) return null
     const point = payload[0].payload
     const val = point.count as number
-    const tooltipLabel = formatTooltipLabel(point, period, data.periodLabel)
+    const tooltipLabel = formatTooltipLabel(point, period)
     return (
       <div className="rounded-lg border border-border/60 bg-background px-3 py-2 shadow-lg pointer-events-none">
         <p className="text-[11px] text-muted-foreground mb-0.5">{tooltipLabel}</p>
