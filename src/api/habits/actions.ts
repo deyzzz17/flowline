@@ -286,12 +286,18 @@ function computeStreaks(
     const interval = (habit as any).repeatEveryDays ?? 2
     let current = 0
     let d = new Date(today + 'T12:00:00')
+
+    const anchor = (habit as any).startDate ? new Date((habit as any).startDate + 'T12:00:00') : d
+    anchor.setHours(12, 0, 0, 0)
+
+    const diffToday = Math.round((d.getTime() - anchor.getTime()) / (1000 * 60 * 60 * 24))
+    const isTodayActive = diffToday >= 0 && diffToday % interval === 0
+
+    if (isTodayActive && !completionDates.has(today)) {
+      d = addDays(d, -interval)
+    }
+
     while (true) {
-      const key = getDateKey(d, timezone)
-      if (key > today) {
-        d = addDays(d, -1)
-        continue
-      }
       let found = false
       for (let i = 0; i < interval; i++) {
         const check = getDateKey(addDays(d, -i), timezone)
@@ -306,6 +312,7 @@ function computeStreaks(
       } else {
         break
       }
+      if (d < new Date('2020-01-01')) break
     }
     return { current, longest: current }
   }
