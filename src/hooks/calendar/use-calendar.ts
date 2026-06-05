@@ -712,13 +712,22 @@ export const useCalendar = () => {
         if (e.source === 'google' && e.googleCalendarId) {
           if (!isGoogleCalendarVisible(e.googleCalendarId)) return false
         }
+
         const start = new Date(e.startDate)
         const end = new Date(e.endDate)
         const dayStart = new Date(date)
         dayStart.setHours(0, 0, 0, 0)
         const dayEnd = new Date(date)
         dayEnd.setHours(23, 59, 59, 999)
-        return start <= dayEnd && end >= dayStart
+
+        if (!(start <= dayEnd && end >= dayStart)) return false
+
+        const key = (e as CalendarEvent).optimisticKey
+        if (key && optimisticOverrides.has(key) && start < dayStart) {
+          return false
+        }
+
+        return true
       })
 
       const dayTasks = tasksWithOverrides.filter((t) => sameLocalDate(t.dueDate))

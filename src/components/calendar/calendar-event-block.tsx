@@ -75,23 +75,6 @@ export function CalendarEventBlock({
   const isGoogle = item.type === 'event' && (item as CalendarEvent).source === 'google'
   const isHabit = item.type === 'event' && (item as any).source === 'habit'
 
-  const draggableId =
-    item.type === 'event'
-      ? ((item as CalendarEvent).optimisticKey ?? `event-${item.id}`)
-      : `task-${item.id}`
-
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: draggableId,
-    data: { item },
-    disabled: isGoogle || isHabit,
-  })
-
-  const top = getItemTop(item, viewDate)
-  const height = displayHeight ?? getItemHeight(item, viewDate)
-
-  const color =
-    item.type === 'event' ? (item as CalendarEvent).color : (item as CalendarTask).listColor
-
   const startDate = new Date(item.type === 'event' ? item.startDate : item.dueDate)
   const endDate =
     item.type === 'event'
@@ -106,6 +89,7 @@ export function CalendarEventBlock({
         return d
       })()
     : false
+
   const continuesPrevDay = viewDate
     ? startDate <
       (() => {
@@ -114,6 +98,25 @@ export function CalendarEventBlock({
         return d
       })()
     : false
+
+  const isDragDisabled = isGoogle || isHabit || continuesPrevDay
+
+  const draggableId =
+    item.type === 'event'
+      ? ((item as CalendarEvent).optimisticKey ?? `event-${item.id}`)
+      : `task-${item.id}`
+
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: draggableId,
+    data: { item },
+    disabled: isDragDisabled,
+  })
+
+  const top = getItemTop(item, viewDate)
+  const height = displayHeight ?? getItemHeight(item, viewDate)
+
+  const color =
+    item.type === 'event' ? (item as CalendarEvent).color : (item as CalendarTask).listColor
 
   const resizeBaseDate =
     continuesPrevDay && viewDate
@@ -230,7 +233,7 @@ export function CalendarEventBlock({
     <div
       ref={(node) => {
         blockRef.current = node
-        setNodeRef(node)
+        if (!continuesPrevDay) setNodeRef(node)
       }}
       style={{
         position: 'absolute',
@@ -242,24 +245,25 @@ export function CalendarEventBlock({
         borderLeft: `3px solid ${color}`,
         borderLeftStyle: isHabit ? 'dashed' : 'solid',
         zIndex: isDragging ? 50 : 10,
+        opacity: continuesPrevDay ? 0.7 : isDragging ? 0.4 : 1,
         ...style,
       }}
       className={cn(
         'overflow-hidden select-none',
         continuesPrevDay ? 'rounded-t-none' : 'rounded-t-lg',
         continuesNextDay ? 'rounded-b-none' : 'rounded-b-lg',
-        isDragging && 'opacity-40',
         isGoogle || isHabit ? 'cursor-pointer' : '',
       )}
     >
       <div
-        {...(!isGoogle && !isHabit ? listeners : {})}
-        {...(!isGoogle && !isHabit ? attributes : {})}
-        style={!isGoogle && !isHabit ? { touchAction: 'none' } : undefined}
+        {...(!isDragDisabled ? listeners : {})}
+        {...(!isDragDisabled ? attributes : {})}
+        style={!isDragDisabled ? { touchAction: 'none' } : undefined}
         className={cn(
           'absolute inset-0 bottom-3 px-1.5 pt-0.5',
-          !isGoogle && !isHabit && 'cursor-grab active:cursor-grabbing',
+          !isDragDisabled && 'cursor-grab active:cursor-grabbing',
           (isGoogle || isHabit) && 'cursor-pointer',
+          continuesPrevDay && 'cursor-default',
         )}
         onClick={(e) => {
           e.stopPropagation()
@@ -274,10 +278,10 @@ export function CalendarEventBlock({
               fontSize: height < 24 ? '9px' : height < 32 ? '10px' : '11px',
             }}
           >
-            {item.title}
+            {continuesPrevDay ? `↑ ${item.title}` : item.title}
           </p>
         )}
-        {height > 32 && (
+        {height > 32 && !continuesPrevDay && (
           <p className="text-[10px] leading-tight" style={{ color, opacity: 0.7 }}>
             {formatTime(startDate)} – {formatTime(endDate)}
           </p>
