@@ -29,33 +29,19 @@ function niceYAxis(maxVal: number): { domain: [number, number]; ticks: number[] 
 
 function formatTooltipLabel(point: any, period: TrophyPeriod): string {
   if (period === 'day') {
-    const [datePart, hourPart] = point.dateKey.split('|')
+    const [, hourPart] = point.dateKey.split('|')
     const h = parseInt(hourPart, 10)
     const hourStart = `${String(h).padStart(2, '0')}:00`
     const hourEnd = `${String(h + 1).padStart(2, '0')}:00`
-    const date = new Date(datePart + 'T12:00:00')
-    const dateStr = date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    })
-    return `${dateStr}, ${hourStart}–${hourEnd}`
+    return `${hourStart}–${hourEnd}`
   }
   if (period === 'week') {
     const date = new Date(point.dateKey + 'T12:00:00')
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    })
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   }
   if (period === 'month') {
     const date = new Date(point.dateKey + 'T12:00:00')
-    return date.toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    })
+    return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   }
   if (period === 'year') {
     const date = new Date(point.dateKey + 'T12:00:00')
@@ -119,9 +105,6 @@ export function TrophyAnalyticsChart({
     let showLabel = true
     if (period === 'month' && data.points.length > 20) {
       showLabel = i === 0 || (i + 1) % 5 === 0 || i === data.points.length - 1
-    }
-    if (period === 'day') {
-      showLabel = true
     }
     return { ...p, displayLabel: showLabel ? p.label : '' }
   })

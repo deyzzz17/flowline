@@ -6,9 +6,9 @@ import config from '@/payload.config'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 
-const getUserId = async () => {
+const getUserSession = async () => {
   const session = await auth.api.getSession({ headers: await headers() })
-  return session?.user?.id ?? null
+  return session ?? null
 }
 
 export type TrophyPeriod = 'day' | 'week' | 'month' | 'year'
@@ -31,80 +31,108 @@ export interface TrophyAnalyticsResult {
   }[]
 }
 
-function getPeriodRange(period: TrophyPeriod, offset: number): { from: Date; to: Date } {
+function localDateStr(date: Date, timezone: string): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(date)
+}
+
+function localMidnight(dateStr: string, timezone: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const utcMidnight = new Date(Date.UTC(y, m - 1, d, 0, 0, 0))
+  const localHour = parseInt(
+    new Intl.DateTimeFormat('en-US', { timeZone: timezone, hour: '2-digit', hour12: false }).format(
+      utcMidnight,
+    ),
+  )
+  const adjusted = new Date(utcMidnight.getTime() - localHour * 60 * 60 * 1000)
+  return adjusted
+}
+
+function getPeriodRange(
+  period: TrophyPeriod,
+  offset: number,
+  timezone: string,
+): { from: Date; to: Date } {
   const now = new Date()
-  const y = now.getFullYear()
-  const m = now.getMonth()
-  const d = now.getDate()
+  const todayStr = localDateStr(now, timezone) 
+  const [y, m, d] = todayStr.split('-').map(Number)
 
   if (period === 'day') {
-    const from = new Date(y, m, d + offset)
-    from.setHours(0, 0, 0, 0)
-    const to = new Date(from)
-    to.setHours(23, 59, 59, 999)
+    const targetDate = new Date(Date.UTC(y, m - 1, d + offset))
+    const dateStr = localDateStr(targetDate, timezone)
+    const from = localMidnight(dateStr, timezone)
+    const to = new Date(from.getTime() + 24 * 60 * 60 * 1000 - 1)
     return { from, to }
   }
 
   if (period === 'week') {
-    const dow = (now.getDay() + 6) % 7
-    const monday = new Date(y, m, d - dow)
-    monday.setHours(0, 0, 0, 0)
-    const from = new Date(monday)
-    from.setDate(from.getDate() + offset * 7)
-    const to = new Date(from)
-    to.setDate(to.getDate() + 6)
-    to.setHours(23, 59, 59, 999)
+    const todayDate = new Date(Date.UTC(y, m - 1, d))
+    const dow = (todayDate.getUTCDay() + 6) % 7
+    const mondayUTC = new Date(Date.UTC(y, m - 1, d - dow + offset * 7))
+    const mondayStr = localDateStr(mondayUTC, timezone)
+    const from = localMidnight(mondayStr, timezone)
+    const to = new Date(from.getTime() + 7 * 24 * 60 * 60 * 1000 - 1)
     return { from, to }
   }
 
   if (period === 'month') {
-    const baseMonth = m + offset
-    const from = new Date(y, baseMonth, 1)
-    from.setHours(0, 0, 0, 0)
-    const to = new Date(y, baseMonth + 1, 0)
-    to.setHours(23, 59, 59, 999)
+    const baseMonth = m - 1 + offset
+    const year = y + Math.floor(baseMonth / 12)
+    const month = ((baseMonth % 12) + 12) % 12
+    const firstStr = `${year}-${String(month + 1).padStart(2, '0')}-01`
+    const from = localMidnight(firstStr, timezone)
+    const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
+    const lastStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+    const lastMidnight = localMidnight(lastStr, timezone)
+    const to = new Date(lastMidnight.getTime() + 24 * 60 * 60 * 1000 - 1)
     return { from, to }
   }
 
-  const from = new Date(y + offset, 0, 1)
-  from.setHours(0, 0, 0, 0)
-  const to = new Date(y + offset, 11, 31)
-  to.setHours(23, 59, 59, 999)
+  const year = y + offset
+  const from = localMidnight(`${year}-01-01`, timezone)
+  const to = new Date(localMidnight(`${year + 1}-01-01`, timezone).getTime() - 1)
   return { from, to }
 }
 
-function getPeriodLabel(period: TrophyPeriod, from: Date, to: Date): string {
-  const fmt = (d: Date, opts: Intl.DateTimeFormatOptions) => d.toLocaleDateString('en-US', opts)
+function getPeriodLabel(period: TrophyPeriod, from: Date, to: Date, timezone: string): string {
+  const fmt = (d: Date, opts: Intl.DateTimeFormatOptions) =>
+    d.toLocaleDateString('en-US', { timeZone: timezone, ...opts })
   if (period === 'day')
     return fmt(from, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
   if (period === 'week') {
-    if (from.getMonth() === to.getMonth())
-      return `${fmt(from, { month: 'short' })} ${from.getDate()}–${to.getDate()}, ${from.getFullYear()}`
-    return `${fmt(from, { month: 'short', day: 'numeric' })} – ${fmt(to, { month: 'short', day: 'numeric', year: 'numeric' })}`
+    const fromMonth = from.toLocaleDateString('en-US', { timeZone: timezone, month: 'short' })
+    const toMonth = to.toLocaleDateString('en-US', { timeZone: timezone, month: 'short' })
+    const fromDay = parseInt(
+      from.toLocaleDateString('en-US', { timeZone: timezone, day: 'numeric' }),
+    )
+    const toDay = parseInt(to.toLocaleDateString('en-US', { timeZone: timezone, day: 'numeric' }))
+    const year = from.toLocaleDateString('en-US', { timeZone: timezone, year: 'numeric' })
+    if (fromMonth === toMonth) return `${fromMonth} ${fromDay}–${toDay}, ${year}`
+    return `${fromMonth} ${fromDay} – ${toMonth} ${toDay}, ${year}`
   }
   if (period === 'month') return fmt(from, { month: 'long', year: 'numeric' })
-  return String(from.getFullYear())
+  return from.toLocaleDateString('en-US', { timeZone: timezone, year: 'numeric' })
 }
 
 function getBuckets(
   period: TrophyPeriod,
   from: Date,
   to: Date,
+  timezone: string,
 ): { label: string; dateKey: string; from: Date; to: Date }[] {
-  const fmtDate = (d: Date) => new Intl.DateTimeFormat('en-CA').format(d)
+  const fmtDate = (d: Date) => localDateStr(d, timezone)
 
   if (period === 'day') {
     const buckets = []
+    const dateStr = fmtDate(from)
     for (let h = 0; h < 24; h++) {
-      const start = new Date(from)
-      start.setHours(h, 0, 0, 0)
-      const end = new Date(from)
-      end.setHours(h, 59, 59, 999)
+      const bucketFrom = localMidnight(dateStr, timezone)
+      bucketFrom.setTime(bucketFrom.getTime() + h * 60 * 60 * 1000)
+      const bucketTo = new Date(bucketFrom.getTime() + 60 * 60 * 1000 - 1)
       buckets.push({
         label: `${h}h`,
-        dateKey: `${fmtDate(from)}|${h}`,
-        from: start,
-        to: end,
+        dateKey: `${dateStr}|${h}`,
+        from: bucketFrom,
+        to: bucketTo,
       })
     }
     return buckets
@@ -113,27 +141,26 @@ function getBuckets(
   if (period === 'week') {
     const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
     return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(from)
-      d.setDate(d.getDate() + i)
-      const end = new Date(d)
-      end.setHours(23, 59, 59, 999)
-      return { label: DAYS[i], dateKey: fmtDate(d), from: d, to: end }
+      const bucketFrom = new Date(from.getTime() + i * 24 * 60 * 60 * 1000)
+      const bucketTo = new Date(bucketFrom.getTime() + 24 * 60 * 60 * 1000 - 1)
+      return { label: DAYS[i], dateKey: fmtDate(bucketFrom), from: bucketFrom, to: bucketTo }
     })
   }
 
   if (period === 'month') {
     const buckets = []
-    const cur = new Date(from)
-    while (cur <= to) {
-      const end = new Date(cur)
-      end.setHours(23, 59, 59, 999)
+    const dateStr = fmtDate(from)
+    const [y, m] = dateStr.split('-').map(Number)
+    const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate()
+    for (let i = 0; i < daysInMonth; i++) {
+      const bucketFrom = new Date(from.getTime() + i * 24 * 60 * 60 * 1000)
+      const bucketTo = new Date(bucketFrom.getTime() + 24 * 60 * 60 * 1000 - 1)
       buckets.push({
-        label: String(cur.getDate()),
-        dateKey: fmtDate(cur),
-        from: new Date(cur),
-        to: end,
+        label: String(i + 1),
+        dateKey: fmtDate(bucketFrom),
+        from: bucketFrom,
+        to: bucketTo,
       })
-      cur.setDate(cur.getDate() + 1)
     }
     return buckets
   }
@@ -152,10 +179,13 @@ function getBuckets(
     'Nov',
     'Dec',
   ]
+  const yearStr = fmtDate(from).split('-')[0]
   return Array.from({ length: 12 }, (_, i) => {
-    const mFrom = new Date(from.getFullYear(), i, 1)
-    const mTo = new Date(from.getFullYear(), i + 1, 0)
-    mTo.setHours(23, 59, 59, 999)
+    const mStr = `${yearStr}-${String(i + 1).padStart(2, '0')}-01`
+    const mFrom = localMidnight(mStr, timezone)
+    const nextMStr =
+      i < 11 ? `${yearStr}-${String(i + 2).padStart(2, '0')}-01` : `${parseInt(yearStr) + 1}-01-01`
+    const mTo = new Date(localMidnight(nextMStr, timezone).getTime() - 1)
     return { label: MONTHS[i], dateKey: fmtDate(mFrom), from: mFrom, to: mTo }
   })
 }
@@ -180,9 +210,12 @@ export const getGoalTrophyAnalytics = async (
   period: TrophyPeriod,
   offset: number,
 ): Promise<TrophyAnalyticsResult> => {
-  const userId = await getUserId()
+  const session = await getUserSession()
   const empty: TrophyAnalyticsResult = { periodLabel: '', points: [], total: 0, claimed: [] }
-  if (!userId) return empty
+  if (!session?.user?.id) return empty
+
+  const userId = session.user.id
+  const timezone = (session.user as any).timezone || 'UTC'
 
   const payload = await getPayload({ config })
 
@@ -194,9 +227,9 @@ export const getGoalTrophyAnalytics = async (
 
   if (habits.length === 0) return empty
 
-  const { from, to } = getPeriodRange(period, offset)
-  const periodLabel = getPeriodLabel(period, from, to)
-  const buckets = getBuckets(period, from, to)
+  const { from, to } = getPeriodRange(period, offset, timezone)
+  const periodLabel = getPeriodLabel(period, from, to, timezone)
+  const buckets = getBuckets(period, from, to, timezone)
 
   const claimedGoals: {
     habitName: string
