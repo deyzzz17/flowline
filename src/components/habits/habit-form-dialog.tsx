@@ -18,11 +18,11 @@ import {
   Plus,
   X,
   Clock,
-  CalendarDays,
   Target,
   BarChart2,
   Pencil,
   Trophy,
+  CalendarDays,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useQuery } from '@tanstack/react-query'
@@ -30,7 +30,6 @@ import { api } from '@/api'
 import type { HabitData, HabitWithStats, TrackingField, HabitGoal } from '@/api/habits/actions'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { CalendarDays } from 'lucide-react'
 import { format } from 'date-fns'
 
 const PRESET_COLORS = [
