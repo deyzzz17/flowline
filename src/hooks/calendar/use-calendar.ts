@@ -136,6 +136,10 @@ function formatDateForUrl(date: Date): string {
   return date.toISOString().slice(0, 10)
 }
 
+function cleanOptimisticKey(key: string): string {
+  return key.replace(/__continuation$/, '')
+}
+
 export const useCalendar = () => {
   const router = useRouter()
   const pathname = usePathname()
@@ -381,10 +385,10 @@ export const useCalendar = () => {
     })
   }, [])
 
-  const setOptimisticMove = useCallback((key: string, startDate: string, endDate: string) => {
+  const setOptimisticDate = useCallback((type: 'event' | 'task', id: number, date: string) => {
     setOptimisticOverrides((prev) => {
       const next = new Map(prev)
-      next.set(key, { startDate, endDate })
+      next.set(`${type}-${id}`, { startDate: date })
       return next
     })
   }, [])
@@ -607,20 +611,18 @@ export const useCalendar = () => {
       originalDate?: string,
       eventOptimisticKey?: string,
     ) => {
+      const cleanKey = eventOptimisticKey ? cleanOptimisticKey(eventOptimisticKey) : undefined
+
       const event =
         events.find((e) =>
-          eventOptimisticKey
-            ? e.optimisticKey === eventOptimisticKey
-            : e.id === id && !e.isOccurrence,
+          cleanKey ? e.optimisticKey === cleanKey : e.id === id && !e.isOccurrence,
         ) ?? events.find((e) => e.id === id)
       if (!event) return
       if (event.source === 'google') return
 
       const key = event.optimisticKey ?? `event-${id}`
 
-      const originalEvent = events.find((e) => e.optimisticKey === key) ?? event
-      const duration =
-        new Date(originalEvent.endDate).getTime() - new Date(originalEvent.startDate).getTime()
+      const duration = new Date(event.endDate).getTime() - new Date(event.startDate).getTime()
       const newEndDate = new Date(newStartDate.getTime() + duration)
 
       setOptimisticMove(key, newStartDate.toISOString(), newEndDate.toISOString())
@@ -647,11 +649,11 @@ export const useCalendar = () => {
       originalDate?: string,
       eventOptimisticKey?: string,
     ) => {
+      const cleanKey = eventOptimisticKey ? cleanOptimisticKey(eventOptimisticKey) : undefined
+
       const event =
         events.find((e) =>
-          eventOptimisticKey
-            ? e.optimisticKey === eventOptimisticKey
-            : e.id === id && !e.isOccurrence,
+          cleanKey ? e.optimisticKey === cleanKey : e.id === id && !e.isOccurrence,
         ) ?? events.find((e) => e.id === id)
       if (event?.source === 'google') return
 
@@ -718,20 +720,9 @@ export const useCalendar = () => {
         if (e.source === 'google' && e.googleCalendarId) {
           if (!isGoogleCalendarVisible(e.googleCalendarId)) return false
         }
-
         const start = new Date(e.startDate)
         const end = new Date(e.endDate)
-
-        if (!(start <= dayEnd && end >= dayStart)) return false
-
-        const key = e.optimisticKey
-        if (key && optimisticOverrides.has(key)) {
-          const newStart = new Date(e.startDate)
-          const newEnd = new Date(e.endDate)
-          if (!(newStart <= dayEnd && newEnd >= dayStart)) return false
-        }
-
-        return true
+        return start <= dayEnd && end >= dayStart
       })
 
       const dayTasks = tasksWithOverrides.filter((t) => sameLocalDate(t.dueDate))
@@ -748,7 +739,6 @@ export const useCalendar = () => {
       isCategoryVisible,
       isGoogleCalendarVisible,
       habitsVisible,
-      optimisticOverrides,
     ],
   )
 
