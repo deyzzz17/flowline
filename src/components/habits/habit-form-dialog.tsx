@@ -28,6 +28,10 @@ import { cn } from '@/lib/utils'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
 import type { HabitData, HabitWithStats, TrackingField, HabitGoal } from '@/api/habits/actions'
+import { Calendar } from '@/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { CalendarDays } from 'lucide-react'
+import { format } from 'date-fns'
 
 const PRESET_COLORS = [
   '#f97316',
@@ -824,12 +828,36 @@ function HabitFormInner({
           <Label>
             Start date <span className="text-xs font-normal text-muted-foreground">Optional</span>
           </Label>
-          <Input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="h-10"
-          />
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  'flex h-10 w-full items-center gap-2 rounded-md border border-input bg-background px-3 text-sm transition-colors hover:bg-accent hover:text-accent-foreground',
+                  !startDate && 'text-muted-foreground',
+                )}
+              >
+                <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
+                {startDate ? format(new Date(startDate + 'T12:00:00'), 'PPP') : 'Pick a date'}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={startDate ? new Date(startDate + 'T12:00:00') : undefined}
+                onSelect={(date) =>
+                  setStartDate(
+                    date
+                      ? new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+                          .toISOString()
+                          .split('T')[0]
+                      : '',
+                  )
+                }
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
