@@ -724,13 +724,6 @@ export const useCalendar = () => {
 
         if (!(start <= dayEnd && end >= dayStart)) return false
 
-        const key = e.optimisticKey
-        if (key && optimisticOverrides.has(key)) {
-          const newStart = new Date(e.startDate)
-          const newEnd = new Date(e.endDate)
-          if (!(newStart <= dayEnd && newEnd >= dayStart)) return false
-        }
-
         return true
       })
 
