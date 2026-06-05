@@ -342,9 +342,19 @@ export const useCalendar = () => {
 
     for (const [key, override] of optimisticOverrides.entries()) {
       if (!override.startDate || !override.endDate) continue
-      const match = key.match(/^event-(\d+)/)
-      if (match) {
-        idToOverride.set(parseInt(match[1]), {
+
+      const directMatch = key.match(/^event-(\d+)$/)
+      if (directMatch) {
+        idToOverride.set(parseInt(directMatch[1]), {
+          startDate: override.startDate,
+          endDate: override.endDate,
+        })
+        continue
+      }
+
+      const seriesMatch = key.match(/^event-(\d+)-/)
+      if (seriesMatch) {
+        idToOverride.set(parseInt(seriesMatch[1]), {
           startDate: override.startDate,
           endDate: override.endDate,
         })
@@ -356,7 +366,11 @@ export const useCalendar = () => {
       const direct = optimisticOverrides.get(key)
 
       if (direct?.startDate && direct?.endDate) {
-        return { ...e, startDate: direct.startDate, endDate: direct.endDate }
+        return {
+          ...e,
+          startDate: direct.startDate,
+          endDate: direct.endDate,
+        }
       }
 
       if (typeof e.id === 'number') {
@@ -365,10 +379,17 @@ export const useCalendar = () => {
           const overrideStart = new Date(siblingOverride.startDate)
           const overrideEnd = new Date(siblingOverride.endDate)
           const durationMs = overrideEnd.getTime() - overrideStart.getTime()
-          const newStart = new Date(e.startDate)
+
+          const occStart = new Date(e.startDate)
+          const newStart = new Date(occStart)
           newStart.setHours(overrideStart.getHours(), overrideStart.getMinutes(), 0, 0)
           const newEnd = new Date(newStart.getTime() + durationMs)
-          return { ...e, startDate: newStart.toISOString(), endDate: newEnd.toISOString() }
+
+          return {
+            ...e,
+            startDate: newStart.toISOString(),
+            endDate: newEnd.toISOString(),
+          }
         }
       }
 
@@ -645,6 +666,7 @@ export const useCalendar = () => {
       if (event.source === 'google') return
 
       const key = event.optimisticKey ?? `event-${id}`
+
       const duration = new Date(event.endDate).getTime() - new Date(event.startDate).getTime()
       const newEndDate = new Date(newStartDate.getTime() + duration)
 
@@ -681,6 +703,7 @@ export const useCalendar = () => {
       if (event?.source === 'google') return
 
       const key = event?.optimisticKey ?? `event-${id}`
+
       setOptimisticResize(key, newEndDate.toISOString())
 
       updateMutation.mutate({
@@ -735,7 +758,7 @@ export const useCalendar = () => {
         return dt.getFullYear() === y && dt.getMonth() === m && dt.getDate() === d
       }
 
-      const overriddenIds = new Set<number>()
+      const overriddenIds = new Set<number | string>()
       for (const [key, override] of optimisticOverrides.entries()) {
         if (!override.endDate) continue
         const overrideEnd = new Date(override.endDate)
