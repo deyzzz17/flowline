@@ -144,6 +144,17 @@ export interface ArchivedHabit {
   totalCompletions: number
 }
 
+export interface HeatmapDay {
+  date: string
+  count: number
+  total: number
+}
+
+export interface HeatmapAnalyticsResult {
+  year: number
+  data: HeatmapDay[]
+}
+
 function parseJsonField<T>(raw: any): T | null {
   if (!raw) return null
   if (typeof raw === 'string') {
@@ -248,7 +259,6 @@ function computeStreaks(
       d = addDays(d, -1)
       if (d < new Date('2020-01-01')) break
     }
-
     return { current, longest: current }
   }
 
@@ -404,6 +414,43 @@ function computeGoalFieldRate(completions: any[], goals: HabitGoal[]): number {
   return Math.round(allPcts.reduce((s, p) => s + p, 0) / allPcts.length)
 }
 
+function computeClaimableGoalIds(goals: HabitGoal[], completions: any[]): string[] {
+  const claimable: string[] = []
+
+  for (const goal of goals) {
+    if (goal.completedAt) continue
+    if (goal.type !== 'field') continue
+
+    const fieldTargets =
+      goal.fieldTargets ??
+      (goal.fieldKey ? [{ fieldKey: goal.fieldKey, targetValue: goal.targetValue ?? 10 }] : [])
+
+    if (fieldTargets.length === 0) continue
+
+    let allReached = true
+    for (const ft of fieldTargets) {
+      let total = 0
+      for (const c of completions) {
+        let values: Record<string, any> = {}
+        try {
+          const raw = (c as any).trackingValues
+          values = typeof raw === 'string' ? JSON.parse(raw) : (raw ?? {})
+        } catch {}
+        const v = values[ft.fieldKey]
+        if (typeof v === 'number') total += v
+      }
+      if (total < ft.targetValue) {
+        allReached = false
+        break
+      }
+    }
+
+    if (allReached) claimable.push(goal.id)
+  }
+
+  return claimable
+}
+
 function mapHabitDoc(
   habit: any,
 ): Omit<
@@ -430,6 +477,7 @@ function mapHabitDoc(
     relativeEventId: habit.relativeEventId ?? null,
     trackingFields: parseJsonField<TrackingField[]>(habit.trackingFields) ?? [],
     goals: parseGoals(habit),
+    repeatEveryDays: habit.repeatEveryDays ?? undefined,
   }
 }
 
@@ -444,6 +492,7 @@ export const listHabits = async (timezone = 'UTC'): Promise<HabitWithStats[]> =>
     limit: 0,
   })
   if (habits.length === 0) return []
+
   const thirtyDaysAgo = addDays(new Date(), -30)
   const { docs: completions } = await payload.find({
     collection: 'habit-completions',
@@ -455,8 +504,11 @@ export const listHabits = async (timezone = 'UTC'): Promise<HabitWithStats[]> =>
     },
     limit: 0,
   })
+
   const today = getTodayKey(timezone)
-  return habits.map((habit) => {
+  const results: HabitWithStats[] = []
+
+  for (const habit of habits) {
     const habitCompletions = completions.filter((c) => c.habitId === habit.id)
     const completionDates = new Set(
       habitCompletions.map((c) => getDateKey(new Date(c.completedAt as string), timezone)),
@@ -466,15 +518,21 @@ export const listHabits = async (timezone = 'UTC'): Promise<HabitWithStats[]> =>
     const rate = shouldUseGoalRate(goals)
       ? computeGoalFieldRate(habitCompletions, goals)
       : computeCompletionRate(completionDates, habit as any, timezone)
-    return {
+    const claimableGoalIds = computeClaimableGoalIds(goals, habitCompletions)
+
+    results.push({
       ...mapHabitDoc(habit),
       currentStreak: current,
       longestStreak: longest,
       completedToday: completionDates.has(today),
       completionRate30d: rate,
-    }
-  })
+      claimableGoalIds,
+    })
+  }
+
+  return results
 }
+
 export const getHabitDetail = async (habitId: number): Promise<HabitDetail | null> => {
   const userId = await getUserId()
   if (!userId) return null
@@ -583,6 +641,7 @@ export const createHabit = async (data: HabitData) => {
         relativeEventId: data.relativeEventId ?? undefined,
         trackingFields: data.trackingFields ? JSON.stringify(data.trackingFields) : undefined,
         goals: data.goals ? JSON.stringify(data.goals) : undefined,
+        repeatEveryDays: data.repeatEveryDays ?? undefined,
       } as any,
     })
     return ok(habit)
@@ -620,6 +679,7 @@ export const updateHabit = async (id: number, data: Partial<HabitData>) => {
         ...(data.goals !== undefined && {
           goals: data.goals ? JSON.stringify(data.goals) : null,
         }),
+        ...(data.repeatEveryDays !== undefined && { repeatEveryDays: data.repeatEveryDays }),
       } as any,
     })
     return ok(updated)
@@ -876,7 +936,6 @@ export const listArchivedHabits = async (): Promise<ArchivedHabit[]> => {
 
   if (habits.length === 0) return []
 
-  const habitIds = habits.map((h) => h.id)
   const { docs: completions } = await payload.find({
     collection: 'habit-completions',
     where: { userId: { equals: userId } },
@@ -917,12 +976,90 @@ export const restoreHabit = async (id: number) => {
     await payload.update({
       collection: 'habits',
       id,
-      data: {
-        archivedAt: null,
-      } as any,
+      data: { archivedAt: null } as any,
     })
     return ok(true)
   } catch {
     return err('Error restoring habit')
   }
+}
+
+export const getHeatmapAnalytics = async (year: number): Promise<HeatmapAnalyticsResult> => {
+  const userId = await getUserId()
+  if (!userId) return { year, data: [] }
+
+  const payload = await getPayload({ config })
+
+  const { docs: habits } = await payload.find({
+    collection: 'habits',
+    where: { and: [{ userId: { equals: userId } }, { archivedAt: { exists: false } }] },
+    limit: 0,
+  })
+
+  if (habits.length === 0) return { year, data: [] }
+
+  const from = new Date(year, 0, 1)
+  from.setHours(0, 0, 0, 0)
+  const to = new Date(year, 11, 31)
+  to.setHours(23, 59, 59, 999)
+
+  const { docs: completions } = await payload.find({
+    collection: 'habit-completions',
+    where: {
+      and: [
+        { userId: { equals: userId } },
+        { completedAt: { greater_than_equal: from.toISOString() } },
+        { completedAt: { less_than_equal: to.toISOString() } },
+      ],
+    },
+    limit: 0,
+  })
+
+  const today = getDateKey(new Date())
+  const data: HeatmapDay[] = []
+  const cur = new Date(from)
+
+  while (cur <= to) {
+    const key = getDateKey(cur)
+
+    if (key > today) {
+      data.push({ date: key, count: 0, total: 0 })
+      cur.setDate(cur.getDate() + 1)
+      continue
+    }
+
+    const dayName = DAY_NAMES[cur.getDay()]
+    let total = 0
+    let count = 0
+
+    for (const habit of habits) {
+      const h = habit as any
+      let isTarget = false
+      if (h.frequency === 'daily') isTarget = true
+      else if (h.frequency === 'days_of_week') isTarget = (h.daysOfWeek ?? []).includes(dayName)
+      else if (h.frequency === 'times_per_week') isTarget = true
+      else if (h.frequency === 'every_x_days') {
+        const interval = h.repeatEveryDays ?? 2
+        const anchor = h.startDate ? new Date(h.startDate) : from
+        anchor.setHours(0, 0, 0, 0)
+        const diffDays = Math.round((cur.getTime() - anchor.getTime()) / (1000 * 60 * 60 * 24))
+        if (diffDays >= 0 && diffDays % interval === 0) isTarget = true
+      }
+
+      if (isTarget) {
+        total++
+        if (
+          completions.some(
+            (c) => c.habitId === habit.id && getDateKey(new Date(c.completedAt as string)) === key,
+          )
+        )
+          count++
+      }
+    }
+
+    if (total > 0) data.push({ date: key, count, total })
+    cur.setDate(cur.getDate() + 1)
+  }
+
+  return { year, data }
 }
