@@ -121,7 +121,7 @@ export function TrophyAnalyticsChart({
       showLabel = i === 0 || (i + 1) % 5 === 0 || i === data.points.length - 1
     }
     if (period === 'day') {
-      showLabel = i % 4 === 0
+      showLabel = true
     }
     return { ...p, displayLabel: showLabel ? p.label : '' }
   })

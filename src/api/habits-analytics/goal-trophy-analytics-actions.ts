@@ -101,7 +101,7 @@ function getBuckets(
       const end = new Date(from)
       end.setHours(h, 59, 59, 999)
       buckets.push({
-        label: `${String(h).padStart(2, '0')}:00`,
+        label: `${h}h`,
         dateKey: `${fmtDate(from)}|${h}`,
         from: start,
         to: end,
