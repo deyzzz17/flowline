@@ -275,6 +275,7 @@ export const getHeatmapAnalytics = async (year: number): Promise<HeatmapAnalytic
   while (cur <= to) {
     const key = getDateKey(cur)
     if (key > today) {
+      data.push({ date: key, count: 0, total: 0 })
       cur.setDate(cur.getDate() + 1)
       continue
     }

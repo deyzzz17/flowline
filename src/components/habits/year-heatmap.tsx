@@ -37,9 +37,9 @@ export function YearHeatmap({ initialData }: YearHeatmapProps) {
   const [data, setData] = useState(initialData)
   const [isPending, startTransition] = useTransition()
   const [tooltip, setTooltip] = useState<TooltipState>({ visible: false, x: 0, y: 0, text: '' })
-  const containerRef = { current: null as HTMLDivElement | null }
 
   const currentYear = new Date().getFullYear()
+  const todayKey = new Intl.DateTimeFormat('en-CA').format(new Date())
 
   const handleYear = (year: number) => {
     startTransition(async () => {
@@ -48,7 +48,8 @@ export function YearHeatmap({ initialData }: YearHeatmapProps) {
     })
   }
 
-  type Cell = { date: string; count: number; total: number } | null
+  type Cell = { date: string; count: number; total: number; isFuture: boolean } | null
+
   const columns: Cell[][] = []
   let currentCol: Cell[] = []
 
@@ -59,7 +60,8 @@ export function YearHeatmap({ initialData }: YearHeatmapProps) {
   }
 
   for (const d of data.data) {
-    currentCol.push(d)
+    const isFuture = d.date > todayKey
+    currentCol.push({ ...d, isFuture })
     if (currentCol.length === 7) {
       columns.push(currentCol)
       currentCol = []
@@ -83,12 +85,24 @@ export function YearHeatmap({ initialData }: YearHeatmapProps) {
   })
 
   const getIntensity = (cell: Cell) => {
-    if (!cell || cell.total === 0) return 0
+    if (!cell || cell.total === 0 || cell.isFuture) return 0
     return cell.count / cell.total
   }
 
-  const getCellColor = (intensity: number): string => {
-    if (intensity === 0) return ''
+  const getCellColor = (cell: Cell): string => {
+    if (!cell) return ''
+    if (cell.isFuture) return 'bg-muted/20 dark:bg-muted/10'
+    if (cell.total === 0) return 'bg-muted/50 dark:bg-muted/30'
+    const intensity = getIntensity(cell)
+    if (intensity === 0) return 'bg-muted/50 dark:bg-muted/30'
+    if (intensity <= 0.25) return 'bg-violet-200 dark:bg-violet-900/70'
+    if (intensity <= 0.5) return 'bg-violet-300 dark:bg-violet-700'
+    if (intensity <= 0.75) return 'bg-violet-400 dark:bg-violet-500'
+    return 'bg-violet-500 dark:bg-violet-400'
+  }
+
+  const getLegendColor = (intensity: number): string => {
+    if (intensity === 0) return 'bg-muted/50 dark:bg-muted/30'
     if (intensity <= 0.25) return 'bg-violet-200 dark:bg-violet-900/70'
     if (intensity <= 0.5) return 'bg-violet-300 dark:bg-violet-700'
     if (intensity <= 0.75) return 'bg-violet-400 dark:bg-violet-500'
@@ -103,21 +117,18 @@ export function YearHeatmap({ initialData }: YearHeatmapProps) {
       day: 'numeric',
       year: 'numeric',
     })
-    const text =
-      cell.total === 0 ? `${dateLabel}: no target` : `${dateLabel}: ${cell.count} completed`
-    setTooltip({
-      visible: true,
-      x: rect.left + rect.width / 2,
-      y: rect.top - 6,
-      text,
-    })
+    const text = cell.isFuture
+      ? `${dateLabel}`
+      : cell.total === 0
+        ? `${dateLabel}: no target`
+        : `${dateLabel}: ${cell.count}/${cell.total} completed`
+    setTooltip({ visible: true, x: rect.left + rect.width / 2, y: rect.top - 6, text })
   }
 
-  const CELL = 11
-  const GAP = 2
+  const totalDaysCompleted = data.data.filter((d) => d.count > 0 && d.date <= todayKey).length
+  const totalDaysTarget = data.data.filter((d) => d.total > 0 && d.date <= todayKey).length
 
-  const totalDaysCompleted = data.data.filter((d) => d.count > 0).length
-  const totalDaysTarget = data.data.filter((d) => d.total > 0).length
+  const colCount = columns.length
 
   return (
     <div className="rounded-2xl border border-border/60 bg-card/40 p-5">
@@ -151,33 +162,27 @@ export function YearHeatmap({ initialData }: YearHeatmapProps) {
         </div>
       </div>
 
-      <div
-        ref={(n) => {
-          containerRef.current = n
-        }}
-        className={cn(
-          'relative select-none overflow-x-auto',
-          isPending && 'opacity-50 transition-opacity',
-        )}
-      >
-        {tooltip.visible && (
-          <div
-            className="pointer-events-none fixed z-[9999] -translate-x-1/2 -translate-y-full rounded-md bg-foreground px-2 py-1 text-[10px] font-medium text-background shadow-md whitespace-nowrap"
-            style={{ left: tooltip.x, top: tooltip.y }}
-          >
-            {tooltip.text}
-            <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-foreground" />
-          </div>
-        )}
+      {tooltip.visible && (
+        <div
+          className="pointer-events-none fixed z-[9999] -translate-x-1/2 -translate-y-full rounded-md bg-foreground px-2 py-1 text-[10px] font-medium text-background shadow-md whitespace-nowrap"
+          style={{ left: tooltip.x, top: tooltip.y }}
+        >
+          {tooltip.text}
+          <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-foreground" />
+        </div>
+      )}
 
-        <div className="flex mb-1 pl-7">
+      <div
+        className={cn('relative select-none w-full', isPending && 'opacity-50 transition-opacity')}
+      >
+        <div className="flex w-full mb-1" style={{ paddingLeft: 28 }}>
           {columns.map((_, ci) => {
             const mp = monthPositions.find((m) => m.colIndex === ci)
             return (
               <div
                 key={ci}
-                style={{ width: CELL + GAP, flexShrink: 0 }}
-                className="text-[10px] text-muted-foreground/50 overflow-hidden"
+                className="overflow-hidden text-[9px] text-muted-foreground/50"
+                style={{ width: `${100 / colCount}%`, flexShrink: 0 }}
               >
                 {mp ? mp.label : ''}
               </div>
@@ -185,40 +190,34 @@ export function YearHeatmap({ initialData }: YearHeatmapProps) {
           })}
         </div>
 
-        <div className="flex gap-0">
-          <div className="flex flex-col mr-1" style={{ gap: GAP, width: 24 }}>
+        <div className="flex w-full">
+          <div className="flex flex-col shrink-0 mr-1" style={{ width: 24, gap: 2 }}>
             {Array.from({ length: 7 }, (_, row) => (
               <div
                 key={row}
-                style={{ height: CELL }}
                 className="flex items-center justify-end text-[9px] text-muted-foreground/40 pr-1"
+                style={{ height: 'calc((100% - 12px) / 7)' }}
               >
                 {DAY_LABEL_ROWS.includes(row) ? DAY_LABELS[DAY_LABEL_ROWS.indexOf(row)] : ''}
               </div>
             ))}
           </div>
 
-          <div className="flex" style={{ gap: GAP }}>
+          <div className="flex flex-1 min-w-0" style={{ gap: 2 }}>
             {columns.map((col, ci) => (
-              <div key={ci} className="flex flex-col" style={{ gap: GAP }}>
+              <div key={ci} className="flex flex-col flex-1 min-w-0" style={{ gap: 2 }}>
                 {col.map((cell, ri) => (
                   <div
                     key={ri}
-                    style={{ width: CELL, height: CELL }}
                     className={cn(
-                      'rounded-[2px] transition-all',
-                      cell
-                        ? cell.total === 0
-                          ? 'bg-transparent cursor-default'
-                          : cn(
-                              'cursor-default',
-                              getCellColor(getIntensity(cell)) || 'bg-muted/50 dark:bg-muted/30',
-                            )
-                        : 'bg-transparent',
+                      'rounded-[2px] transition-all w-full',
+                      'aspect-square',
+                      cell ? getCellColor(cell) : 'bg-transparent',
+                      cell && !cell.isFuture && cell.total > 0
+                        ? 'cursor-default'
+                        : 'cursor-default',
                     )}
-                    onMouseEnter={
-                      cell && cell.total > 0 ? (e) => handleMouseEnter(e, cell) : undefined
-                    }
+                    onMouseEnter={cell ? (e) => handleMouseEnter(e, cell) : undefined}
                     onMouseLeave={() => setTooltip((t) => ({ ...t, visible: false }))}
                   />
                 ))}
@@ -230,14 +229,7 @@ export function YearHeatmap({ initialData }: YearHeatmapProps) {
         <div className="mt-3 flex items-center justify-end gap-1.5">
           <span className="text-[10px] text-muted-foreground/50">Less</span>
           {[0, 0.25, 0.5, 0.75, 1].map((v, i) => (
-            <div
-              key={i}
-              style={{ width: CELL, height: CELL }}
-              className={cn(
-                'rounded-[2px]',
-                v === 0 ? 'bg-muted/50 dark:bg-muted/30' : getCellColor(v),
-              )}
-            />
+            <div key={i} className={cn('h-3 w-3 rounded-[2px]', getLegendColor(v))} />
           ))}
           <span className="text-[10px] text-muted-foreground/50">More</span>
         </div>
