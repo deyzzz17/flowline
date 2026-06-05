@@ -101,10 +101,12 @@ export function CalendarEventBlock({
 
   const isDragDisabled = isGoogle || isHabit || continuesPrevDay
 
-  const draggableId =
+  const baseId =
     item.type === 'event'
       ? ((item as CalendarEvent).optimisticKey ?? `event-${item.id}`)
       : `task-${item.id}`
+
+  const draggableId = continuesPrevDay ? `${baseId}__continuation` : baseId
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: draggableId,
@@ -233,9 +235,7 @@ export function CalendarEventBlock({
     <div
       ref={(node) => {
         blockRef.current = node
-        if (!continuesPrevDay) {
-          setNodeRef(node)
-        }
+        setNodeRef(node)
       }}
       style={{
         position: 'absolute',
