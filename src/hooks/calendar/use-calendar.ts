@@ -381,10 +381,10 @@ export const useCalendar = () => {
     })
   }, [])
 
-  const setOptimisticDate = useCallback((type: 'event' | 'task', id: number, date: string) => {
+  const setOptimisticMove = useCallback((key: string, startDate: string, endDate: string) => {
     setOptimisticOverrides((prev) => {
       const next = new Map(prev)
-      next.set(`${type}-${id}`, { startDate: date })
+      next.set(key, { startDate, endDate })
       return next
     })
   }, [])
@@ -723,6 +723,13 @@ export const useCalendar = () => {
         const end = new Date(e.endDate)
 
         if (!(start <= dayEnd && end >= dayStart)) return false
+
+        const key = e.optimisticKey
+        if (key && optimisticOverrides.has(key)) {
+          const newStart = new Date(e.startDate)
+          const newEnd = new Date(e.endDate)
+          if (!(newStart <= dayEnd && newEnd >= dayStart)) return false
+        }
 
         return true
       })
