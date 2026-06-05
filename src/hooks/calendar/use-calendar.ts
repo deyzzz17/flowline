@@ -758,6 +758,16 @@ export const useCalendar = () => {
         return dt.getFullYear() === y && dt.getMonth() === m && dt.getDate() === d
       }
 
+      const overriddenIds = new Set<number | string>()
+      for (const [key, override] of optimisticOverrides.entries()) {
+        if (!override.endDate) continue
+        const overrideEnd = new Date(override.endDate)
+        if (overrideEnd <= dayStart) {
+          const match = key.match(/^event-(\d+)/)
+          if (match) overriddenIds.add(parseInt(match[1]))
+        }
+      }
+
       const dayEvents = eventsWithOverrides.filter((e) => {
         const isHabit = (e as any).source === 'habit'
         if (isHabit && !habitsVisible) return false
@@ -765,9 +775,16 @@ export const useCalendar = () => {
         if (e.source === 'google' && e.googleCalendarId) {
           if (!isGoogleCalendarVisible(e.googleCalendarId)) return false
         }
+
         const start = new Date(e.startDate)
         const end = new Date(e.endDate)
-        return start <= dayEnd && end >= dayStart
+        if (!(start <= dayEnd && end >= dayStart)) return false
+
+        if (start < dayStart && typeof e.id === 'number' && overriddenIds.has(e.id)) {
+          return false
+        }
+
+        return true
       })
 
       const dayTasks = tasksWithOverrides.filter((t) => sameLocalDate(t.dueDate))
@@ -784,6 +801,7 @@ export const useCalendar = () => {
       isCategoryVisible,
       isGoogleCalendarVisible,
       habitsVisible,
+      optimisticOverrides,
     ],
   )
 
