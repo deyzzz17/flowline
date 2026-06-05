@@ -751,9 +751,22 @@ export const useCalendar = () => {
         if (e.source === 'google' && e.googleCalendarId) {
           if (!isGoogleCalendarVisible(e.googleCalendarId)) return false
         }
+
         const start = new Date(e.startDate)
         const end = new Date(e.endDate)
-        return start <= dayEnd && end >= dayStart
+        if (!(start <= dayEnd && end >= dayStart)) return false
+        
+        if (start < dayStart && e.isOccurrence && typeof e.id === 'number') {
+          const seriesPrefix = `event-${e.id}-`
+          for (const [k, v] of optimisticOverrides.entries()) {
+            if (k.startsWith(seriesPrefix) && v.endDate) {
+              const overrideEnd = new Date(v.endDate)
+              if (overrideEnd <= dayStart) return false
+            }
+          }
+        }
+
+        return true
       })
 
       const dayTasks = tasksWithOverrides.filter((t) => sameLocalDate(t.dueDate))
@@ -770,6 +783,7 @@ export const useCalendar = () => {
       isCategoryVisible,
       isGoogleCalendarVisible,
       habitsVisible,
+      optimisticOverrides,
     ],
   )
 
