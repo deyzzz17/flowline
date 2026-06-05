@@ -733,9 +733,14 @@ export const getHabitAnalytics = async (): Promise<HabitAnalytics> => {
   })
 
   const today = getTodayKey()
+  const activeHabitIds = new Set(habits.map((h) => h.id))
   const todayCompletionSet = new Set(
     completions
-      .filter((c) => getDateKey(new Date(c.completedAt as string)) === today)
+      .filter(
+        (c) =>
+          getDateKey(new Date(c.completedAt as string)) === today &&
+          activeHabitIds.has(c.habitId as number),
+      )
       .map((c) => c.habitId),
   )
 

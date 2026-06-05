@@ -9,6 +9,8 @@ interface CalendarFilterContextValue {
   hiddenGoogleCalendars: Set<string>
   toggleGoogleCalendar: (googleCalendarId: string) => void
   isGoogleCalendarVisible: (googleCalendarId: string | null | undefined) => boolean
+  habitsVisible: boolean
+  toggleHabits: () => void
 }
 
 const CalendarFilterContext = createContext<CalendarFilterContextValue>({
@@ -18,11 +20,14 @@ const CalendarFilterContext = createContext<CalendarFilterContextValue>({
   hiddenGoogleCalendars: new Set(),
   toggleGoogleCalendar: () => {},
   isGoogleCalendarVisible: () => true,
+  habitsVisible: true,
+  toggleHabits: () => {},
 })
 
 export function CalendarFilterProvider({ children }: { children: ReactNode }) {
   const [hiddenCategories, setHiddenCategories] = useState<Set<number>>(new Set())
   const [hiddenGoogleCalendars, setHiddenGoogleCalendars] = useState<Set<string>>(new Set())
+  const [habitsVisible, setHabitsVisible] = useState(true)
 
   const toggleCategory = useCallback((id: number) => {
     setHiddenCategories((prev) => {
@@ -58,6 +63,10 @@ export function CalendarFilterProvider({ children }: { children: ReactNode }) {
     [hiddenGoogleCalendars],
   )
 
+  const toggleHabits = useCallback(() => {
+    setHabitsVisible((prev) => !prev)
+  }, [])
+
   const value = useMemo(
     () => ({
       hiddenCategories,
@@ -66,6 +75,8 @@ export function CalendarFilterProvider({ children }: { children: ReactNode }) {
       hiddenGoogleCalendars,
       toggleGoogleCalendar,
       isGoogleCalendarVisible,
+      habitsVisible,
+      toggleHabits,
     }),
     [
       hiddenCategories,
@@ -74,6 +85,8 @@ export function CalendarFilterProvider({ children }: { children: ReactNode }) {
       hiddenGoogleCalendars,
       toggleGoogleCalendar,
       isGoogleCalendarVisible,
+      habitsVisible,
+      toggleHabits,
     ],
   )
 

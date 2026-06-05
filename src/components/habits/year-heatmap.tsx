@@ -104,9 +104,7 @@ export function YearHeatmap({ initialData }: YearHeatmapProps) {
       year: 'numeric',
     })
     const text =
-      cell.total === 0
-        ? `${dateLabel}: no target`
-        : `${dateLabel}: ${cell.count}/${cell.total} completed`
+      cell.total === 0 ? `${dateLabel}: no target` : `${dateLabel}: ${cell.count} completed`
     setTooltip({
       visible: true,
       x: rect.left + rect.width / 2,

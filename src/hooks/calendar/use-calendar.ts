@@ -173,7 +173,7 @@ export const useCalendar = () => {
   >(new Map())
 
   const queryClient = useQueryClient()
-  const { isCategoryVisible, isGoogleCalendarVisible } = useCalendarFilter()
+  const { isCategoryVisible, isGoogleCalendarVisible, habitsVisible } = useCalendarFilter()
   const { from, to } = getViewRange(currentDate, view)
 
   const { data: eventsData } = useQuery({
@@ -707,6 +707,7 @@ export const useCalendar = () => {
 
       const dayEvents = eventsWithOverrides.filter((e) => {
         const isHabit = (e as any).source === 'habit'
+        if (isHabit && !habitsVisible) return false
         if (!isHabit && !isCategoryVisible(e.categoryId)) return false
         if (e.source === 'google' && e.googleCalendarId) {
           if (!isGoogleCalendarVisible(e.googleCalendarId)) return false
