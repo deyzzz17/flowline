@@ -361,6 +361,14 @@ export const useCalendar = () => {
       }
     }
 
+    console.log('idToOverride', [...idToOverride.entries()])
+    console.log(
+      'occurrences event 1',
+      events
+        .filter((e) => typeof e.id === 'number')
+        .map((e) => ({ id: e.id, key: e.optimisticKey, start: e.startDate, end: e.endDate })),
+    )
+
     return events.map((e) => {
       const key = e.optimisticKey ?? `event-${e.id}`
       const direct = optimisticOverrides.get(key)
@@ -671,29 +679,6 @@ export const useCalendar = () => {
       const newEndDate = new Date(newStartDate.getTime() + duration)
 
       setOptimisticMove(key, newStartDate.toISOString(), newEndDate.toISOString())
-
-      const wasMultiDay = new Date(event.endDate).getDate() !== new Date(event.startDate).getDate()
-      const willBeMultiDay = newEndDate.getDate() !== newStartDate.getDate()
-      if (wasMultiDay && !willBeMultiDay) {
-        queryClient.setQueriesData<{ docs: any[] }>(
-          { queryKey: ['calendar-events-flowline'] },
-          (old) => {
-            if (!old) return old
-            return {
-              ...old,
-              docs: old.docs.map((doc) =>
-                doc.id === id
-                  ? {
-                      ...doc,
-                      startDate: newStartDate.toISOString(),
-                      endDate: newEndDate.toISOString(),
-                    }
-                  : doc,
-              ),
-            }
-          },
-        )
-      }
 
       updateMutation.mutate({
         id,
