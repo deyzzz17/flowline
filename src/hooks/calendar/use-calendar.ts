@@ -675,7 +675,24 @@ export const useCalendar = () => {
       const wasMultiDay = new Date(event.endDate).getDate() !== new Date(event.startDate).getDate()
       const willBeMultiDay = newEndDate.getDate() !== newStartDate.getDate()
       if (wasMultiDay && !willBeMultiDay) {
-        queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] })
+        queryClient.setQueriesData<{ docs: any[] }>(
+          { queryKey: ['calendar-events-flowline'] },
+          (old) => {
+            if (!old) return old
+            return {
+              ...old,
+              docs: old.docs.map((doc) =>
+                doc.id === id
+                  ? {
+                      ...doc,
+                      startDate: newStartDate.toISOString(),
+                      endDate: newEndDate.toISOString(),
+                    }
+                  : doc,
+              ),
+            }
+          },
+        )
       }
 
       updateMutation.mutate({
