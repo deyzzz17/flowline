@@ -672,6 +672,12 @@ export const useCalendar = () => {
 
       setOptimisticMove(key, newStartDate.toISOString(), newEndDate.toISOString())
 
+      const wasMultiDay = new Date(event.endDate).getDate() !== new Date(event.startDate).getDate()
+      const willBeMultiDay = newEndDate.getDate() !== newStartDate.getDate()
+      if (wasMultiDay && !willBeMultiDay) {
+        queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] })
+      }
+
       updateMutation.mutate({
         id,
         data: {
