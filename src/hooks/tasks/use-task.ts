@@ -65,16 +65,16 @@ export const useTask = () => {
 
   const saveEdit = async (id: number, extraFields?: Omit<EditDraft, 'title' | 'description'>) => {
     if (editingId !== id) return
+    stopEditing()
     try {
       await editMutation.mutateAsync({ id, draft: { ...draft, ...extraFields } })
-      stopEditing()
       toast.info('Task updated', {
-        description: `The changes you made have been successfully applied.`,
+        description: 'The changes you made have been successfully applied.',
       })
       return true
     } catch {
       toast.error('Failed to update the task', {
-        description: `Something went wrong while updating the task. Please try again.`,
+        description: 'Something went wrong. Please try again.',
       })
       return false
     }
