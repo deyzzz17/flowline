@@ -193,6 +193,7 @@ function SeriesChart({
           tickLine={false}
           axisLine={false}
           allowDecimals={false}
+          stroke="hsl(var(--muted-foreground))"
         />
         <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted)/0.3)' }} />
         <Legend
