@@ -15,9 +15,7 @@ const GOAL_COLORS = [
 ]
 
 export function DashboardGoals({ habits }: DashboardGoalsProps) {
-  const habitsWithGoals = habits
-    .filter((h) => h.goals && h.goals.length > 0)
-    .slice(0, 5)
+  const habitsWithGoals = habits.filter((h) => h.goals && h.goals.length > 0).slice(0, 5)
 
   if (habitsWithGoals.length === 0) return null
 
@@ -60,12 +58,14 @@ export function DashboardGoals({ habits }: DashboardGoalsProps) {
                 <div className="w-28 shrink-0">
                   <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                     <div
-                      className={`h-full rounded-full bg-gradient-to-r ${colors.bar} transition-all duration-700`}
+                      className={`h-full rounded-full bg-linear-to-r ${colors.bar} transition-all duration-700`}
                       style={{ width: `${pct}%` }}
                     />
                   </div>
                 </div>
-                <span className="w-8 shrink-0 text-right text-xs text-muted-foreground">{pct}%</span>
+                <span className="w-8 shrink-0 text-right text-xs text-muted-foreground">
+                  {pct}%
+                </span>
               </div>
             )
           })}

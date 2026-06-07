@@ -1,13 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
-import { Settings } from 'lucide-react'
+import { Settings, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-
-interface DashboardHeaderProps {
-  user: { name?: string | null; email?: string | null; image?: string | null } | null
-}
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { useUser } from '@/contexts/user-context'
 
 function getGreeting(): string {
   const h = new Date().getHours()
@@ -21,15 +18,6 @@ function getFirstName(name?: string | null): string {
   return name.split(' ')[0]
 }
 
-function formatDate(): string {
-  return new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
-
 function getInitials(name?: string | null, email?: string | null): string {
   if (name) {
     const parts = name.trim().split(' ')
@@ -40,7 +28,17 @@ function getInitials(name?: string | null, email?: string | null): string {
   return '?'
 }
 
-export function DashboardHeader({ user }: DashboardHeaderProps) {
+function formatDate(): string {
+  return new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+export function DashboardHeader() {
+  const { user } = useUser()
   const firstName = getFirstName(user?.name)
   const initials = getInitials(user?.name, user?.email)
 
@@ -58,24 +56,13 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
       </div>
 
       <div className="flex items-center gap-2.5 shrink-0 mt-1">
-        <Link href="/profile" className="group relative">
-          <div className="h-9 w-9 rounded-full overflow-hidden border border-border/60 bg-muted transition-all duration-200 group-hover:border-border group-hover:shadow-sm">
-            {user?.image ? (
-              <Image
-                src={user.image}
-                alt={user.name ?? 'Profile'}
-                width={36}
-                height={36}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="h-full w-full flex items-center justify-center bg-violet-500/10">
-                <span className="text-xs font-semibold text-violet-600 dark:text-violet-400">
-                  {initials}
-                </span>
-              </div>
-            )}
-          </div>
+        <Link href="/profile">
+          <Avatar className="h-9 w-9 cursor-pointer ring-offset-background transition-opacity hover:opacity-80">
+            <AvatarImage src={user?.image ?? undefined} alt={user?.name ?? ''} />
+            <AvatarFallback className="bg-violet-500/10 text-xs font-semibold text-violet-600 dark:text-violet-400">
+              {user?.name ? initials : <User className="h-4 w-4" />}
+            </AvatarFallback>
+          </Avatar>
         </Link>
 
         <Link href="/profile">

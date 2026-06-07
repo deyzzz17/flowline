@@ -11,8 +11,6 @@ import { listHabits, getHabitAnalytics } from '@/api/habits/actions'
 import { getTimerAnalytics } from '@/api/timer-analytics/actions'
 import { getDashboardTodayEvents } from '@/api/dashboard/actions'
 import { listTasksToday } from '@/api/tasks/actions'
-import { headers } from 'next/headers'
-import { auth } from '@/lib/auth'
 
 export default async function DashboardPage() {
   const [
@@ -23,7 +21,6 @@ export default async function DashboardPage() {
     timerLastWeek,
     habitAnalytics,
     habits,
-    session,
     todayEvents,
     allTasksResult,
   ] = await Promise.all([
@@ -34,12 +31,10 @@ export default async function DashboardPage() {
     getTimerAnalytics('week', -1),
     getHabitAnalytics(),
     listHabits(),
-    auth.api.getSession({ headers: await headers() }),
     getDashboardTodayEvents(),
     api.tasks.list(),
   ])
 
-  const user = session?.user ?? null
   const todayTasks = todayTasksResult.docs
   const activeTodayTasks = todayTasks.filter((t) => t.status === 'active')
   const completedTodayTasks = todayTasks.filter((t) => t.status === 'completed')
@@ -55,7 +50,7 @@ export default async function DashboardPage() {
   return (
     <ProtectedRoute>
       <div className="relative px-4 pb-16 sm:px-6 lg:px-10">
-        <DashboardHeader user={user} />
+        <DashboardHeader />
 
         <DashboardDayProgress
           activeTasks={activeTodayTasks.length}

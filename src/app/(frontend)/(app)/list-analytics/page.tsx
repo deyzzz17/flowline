@@ -6,7 +6,9 @@ export default async function ListAnalyticsPage() {
   const initialData = await getListAnalytics('week', 0)
   return (
     <ProtectedRoute>
-      <ListAnalyticsClient initialData={initialData} />
+      <div className="relative px-4 pb-16 sm:px-6 lg:px-10">
+        <ListAnalyticsClient initialData={initialData} />
+      </div>
     </ProtectedRoute>
   )
 }
