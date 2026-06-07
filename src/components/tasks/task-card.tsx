@@ -175,6 +175,18 @@ export const TaskCard = ({
 
   const deleteTagMutation = useMutation({
     mutationFn: (id: number) => api.tags.delete(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['user-tags'] })
+      const previous = queryClient.getQueryData(['user-tags'])
+      queryClient.setQueryData<{ docs: any[] }>(['user-tags'], (old) => {
+        if (!old) return old
+        return { ...old, docs: old.docs.filter((t) => t.id !== id) }
+      })
+      return { previous }
+    },
+    onError: (_err, _vars, context) => {
+      queryClient.setQueryData(['user-tags'], context?.previous)
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['user-tags'] }),
   })
 
