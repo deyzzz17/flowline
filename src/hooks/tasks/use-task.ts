@@ -1,4 +1,5 @@
 'use client'
+
 import { useState } from 'react'
 import { Task } from '@/payload-types'
 import { useToggleTask } from './use-toggle-task'
@@ -85,7 +86,8 @@ export const useTask = () => {
 
   return {
     toggleStatus,
-    isUpdating: toggleMutation.isPending || editMutation.isPending,
+    isUpdating: editMutation.isPending,
+    isTaskPending: toggleMutation.isTaskPending,
     editingId,
     startEditing,
     stopEditing,

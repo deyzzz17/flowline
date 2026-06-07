@@ -321,7 +321,7 @@ export const TaskCard = ({
             id={`${task.id}`}
             checked={isCompleted}
             disabled={
-              isUpdating ||
+              taskManager.isTaskPending(task.id) ||
               isDeleted ||
               isEditing ||
               isDisabled ||

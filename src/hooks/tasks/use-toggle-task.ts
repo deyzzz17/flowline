@@ -1,6 +1,7 @@
 'use client'
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState, useCallback } from 'react'
 import { api } from '@/api'
 import type { Task } from '@/payload-types'
 
@@ -33,19 +34,25 @@ function updateTaskInCache(
 export function useToggleTask() {
   const queryClient = useQueryClient()
 
-  return useMutation({
+  const [pendingIds, setPendingIds] = useState<Set<number>>(new Set())
+
+  const mutation = useMutation({
     mutationFn: ({ id, status }: { id: number; status: 'active' | 'completed' }) =>
       api.tasks.toggleStatus(id, status),
 
     onMutate: ({ id, status }) => {
+      setPendingIds((prev) => new Set(prev).add(id))
+
       const queries = queryClient.getQueriesData<{ docs: Task[] }>({ queryKey: ['tasks'] })
       const previousData = queries.map(([queryKey, data]) => ({ queryKey, data }))
+
       queries.forEach(([queryKey]) => {
         queryClient.setQueryData<{ docs: Task[] }>(queryKey as string[], (old) =>
           updateTaskInCache(old, id, status),
         )
       })
-      return { previousData }
+
+      return { previousData, id }
     },
 
     onError: (_err, _vars, context) => {
@@ -58,5 +65,23 @@ export function useToggleTask() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['list-analytics'] })
     },
+
+    onSettled: (_data, _err, _vars, context) => {
+      if (context?.id !== undefined) {
+        setPendingIds((prev) => {
+          const next = new Set(prev)
+          next.delete(context.id)
+          return next
+        })
+      }
+    },
   })
+
+  const isTaskPending = useCallback((id: number) => pendingIds.has(id), [pendingIds])
+
+  return {
+    mutate: mutation.mutate,
+    isPending: mutation.isPending,
+    isTaskPending,
+  }
 }
