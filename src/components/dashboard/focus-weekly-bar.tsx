@@ -13,7 +13,7 @@ function formatSeconds(s: number): string {
 interface Bar {
   label: string
   seconds: number
-  isToday: boolean
+  isToday?: boolean
 }
 
 interface FocusWeeklyBarsProps {
@@ -22,13 +22,17 @@ interface FocusWeeklyBarsProps {
 
 export function FocusWeeklyBars({ bars }: FocusWeeklyBarsProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+
+  const todayIndex = (new Date().getDay() + 6) % 7
+
   const maxSeconds = Math.max(...bars.map((b) => b.seconds), 1)
 
   return (
     <div className="flex items-end gap-0.5 h-10 relative">
       {bars.map((bar, i) => {
-        const heightPct = bar.seconds > 0 ? (bar.seconds / maxSeconds) * 100 : 0
+        const isToday = i === todayIndex
         const isHovered = hoveredIndex === i
+        const heightPct = bar.seconds > 0 ? (bar.seconds / maxSeconds) * 100 : 0
 
         return (
           <div
@@ -52,7 +56,7 @@ export function FocusWeeklyBars({ bars }: FocusWeeklyBarsProps) {
             <div className="w-full flex flex-col justify-end" style={{ height: 36 }}>
               <div
                 className={`w-full rounded-sm transition-all duration-300 ${
-                  bar.isToday
+                  isToday
                     ? isHovered
                       ? 'bg-pink-400 dark:bg-pink-300'
                       : 'bg-pink-500 dark:bg-pink-400'
@@ -68,7 +72,10 @@ export function FocusWeeklyBars({ bars }: FocusWeeklyBarsProps) {
               />
             </div>
 
-            <span className="text-[9px] text-muted-foreground/60 leading-none select-none">
+            <span
+              className="text-[9px] text-muted-foreground/60 leading-none select-none"
+              spellCheck={false}
+            >
               {bar.label.slice(0, 1)}
             </span>
           </div>
