@@ -189,11 +189,21 @@ function SeriesChart({
           stroke="hsl(var(--muted-foreground))"
         />
         <YAxis
-          tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+          tick={({ x, y, payload }) => (
+            <text
+              x={x}
+              y={y}
+              dy={4}
+              textAnchor="end"
+              fontSize={10}
+              className="fill-muted-foreground"
+            >
+              {payload.value}
+            </text>
+          )}
           tickLine={false}
           axisLine={false}
           allowDecimals={false}
-          stroke="hsl(var(--muted-foreground))"
         />
         <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted)/0.3)' }} />
         <Legend
