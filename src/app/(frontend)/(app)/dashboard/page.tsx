@@ -9,27 +9,46 @@ import { DashboardGoals } from '@/components/dashboard/dashboard-goals'
 import { api } from '@/api'
 import { listHabits, getHabitAnalytics } from '@/api/habits/actions'
 import { getTimerAnalytics } from '@/api/timer-analytics/actions'
+import { getDashboardTodayEvents } from '@/api/dashboard/actions'
+import { listTasksToday } from '@/api/tasks/actions'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
+import { Task } from '@/payload-types'
 
 export default async function DashboardPage() {
-  const [tasksResult, timerToday, timerWeek, timerLastWeek, habitAnalytics, habits, session] =
-    await Promise.all([
-      api.tasks.list(),
-      getTimerAnalytics('day', 0),
-      getTimerAnalytics('week', 0),
-      getTimerAnalytics('week', -1), 
-      getHabitAnalytics(),
-      listHabits(),
-      auth.api.getSession({ headers: await headers() }),
-    ])
+  const [
+    todayTasksResult,
+    timerToday,
+    timerWeek,
+    timerLastWeek,
+    habitAnalytics,
+    habits,
+    session,
+    todayEvents,
+  ] = await Promise.all([
+    listTasksToday(),
+    getTimerAnalytics('day', 0),
+    getTimerAnalytics('week', 0),
+    getTimerAnalytics('week', -1),
+    getHabitAnalytics(),
+    listHabits(),
+    auth.api.getSession({ headers: await headers() }),
+    getDashboardTodayEvents(),
+  ])
 
   const user = session?.user ?? null
-  const allTasks = tasksResult.docs
-  const activeTasks = allTasks.filter((t) => t.status === 'active')
-  const completedTasks = allTasks.filter((t) => t.status === 'completed')
-  const overdueTasks = activeTasks.filter((t) => t.dueDate && new Date(t.dueDate) < new Date())
-  const priorityTask = activeTasks[0] ?? null
+  const todayTasks = todayTasksResult.docs
+  const activeTodayTasks = todayTasks.filter((t: Task) => t.status === 'active')
+  const completedTodayTasks = todayTasks.filter((t: Task) => t.status === 'completed')
+  const overdueTodayTasks = activeTodayTasks.filter(
+    (t: Task) => t.dueDate && new Date(t.dueDate) < new Date(),
+  )
+
+  const allTasksResult = await api.tasks.list()
+  const allActiveTasks = allTasksResult.docs.filter((t) => t.status === 'active')
+  const allCompletedTasks = allTasksResult.docs.filter((t) => t.status === 'completed')
+
+  const priorityTask = activeTodayTasks[0] ?? null
 
   return (
     <ProtectedRoute>
@@ -37,13 +56,13 @@ export default async function DashboardPage() {
         <DashboardHeader user={user} />
 
         <DashboardDayProgress
-          activeTasks={activeTasks.length}
-          completedTasks={completedTasks.length}
-          totalTasks={allTasks.filter((t) => t.status !== 'deleted').length}
+          activeTasks={activeTodayTasks.length}
+          completedTasks={completedTodayTasks.length}
+          totalTasks={todayTasks.length}
           habitsCompletedToday={habitAnalytics.todayCompleted}
           habitsTotal={habitAnalytics.todayTotal}
           focusTodaySeconds={timerToday.totalSeconds}
-          focusGoalSeconds={4 * 3600}
+          todayEvents={todayEvents}
         />
 
         {priorityTask && (
@@ -51,9 +70,9 @@ export default async function DashboardPage() {
         )}
 
         <DashboardPillars
-          activeTasks={activeTasks.length}
-          overdueTasks={overdueTasks.length}
-          completedTodayTasks={completedTasks.length}
+          activeTasks={activeTodayTasks.length}
+          overdueTasks={overdueTodayTasks.length}
+          completedTodayTasks={completedTodayTasks.length}
           habitWeekRate={habitAnalytics.avgCompletionRate}
           habitStreak={habitAnalytics.bestStreak?.streak ?? 0}
           focusTodaySeconds={timerToday.totalSeconds}
@@ -66,11 +85,11 @@ export default async function DashboardPage() {
           timerToday={timerToday}
           timerWeek={timerWeek}
           timerLastWeek={timerLastWeek}
-          activeTasks={activeTasks}
-          completedTasks={completedTasks}
+          activeTasks={allActiveTasks}
+          completedTasks={allCompletedTasks}
         />
 
-        <DashboardTimeAndCalendar timerWeek={timerWeek} />
+        <DashboardTimeAndCalendar timerWeek={timerWeek} todayEvents={todayEvents} />
 
         <DashboardGoals habits={habits} />
       </div>

@@ -35,10 +35,9 @@ export function DashboardPillars({
       .filter((h) => !h.completedToday)
       .sort((a, b) => a.completionRate30d - b.completionRate30d)[0] ?? null
 
+  const totalTodayTasks = activeTasks + completedTodayTasks
   const taskCompletionPct =
-    activeTasks + completedTodayTasks > 0
-      ? Math.round((completedTodayTasks / (activeTasks + completedTodayTasks)) * 100)
-      : 0
+    totalTodayTasks > 0 ? Math.round((completedTodayTasks / totalTodayTasks) * 100) : 0
 
   return (
     <section className="mb-6">
@@ -49,7 +48,7 @@ export function DashboardPillars({
               <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
             </div>
             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Tasks
+              Tasks today
             </span>
           </div>
           <div className="flex items-end gap-4 mb-4">
@@ -57,17 +56,19 @@ export function DashboardPillars({
               <p className="text-2xl font-bold tracking-tight text-foreground">{activeTasks}</p>
               <p className="text-xs text-muted-foreground">remaining</p>
             </div>
-            <div>
-              <p className="text-xl font-bold tracking-tight text-red-500 dark:text-red-400">
-                {overdueTasks}
-              </p>
-              <p className="text-xs text-muted-foreground">overdue</p>
-            </div>
+            {overdueTasks > 0 && (
+              <div>
+                <p className="text-xl font-bold tracking-tight text-red-500 dark:text-red-400">
+                  {overdueTasks}
+                </p>
+                <p className="text-xs text-muted-foreground">overdue</p>
+              </div>
+            )}
             <div>
               <p className="text-xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
                 {completedTodayTasks}
               </p>
-              <p className="text-xs text-muted-foreground">done today</p>
+              <p className="text-xs text-muted-foreground">done</p>
             </div>
           </div>
           <div>
@@ -77,7 +78,7 @@ export function DashboardPillars({
             </div>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-700"
+                className="h-full rounded-full bg-linear-to-r from-emerald-500 to-teal-500 transition-all duration-700"
                 style={{ width: `${taskCompletionPct}%` }}
               />
             </div>
@@ -115,16 +116,18 @@ export function DashboardPillars({
                 </p>
               </div>
             </div>
-          ) : (
+          ) : habits.length > 0 ? (
             <div className="flex items-start gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2">
               <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
               <p className="text-xs text-emerald-700 dark:text-emerald-300">
                 All habits done today
               </p>
             </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">No habits set up yet.</p>
           )}
         </div>
-        
+
         <div className="rounded-2xl border border-border/60 bg-card/40 p-5 backdrop-blur-sm transition-all duration-200 hover:border-border hover:shadow-md">
           <div className="mb-4 flex items-center justify-between">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-500/10">
@@ -150,22 +153,17 @@ export function DashboardPillars({
               </div>
             )}
           </div>
-          <div className="space-y-1.5">
-            <div>
-              <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-                <span>Daily goal (4h)</span>
-                <span>{Math.min(100, Math.round((focusTodaySeconds / (4 * 3600)) * 100))}%</span>
-              </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-pink-500 to-violet-500 transition-all duration-700"
-                  style={{
-                    width: `${Math.min(100, Math.round((focusTodaySeconds / (4 * 3600)) * 100))}%`,
-                  }}
-                />
-              </div>
-            </div>
-          </div>
+          {focusTodaySeconds > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {focusTodaySeconds >= 3600
+                ? 'Great focus today — keep it up.'
+                : 'You have a session started today.'}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              No sessions yet today. Start the timer to track your focus.
+            </p>
+          )}
         </div>
       </div>
     </section>

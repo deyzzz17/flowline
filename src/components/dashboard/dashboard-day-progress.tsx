@@ -1,4 +1,5 @@
 import { Target, Flame, Calendar, Timer } from 'lucide-react'
+import type { DashboardTodayEvent } from '@/api/dashboard/actions'
 
 function formatSeconds(s: number): string {
   if (s === 0) return '0m'
@@ -8,6 +9,14 @@ function formatSeconds(s: number): string {
   return `${m}m`
 }
 
+function formatEventTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+}
+
 interface DashboardDayProgressProps {
   activeTasks: number
   completedTasks: number
@@ -15,7 +24,7 @@ interface DashboardDayProgressProps {
   habitsCompletedToday: number
   habitsTotal: number
   focusTodaySeconds: number
-  focusGoalSeconds: number
+  todayEvents: DashboardTodayEvent[]
 }
 
 export function DashboardDayProgress({
@@ -25,18 +34,29 @@ export function DashboardDayProgress({
   habitsCompletedToday,
   habitsTotal,
   focusTodaySeconds,
-  focusGoalSeconds,
+  todayEvents,
 }: DashboardDayProgressProps) {
   const taskPct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
   const habitPct = habitsTotal > 0 ? Math.round((habitsCompletedToday / habitsTotal) * 100) : 0
-  const focusPct =
-    focusGoalSeconds > 0
-      ? Math.min(100, Math.round((focusTodaySeconds / focusGoalSeconds) * 100))
-      : 0
+  const focusPct = Math.min(100, Math.round((focusTodaySeconds / (4 * 3600)) * 100))
   const overall = Math.round((taskPct + habitPct + focusPct) / 3)
 
   const circumference = 2 * Math.PI * 50
   const dash = circumference - (overall / 100) * circumference
+
+  const now = new Date()
+  const nextEvent = todayEvents.find((e) => new Date(e.endDate) >= now) ?? null
+
+  const calendarLabel =
+    todayEvents.length > 0
+      ? `${todayEvents.length} event${todayEvents.length !== 1 ? 's' : ''} today`
+      : 'No events today'
+
+  const calendarSub = nextEvent
+    ? `Next: ${nextEvent.title} at ${formatEventTime(nextEvent.startDate)}`
+    : todayEvents.length > 0
+      ? 'All done for today'
+      : 'Calendar is clear'
 
   const items = [
     {
@@ -57,15 +77,18 @@ export function DashboardDayProgress({
       icon: Calendar,
       color: 'text-violet-600 dark:text-violet-400',
       bg: 'bg-violet-500/10',
-      label: '1 event at 4:00 PM',
-      sub: 'Flowline meeting',
+      label: calendarLabel,
+      sub: calendarSub,
     },
     {
       icon: Timer,
       color: 'text-blue-600 dark:text-blue-400',
       bg: 'bg-blue-500/10',
-      label: `Focus goal: ${formatSeconds(focusGoalSeconds)}`,
-      sub: `${formatSeconds(focusTodaySeconds)} completed`,
+      label:
+        focusTodaySeconds > 0
+          ? `${formatSeconds(focusTodaySeconds)} of focus`
+          : 'No focus session yet',
+      sub: focusTodaySeconds > 0 ? 'logged today' : 'Start your first session',
     },
   ]
 
