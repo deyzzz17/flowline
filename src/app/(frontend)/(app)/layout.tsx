@@ -56,7 +56,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                         <MobileSidebarTrigger />
                         <Link href="/dashboard" className="group flex items-center gap-3">
                           <FlowlineLogo />
-                          <span className="text-[17px] font-bold tracking-tight text-foreground transition-colors group-hover:text-foreground/80">
+                          <span
+                            translate="no"
+                            className="text-[17px] font-bold tracking-tight text-foreground transition-colors group-hover:text-foreground/80"
+                          >
                             Flowline
                           </span>
                         </Link>

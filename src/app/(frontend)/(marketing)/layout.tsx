@@ -13,7 +13,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <div className="mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-10">
             <Link href="/" className="group flex items-center gap-3">
               <FlowlineLogo />
-              <span className="text-[17px] font-bold tracking-tight text-foreground transition-colors group-hover:text-foreground/80">
+              <span
+                translate="no"
+                className="text-[17px] font-bold tracking-tight text-foreground transition-colors group-hover:text-foreground/80"
+              >
                 Flowline
               </span>
             </Link>
