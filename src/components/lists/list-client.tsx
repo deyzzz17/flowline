@@ -88,12 +88,6 @@ export const ListClient = ({ list }: ListClientProps) => {
   const inactiveTasks = allTasks.filter((t) => t.status === 'inactive')
   const trashedTasks = allTasks.filter((t) => t.status === 'deleted')
 
-  const activePlusDone = allTasks.filter((t) => t.status === 'active' || t.status === 'completed')
-  const completionRate =
-    activePlusDone.length > 0 ? Math.round((achievedTasks.length / activePlusDone.length) * 100) : 0
-
-  const categoryColor = list.category?.color ?? '#8b5cf6'
-
   const {
     editOpen,
     setEditOpen,
@@ -108,9 +102,17 @@ export const ListClient = ({ list }: ListClientProps) => {
     handleOpen,
     handleSubmit,
     isPending: isEditing,
+    optimisticName,
+    optimisticCategoryName,
+    optimisticColor,
   } = useEditList(list)
 
   const { handleDelete, isPending: isDeleting } = useDeleteList(list)
+
+  // Utilise les valeurs optimistes pour le header — mises à jour instantanément
+  const displayColor = optimisticColor
+  const displayName = optimisticName
+  const displayCategoryName = optimisticCategoryName
 
   return (
     <>
@@ -120,13 +122,13 @@ export const ListClient = ({ list }: ListClientProps) => {
             <div className="mb-1 flex items-center gap-2">
               <span
                 className="h-2.5 w-2.5 rounded-full shrink-0"
-                style={{ backgroundColor: categoryColor }}
+                style={{ backgroundColor: displayColor }}
               />
-              <p className="text-xl font-semibold uppercase" style={{ color: categoryColor }}>
-                {list.category?.name ?? 'List'}
+              <p className="text-xl font-semibold uppercase" style={{ color: displayColor }}>
+                {displayCategoryName || 'List'}
               </p>
             </div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">{list.name}</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">{displayName}</h1>
             <p className="mt-1.5 text-sm text-muted-foreground">
               {allTasks.length === 0
                 ? 'No tasks yet, create your first one below.'
@@ -163,7 +165,7 @@ export const ListClient = ({ list }: ListClientProps) => {
                   <AlertDialogHeader>
                     <AlertDialogTitle>Delete this list?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will permanently delete <strong>{list.name}</strong> and all its tasks.
+                      This will permanently delete <strong>{displayName}</strong> and all its tasks.
                       This action cannot be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>

@@ -9,11 +9,16 @@ import { type List } from '@/payload-types'
 export const useEditList = (list: List) => {
   const router = useRouter()
   const queryClient = useQueryClient()
+
   const [editOpen, setEditOpen] = useState(false)
   const [name, setName] = useState(list.name)
   const [categoryName, setCategoryName] = useState(list.category?.name ?? '')
   const [color, setColor] = useState(list.category?.color ?? '#8b5cf6')
   const [editError, setEditError] = useState<string | null>(null)
+
+  const [optimisticName, setOptimisticName] = useState(list.name)
+  const [optimisticCategoryName, setOptimisticCategoryName] = useState(list.category?.name ?? '')
+  const [optimisticColor, setOptimisticColor] = useState(list.category?.color ?? '#8b5cf6')
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -23,42 +28,21 @@ export const useEditList = (list: List) => {
       }),
 
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ['lists'] })
-
-      const previousLists = queryClient.getQueryData(['lists'])
-
-      queryClient.setQueryData<{ docs: List[] }>(['lists'], (old) => {
-        if (!old) return old
-        return {
-          ...old,
-          docs: old.docs.map((l) =>
-            l.id === list.id
-              ? {
-                  ...l,
-                  name: name.trim(),
-                  category: {
-                    ...l.category,
-                    name: categoryName.trim() || l.category?.name,
-                    color,
-                  },
-                }
-              : l,
-          ),
-        }
-      })
-
+      setOptimisticName(name.trim())
+      setOptimisticCategoryName(categoryName.trim())
+      setOptimisticColor(color)
       setEditOpen(false)
-
-      return { previousLists }
     },
 
     onSuccess: (result) => {
       if (!result.ok) {
-        queryClient.invalidateQueries({ queryKey: ['lists'] })
+        setOptimisticName(list.name)
+        setOptimisticCategoryName(list.category?.name ?? '')
+        setOptimisticColor(list.category?.color ?? '#8b5cf6')
         setEditError(
           result.error === 'DUPLICATE_NAME'
             ? `A list named "${name.trim()}" already exists. Please choose a different name.`
-            : result.error ?? 'Error while editing the list.',
+            : (result.error ?? 'Error while editing the list.'),
         )
         setEditOpen(true)
         return
@@ -69,19 +53,19 @@ export const useEditList = (list: List) => {
       }
     },
 
-    onError: (_err, _vars, context) => {
-      if (context?.previousLists) {
-        queryClient.setQueryData(['lists'], context.previousLists)
-      }
+    onError: () => {
+      setOptimisticName(list.name)
+      setOptimisticCategoryName(list.category?.name ?? '')
+      setOptimisticColor(list.category?.color ?? '#8b5cf6')
       setEditError('Error while editing the list.')
       setEditOpen(true)
     },
   })
 
   const handleOpen = () => {
-    setName(list.name)
-    setCategoryName(list.category?.name ?? '')
-    setColor(list.category?.color ?? '#8b5cf6')
+    setName(optimisticName)
+    setCategoryName(optimisticCategoryName)
+    setColor(optimisticColor)
     setEditError(null)
     setEditOpen(true)
   }
@@ -110,5 +94,8 @@ export const useEditList = (list: List) => {
     handleOpen,
     handleSubmit,
     isPending: mutation.isPending,
+    optimisticName,
+    optimisticCategoryName,
+    optimisticColor,
   }
 }
