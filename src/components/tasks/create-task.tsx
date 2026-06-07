@@ -113,6 +113,8 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
 
   const queryClient = useQueryClient()
 
+  const titleRef = React.useRef<HTMLInputElement>(null)
+
   const { data: userTagsData } = useQuery({
     queryKey: ['user-tags'],
     queryFn: () => api.tags.tags(),
@@ -180,12 +182,15 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
   const handleOnSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const success = await saveTask(listId)
-    if (success) {
-      setSubtaskInput('')
-      setExpandedIndex(null)
-      setShowNewTag(false)
-      close()
+    if (!success) {
+      titleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      titleRef.current?.focus()
+      return
     }
+    setSubtaskInput('')
+    setExpandedIndex(null)
+    setShowNewTag(false)
+    close()
   }
 
   const handleAddSubtask = () => {
@@ -276,6 +281,7 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
 
           <FormField label="Title" error={showError ? 'Title is required' : undefined}>
             <Input
+              ref={titleRef}
               id="taskTitle"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -595,47 +601,32 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
                                     {tag.label}
                                   </button>
                                 ))}
-                                {userTags.length > 0 && (
-                                  <div className="flex flex-wrap gap-1">
-                                    {userTags.map((tag) => {
-                                      const isSelected = subtaskEditDraft.tags.includes(
-                                        String(tag.id),
-                                      )
-                                      return (
-                                        <button
-                                          key={tag.id}
-                                          type="button"
-                                          onClick={() =>
-                                            setSubtaskEditDraft((prev) => ({
-                                              ...prev,
-                                              tags: isSelected
-                                                ? prev.tags.filter((t) => t !== String(tag.id))
-                                                : [...prev.tags, String(tag.id)],
-                                            }))
-                                          }
-                                          className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-all"
-                                          style={{
-                                            backgroundColor: hexToRgba(
-                                              tag.color,
-                                              isSelected ? 0.15 : 0.06,
-                                            ),
-                                            borderColor: hexToRgba(
-                                              tag.color,
-                                              isSelected ? 0.5 : 0.2,
-                                            ),
-                                            color: tag.color,
-                                          }}
-                                        >
-                                          <span
-                                            className="h-1.5 w-1.5 rounded-full shrink-0"
-                                            style={{ backgroundColor: tag.color }}
-                                          />
-                                          {tag.name}
-                                        </button>
-                                      )
-                                    })}
-                                  </div>
-                                )}
+                                {userTags.length > 0 &&
+                                  userTags.map((tag) => {
+                                    const isSelected = (s.tags ?? []).includes(String(tag.id))
+                                    return (
+                                      <button
+                                        key={tag.id}
+                                        type="button"
+                                        onClick={() => toggleSubtaskTag(index, String(tag.id))}
+                                        className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-all"
+                                        style={{
+                                          backgroundColor: hexToRgba(
+                                            tag.color,
+                                            isSelected ? 0.15 : 0.06,
+                                          ),
+                                          borderColor: hexToRgba(tag.color, isSelected ? 0.5 : 0.2),
+                                          color: tag.color,
+                                        }}
+                                      >
+                                        <span
+                                          className="h-1.5 w-1.5 rounded-full shrink-0"
+                                          style={{ backgroundColor: tag.color }}
+                                        />
+                                        {tag.name}
+                                      </button>
+                                    )
+                                  })}
                               </div>
                             </div>
                           </div>
