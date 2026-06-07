@@ -2,7 +2,16 @@
 
 import { useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, BarChart2, TrendingUp, CheckCircle2, Tag, Calendar, Trophy } from 'lucide-react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  BarChart2,
+  TrendingUp,
+  CheckCircle2,
+  Tag,
+  Calendar,
+  Trophy,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import {
@@ -59,10 +68,21 @@ function DonutChart({ data, total }: { data: ListAnalyticsData['donut']; total: 
     <div className="flex flex-col items-center gap-4">
       <div className="relative">
         <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-          <circle cx={cx} cy={cy} r={radius} fill="none"
-            strokeWidth={strokeWidth} className="stroke-muted/40" />
+          <circle
+            cx={cx}
+            cy={cy}
+            r={radius}
+            fill="none"
+            strokeWidth={strokeWidth}
+            className="stroke-muted/40"
+          />
           {segments.map((seg) => (
-            <circle key={seg.id} cx={cx} cy={cy} r={radius} fill="none"
+            <circle
+              key={seg.id}
+              cx={cx}
+              cy={cy}
+              r={radius}
+              fill="none"
               stroke={seg.color}
               strokeWidth={hovered === seg.id ? strokeWidth + 4 : strokeWidth}
               strokeDasharray={`${seg.dash} ${circumference - seg.dash}`}
@@ -103,7 +123,10 @@ function DonutChart({ data, total }: { data: ListAnalyticsData['donut']; total: 
             onMouseEnter={() => setHovered(item.id)}
             onMouseLeave={() => setHovered(null)}
           >
-            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+            <span
+              className="h-2.5 w-2.5 rounded-full shrink-0"
+              style={{ backgroundColor: item.color }}
+            />
             <span className="text-xs text-muted-foreground">{item.label}</span>
             <span className="text-xs font-semibold text-foreground">{item.count}</span>
           </div>
@@ -120,7 +143,10 @@ function CustomTooltip({ active, payload, label }: any) {
       <p className="text-xs font-semibold text-foreground mb-1.5">{label}</p>
       {payload.map((entry: any) => (
         <div key={entry.dataKey} className="flex items-center gap-2 text-xs">
-          <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
+          <span
+            className="h-2 w-2 rounded-full shrink-0"
+            style={{ backgroundColor: entry.color }}
+          />
           <span className="text-muted-foreground">{entry.name}</span>
           <span className="font-semibold text-foreground ml-auto pl-4">{entry.value}</span>
         </div>
@@ -129,7 +155,11 @@ function CustomTooltip({ active, payload, label }: any) {
   )
 }
 
-function SeriesChart({ series, tags, chartType }: {
+function SeriesChart({
+  series,
+  tags,
+  chartType,
+}: {
   series: ListAnalyticsData['series']
   tags: ListAnalyticsData['seriesTags']
   chartType: ChartType
@@ -159,10 +189,9 @@ function SeriesChart({ series, tags, chartType }: {
           stroke="hsl(var(--muted-foreground))"
         />
         <YAxis
-          tick={{ fontSize: 10 }}
+          tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
           tickLine={false}
           axisLine={false}
-          stroke="hsl(var(--muted-foreground))"
           allowDecimals={false}
         />
         <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted)/0.3)' }} />
@@ -175,11 +204,23 @@ function SeriesChart({ series, tags, chartType }: {
         />
         {tags.map((tag) =>
           chartType === 'bar' ? (
-            <Bar key={tag.id} dataKey={tag.id} name={tag.label} fill={tag.color}
-              radius={[3, 3, 0, 0]} maxBarSize={32} />
+            <Bar
+              key={tag.id}
+              dataKey={tag.id}
+              name={tag.label}
+              fill={tag.color}
+              radius={[3, 3, 0, 0]}
+              maxBarSize={32}
+            />
           ) : (
-            <Line key={tag.id} dataKey={tag.id} name={tag.label} stroke={tag.color}
-              strokeWidth={2} dot={false} />
+            <Line
+              key={tag.id}
+              dataKey={tag.id}
+              name={tag.label}
+              stroke={tag.color}
+              strokeWidth={2}
+              dot={false}
+            />
           ),
         )}
       </ComposedChart>
@@ -187,7 +228,13 @@ function SeriesChart({ series, tags, chartType }: {
   )
 }
 
-function StatCard({ icon: Icon, label, value, sub, color }: {
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  color,
+}: {
   icon: React.ElementType
   label: string
   value: string | number
@@ -238,12 +285,11 @@ export function ListAnalyticsClient({ initialData }: { initialData: ListAnalytic
     if (period === 'week') return `${format(start, 'MMM d')} – ${format(end, 'MMM d, yyyy')}`
     return format(start, 'MMMM yyyy')
   }
-  
+
   const topTag = data.donut[0] ?? null
   const uniqueTags = data.donut.length
-  const avgPerDay = data.series.length > 0
-    ? Math.round((data.totalCompleted / data.series.length) * 10) / 10
-    : 0
+  const avgPerDay =
+    data.series.length > 0 ? Math.round((data.totalCompleted / data.series.length) * 10) / 10 : 0
   const bestDay = data.series.reduce<{ label: string; total: number } | null>((best, p) => {
     if (p.total > (best?.total ?? 0)) return { label: p.label, total: p.total }
     return best
@@ -251,7 +297,6 @@ export function ListAnalyticsClient({ initialData }: { initialData: ListAnalytic
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-
       <div>
         <p className="mb-1 text-xl font-semibold uppercase text-violet-600 dark:text-violet-400">
           Lists
@@ -295,7 +340,7 @@ export function ListAnalyticsClient({ initialData }: { initialData: ListAnalytic
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="text-sm font-semibold text-foreground">Completion by tag</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Last 7 days — rolling</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Last 7 days rolling</p>
           </div>
           <div className="flex items-center gap-1.5 text-sm">
             <span className="font-bold text-foreground">{data.totalCompleted}</span>
@@ -307,13 +352,16 @@ export function ListAnalyticsClient({ initialData }: { initialData: ListAnalytic
 
       <div className="rounded-2xl border border-border/60 bg-card/40 p-6 backdrop-blur-sm">
         <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
-
-          {/* Controls left */}
           <div className="flex items-center gap-1.5">
             <div className="flex items-center gap-0.5 rounded-xl border border-border/60 bg-muted/30 p-1">
               {(['day', 'week', 'month'] as Period[]).map((p) => (
-                <button key={p} type="button"
-                  onClick={() => { setPeriod(p); setOffset(0) }}
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => {
+                    setPeriod(p)
+                    setOffset(0)
+                  }}
                   className={cn(
                     'rounded-lg px-3 py-1.5 text-xs font-medium transition-all',
                     period === p
@@ -327,8 +375,11 @@ export function ListAnalyticsClient({ initialData }: { initialData: ListAnalytic
             </div>
 
             <div className="flex items-center gap-0.5 rounded-xl border border-border/60 bg-muted/30 p-1">
-              <button type="button" onClick={() => setChartType('bar')}
-                className={cn('rounded-lg p-1.5 transition-all',
+              <button
+                type="button"
+                onClick={() => setChartType('bar')}
+                className={cn(
+                  'rounded-lg p-1.5 transition-all',
                   chartType === 'bar'
                     ? 'bg-background shadow-sm text-foreground'
                     : 'text-muted-foreground hover:text-foreground',
@@ -336,8 +387,11 @@ export function ListAnalyticsClient({ initialData }: { initialData: ListAnalytic
               >
                 <BarChart2 className="h-3.5 w-3.5" />
               </button>
-              <button type="button" onClick={() => setChartType('line')}
-                className={cn('rounded-lg p-1.5 transition-all',
+              <button
+                type="button"
+                onClick={() => setChartType('line')}
+                className={cn(
+                  'rounded-lg p-1.5 transition-all',
                   chartType === 'line'
                     ? 'bg-background shadow-sm text-foreground'
                     : 'text-muted-foreground hover:text-foreground',
@@ -349,18 +403,30 @@ export function ListAnalyticsClient({ initialData }: { initialData: ListAnalytic
           </div>
 
           <div className="flex items-center gap-1.5">
-            <Button variant="ghost" size="icon" className="h-8 w-8"
-              onClick={() => navigate('prev')} disabled={offset <= MIN_OFFSET[period]}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => navigate('prev')}
+              disabled={offset <= MIN_OFFSET[period]}
+            >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className={cn(
-              'text-xs font-medium text-foreground min-w-36 text-center transition-opacity',
-              isFetching && 'opacity-40',
-            )}>
+            <span
+              className={cn(
+                'text-xs font-medium text-foreground min-w-36 text-center transition-opacity',
+                isFetching && 'opacity-40',
+              )}
+            >
               {getPeriodLabel()}
             </span>
-            <Button variant="ghost" size="icon" className="h-8 w-8"
-              onClick={() => navigate('next')} disabled={offset >= 0}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => navigate('next')}
+              disabled={offset >= 0}
+            >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
@@ -376,15 +442,16 @@ export function ListAnalyticsClient({ initialData }: { initialData: ListAnalytic
           <h2 className="text-sm font-semibold text-foreground mb-4">Tag breakdown</h2>
           <div className="space-y-3">
             {data.donut.map((item) => {
-              const pct = data.totalCompleted > 0
-                ? Math.round((item.count / data.totalCompleted) * 100)
-                : 0
+              const pct =
+                data.totalCompleted > 0 ? Math.round((item.count / data.totalCompleted) * 100) : 0
               return (
                 <div key={item.id}>
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full shrink-0"
-                        style={{ backgroundColor: item.color }} />
+                      <span
+                        className="h-2.5 w-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: item.color }}
+                      />
                       <span className="text-sm font-medium text-foreground">{item.label}</span>
                     </div>
                     <div className="flex items-center gap-3">
@@ -406,7 +473,6 @@ export function ListAnalyticsClient({ initialData }: { initialData: ListAnalytic
           </div>
         </div>
       )}
-
     </div>
   )
 }
