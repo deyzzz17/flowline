@@ -22,14 +22,7 @@ import { toast } from 'sonner'
 import confetti from 'canvas-confetti'
 import { format, parseISO, endOfMonth, eachDayOfInterval } from 'date-fns'
 import { useRouter } from 'next/navigation'
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-} from '@/components/ui/alert-dialog'
+import { AlertDialog, AlertDialogContent, AlertDialogFooter } from '@/components/ui/alert-dialog'
 
 const DAY_LABELS: Record<string, string> = {
   mon: 'Mo',
