@@ -57,15 +57,17 @@ export const SupportClient = ({ faqItems }: SupportClientProps) => {
           </button>
 
           <a
-            href="mailto:support@flowline.app"
-            className="flex items-center gap-3 rounded-xl border border-border/60 bg-card/40 px-4 py-3.5 text-left transition-all hover:bg-muted/60 hover:border-border"
+            href="mailto:support@flowlineworkspace.com"
+            className="flex min-w-0 items-center gap-3 rounded-xl border border-border/60 bg-card/40 px-4 py-3.5 text-left transition-all hover:bg-muted/60 hover:border-border"
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-500/10">
               <Mail className="h-4 w-4 text-blue-500" />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-semibold text-foreground">Email us</p>
-              <p className="text-xs text-muted-foreground">support@flowlineworkspace.com</p>
+              <p className="text-xs text-muted-foreground truncate">
+                support@flowlineworkspace.com
+              </p>
             </div>
           </a>
 
