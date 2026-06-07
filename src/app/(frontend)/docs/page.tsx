@@ -63,7 +63,7 @@ export default function DocsPage() {
       <DocPageHeader
         badge="Documentation"
         title="Welcome to Flowline"
-        description="Flowline is your all-in-one productivity OS — combining tasks, habits, calendar, and deep work into a single coherent workspace. This documentation covers everything you need to get the most out of it."
+        description="Flowline is your all-in-one productivity OS, combining tasks, habits, calendar, and deep work into a single coherent workspace. This documentation covers everything you need to get the most out of it."
       />
 
       <DocSection id="what-is-flowline" title="What is Flowline?">

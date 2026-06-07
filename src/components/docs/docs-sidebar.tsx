@@ -13,6 +13,7 @@ import {
   BarChart2,
   Settings,
   Zap,
+  HelpCircle,
 } from 'lucide-react'
 
 const NAV = [
@@ -36,9 +37,11 @@ const NAV = [
   },
   {
     group: 'Account',
-    items: [
-      { label: 'Profile & settings', href: '/docs/settings', icon: Settings },
-    ],
+    items: [{ label: 'Profile & settings', href: '/docs/settings', icon: Settings }],
+  },
+  {
+    group: 'Help',
+    items: [{ label: 'FAQ', href: '/docs/faq', icon: HelpCircle }],
   },
 ]
 

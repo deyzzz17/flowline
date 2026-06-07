@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { BookOpen, ExternalLink } from 'lucide-react'
-import { ModeToggle } from '../theme/mode-toggle'
+import { ModeToggle } from '@/components/theme/mode-toggle'
+import { FlowlineLogo } from '../header/flowline-logo'
+import { ExternalLink } from 'lucide-react'
 
 export function DocsNav() {
   return (
@@ -10,9 +11,7 @@ export function DocsNav() {
       <div className="flex h-full items-center justify-between px-6">
         <div className="flex items-center gap-6">
           <Link href="/docs" className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/10">
-              <BookOpen className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-            </div>
+            <FlowlineLogo />
             <div className="flex items-center gap-1.5">
               <span className="font-bold text-foreground" translate="no">
                 Flowline
@@ -25,9 +24,9 @@ export function DocsNav() {
 
           <nav className="hidden md:flex items-center gap-1">
             {[
-              { label: 'Getting started', href: '/docs' },
+              { label: 'Getting started', href: '/docs/getting-started' },
               { label: 'Features', href: '/docs/tasks' },
-              { label: 'FAQ', href: '/support' },
+              { label: 'FAQ', href: '/docs/faq' },
             ].map((item) => (
               <Link
                 key={item.href}
