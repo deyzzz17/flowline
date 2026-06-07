@@ -13,38 +13,40 @@ import { getDashboardTodayEvents } from '@/api/dashboard/actions'
 import { listTasksToday } from '@/api/tasks/actions'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
-import { Task } from '@/payload-types'
 
 export default async function DashboardPage() {
   const [
     todayTasksResult,
     timerToday,
+    timerYesterday,
     timerWeek,
     timerLastWeek,
     habitAnalytics,
     habits,
     session,
     todayEvents,
+    allTasksResult,
   ] = await Promise.all([
     listTasksToday(),
     getTimerAnalytics('day', 0),
+    getTimerAnalytics('day', -1),
     getTimerAnalytics('week', 0),
     getTimerAnalytics('week', -1),
     getHabitAnalytics(),
     listHabits(),
     auth.api.getSession({ headers: await headers() }),
     getDashboardTodayEvents(),
+    api.tasks.list(),
   ])
 
   const user = session?.user ?? null
   const todayTasks = todayTasksResult.docs
-  const activeTodayTasks = todayTasks.filter((t: Task) => t.status === 'active')
-  const completedTodayTasks = todayTasks.filter((t: Task) => t.status === 'completed')
+  const activeTodayTasks = todayTasks.filter((t) => t.status === 'active')
+  const completedTodayTasks = todayTasks.filter((t) => t.status === 'completed')
   const overdueTodayTasks = activeTodayTasks.filter(
-    (t: Task) => t.dueDate && new Date(t.dueDate) < new Date(),
+    (t) => t.dueDate && new Date(t.dueDate) < new Date(),
   )
 
-  const allTasksResult = await api.tasks.list()
   const allActiveTasks = allTasksResult.docs.filter((t) => t.status === 'active')
   const allCompletedTasks = allTasksResult.docs.filter((t) => t.status === 'completed')
 
@@ -77,6 +79,8 @@ export default async function DashboardPage() {
           habitStreak={habitAnalytics.bestStreak?.streak ?? 0}
           focusTodaySeconds={timerToday.totalSeconds}
           focusWeekSeconds={timerWeek.totalSeconds}
+          focusYesterdaySeconds={timerYesterday.totalSeconds}
+          timerWeek={timerWeek}
           habits={habits}
         />
 
@@ -85,6 +89,7 @@ export default async function DashboardPage() {
           timerToday={timerToday}
           timerWeek={timerWeek}
           timerLastWeek={timerLastWeek}
+          timerYesterday={timerYesterday}
           activeTasks={allActiveTasks}
           completedTasks={allCompletedTasks}
         />

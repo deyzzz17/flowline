@@ -1,5 +1,6 @@
-import { CheckCircle2, Flame, Timer, AlertTriangle } from 'lucide-react'
+import { CheckCircle2, Flame, Timer, AlertTriangle, TrendingUp, TrendingDown } from 'lucide-react'
 import type { HabitWithStats } from '@/api/habits/actions'
+import type { SessionAnalytics } from '@/api/timer-analytics/actions'
 
 function formatSeconds(s: number): string {
   if (s === 0) return '0m'
@@ -17,6 +18,8 @@ interface DashboardPillarsProps {
   habitStreak: number
   focusTodaySeconds: number
   focusWeekSeconds: number
+  focusYesterdaySeconds: number
+  timerWeek: SessionAnalytics
   habits: HabitWithStats[]
 }
 
@@ -28,6 +31,8 @@ export function DashboardPillars({
   habitStreak,
   focusTodaySeconds,
   focusWeekSeconds,
+  focusYesterdaySeconds,
+  timerWeek,
   habits,
 }: DashboardPillarsProps) {
   const atRiskHabit =
@@ -38,6 +43,20 @@ export function DashboardPillars({
   const totalTodayTasks = activeTasks + completedTodayTasks
   const taskCompletionPct =
     totalTodayTasks > 0 ? Math.round((completedTodayTasks / totalTodayTasks) * 100) : 0
+
+  const focusDiff = focusTodaySeconds - focusYesterdaySeconds
+  const focusDiffPct =
+    focusYesterdaySeconds > 0 ? Math.round(Math.abs(focusDiff / focusYesterdaySeconds) * 100) : null
+
+  const weeklyBars = timerWeek.timeSeries.map((point) => {
+    const total = timerWeek.seriesDefinitions
+      .filter((d) => d.type === 'category')
+      .reduce((sum, def) => sum + ((point[def.key] as number) ?? 0), 0)
+    return { label: point.label as string, seconds: total }
+  })
+  const maxBarSeconds = Math.max(...weeklyBars.map((b) => b.seconds), 1)
+
+  const topCategoryToday = timerWeek.timeByCategory[0]
 
   return (
     <section className="mb-6">
@@ -137,33 +156,76 @@ export function DashboardPillars({
               Focus
             </span>
           </div>
-          <div className="flex items-end gap-4 mb-4">
+
+          <div className="flex items-end gap-3 mb-3">
             <div>
               <p className="text-2xl font-bold tracking-tight text-foreground">
                 {focusTodaySeconds > 0 ? formatSeconds(focusTodaySeconds) : '—'}
               </p>
               <p className="text-xs text-muted-foreground">today</p>
             </div>
-            {focusWeekSeconds > 0 && (
-              <div>
-                <p className="text-xl font-bold tracking-tight text-pink-600 dark:text-pink-400">
-                  {formatSeconds(focusWeekSeconds)}
+            {focusDiffPct !== null && focusTodaySeconds > 0 && (
+              <div className="pb-0.5 flex items-center gap-1">
+                {focusDiff >= 0 ? (
+                  <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+                ) : (
+                  <TrendingDown className="h-3.5 w-3.5 text-red-400" />
+                )}
+                <p
+                  className={`text-sm font-semibold ${focusDiff >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}
+                >
+                  {focusDiff >= 0 ? '+' : '−'}
+                  {focusDiffPct}%
                 </p>
-                <p className="text-xs text-muted-foreground">this week</p>
+                <p className="text-xs text-muted-foreground">vs yesterday</p>
               </div>
             )}
           </div>
-          {focusTodaySeconds > 0 ? (
-            <p className="text-xs text-muted-foreground">
-              {focusTodaySeconds >= 3600
-                ? 'Great focus today — keep it up.'
-                : 'You have a session started today.'}
-            </p>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              No sessions yet today. Start the timer to track your focus.
-            </p>
+
+          {weeklyBars.length > 0 && focusWeekSeconds > 0 && (
+            <div className="mb-3">
+              <div className="flex items-end gap-0.5 h-10">
+                {weeklyBars.map((bar, i) => {
+                  const heightPct = maxBarSeconds > 0 ? (bar.seconds / maxBarSeconds) * 100 : 0
+                  const isToday = i === weeklyBars.length - 1
+                  return (
+                    <div
+                      key={bar.label}
+                      className="flex flex-1 flex-col items-center gap-0.5"
+                      title={`${bar.label}: ${formatSeconds(bar.seconds)}`}
+                    >
+                      <div className="w-full flex flex-col justify-end" style={{ height: 36 }}>
+                        <div
+                          className={`w-full rounded-sm transition-all duration-500 ${
+                            isToday
+                              ? 'bg-pink-500 dark:bg-pink-400'
+                              : bar.seconds > 0
+                                ? 'bg-pink-200 dark:bg-pink-900'
+                                : 'bg-muted'
+                          }`}
+                          style={{ height: `${Math.max(heightPct, bar.seconds > 0 ? 8 : 3)}%` }}
+                        />
+                      </div>
+                      <span className="text-[9px] text-muted-foreground/60 leading-none">
+                        {typeof bar.label === 'string' ? bar.label.slice(0, 1) : ''}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
           )}
+
+          {topCategoryToday && focusTodaySeconds > 0 ? (
+            <p className="text-xs text-muted-foreground truncate">
+              Mostly on <span className="font-medium text-foreground">{topCategoryToday.name}</span>{' '}
+              ({formatSeconds(topCategoryToday.seconds)})
+            </p>
+          ) : focusTodaySeconds === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              No sessions yet. Start the timer to track focus.
+            </p>
+          ) : null}
         </div>
       </div>
     </section>

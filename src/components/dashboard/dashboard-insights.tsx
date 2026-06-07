@@ -21,105 +21,130 @@ function computeInsights(params: {
   timerToday: SessionAnalytics
   timerWeek: SessionAnalytics
   timerLastWeek: SessionAnalytics
+  timerYesterday: SessionAnalytics
   activeTasks: Task[]
   completedTasks: Task[]
 }): Insight[] {
-  const { habits, timerToday, timerWeek, timerLastWeek, activeTasks, completedTasks } = params
+  const {
+    habits,
+    timerToday,
+    timerWeek,
+    timerLastWeek,
+    timerYesterday,
+    activeTasks,
+    completedTasks,
+  } = params
   const insights: Insight[] = []
 
   const hasAnyData = habits.length > 0 || timerWeek.totalSeconds > 0 || completedTasks.length > 0
-
   if (!hasAnyData) return []
 
-  const bestStreak = habits
-    .filter((h) => h.currentStreak >= 7)
+  const now = new Date()
+
+  
+  const streakAtRisk = habits
+    .filter((h) => !h.completedToday && h.currentStreak >= 3)
     .sort((a, b) => b.currentStreak - a.currentStreak)[0]
-  if (bestStreak) {
+  if (streakAtRisk) {
     insights.push({
-      type: 'good',
+      type: 'warn',
       text: (
         <>
-          <strong>{bestStreak.name}</strong> is on a{' '}
-          <strong>{bestStreak.currentStreak}-day streak</strong> — your longest active run.
+          <strong>{streakAtRisk.name}</strong> will lose its{' '}
+          <strong>{streakAtRisk.currentStreak}-day streak</strong> today if you don't complete it.
         </>
       ),
     })
   }
 
-  const atRisk = habits
-    .filter((h) => !h.completedToday && h.currentStreak >= 3)
+  const newRecord = habits
+    .filter(
+      (h) => h.currentStreak > 0 && h.currentStreak === h.longestStreak && h.currentStreak >= 10,
+    )
     .sort((a, b) => b.currentStreak - a.currentStreak)[0]
-  if (atRisk) {
+  if (newRecord) {
     insights.push({
-      type: 'warn',
+      type: 'good',
       text: (
         <>
-          <strong>{atRisk.name}</strong> has a {atRisk.currentStreak}-day streak that will break
-          today if you don&apos;t complete it.
+          <strong>{newRecord.name}</strong> is at a{' '}
+          <strong>personal record of {newRecord.currentStreak} days</strong>. Keep going.
         </>
       ),
     })
   }
 
   const topHabit = habits
-    .filter((h) => h.completionRate30d >= 80 && h.currentStreak >= 5)
+    .filter((h) => h.completionRate30d >= 85 && h.id !== newRecord?.id)
     .sort((a, b) => b.completionRate30d - a.completionRate30d)[0]
-  if (topHabit && topHabit.id !== bestStreak?.id) {
+  if (topHabit) {
     insights.push({
       type: 'good',
       text: (
         <>
-          <strong>{topHabit.name}</strong> is at{' '}
-          <strong>{topHabit.completionRate30d}% completion</strong> over the last 30 days. Keep it
-          up.
+          <strong>{topHabit.name}</strong> — <strong>{topHabit.completionRate30d}%</strong>{' '}
+          completion over 30 days. That's a strong routine.
         </>
       ),
     })
   }
 
-  const weakestHabit = habits
-    .filter((h) => h.completionRate30d > 0 && h.completionRate30d < 40)
+  const weakHabit = habits
+    .filter((h) => h.completionRate30d > 0 && h.completionRate30d < 35)
     .sort((a, b) => a.completionRate30d - b.completionRate30d)[0]
-  if (weakestHabit) {
+  if (weakHabit) {
     insights.push({
       type: 'warn',
       text: (
         <>
-          <strong>{weakestHabit.name}</strong> has only a{' '}
-          <strong>{weakestHabit.completionRate30d}% completion rate</strong> over the last 30 days.
-          It might need attention.
+          <strong>{weakHabit.name}</strong> has a{' '}
+          <strong>{weakHabit.completionRate30d}% completion rate</strong> over 30 days — it might
+          need a smaller, more achievable target.
         </>
       ),
     })
   }
 
-  const topCategory = timerWeek.timeByCategory[0]
-  if (topCategory && timerWeek.totalSeconds > 0) {
-    const pct = Math.round((topCategory.seconds / timerWeek.totalSeconds) * 100)
-    insights.push({
-      type: 'neutral',
-      text: (
-        <>
-          <strong>{topCategory.name}</strong> accounts for{' '}
-          <strong>{pct}% of your focus time</strong> this week ({formatSeconds(topCategory.seconds)}
-          ).
-        </>
-      ),
-    })
-  }
-
-  if (timerWeek.totalSeconds > 0 && timerLastWeek.totalSeconds > 0) {
-    const diff = timerWeek.totalSeconds - timerLastWeek.totalSeconds
-    const pctChange = Math.round(Math.abs(diff / timerLastWeek.totalSeconds) * 100)
-    if (pctChange >= 10) {
+  if (timerToday.totalSeconds > 0 && timerYesterday.totalSeconds > 0) {
+    const diff = timerToday.totalSeconds - timerYesterday.totalSeconds
+    const pct = Math.round(Math.abs(diff / timerYesterday.totalSeconds) * 100)
+    if (pct >= 15) {
       if (diff > 0) {
         insights.push({
           type: 'good',
           text: (
             <>
-              Your focus time is up <strong>+{pctChange}%</strong> compared to last week (
-              {formatSeconds(timerWeek.totalSeconds)} vs {formatSeconds(timerLastWeek.totalSeconds)}
-              ).
+              You've already logged <strong>{formatSeconds(timerToday.totalSeconds)}</strong> of
+              focus today — <strong>+{pct}% more</strong> than yesterday.
+            </>
+          ),
+        })
+      } else {
+        insights.push({
+          type: 'neutral',
+          text: (
+            <>
+              Focus today ({formatSeconds(timerToday.totalSeconds)}) is{' '}
+              <strong>{pct}% below yesterday</strong> ({formatSeconds(timerYesterday.totalSeconds)}
+              ). Still time to catch up.
+            </>
+          ),
+        })
+      }
+    }
+  }
+
+  if (timerWeek.totalSeconds > 0 && timerLastWeek.totalSeconds > 0) {
+    const diff = timerWeek.totalSeconds - timerLastWeek.totalSeconds
+    const pct = Math.round(Math.abs(diff / timerLastWeek.totalSeconds) * 100)
+    if (pct >= 15) {
+      if (diff > 0) {
+        insights.push({
+          type: 'good',
+          text: (
+            <>
+              Focus this week (<strong>{formatSeconds(timerWeek.totalSeconds)}</strong>) is up{' '}
+              <strong>+{pct}%</strong> vs last week ({formatSeconds(timerLastWeek.totalSeconds)}).
             </>
           ),
         })
@@ -128,32 +153,11 @@ function computeInsights(params: {
           type: 'warn',
           text: (
             <>
-              Your focus time dropped <strong>−{pctChange}%</strong> compared to last week (
-              {formatSeconds(timerWeek.totalSeconds)} vs {formatSeconds(timerLastWeek.totalSeconds)}
-              ).
+              Focus this week ({formatSeconds(timerWeek.totalSeconds)}) is down{' '}
+              <strong>−{pct}%</strong> vs last week ({formatSeconds(timerLastWeek.totalSeconds)}).
             </>
           ),
         })
-      }
-    }
-  }
-
-  if (timerLastWeek.timeByCategory.length > 0) {
-    for (const lastWeekCat of timerLastWeek.timeByCategory) {
-      const thisWeekCat = timerWeek.timeByCategory.find((c) => c.name === lastWeekCat.name)
-      const thisWeekSec = thisWeekCat?.seconds ?? 0
-      if (lastWeekCat.seconds > 3600 && thisWeekSec < lastWeekCat.seconds * 0.5) {
-        const drop = Math.round(((lastWeekCat.seconds - thisWeekSec) / lastWeekCat.seconds) * 100)
-        insights.push({
-          type: 'warn',
-          text: (
-            <>
-              Your time on <strong>{lastWeekCat.name}</strong> dropped by <strong>{drop}%</strong>{' '}
-              this week compared to last week.
-            </>
-          ),
-        })
-        break
       }
     }
   }
@@ -163,22 +167,76 @@ function computeInsights(params: {
       type: 'good',
       text: (
         <>
-          You had a <strong>{formatSeconds(timerToday.longestSessionSeconds)} session</strong>{' '}
-          today, that&apos;s a solid deep work block.
+          Your longest session today was{' '}
+          <strong>{formatSeconds(timerToday.longestSessionSeconds)}</strong> — a solid deep work
+          block.
         </>
       ),
     })
   }
 
-  const now = new Date()
+  const topCat = timerWeek.timeByCategory[0]
+  if (topCat && timerWeek.totalSeconds > 0) {
+    const pct = Math.round((topCat.seconds / timerWeek.totalSeconds) * 100)
+    if (pct >= 50) {
+      insights.push({
+        type: 'neutral',
+        text: (
+          <>
+            <strong>{topCat.name}</strong> takes up <strong>{pct}%</strong> of your focus time this
+            week ({formatSeconds(topCat.seconds)}). Is that intentional?
+          </>
+        ),
+      })
+    }
+  }
+
+  if (timerLastWeek.timeByCategory.length > 0) {
+    for (const last of timerLastWeek.timeByCategory) {
+      const curr = timerWeek.timeByCategory.find((c) => c.name === last.name)
+      const currSec = curr?.seconds ?? 0
+      if (last.seconds > 3600 && currSec < last.seconds * 0.4) {
+        const drop = Math.round(((last.seconds - currSec) / last.seconds) * 100)
+        insights.push({
+          type: 'warn',
+          text: (
+            <>
+              Time on <strong>{last.name}</strong> is down <strong>−{drop}%</strong> this week vs
+              last ({formatSeconds(last.seconds)} → {formatSeconds(currSec)}).
+            </>
+          ),
+        })
+        break
+      }
+    }
+  }
+  
+  if (timerToday.totalSeconds === 0 && activeTasks.length > 0) {
+    const topTask = activeTasks[0]
+    type ListObj = { name?: string | null }
+    const listName =
+      topTask.list && typeof topTask.list === 'object'
+        ? ((topTask.list as ListObj).name ?? null)
+        : null
+    insights.push({
+      type: 'neutral',
+      text: (
+        <>
+          No focus sessions today yet. <strong>{topTask.title}</strong>
+          {listName ? <> ({listName})</> : null} is your next task.
+        </>
+      ),
+    })
+  }
+
   const overdue = activeTasks.filter((t) => t.dueDate && new Date(t.dueDate) < now)
   if (overdue.length >= 3) {
     insights.push({
       type: 'warn',
       text: (
         <>
-          You have <strong>{overdue.length} overdue tasks</strong>. Consider reviewing your
-          priorities today.
+          <strong>{overdue.length} tasks are overdue.</strong> Consider reviewing your priorities
+          before adding new ones.
         </>
       ),
     })
@@ -198,37 +256,18 @@ function computeInsights(params: {
       type: 'good',
       text: (
         <>
-          You&apos;ve already completed <strong>{completedTasks.length} tasks</strong> today. Solid
-          momentum.
+          <strong>{completedTasks.length} tasks</strong> completed today. You're on a productive
+          streak.
         </>
       ),
     })
   }
 
-  const topTask = activeTasks[0]
-  if (topTask && timerToday.totalSessions === 0 && timerToday.totalSeconds === 0) {
-    type ListObj = { name?: string | null }
-    const listName =
-      topTask.list && typeof topTask.list === 'object'
-        ? ((topTask.list as ListObj).name ?? null)
-        : null
-    insights.push({
-      type: 'neutral',
-      text: (
-        <>
-          No focus sessions logged yet today. <strong>{topTask.title}</strong>
-          {listName ? ` (${listName})` : ''} is waiting.
-        </>
-      ),
-    })
-  }
+  const warns = insights.filter((i) => i.type === 'warn').slice(0, 2)
+  const goods = insights.filter((i) => i.type === 'good').slice(0, 2)
+  const neutrals = insights.filter((i) => i.type === 'neutral').slice(0, 1)
 
-  const warns = insights.filter((i) => i.type === 'warn')
-  const goods = insights.filter((i) => i.type === 'good')
-  const neutrals = insights.filter((i) => i.type === 'neutral')
-
-  const ordered = [...warns.slice(0, 2), ...goods.slice(0, 2), ...neutrals.slice(0, 1)]
-  return ordered.slice(0, 4)
+  return [...warns, ...goods, ...neutrals].slice(0, 4)
 }
 
 interface DashboardInsightsProps {
@@ -236,6 +275,7 @@ interface DashboardInsightsProps {
   timerToday: SessionAnalytics
   timerWeek: SessionAnalytics
   timerLastWeek: SessionAnalytics
+  timerYesterday: SessionAnalytics
   activeTasks: Task[]
   completedTasks: Task[]
 }
@@ -245,6 +285,7 @@ export function DashboardInsights({
   timerToday,
   timerWeek,
   timerLastWeek,
+  timerYesterday,
   activeTasks,
   completedTasks,
 }: DashboardInsightsProps) {
@@ -253,6 +294,7 @@ export function DashboardInsights({
     timerToday,
     timerWeek,
     timerLastWeek,
+    timerYesterday,
     activeTasks,
     completedTasks,
   })
@@ -262,7 +304,7 @@ export function DashboardInsights({
   const dotColor = {
     good: 'bg-emerald-500',
     warn: 'bg-orange-500',
-    neutral: 'bg-muted-foreground/50',
+    neutral: 'bg-blue-400',
   }
 
   return (

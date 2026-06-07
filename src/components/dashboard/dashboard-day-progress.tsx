@@ -17,6 +17,17 @@ function formatEventTime(iso: string): string {
   })
 }
 
+function getDayMessage(overall: number): { label: string; color: string } {
+  if (overall === 0) return { label: 'Day just started', color: 'text-muted-foreground' }
+  if (overall < 25) return { label: 'Getting started', color: 'text-blue-500 dark:text-blue-400' }
+  if (overall < 50)
+    return { label: 'Building momentum', color: 'text-orange-500 dark:text-orange-400' }
+  if (overall < 75) return { label: 'Halfway there', color: 'text-amber-500 dark:text-amber-400' }
+  if (overall < 100)
+    return { label: 'Almost there', color: 'text-emerald-500 dark:text-emerald-400' }
+  return { label: 'Perfect day 🎉', color: 'text-emerald-500 dark:text-emerald-400' }
+}
+
 interface DashboardDayProgressProps {
   activeTasks: number
   completedTasks: number
@@ -39,10 +50,12 @@ export function DashboardDayProgress({
   const taskPct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
   const habitPct = habitsTotal > 0 ? Math.round((habitsCompletedToday / habitsTotal) * 100) : 0
   const focusPct = Math.min(100, Math.round((focusTodaySeconds / (4 * 3600)) * 100))
-  const overall = Math.round((taskPct + habitPct + focusPct) / 3)
+
+  const overall = Math.round(taskPct * 0.4 + habitPct * 0.4 + focusPct * 0.2)
 
   const circumference = 2 * Math.PI * 50
   const dash = circumference - (overall / 100) * circumference
+  const { label: dayLabel, color: dayColor } = getDayMessage(overall)
 
   const now = new Date()
   const nextEvent = todayEvents.find((e) => new Date(e.endDate) >= now) ?? null
@@ -63,15 +76,21 @@ export function DashboardDayProgress({
       icon: Target,
       color: 'text-orange-500 dark:text-orange-400',
       bg: 'bg-orange-500/10',
-      label: `${activeTasks} priority task${activeTasks !== 1 ? 's' : ''} remaining`,
-      sub: `${completedTasks} completed today`,
+      label: `${activeTasks} task${activeTasks !== 1 ? 's' : ''} remaining`,
+      sub: completedTasks > 0 ? `${completedTasks} completed today` : 'None completed yet',
     },
     {
       icon: Flame,
       color: 'text-teal-600 dark:text-teal-400',
       bg: 'bg-teal-500/10',
-      label: `${habitsCompletedToday}/${habitsTotal} habits done`,
-      sub: `${habitsTotal - habitsCompletedToday} remaining`,
+      label:
+        habitsTotal > 0 ? `${habitsCompletedToday}/${habitsTotal} habits done` : 'No habits set up',
+      sub:
+        habitsTotal > 0
+          ? habitsCompletedToday === habitsTotal
+            ? 'All done for today 🎉'
+            : `${habitsTotal - habitsCompletedToday} remaining`
+          : 'Add habits to track them',
     },
     {
       icon: Calendar,
@@ -88,7 +107,28 @@ export function DashboardDayProgress({
         focusTodaySeconds > 0
           ? `${formatSeconds(focusTodaySeconds)} of focus`
           : 'No focus session yet',
-      sub: focusTodaySeconds > 0 ? 'logged today' : 'Start your first session',
+      sub: focusTodaySeconds > 0 ? 'logged today' : 'Start the timer to track focus',
+    },
+  ]
+
+  const barRows = [
+    {
+      label: 'Tasks',
+      pct: taskPct,
+      color: 'bg-orange-500',
+      detail: `${completedTasks}/${totalTasks}`,
+    },
+    {
+      label: 'Habits',
+      pct: habitPct,
+      color: 'bg-teal-500',
+      detail: `${habitsCompletedToday}/${habitsTotal}`,
+    },
+    {
+      label: 'Focus',
+      pct: focusPct,
+      color: 'bg-blue-500',
+      detail: formatSeconds(focusTodaySeconds),
     },
   ]
 
@@ -98,9 +138,7 @@ export function DashboardDayProgress({
         <div className="lg:col-span-2 rounded-2xl border border-border/60 bg-card/40 p-5 backdrop-blur-sm">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-foreground">Today at a glance</h2>
-            <span className="rounded-full bg-violet-500/10 px-2.5 py-0.5 text-xs font-semibold text-violet-600 dark:text-violet-400">
-              In progress
-            </span>
+            <span className={`text-xs font-semibold ${dayColor}`}>{dayLabel}</span>
           </div>
           <div className="grid grid-cols-2 gap-3">
             {items.map((item) => (
@@ -145,11 +183,7 @@ export function DashboardDayProgress({
             </div>
           </div>
           <div className="w-full space-y-1.5">
-            {[
-              { label: 'Tasks', pct: taskPct, color: 'bg-orange-500' },
-              { label: 'Habits', pct: habitPct, color: 'bg-teal-500' },
-              { label: 'Focus', pct: focusPct, color: 'bg-blue-500' },
-            ].map((row) => (
+            {barRows.map((row) => (
               <div key={row.label} className="flex items-center gap-2">
                 <span className="w-10 text-[11px] text-muted-foreground">{row.label}</span>
                 <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
@@ -158,7 +192,9 @@ export function DashboardDayProgress({
                     style={{ width: `${row.pct}%` }}
                   />
                 </div>
-                <span className="w-8 text-right text-[11px] text-muted-foreground">{row.pct}%</span>
+                <span className="w-10 text-right text-[11px] text-muted-foreground tabular-nums">
+                  {row.detail}
+                </span>
               </div>
             ))}
           </div>
