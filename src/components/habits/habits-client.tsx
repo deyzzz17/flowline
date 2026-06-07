@@ -580,7 +580,7 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
       { completedToday: true, currentStreak: habit.currentStreak + 1, completionRate30d: newRate },
       newRate,
     )
-    const result = await toggleHabitCompletion(habit.id)
+    const result = await toggleHabitCompletion(habit.id, undefined, undefined, userTimezone)
     setTogglingId(null)
     if ('error' in result) {
       toast.error('Failed to update habit')
