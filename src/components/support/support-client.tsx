@@ -65,7 +65,7 @@ export const SupportClient = ({ faqItems }: SupportClientProps) => {
             </div>
             <div>
               <p className="text-sm font-semibold text-foreground">Email us</p>
-              <p className="text-xs text-muted-foreground">support@flowline.app</p>
+              <p className="text-xs text-muted-foreground">support@flowlineworkspace.com</p>
             </div>
           </a>
 
@@ -102,22 +102,23 @@ export const SupportClient = ({ faqItems }: SupportClientProps) => {
                   onClick={() => toggle(i)}
                   className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/40"
                 >
-                  <span className={cn(
-                    'text-sm font-medium transition-colors',
-                    isOpen ? 'text-foreground' : 'text-foreground/80',
-                  )}>
+                  <span
+                    className={cn(
+                      'text-sm font-medium transition-colors',
+                      isOpen ? 'text-foreground' : 'text-foreground/80',
+                    )}
+                  >
                     {item.question}
                   </span>
-                  {isOpen
-                    ? <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    : <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  }
+                  {isOpen ? (
+                    <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  )}
                 </button>
                 {isOpen && (
                   <div className="px-5 pb-4 pt-0">
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {item.answer}
-                    </p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{item.answer}</p>
                   </div>
                 )}
               </div>
@@ -135,11 +136,7 @@ export const SupportClient = ({ faqItems }: SupportClientProps) => {
               Can&apos;t find what you&apos;re looking for? We&apos;re here to help.
             </p>
           </div>
-          <Button
-            onClick={() => setFeedbackOpen(true)}
-            className="mt-1 gap-2"
-            variant="outline"
-          >
+          <Button onClick={() => setFeedbackOpen(true)} className="mt-1 gap-2" variant="outline">
             <MessageSquare className="h-3.5 w-3.5" />
             Contact us
           </Button>
