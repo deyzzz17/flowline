@@ -12,7 +12,6 @@ import {
   Timer,
   BarChart2,
   CalendarDays,
-  X,
   Check,
   Loader2,
   PanelLeft,
@@ -96,12 +95,11 @@ export function AppSidebar() {
   const isCollapsed = state === 'collapsed'
   const { feedbackOpen, setFeedbackOpen } = useSidebarFooter()
   const { categories, createMutation, updateMutation, deleteMutation } = useCalendarCategories()
-  const { hiddenCategories, toggleCategory } = useCalendarFilter()
+  const { hiddenCategories, toggleCategory, habitsVisible, toggleHabits } = useCalendarFilter()
 
   const [showNewCategory, setShowNewCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [newCategoryColor, setNewCategoryColor] = useState('#8b5cf6')
-
   const [editingCategory, setEditingCategory] = useState<{
     id: number
     name: string
@@ -109,7 +107,6 @@ export function AppSidebar() {
   } | null>(null)
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState('#8b5cf6')
-
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null)
 
   const { data: listsData } = useQuery({ queryKey: ['lists'], queryFn: () => api.lists.list() })
@@ -432,7 +429,10 @@ export function AppSidebar() {
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                         <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={isActive('/habits/habits-analytics')}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={isActive('/habits/habits-analytics')}
+                          >
                             <Link href={nav('/habits/habits-analytics')}>
                               <BarChart2 className="h-3.5 w-3.5" />
                               Analytics
@@ -467,6 +467,39 @@ export function AppSidebar() {
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                         <div className="my-1.5 border-t border-border/40 mx-2" />
+
+                        <SidebarMenuSubItem>
+                          <div className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-sidebar-accent transition-colors">
+                            <button
+                              type="button"
+                              onClick={toggleHabits}
+                              className={cn(
+                                'flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all',
+                                habitsVisible
+                                  ? 'border-transparent'
+                                  : 'border-border/60 bg-background',
+                              )}
+                              style={
+                                habitsVisible
+                                  ? { backgroundColor: '#f97316', borderColor: '#f97316' }
+                                  : undefined
+                              }
+                            >
+                              {habitsVisible && (
+                                <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />
+                              )}
+                            </button>
+                            <Flame className="h-3 w-3 text-orange-500 shrink-0" />
+                            <span
+                              className={cn(
+                                'flex-1 truncate text-xs font-medium',
+                                habitsVisible ? 'text-foreground' : 'text-muted-foreground/50',
+                              )}
+                            >
+                              Habits
+                            </span>
+                          </div>
+                        </SidebarMenuSubItem>
 
                         {categories.map((cat) => {
                           const isVisible = !hiddenCategories.has(cat.id)

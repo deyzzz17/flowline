@@ -14,6 +14,7 @@ import {
   type HabitDetail,
   type HabitGoal,
   type TrackingDataPoint,
+  HabitWithStats,
 } from '@/api/habits/actions'
 import { HabitTrackingDialog } from './habit-tracking-dialog'
 import { HabitTrackingCharts } from './habit-tracking-charts'
@@ -23,6 +24,8 @@ import confetti from 'canvas-confetti'
 import { format, parseISO, endOfMonth, eachDayOfInterval } from 'date-fns'
 import { useRouter } from 'next/navigation'
 import { AlertDialog, AlertDialogContent, AlertDialogFooter } from '@/components/ui/alert-dialog'
+import { useSearchParams, usePathname } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 
 const DAY_LABELS: Record<string, string> = {
   mon: 'Mo',
@@ -306,7 +309,24 @@ export function HabitDetailClient({
   const [habit, setHabit] = useState(initialHabit)
   const [isPending, startTransition] = useTransition()
   const [trackingOpen, setTrackingOpen] = useState(false)
-  const [endOnReachDialogOpen, setEndOnReachDialogOpen] = useState(false)
+
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
+  const endOnReachDialogOpen = searchParams.get('allGoalsReached') === '1'
+
+  const queryClient = useQueryClient()
+
+  const openEndOnReachDialog = () => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('allGoalsReached', '1')
+    router.replace(`${pathname}?${params.toString()}`)
+  }
+
+  const closeEndOnReachDialog = () => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('allGoalsReached')
+    router.replace(`${pathname}?${params.toString()}`)
+  }
 
   const refresh = () => {
     startTransition(async () => {
@@ -407,7 +427,7 @@ export function HabitDetailClient({
         const allEndOnReachClaimed =
           endOnReachGoals.length > 0 && endOnReachGoals.every((g) => !!g.completedAt)
         if (allEndOnReachClaimed) {
-          setTimeout(() => setEndOnReachDialogOpen(true), 300)
+          setTimeout(() => openEndOnReachDialog())
         }
 
         refresh()
@@ -434,7 +454,11 @@ export function HabitDetailClient({
         return
       }
       toast.success('Habit archived')
-      setEndOnReachDialogOpen(false)
+      closeEndOnReachDialog()
+      queryClient.setQueryData(
+        ['habits'],
+        (old: HabitWithStats[] | undefined) => old?.filter((h) => h.id !== habit.id) ?? [],
+      )
       router.push('/habits/habits-view')
     })
   }
@@ -447,7 +471,11 @@ export function HabitDetailClient({
         return
       }
       toast.success('Habit deleted')
-      setEndOnReachDialogOpen(false)
+      closeEndOnReachDialog()
+      queryClient.setQueryData(
+        ['habits'],
+        (old: HabitWithStats[] | undefined) => old?.filter((h) => h.id !== habit.id) ?? [],
+      )
       router.push('/habits/habits-view')
     })
   }

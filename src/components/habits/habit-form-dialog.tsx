@@ -18,16 +18,19 @@ import {
   Plus,
   X,
   Clock,
-  CalendarDays,
   Target,
   BarChart2,
   Pencil,
   Trophy,
+  CalendarDays,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
 import type { HabitData, HabitWithStats, TrackingField, HabitGoal } from '@/api/habits/actions'
+import { Calendar } from '@/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { format } from 'date-fns'
 
 const PRESET_COLORS = [
   '#f97316',
@@ -143,7 +146,7 @@ function getInitialState(initialData?: HabitWithStats) {
       frequency: 'daily' as HabitData['frequency'],
       daysOfWeek: ['mon', 'tue', 'wed', 'thu', 'fri'],
       timesPerWeek: 3,
-      startDate: '',
+      startDate: new Date().toISOString().split('T')[0],
       showInCalendar: false,
       calendarMode: 'time' as 'time' | 'relative',
       habitTime: '08:00',
@@ -155,6 +158,7 @@ function getInitialState(initialData?: HabitWithStats) {
       trackingOpen: false,
       goalOpen: false,
       goals: [] as HabitGoal[],
+      repeatEveryDays: 2,
     }
   }
 
@@ -179,7 +183,9 @@ function getInitialState(initialData?: HabitWithStats) {
     frequency: initialData.frequency,
     daysOfWeek: initialData.daysOfWeek ?? ['mon', 'tue', 'wed', 'thu', 'fri'],
     timesPerWeek: initialData.timesPerWeek ?? 3,
-    startDate: initialData.startDate ?? '',
+    startDate: initialData.startDate
+      ? new Date(initialData.startDate).toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0],
     showInCalendar: initialData.showInCalendar ?? false,
     calendarMode: (initialData.calendarMode ?? 'time') as 'time' | 'relative',
     habitTime: initialData.habitTime ?? '08:00',
@@ -191,6 +197,7 @@ function getInitialState(initialData?: HabitWithStats) {
     trackingOpen: (savedFields ?? []).some((f) => f.enabled),
     goalOpen: goals.length > 0,
     goals,
+    repeatEveryDays: (initialData as any).repeatEveryDays ?? 2,
   }
 }
 
@@ -463,6 +470,7 @@ function HabitFormInner({
   const [newFieldType, setNewFieldType] = useState<TrackingFieldType>('number')
   const [showAddField, setShowAddField] = useState(false)
   const [isPending, setIsPending] = useState(false)
+  const [repeatEveryDays, setRepeatEveryDays] = useState(init.repeatEveryDays)
 
   const { data: calendarEvents } = useQuery({
     queryKey: ['calendar-events-flowline-recurring', startDate, frequency],
@@ -477,14 +485,98 @@ function HabitFormInner({
   })
 
   const uniqueRecurringEvents = (calendarEvents?.docs ?? [])
-    .filter((e: any) => {
-      if (!e.recurrence?.frequency) return false
-      if (frequency === 'daily' && e.recurrence.frequency === 'daily') return true
-      if (frequency === 'days_of_week' && e.recurrence.frequency === 'weekly') return true
-      if (frequency === 'times_per_week') return true
-      return false
-    })
+    .filter((e: any) => !!e.recurrence?.frequency)
     .filter((e: any, idx: number, arr: any[]) => arr.findIndex((x: any) => x.id === e.id) === idx)
+    .map((e: any) => {
+      const eventFreq: string = e.recurrence?.frequency ?? ''
+      const eventInterval: number = e.recurrence?.interval ?? 1
+      const eventDays: string[] = e.recurrence?.daysOfWeek ?? []
+
+      let compatible = false
+      let compatLabel = ''
+
+      if (frequency === 'daily') {
+        if (eventFreq === 'daily' && eventInterval === 1) {
+          compatible = true
+          compatLabel = 'Perfect match'
+        } else {
+          compatible = false
+          compatLabel = 'Incompatible — event not daily'
+        }
+      } else if (frequency === 'days_of_week') {
+        if (eventFreq === 'weekly') {
+          if (eventDays.length === 0) {
+            compatible = true
+            compatLabel = 'Check day alignment'
+          } else {
+            const eventDaySet = new Set(eventDays)
+            const allCovered = daysOfWeek.every((d) => eventDaySet.has(d))
+            const exactMatch = allCovered && daysOfWeek.length === eventDays.length
+            if (exactMatch) {
+              compatible = true
+              compatLabel = 'Perfect match'
+            } else if (allCovered) {
+              compatible = true
+              compatLabel = 'Compatible — event has more days'
+            } else {
+              compatible = false
+              compatLabel = 'Incompatible — days mismatch'
+            }
+          }
+        } else if (eventFreq === 'daily' && eventInterval === 1) {
+          compatible = true
+          compatLabel = 'Compatible — event is daily'
+        } else {
+          compatible = false
+          compatLabel = 'Incompatible frequency'
+        }
+      } else if (frequency === 'times_per_week') {
+        if (eventFreq === 'weekly' || (eventFreq === 'daily' && eventInterval === 1)) {
+          compatible = true
+          compatLabel = 'Compatible — align days manually'
+        } else {
+          compatible = false
+          compatLabel = 'Incompatible frequency'
+        }
+      } else if (frequency === 'every_x_days') {
+        if (eventFreq === 'daily' && eventInterval === repeatEveryDays) {
+          // Vérifie l'alignement des dates si on a les deux
+          const habitStart = startDate ? new Date(startDate) : null
+          const eventStart = e.startDate ? new Date(e.startDate) : null
+
+          if (habitStart && eventStart) {
+            const diffDays = Math.round(
+              Math.abs(habitStart.getTime() - eventStart.getTime()) / (1000 * 60 * 60 * 24),
+            )
+            const aligned = diffDays % repeatEveryDays === 0
+            if (aligned) {
+              compatible = true
+              compatLabel = 'Perfect match'
+            } else {
+              compatible = false
+              compatLabel = `Misaligned — ${diffDays % repeatEveryDays}d offset`
+            }
+          } else {
+            compatible = true
+            compatLabel = 'Set start dates to verify alignment'
+          }
+        } else if (eventFreq === 'daily' && eventInterval === 1) {
+          compatible = true
+          compatLabel = 'Compatible — event is daily'
+        } else if (eventFreq === 'daily') {
+          compatible = false
+          compatLabel = `Incompatible — event every ${eventInterval}d vs habit every ${repeatEveryDays}d`
+        } else {
+          compatible = false
+          compatLabel = 'Incompatible frequency'
+        }
+      }
+
+      return { ...e, compatible, compatLabel }
+    })
+    .filter((e: any) => e.compatible)
+    .sort((a: any, b: any) => a.title.localeCompare(b.title))
+    .sort((a: any, b: any) => (b.compatible ? 1 : 0) - (a.compatible ? 1 : 0))
 
   const toggleDay = (day: string) =>
     setDaysOfWeek((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]))
@@ -563,6 +655,7 @@ function HabitFormInner({
       categoryTag: categoryTag.trim() || undefined,
       frequency,
       daysOfWeek: frequency === 'days_of_week' ? daysOfWeek : undefined,
+      repeatEveryDays: frequency === 'every_x_days' ? repeatEveryDays : undefined,
       timesPerWeek: frequency === 'times_per_week' ? timesPerWeek : undefined,
       startDate: startDate || undefined,
       trackingFields,
@@ -645,6 +738,7 @@ function HabitFormInner({
               [
                 { value: 'daily', label: 'Every day' },
                 { value: 'days_of_week', label: 'Custom days' },
+                { value: 'every_x_days', label: 'Every X days' },
                 { value: 'times_per_week', label: 'X per week' },
               ] as const
             ).map((opt) => (
@@ -683,6 +777,29 @@ function HabitFormInner({
               ))}
             </div>
           )}
+          {frequency === 'every_x_days' && (
+            <div className="flex items-center gap-3 pt-1">
+              <span className="text-xs text-muted-foreground">Repeat every</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRepeatEveryDays((v: number) => Math.max(2, v + 1))}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-border/60 text-sm hover:bg-muted"
+                >
+                  −
+                </button>
+                <span className="w-6 text-center text-sm font-semibold">{repeatEveryDays}</span>
+                <button
+                  type="button"
+                  onClick={() => setRepeatEveryDays((v: number) => Math.max(2, v - 1))}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-border/60 text-sm hover:bg-muted"
+                >
+                  +
+                </button>
+              </div>
+              <span className="text-xs text-muted-foreground">days</span>
+            </div>
+          )}
           {frequency === 'times_per_week' && (
             <div className="flex items-center gap-3 pt-1">
               <span className="text-xs text-muted-foreground">Times per week</span>
@@ -710,12 +827,36 @@ function HabitFormInner({
           <Label>
             Start date <span className="text-xs font-normal text-muted-foreground">Optional</span>
           </Label>
-          <Input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="h-10"
-          />
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  'flex h-10 w-full items-center gap-2 rounded-md border border-input bg-background px-3 text-sm transition-colors hover:bg-accent hover:text-accent-foreground',
+                  !startDate && 'text-muted-foreground',
+                )}
+              >
+                <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
+                {startDate ? format(new Date(startDate + 'T12:00:00'), 'PPP') : 'Pick a date'}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={startDate ? new Date(startDate + 'T12:00:00') : undefined}
+                onSelect={(date) =>
+                  setStartDate(
+                    date
+                      ? new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+                          .toISOString()
+                          .split('T')[0]
+                      : '',
+                  )
+                }
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
@@ -859,9 +1000,12 @@ function HabitFormInner({
                             className="h-2 w-2 rounded-full shrink-0"
                             style={{ backgroundColor: e.color }}
                           />
-                          <span className="flex-1 truncate font-medium text-foreground">
-                            {e.title}
-                          </span>
+                          <div className="flex-1 min-w-0">
+                            <span className="block truncate font-medium text-foreground">
+                              {e.title}
+                            </span>
+                            <span className="text-[10px] text-emerald-500/70">{e.compatLabel}</span>
+                          </div>
                           {relativeEventId === e.id && (
                             <Check className="h-3.5 w-3.5 text-violet-500 shrink-0" />
                           )}

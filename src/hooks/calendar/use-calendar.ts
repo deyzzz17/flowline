@@ -42,11 +42,6 @@ export interface CalendarEvent {
   type: 'event'
 }
 
-interface RawFlowlineEvent extends CalendarEvent {
-  exceptions: { date: string }[]
-  adjustments: SeriesAdjustment[]
-}
-
 export interface CalendarTask {
   id: number
   title: string
@@ -103,7 +98,7 @@ function getViewRange(date: Date, view: CalendarView): { from: Date; to: Date } 
   }
 }
 
-function mapEvent(e: any): RawFlowlineEvent {
+function mapEvent(e: any) {
   return {
     id: e.id,
     title: e.title,
@@ -122,7 +117,6 @@ function mapEvent(e: any): RawFlowlineEvent {
     googleCalendarId: e.googleCalendarId ?? null,
     googleCalendarName: e.googleCalendarName ?? null,
     googleEventId: e.googleEventId ?? null,
-    activeAdjustment: null,
     type: 'event' as const,
   }
 }
@@ -140,6 +134,10 @@ function parseDateFromUrl(raw: string | null): Date {
 
 function formatDateForUrl(date: Date): string {
   return date.toISOString().slice(0, 10)
+}
+
+function cleanOptimisticKey(key: string): string {
+  return key.replace(/__continuation$/, '')
 }
 
 export const useCalendar = () => {
@@ -179,7 +177,7 @@ export const useCalendar = () => {
   >(new Map())
 
   const queryClient = useQueryClient()
-  const { isCategoryVisible, isGoogleCalendarVisible } = useCalendarFilter()
+  const { isCategoryVisible, isGoogleCalendarVisible, habitsVisible } = useCalendarFilter()
   const { from, to } = getViewRange(currentDate, view)
 
   const { data: eventsData } = useQuery({
@@ -204,10 +202,10 @@ export const useCalendar = () => {
   const { data: habitEventsData } = useQuery({
     queryKey: ['calendar-events-habits', from.toISOString(), to.toISOString()],
     queryFn: () => getHabitCalendarEvents(from.toISOString(), to.toISOString()),
-    staleTime: 5 * 60_000,
+    staleTime: 0,
   })
 
-  const rawFlowlineEvents = useMemo(
+  const rawEvents = useMemo(
     () => [...(eventsData?.docs ?? []), ...(googleEventsData?.docs ?? [])].map(mapEvent),
     [eventsData, googleEventsData],
   )
@@ -233,8 +231,8 @@ export const useCalendar = () => {
         googleEventId: null,
         activeAdjustment: null,
         type: 'event' as const,
-        habitId: h.habitId,
-        habitSlug: h.habitSlug,
+        habitId: (h as any).habitId,
+        habitSlug: (h as any).habitSlug,
       })),
     [habitEventsData],
   )
@@ -242,8 +240,8 @@ export const useCalendar = () => {
   const events: CalendarEvent[] = useMemo(() => {
     const result: CalendarEvent[] = []
 
-    const googleEvents = rawFlowlineEvents.filter((e) => e.source === 'google')
-    const flowlineEvents = rawFlowlineEvents.filter((e) => e.source !== 'google')
+    const googleEvents = rawEvents.filter((e) => e.source === 'google')
+    const flowlineEvents = rawEvents.filter((e) => e.source !== 'google')
 
     const parents = flowlineEvents.filter((e) => e.recurrence?.frequency && !e.recurrenceId)
     const overrides = flowlineEvents.filter((e) => e.recurrenceId)
@@ -265,18 +263,18 @@ export const useCalendar = () => {
     )
 
     for (const parent of parents) {
-      const exceptions = new Set<string>(
-        parent.exceptions.map((ex) => new Date(ex.date).toISOString().slice(0, 10)),
+      const exceptions = new Set(
+        (parent.exceptions ?? []).map((ex) => new Date(ex.date).toISOString().slice(0, 10)),
       )
-      const overrideDates = new Set<string>(
+      const overrideDates = new Set(
         overrides
           .filter((o) => o.recurrenceId === parent.id)
           .map((o) => new Date(o.originalDate ?? o.startDate).toISOString().slice(0, 10)),
       )
-      const allExceptions = new Set<string>([...exceptions, ...overrideDates])
+      const allExceptions = new Set([...exceptions, ...overrideDates])
 
       const occurrences = generateOccurrences(
-        { ...parent, adjustments: parent.adjustments },
+        { ...parent, adjustments: parent.adjustments ?? [] },
         from,
         to,
         allExceptions,
@@ -318,7 +316,7 @@ export const useCalendar = () => {
     result.push(...rawHabitEvents)
 
     return result
-  }, [rawFlowlineEvents, rawHabitEvents, from, to])
+  }, [rawEvents, rawHabitEvents, from, to])
 
   const tasks: CalendarTask[] = useMemo(() => {
     const allTasks = (tasksData?.docs ?? []) as Task[]
@@ -339,23 +337,44 @@ export const useCalendar = () => {
       })
   }, [tasksData])
 
-  const eventsWithOverrides = useMemo(
-    () =>
-      events.map((e) => {
-        const key = e.optimisticKey ?? `event-${e.id}`
-        const override = optimisticOverrides.get(key)
-        if (!override) return e
-        const duration = new Date(e.endDate).getTime() - new Date(e.startDate).getTime()
-        const newStart = override.startDate ?? e.startDate
-        const newEnd = override.endDate
-          ? override.endDate
-          : override.startDate
-            ? new Date(new Date(override.startDate).getTime() + duration).toISOString()
-            : e.endDate
-        return { ...e, startDate: newStart, endDate: newEnd }
-      }),
-    [events, optimisticOverrides],
-  )
+  const eventsWithOverrides = useMemo(() => {
+    const idToOverride = new Map<number, { startDate: string; endDate: string }>()
+
+    for (const [key, override] of optimisticOverrides.entries()) {
+      if (!override.startDate || !override.endDate) continue
+      const match = key.match(/^event-(\d+)/)
+      if (match) {
+        idToOverride.set(parseInt(match[1]), {
+          startDate: override.startDate,
+          endDate: override.endDate,
+        })
+      }
+    }
+
+    return events.map((e) => {
+      const key = e.optimisticKey ?? `event-${e.id}`
+      const direct = optimisticOverrides.get(key)
+
+      if (direct?.startDate && direct?.endDate) {
+        return { ...e, startDate: direct.startDate, endDate: direct.endDate }
+      }
+
+      if (typeof e.id === 'number') {
+        const siblingOverride = idToOverride.get(e.id)
+        if (siblingOverride) {
+          const overrideStart = new Date(siblingOverride.startDate)
+          const overrideEnd = new Date(siblingOverride.endDate)
+          const durationMs = overrideEnd.getTime() - overrideStart.getTime()
+          const newStart = new Date(e.startDate)
+          newStart.setHours(overrideStart.getHours(), overrideStart.getMinutes(), 0, 0)
+          const newEnd = new Date(newStart.getTime() + durationMs)
+          return { ...e, startDate: newStart.toISOString(), endDate: newEnd.toISOString() }
+        }
+      }
+
+      return e
+    })
+  }, [events, optimisticOverrides])
 
   const tasksWithOverrides = useMemo(
     () =>
@@ -366,10 +385,10 @@ export const useCalendar = () => {
     [tasks, optimisticOverrides],
   )
 
-  const setOptimisticMove = useCallback((key: string, startDate: string) => {
+  const setOptimisticMove = useCallback((key: string, startDate: string, endDate: string) => {
     setOptimisticOverrides((prev) => {
       const next = new Map(prev)
-      next.set(key, { startDate })
+      next.set(key, { startDate, endDate })
       return next
     })
   }, [])
@@ -463,24 +482,21 @@ export const useCalendar = () => {
       return { snapshot, key }
     },
 
-    onSuccess: (_, { id, data, scope, optimisticKey: key }) => {
-      if (!scope || scope === 'all') {
-        queryClient.setQueriesData<{ docs: any[] }>(
-          { queryKey: ['calendar-events-flowline'] },
-          (old) => {
-            if (!old) return old
-            return { ...old, docs: old.docs.map((e) => (e.id === id ? { ...e, ...data } : e)) }
-          },
-        )
+    onSuccess: (_, { id, data, optimisticKey: key }) => {
+      queryClient.setQueriesData<{ docs: any[] }>(
+        { queryKey: ['calendar-events-flowline'] },
+        (old) => {
+          if (!old) return old
+          return { ...old, docs: old.docs.map((e) => (e.id === id ? { ...e, ...data } : e)) }
+        },
+      )
+
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] }).then(() => {
         if (key) clearOptimistic(key)
         else clearOptimisticDate('event', id)
-        queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] })
-      } else {
-        queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] }).then(() => {
-          if (key) clearOptimistic(key)
-          else clearOptimisticDate('event', id)
-        })
-      }
+      })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-habits'] })
+
       if (dialogOpen) {
         toast.success('Event updated')
         setDialogOpen(false)
@@ -520,6 +536,7 @@ export const useCalendar = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-habits'] })
       toast.success('Event deleted')
       setDialogOpen(false)
       setSelectedItem(null)
@@ -600,20 +617,10 @@ export const useCalendar = () => {
     setDialogOpen(true)
   }, [])
 
-  const openEdit = useCallback(
-    (item: CalendarItem) => {
-      if (item.type === 'event') {
-        const ev = item as CalendarEvent
-        if ((ev as any).source === 'habit' && (ev as any).habitSlug) {
-          router.push(`/habits/${(ev as any).habitSlug}`)
-          return
-        }
-      }
-      setSelectedItem(item)
-      setDialogOpen(true)
-    },
-    [router],
-  )
+  const openEdit = useCallback((item: CalendarItem) => {
+    setSelectedItem(item)
+    setDialogOpen(true)
+  }, [])
 
   const moveEvent = useCallback(
     (
@@ -623,28 +630,29 @@ export const useCalendar = () => {
       originalDate?: string,
       eventOptimisticKey?: string,
     ) => {
+      const cleanKey = eventOptimisticKey ? cleanOptimisticKey(eventOptimisticKey) : undefined
+
       const event =
         events.find((e) =>
-          eventOptimisticKey
-            ? e.optimisticKey === eventOptimisticKey
-            : e.id === id && !e.isOccurrence,
+          cleanKey ? e.optimisticKey === cleanKey : e.id === id && !e.isOccurrence,
         ) ?? events.find((e) => e.id === id)
       if (!event) return
       if (event.source === 'google') return
 
       const key = event.optimisticKey ?? `event-${id}`
       const duration = new Date(event.endDate).getTime() - new Date(event.startDate).getTime()
+      const newEndDate = new Date(newStartDate.getTime() + duration)
 
-      setOptimisticMove(key, newStartDate.toISOString())
+      setOptimisticMove(key, newStartDate.toISOString(), newEndDate.toISOString())
 
       updateMutation.mutate({
         id,
         data: {
           startDate: newStartDate.toISOString(),
-          endDate: new Date(newStartDate.getTime() + duration).toISOString(),
+          endDate: newEndDate.toISOString(),
         },
         scope: scope ?? (event.isOccurrence ? 'this' : 'all'),
-        originalDate: originalDate ?? event.occurrenceDate ?? event.startDate,
+        originalDate: originalDate ?? event.occurrenceDate ?? event.originalDate ?? event.startDate,
         optimisticKey: key,
       })
     },
@@ -659,23 +667,23 @@ export const useCalendar = () => {
       originalDate?: string,
       eventOptimisticKey?: string,
     ) => {
+      const cleanKey = eventOptimisticKey ? cleanOptimisticKey(eventOptimisticKey) : undefined
+
       const event =
         events.find((e) =>
-          eventOptimisticKey
-            ? e.optimisticKey === eventOptimisticKey
-            : e.id === id && !e.isOccurrence,
+          cleanKey ? e.optimisticKey === cleanKey : e.id === id && !e.isOccurrence,
         ) ?? events.find((e) => e.id === id)
       if (event?.source === 'google') return
 
       const key = event?.optimisticKey ?? `event-${id}`
-
       setOptimisticResize(key, newEndDate.toISOString())
 
       updateMutation.mutate({
         id,
         data: { endDate: newEndDate.toISOString() },
         scope: scope ?? (event?.isOccurrence ? 'this' : 'all'),
-        originalDate: originalDate ?? event?.occurrenceDate ?? event?.startDate,
+        originalDate:
+          originalDate ?? event?.occurrenceDate ?? event?.originalDate ?? event?.startDate,
         optimisticKey: key,
       })
     },
@@ -712,22 +720,25 @@ export const useCalendar = () => {
       const m = date.getMonth()
       const d = date.getDate()
 
+      const dayStart = new Date(date)
+      dayStart.setHours(0, 0, 0, 0)
+      const dayEnd = new Date(date)
+      dayEnd.setHours(23, 59, 59, 999)
+
       const sameLocalDate = (iso: string) => {
         const dt = new Date(iso)
         return dt.getFullYear() === y && dt.getMonth() === m && dt.getDate() === d
       }
 
       const dayEvents = eventsWithOverrides.filter((e) => {
-        if ((e as any).source !== 'habit' && !isCategoryVisible(e.categoryId)) return false
+        const isHabit = (e as any).source === 'habit'
+        if (isHabit && !habitsVisible) return false
+        if (!isHabit && !isCategoryVisible(e.categoryId)) return false
         if (e.source === 'google' && e.googleCalendarId) {
           if (!isGoogleCalendarVisible(e.googleCalendarId)) return false
         }
         const start = new Date(e.startDate)
         const end = new Date(e.endDate)
-        const dayStart = new Date(date)
-        dayStart.setHours(0, 0, 0, 0)
-        const dayEnd = new Date(date)
-        dayEnd.setHours(23, 59, 59, 999)
         return start <= dayEnd && end >= dayStart
       })
 
@@ -739,7 +750,13 @@ export const useCalendar = () => {
         return new Date(aDate).getTime() - new Date(bDate).getTime()
       })
     },
-    [eventsWithOverrides, tasksWithOverrides, isCategoryVisible, isGoogleCalendarVisible],
+    [
+      eventsWithOverrides,
+      tasksWithOverrides,
+      isCategoryVisible,
+      isGoogleCalendarVisible,
+      habitsVisible,
+    ],
   )
 
   const goToDay = useCallback((date: Date) => pushUrl('day', date), [pushUrl])

@@ -15,7 +15,7 @@ export type TrackingPeriod = 'week' | 'month' | 'year'
 
 export interface TrackingAnalyticsPoint {
   label: string
-  dateKey: string 
+  dateKey: string
   value: number
   count: number
 }
@@ -36,6 +36,17 @@ export interface HabitTrackingAnalyticsResult {
   fields: TrackingFieldAnalytics[]
 }
 
+export interface HeatmapDay {
+  date: string
+  count: number
+  total: number
+}
+
+export interface HeatmapAnalyticsResult {
+  year: number
+  data: HeatmapDay[]
+}
+
 function getPeriodRange(period: TrackingPeriod, offset: number): { from: Date; to: Date } {
   const now = new Date()
   const y = now.getFullYear()
@@ -43,7 +54,6 @@ function getPeriodRange(period: TrackingPeriod, offset: number): { from: Date; t
   const d = now.getDate()
 
   if (period === 'week') {
-    // Lundi de la semaine courante
     const dow = (now.getDay() + 6) % 7
     const monday = new Date(y, m, d - dow)
     monday.setHours(0, 0, 0, 0)
@@ -64,7 +74,6 @@ function getPeriodRange(period: TrackingPeriod, offset: number): { from: Date; t
     return { from, to }
   }
 
-  // year
   const from = new Date(y + offset, 0, 1)
   from.setHours(0, 0, 0, 0)
   const to = new Date(y + offset, 11, 31)
@@ -74,7 +83,6 @@ function getPeriodRange(period: TrackingPeriod, offset: number): { from: Date; t
 
 function getPeriodLabel(period: TrackingPeriod, from: Date, to: Date): string {
   const fmt = (d: Date, opts: Intl.DateTimeFormatOptions) => d.toLocaleDateString('en-US', opts)
-
   if (period === 'week') {
     if (from.getMonth() === to.getMonth()) {
       return `${fmt(from, { month: 'short' })} ${from.getDate()}–${to.getDate()}, ${from.getFullYear()}`
@@ -89,7 +97,6 @@ function getDateKey(date: Date): string {
   return new Intl.DateTimeFormat('en-CA').format(date)
 }
 
-// Génère les buckets (intervalles) pour une période
 function getBuckets(
   period: TrackingPeriod,
   from: Date,
@@ -98,7 +105,6 @@ function getBuckets(
   const buckets: { label: string; dateKey: string; from: Date; to: Date }[] = []
 
   if (period === 'week') {
-    // 7 jours
     const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
     for (let i = 0; i < 7; i++) {
       const d = new Date(from)
@@ -111,7 +117,6 @@ function getBuckets(
   }
 
   if (period === 'month') {
-    // Chaque jour du mois
     const cur = new Date(from)
     while (cur <= to) {
       const end = new Date(cur)
@@ -127,7 +132,6 @@ function getBuckets(
     return buckets
   }
 
-  // year → 12 mois
   const MONTHS = [
     'Jan',
     'Feb',
@@ -162,7 +166,6 @@ export const getHabitTrackingAnalytics = async (
 
   const payload = await getPayload({ config })
 
-  // Récupère l'habit pour avoir les trackingFields actifs
   const habit = await payload.findByID({ collection: 'habits', id: habitId })
   if (!habit || (habit as any).userId !== userId) return empty
 
@@ -179,7 +182,6 @@ export const getHabitTrackingAnalytics = async (
   const periodLabel = getPeriodLabel(period, from, to)
   const buckets = getBuckets(period, from, to)
 
-  // Récupère les completions dans la plage
   const { docs: completions } = await payload.find({
     collection: 'habit-completions',
     where: {
@@ -193,7 +195,6 @@ export const getHabitTrackingAnalytics = async (
     limit: 0,
   })
 
-  // Pour chaque field, agrège les valeurs par bucket
   const fields: TrackingFieldAnalytics[] = activeNumberFields.map((field: any) => {
     const points: TrackingAnalyticsPoint[] = buckets.map((bucket) => {
       const inBucket = completions.filter((c) => {
@@ -233,4 +234,88 @@ export const getHabitTrackingAnalytics = async (
   })
 
   return { periodLabel, fields }
+}
+
+export const getHeatmapAnalytics = async (year: number): Promise<HeatmapAnalyticsResult> => {
+  const userId = await getUserId()
+  if (!userId) return { year, data: [] }
+
+  const payload = await getPayload({ config })
+
+  const { docs: habits } = await payload.find({
+    collection: 'habits',
+    where: { and: [{ userId: { equals: userId } }, { archivedAt: { exists: false } }] },
+    limit: 0,
+  })
+
+  if (habits.length === 0) return { year, data: [] }
+
+  const from = new Date(year, 0, 1)
+  from.setHours(0, 0, 0, 0)
+  const to = new Date(year, 11, 31)
+  to.setHours(23, 59, 59, 999)
+
+  const { docs: completions } = await payload.find({
+    collection: 'habit-completions',
+    where: {
+      and: [
+        { userId: { equals: userId } },
+        { completedAt: { greater_than_equal: from.toISOString() } },
+        { completedAt: { less_than_equal: to.toISOString() } },
+      ],
+    },
+    limit: 0,
+  })
+
+  const today = getDateKey(new Date())
+  const DAY_NAMES = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
+  const data: HeatmapDay[] = []
+  const cur = new Date(from)
+
+  while (cur <= to) {
+    const key = getDateKey(cur)
+    if (key > today) {
+      data.push({ date: key, count: 0, total: 0 })
+      cur.setDate(cur.getDate() + 1)
+      continue
+    }
+
+    const dayName = DAY_NAMES[cur.getDay()]
+    let total = 0
+    let count = 0
+
+    for (const habit of habits) {
+      const h = habit as any
+      let isTarget = false
+      if (h.frequency === 'daily') {
+        isTarget = true
+      } else if (h.frequency === 'days_of_week') {
+        isTarget = (h.daysOfWeek ?? []).includes(dayName)
+      } else if (h.frequency === 'times_per_week') {
+        isTarget = true
+      } else if (h.frequency === 'every_x_days') {
+        const interval = h.repeatEveryDays ?? 2
+        const anchor = h.startDate ? new Date(h.startDate) : from
+        anchor.setHours(0, 0, 0, 0)
+        const diffDays = Math.round((cur.getTime() - anchor.getTime()) / (1000 * 60 * 60 * 24))
+        if (diffDays >= 0 && diffDays % interval === 0) isTarget = true
+      }
+
+      if (isTarget) {
+        total++
+        if (
+          completions.some(
+            (c) => c.habitId === habit.id && getDateKey(new Date(c.completedAt as string)) === key,
+          )
+        ) {
+          count++
+        }
+      }
+    }
+
+    if (total > 0) data.push({ date: key, count, total })
+    cur.setDate(cur.getDate() + 1)
+  }
+
+  return { year, data }
 }
