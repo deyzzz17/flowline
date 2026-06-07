@@ -37,6 +37,18 @@ export const createList = async (input: CreateListInput) => {
 
     const payload = await getPayload({ config })
 
+    const { docs: existing } = await payload.find({
+      collection: 'lists',
+      where: {
+        and: [{ userId: { equals: userId } }, { name: { equals: input.name.trim() } }],
+      },
+      limit: 1,
+    })
+
+    if (existing.length > 0) {
+      return err('DUPLICATE_NAME')
+    }
+
     const newList = await payload.create({
       collection: 'lists',
       data: {
@@ -95,6 +107,23 @@ export const editList = async (id: number, input: EditListInput) => {
     const list = await payload.findByID({ collection: 'lists', id })
 
     if (list.userId !== userId) return err('Not authorized')
+
+    if (input.name !== undefined) {
+      const { docs: existing } = await payload.find({
+        collection: 'lists',
+        where: {
+          and: [
+            { userId: { equals: userId } },
+            { name: { equals: input.name.trim() } },
+            { id: { not_equals: id } },
+          ],
+        },
+        limit: 1,
+      })
+      if (existing.length > 0) {
+        return err('DUPLICATE_NAME')
+      }
+    }
 
     const updatedList = await payload.update({
       collection: 'lists',
