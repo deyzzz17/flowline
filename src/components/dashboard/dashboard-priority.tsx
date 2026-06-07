@@ -19,7 +19,7 @@ export function DashboardPriority({ task, weekFocusSeconds }: DashboardPriorityP
   type ListObj = { name?: string | null }
   const listName =
     task.list && typeof task.list === 'object'
-      ? (task.list as ListObj).name ?? 'No project'
+      ? ((task.list as ListObj).name ?? 'No project')
       : 'No project'
 
   return (
@@ -37,7 +37,7 @@ export function DashboardPriority({ task, weekFocusSeconds }: DashboardPriorityP
               </span>
               {weekFocusSeconds > 0 && (
                 <span className="rounded-full bg-card border border-border/60 px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                  {formatSeconds(weekFocusSeconds)} this week
+                  {formatSeconds(weekFocusSeconds)} focus
                 </span>
               )}
             </div>
