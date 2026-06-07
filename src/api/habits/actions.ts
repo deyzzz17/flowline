@@ -6,6 +6,7 @@ import config from '@/payload.config'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { ok, err } from '@/types/result'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const getUserId = async () => {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -619,6 +620,11 @@ export const createHabit = async (data: HabitData) => {
   try {
     const userId = await getUserId()
     if (!userId) return err('Not authenticated')
+
+    if (!checkRateLimit(`create-habit:${userId}`, 1, 1000)) {
+      return err('Too many requests. Please wait a moment.')
+    }
+
     const payload = await getPayload({ config })
     const habit = await payload.create({
       collection: 'habits',

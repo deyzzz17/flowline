@@ -7,6 +7,7 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { ok, err } from '@/types/result'
 import { Pool } from 'pg'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const getUserId = async () => {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -132,10 +133,7 @@ export const deleteCalendarCategory = async (id: number) => {
     const { docs: relatedEvents } = await payload.find({
       collection: 'calendar-events',
       where: {
-        and: [
-          { userId: { equals: userId } },
-          { categoryId: { equals: id } },
-        ],
+        and: [{ userId: { equals: userId } }, { categoryId: { equals: id } }],
       },
       limit: 0,
     })
@@ -340,6 +338,11 @@ export const createCalendarEvent = async (data: CalendarEventData) => {
   try {
     const userId = await getUserId()
     if (!userId) return err('Not authenticated')
+
+    if (!checkRateLimit(`create-event:${userId}`, 1, 1000)) {
+      return err('Too many requests. Please wait a moment.')
+    }
+
     const payload = await getPayload({ config })
     const event = await payload.create({
       collection: 'calendar-events',
@@ -363,7 +366,6 @@ export const createCalendarEvent = async (data: CalendarEventData) => {
     return err('Error creating event')
   }
 }
-
 
 export const updateCalendarEvent = async (
   id: number,

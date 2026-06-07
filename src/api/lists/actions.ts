@@ -8,6 +8,7 @@ import { revalidatePath } from 'next/cache'
 import { ok, err } from '@/types/result'
 import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 type CreateListInput = {
   name: string
@@ -34,6 +35,10 @@ export const createList = async (input: CreateListInput) => {
   try {
     const userId = await getSession()
     if (!userId) return err('Not authenticated')
+
+    if (!checkRateLimit(`create-list:${userId}`, 1, 1000)) {
+      return err('Too many requests. Please wait a moment.')
+    }
 
     const payload = await getPayload({ config })
 

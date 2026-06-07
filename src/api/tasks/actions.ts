@@ -9,6 +9,7 @@ import { ok, err } from '@/types/result'
 import { auth } from '@/lib/auth'
 import { cookies, headers } from 'next/headers'
 import { Task } from '@/payload-types'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 type CreateTaskInput = {
   title: string
@@ -49,6 +50,10 @@ export const createTask = async (task: CreateTaskInput) => {
   try {
     const userId = await getSession()
     if (!userId) return err('Not authenticated')
+
+    if (!checkRateLimit(`create-task:${userId}`, 1, 1000)) {
+      return err('Too many requests. Please wait a moment.')
+    }
 
     const payload = await getPayload({ config })
     let initialStatus: 'active' | 'inactive' = 'active'
