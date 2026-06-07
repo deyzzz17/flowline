@@ -32,13 +32,39 @@ export const useEditList = (list: List) => {
       setOptimisticCategoryName(categoryName.trim())
       setOptimisticColor(color)
       setEditOpen(false)
+
+      await queryClient.cancelQueries({ queryKey: ['lists'] })
+      const previousLists = queryClient.getQueryData(['lists'])
+      queryClient.setQueryData<{ docs: List[] }>(['lists'], (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          docs: old.docs.map((l) =>
+            l.id === list.id
+              ? {
+                  ...l,
+                  name: name.trim(),
+                  category: {
+                    ...l.category,
+                    name: categoryName.trim() || l.category?.name,
+                    color,
+                  },
+                }
+              : l,
+          ),
+        }
+      })
+      return { previousLists }
     },
 
-    onSuccess: (result) => {
+    onSuccess: (result, _vars, context) => {
       if (!result.ok) {
         setOptimisticName(list.name)
         setOptimisticCategoryName(list.category?.name ?? '')
         setOptimisticColor(list.category?.color ?? '#8b5cf6')
+        if (context?.previousLists) {
+          queryClient.setQueryData(['lists'], context.previousLists)
+        }
         setEditError(
           result.error === 'DUPLICATE_NAME'
             ? `A list named "${name.trim()}" already exists. Please choose a different name.`
@@ -53,10 +79,13 @@ export const useEditList = (list: List) => {
       }
     },
 
-    onError: () => {
+    onError: (_err, _vars, context) => {
       setOptimisticName(list.name)
       setOptimisticCategoryName(list.category?.name ?? '')
       setOptimisticColor(list.category?.color ?? '#8b5cf6')
+      if (context?.previousLists) {
+        queryClient.setQueryData(['lists'], context.previousLists)
+      }
       setEditError('Error while editing the list.')
       setEditOpen(true)
     },
