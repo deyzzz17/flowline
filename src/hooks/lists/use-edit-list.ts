@@ -9,7 +9,6 @@ import { type List } from '@/payload-types'
 export const useEditList = (list: List) => {
   const router = useRouter()
   const queryClient = useQueryClient()
-
   const [editOpen, setEditOpen] = useState(false)
   const [name, setName] = useState(list.name)
   const [categoryName, setCategoryName] = useState(list.category?.name ?? '')
@@ -22,18 +21,61 @@ export const useEditList = (list: List) => {
         name: name.trim(),
         category: { name: categoryName.trim() || undefined, color },
       }),
+
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['lists'] })
+
+      const previousLists = queryClient.getQueryData(['lists'])
+
+      queryClient.setQueryData<{ docs: List[] }>(['lists'], (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          docs: old.docs.map((l) =>
+            l.id === list.id
+              ? {
+                  ...l,
+                  name: name.trim(),
+                  category: {
+                    ...l.category,
+                    name: categoryName.trim() || l.category?.name,
+                    color,
+                  },
+                }
+              : l,
+          ),
+        }
+      })
+
+      setEditOpen(false)
+
+      return { previousLists }
+    },
+
     onSuccess: (result) => {
       if (!result.ok) {
-        setEditError(result.error ?? 'Error while editing the list.')
+        queryClient.invalidateQueries({ queryKey: ['lists'] })
+        setEditError(
+          result.error === 'DUPLICATE_NAME'
+            ? `A list named "${name.trim()}" already exists. Please choose a different name.`
+            : result.error ?? 'Error while editing the list.',
+        )
+        setEditOpen(true)
         return
       }
       queryClient.invalidateQueries({ queryKey: ['lists'] })
-      setEditOpen(false)
       if (result.value.slug && result.value.slug !== list.slug) {
         router.push(`/lists/${result.value.slug}`)
       }
     },
-    onError: () => setEditError('Error while editing the list.'),
+
+    onError: (_err, _vars, context) => {
+      if (context?.previousLists) {
+        queryClient.setQueryData(['lists'], context.previousLists)
+      }
+      setEditError('Error while editing the list.')
+      setEditOpen(true)
+    },
   })
 
   const handleOpen = () => {
