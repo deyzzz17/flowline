@@ -119,7 +119,6 @@ export const TaskCard = ({
 }: TaskCardProps) => {
   const {
     toggleStatus,
-    isUpdating,
     startEditing,
     stopEditing,
     saveEdit,

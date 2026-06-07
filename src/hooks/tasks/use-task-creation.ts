@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import type { Task } from '@/payload-types'
 import { toast } from 'sonner'
@@ -18,7 +19,14 @@ export type SubtaskDetail = {
   tags?: string[]
 }
 
+let tempIdCounter = -1
+function nextTempId() {
+  return tempIdCounter--
+}
+
 export const useTaskCreation = () => {
+  const queryClient = useQueryClient()
+
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [type, setType] = useState<TaskType>('simple')
@@ -30,7 +38,6 @@ export const useTaskCreation = () => {
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined)
   const [autoDeleteOnDueDate, setAutoDeleteOnDueDate] = useState(false)
   const [showError, setShowError] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
   const [showNewTag, setShowNewTag] = useState(false)
   const [newTagName, setNewTagName] = useState('')
   const [newTagColor, setNewTagColor] = useState('#8b5cf6')
@@ -44,32 +51,27 @@ export const useTaskCreation = () => {
     if (showError) setShowError(false)
   }
 
-  const toggleTag = (tag: TaskTag) => {
+  const toggleTag = (tag: TaskTag) =>
     setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
-  }
 
-  const toggleCustomTag = (tagId: string) => {
+  const toggleCustomTag = (tagId: string) =>
     setCustomTags((prev) =>
       prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId],
     )
-  }
 
-  const toggleDay = (day: RecurrenceDay) => {
+  const toggleDay = (day: RecurrenceDay) =>
     setDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]))
-  }
 
   const addSubtask = (subtaskTitle: string) => {
     if (!subtaskTitle.trim()) return
     setSubtasks((prev) => [...prev, { title: subtaskTitle.trim(), done: false }])
   }
 
-  const removeSubtask = (index: number) => {
+  const removeSubtask = (index: number) =>
     setSubtasks((prev) => prev.filter((_, i) => i !== index))
-  }
 
-  const updateSubtaskDetail = (index: number, field: keyof SubtaskDetail, value: unknown) => {
+  const updateSubtaskDetail = (index: number, field: keyof SubtaskDetail, value: unknown) =>
     setSubtasks((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)))
-  }
 
   const toggleSubtaskTag = (index: number, tag: string) => {
     const current = subtasks[index]?.tags ?? []
@@ -91,14 +93,74 @@ export const useTaskCreation = () => {
     setShowError(false)
   }
 
-  const saveTask = async (listId?: number) => {
+  const createMutation = useMutation({
+    mutationFn: (input: Parameters<typeof api.tasks.create>[0]) => api.tasks.create(input),
+
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey: ['tasks'] })
+      const previousData = queryClient
+        .getQueriesData<{ docs: Task[] }>({ queryKey: ['tasks'] })
+        .map(([queryKey, data]) => ({ queryKey, data }))
+
+      const tempId = nextTempId()
+      const optimisticTask: Task = {
+        id: tempId,
+        title: input.title,
+        description: input.description ?? '',
+        status: 'active',
+        type: input.type ?? 'simple',
+        tags: (input.tags ?? []) as Task['tags'],
+        customTags: (input.customTags ?? []).map((id) => ({ id, name: '', color: '' })) as any,
+        dueDate: input.dueDate ?? null,
+        autoDeleteOnDueDate: input.autoDeleteOnDueDate ?? false,
+        subtasks: (input.subtasks ?? []).map((s, i) => ({
+          id: String(i),
+          title: s.title,
+          done: s.done ?? false,
+          description: s.description ?? '',
+          dueDate: s.dueDate ?? null,
+          tags: (s.tags ?? []) as any,
+        })) as Task['subtasks'],
+        recurrence: input.recurrence as Task['recurrence'] ?? null,
+        list: input.listId ?? null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as Task
+
+      queryClient.getQueriesData<{ docs: Task[] }>({ queryKey: ['tasks'] }).forEach(([queryKey]) => {
+        queryClient.setQueryData<{ docs: Task[] }>(queryKey as string[], (old) => {
+          if (!old) return old
+          return { ...old, docs: [optimisticTask, ...old.docs] }
+        })
+      })
+
+      return { previousData, tempId }
+    },
+
+    onError: (_err, _input, context) => {
+      context?.previousData?.forEach(({ queryKey, data }) => {
+        queryClient.setQueryData(queryKey as string[], data)
+      })
+      toast.error('Failed to create the task', {
+        description: 'Something went wrong. Please try again.',
+      })
+    },
+
+    onSuccess: () => {
+      toast.info('Task created', {
+        description: 'Your task has been successfully created.',
+      })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    },
+  })
+
+  const saveTask = async (listId?: number): Promise<boolean> => {
     if (title.trim() === '') {
       setShowError(true)
       return false
     }
 
-    setIsLoading(true)
-    const result = await api.tasks.create({
+    const input: Parameters<typeof api.tasks.create>[0] = {
       title,
       description,
       type,
@@ -120,20 +182,15 @@ export const useTaskCreation = () => {
           ...(frequency === 'custom' && { days }),
         },
       }),
-    })
-    setIsLoading(false)
-
-    if (result.ok) {
-      resetForm()
-      toast.info('Task created', {
-        description: `Your task has been successfully created.`,
-      })
-      return true
     }
-    toast.error('Failed to create the task', {
-      description: `Something went wrong while creating the task. Please try again.`,
-    })
-    return false
+
+    try {
+      await createMutation.mutateAsync(input)
+      resetForm()
+      return true
+    } catch {
+      return false
+    }
   }
 
   return {
@@ -142,7 +199,7 @@ export const useTaskCreation = () => {
     setTitle: handleSetTitle,
     setDescription,
     showError,
-    isLoading,
+    isLoading: createMutation.isPending,
     isInvalid,
     type,
     setType,
