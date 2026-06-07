@@ -41,7 +41,6 @@ function computeInsights(params: {
 
   const now = new Date()
 
-  
   const streakAtRisk = habits
     .filter((h) => !h.completedToday && h.currentStreak >= 3)
     .sort((a, b) => b.currentStreak - a.currentStreak)[0]
@@ -51,7 +50,8 @@ function computeInsights(params: {
       text: (
         <>
           <strong>{streakAtRisk.name}</strong> will lose its{' '}
-          <strong>{streakAtRisk.currentStreak}-day streak</strong> today if you don't complete it.
+          <strong>{streakAtRisk.currentStreak}-day streak</strong> today if you don&apos;t complete
+          it.
         </>
       ),
     })
@@ -83,7 +83,7 @@ function computeInsights(params: {
       text: (
         <>
           <strong>{topHabit.name}</strong> — <strong>{topHabit.completionRate30d}%</strong>{' '}
-          completion over 30 days. That's a strong routine.
+          completion over 30 days. That&apos;s a strong routine.
         </>
       ),
     })
@@ -114,8 +114,8 @@ function computeInsights(params: {
           type: 'good',
           text: (
             <>
-              You've already logged <strong>{formatSeconds(timerToday.totalSeconds)}</strong> of
-              focus today — <strong>+{pct}% more</strong> than yesterday.
+              You&apos;ve already logged <strong>{formatSeconds(timerToday.totalSeconds)}</strong>{' '}
+              of focus today — <strong>+{pct}% more</strong> than yesterday.
             </>
           ),
         })
@@ -210,7 +210,7 @@ function computeInsights(params: {
       }
     }
   }
-  
+
   if (timerToday.totalSeconds === 0 && activeTasks.length > 0) {
     const topTask = activeTasks[0]
     type ListObj = { name?: string | null }
@@ -256,8 +256,8 @@ function computeInsights(params: {
       type: 'good',
       text: (
         <>
-          <strong>{completedTasks.length} tasks</strong> completed today. You're on a productive
-          streak.
+          <strong>{completedTasks.length} tasks</strong> completed today. You&apos;re on a
+          productive streak.
         </>
       ),
     })
