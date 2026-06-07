@@ -152,6 +152,8 @@ function ConfigCard({
                 <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
                   <Zap className="h-2.5 w-2.5" />
                   Free timer
+                  {hasPhases &&
+                    ` · ${formatSeconds(config.workDuration)} / ${formatSeconds(config.breakDuration)}`}
                 </span>
               ) : (
                 <span className="text-[10px] text-muted-foreground/60">
