@@ -397,7 +397,6 @@ function InactiveHabitCard({
   return (
     <div className="group relative rounded-2xl border border-border/40 bg-muted/20 transition-all hover:border-border/60">
       <div className="flex items-center gap-4 p-4">
-        {/* Icône inactive — pas de checkbox cliquable */}
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-border/40">
           <Moon className="h-4 w-4 text-muted-foreground/30" />
         </div>
@@ -524,6 +523,8 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
   const [archivesLoading, setArchivesLoading] = useState(false)
   const [inactiveExpanded, setInactiveExpanded] = useState(false)
 
+  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+
   const handleOpenArchives = async () => {
     setArchivesOpen(true)
     setArchivesLoading(true)
@@ -562,7 +563,7 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
         },
         newRate,
       )
-      await toggleHabitCompletion(habit.id)
+      await toggleHabitCompletion(habit.id, undefined, undefined, userTimezone)
       setTogglingId(null)
       refresh()
       return
@@ -598,7 +599,7 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
       { completedToday: true, currentStreak: habit.currentStreak + 1, completionRate30d: newRate },
       newRate,
     )
-    const result = await toggleHabitCompletion(habit.id, undefined, values)
+    const result = await toggleHabitCompletion(habit.id, undefined, values, userTimezone)
     setTogglingId(null)
     if ('error' in result) {
       toast.error('Failed to update habit')
@@ -619,7 +620,7 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
       { completedToday: true, currentStreak: habit.currentStreak + 1, completionRate30d: newRate },
       newRate,
     )
-    const result = await toggleHabitCompletion(habit.id)
+    const result = await toggleHabitCompletion(habit.id, undefined, undefined, userTimezone)
     setTogglingId(null)
     if ('error' in result) {
       toast.error('Failed to update habit')

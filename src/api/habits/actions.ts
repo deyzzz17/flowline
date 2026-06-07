@@ -728,12 +728,14 @@ export const toggleHabitCompletion = async (
   habitId: number,
   dateStr?: string,
   trackingValues?: Record<string, number | string | boolean>,
+  timezone = 'UTC',
 ) => {
   try {
     const userId = await getUserId()
     if (!userId) return err('Not authenticated')
     const payload = await getPayload({ config })
-    const targetDate = dateStr ?? getTodayKey()
+
+    const targetDate = dateStr ?? getTodayKey(timezone)
 
     const { docs: existing } = await payload.find({
       collection: 'habit-completions',
