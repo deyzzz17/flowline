@@ -1130,6 +1130,44 @@ export const TaskCard = ({
                                   {tag.label}
                                 </button>
                               ))}
+                              {userTags.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {userTags.map((tag) => {
+                                    const isSelected = subtaskEditDraft.tags.includes(
+                                      String(tag.id),
+                                    )
+                                    return (
+                                      <button
+                                        key={tag.id}
+                                        type="button"
+                                        onClick={() =>
+                                          setSubtaskEditDraft((prev) => ({
+                                            ...prev,
+                                            tags: isSelected
+                                              ? prev.tags.filter((t) => t !== String(tag.id))
+                                              : [...prev.tags, String(tag.id)],
+                                          }))
+                                        }
+                                        className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-all"
+                                        style={{
+                                          backgroundColor: hexToRgba(
+                                            tag.color,
+                                            isSelected ? 0.15 : 0.06,
+                                          ),
+                                          borderColor: hexToRgba(tag.color, isSelected ? 0.5 : 0.2),
+                                          color: tag.color,
+                                        }}
+                                      >
+                                        <span
+                                          className="h-1.5 w-1.5 rounded-full shrink-0"
+                                          style={{ backgroundColor: tag.color }}
+                                        />
+                                        {tag.name}
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                              )}
                             </div>
                             <div className="flex gap-2 pt-0.5">
                               <Button
