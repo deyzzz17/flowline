@@ -1,6 +1,6 @@
 export default function ListAnalyticsLoading() {
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 space-y-6 animate-pulse">
+    <div className="relative px-4 py-8 space-y-6 animate-pulse">
       <div className="space-y-2">
         <div className="h-4 w-12 rounded-lg bg-muted" />
         <div className="h-8 w-32 rounded-xl bg-muted" />

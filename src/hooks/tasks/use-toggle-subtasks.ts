@@ -1,16 +1,26 @@
 'use client'
 
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useRef, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import type { Task } from '@/payload-types'
 
 type Subtask = NonNullable<Task['subtasks']>[number]
 
+function subtaskKey(taskId: number, subtaskIndex: number) {
+  return `${taskId}-${subtaskIndex}`
+}
+
 export function useToggleSubtask() {
   const queryClient = useQueryClient()
 
-  return useMutation({
-    mutationFn: ({
+  const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const pendingStates = useRef<Map<string, { done: boolean; taskStatus: Task['status'] }>>(
+    new Map(),
+  )
+
+  const toggle = useCallback(
+    ({
       taskId,
       subtaskIndex,
       taskStatus,
@@ -18,14 +28,19 @@ export function useToggleSubtask() {
       taskId: number
       subtaskIndex: number
       taskStatus: Task['status']
-    }) =>
-      taskStatus === 'completed'
-        ? api.tasks.uncompleteSubtask(taskId, subtaskIndex)
-        : api.tasks.toggleSubtask(taskId, subtaskIndex),
+    }) => {
+      const key = subtaskKey(taskId, subtaskIndex)
 
-    onMutate: ({ taskId, subtaskIndex, taskStatus }) => {
       const queries = queryClient.getQueriesData<{ docs: Task[] }>({ queryKey: ['tasks'] })
-      const previousData = queries.map(([queryKey, data]) => ({ queryKey, data }))
+      let currentDone = false
+      for (const [, data] of queries) {
+        const task = data?.docs.find((t) => t.id === taskId)
+        if (task) {
+          currentDone = (task.subtasks ?? [])[subtaskIndex]?.done ?? false
+          break
+        }
+      }
+      const newDone = !currentDone
 
       queries.forEach(([queryKey]) => {
         queryClient.setQueryData<{ docs: Task[] }>(queryKey as string[], (old) => {
@@ -34,60 +49,67 @@ export function useToggleSubtask() {
             ...old,
             docs: old.docs.map((task) => {
               if (task.id !== taskId) return task
-
-              if (taskStatus === 'completed') {
-                const updatedSubtasks = (task.subtasks ?? []).map((s: Subtask, i: number) =>
-                  i === subtaskIndex ? { ...s, done: false } : s,
-                )
-                return {
-                  ...task,
-                  status: 'active' as Task['status'],
-                  completedAt: null,
-                  subtasks: updatedSubtasks,
-                }
-              }
-
               const updatedSubtasks = (task.subtasks ?? []).map((s: Subtask, i: number) =>
-                i === subtaskIndex ? { ...s, done: !s.done } : s,
+                i === subtaskIndex ? { ...s, done: newDone } : s,
               )
               const allDone =
                 updatedSubtasks.length > 0 && updatedSubtasks.every((s: Subtask) => s.done)
               return {
                 ...task,
                 subtasks: updatedSubtasks,
-                ...(allDone &&
-                  task.status !== 'completed' && {
-                    status: 'completed' as Task['status'],
-                  }),
+                ...(allDone && task.status !== 'completed'
+                  ? { status: 'completed' as Task['status'] }
+                  : !allDone && task.status === 'completed' && taskStatus !== 'completed'
+                    ? {}
+                    : {}),
               }
             }),
           }
         })
       })
 
-      return { previousData }
-    },
+      pendingStates.current.set(key, { done: newDone, taskStatus })
 
-    onError: (_err, _vars, context) => {
-      context?.previousData?.forEach(({ queryKey, data }) => {
-        queryClient.setQueryData(queryKey as string[], data)
-      })
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
-    },
+      const existing = timers.current.get(key)
+      if (existing) clearTimeout(existing)
 
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['list-analytics'] })
+      const timer = setTimeout(async () => {
+        timers.current.delete(key)
+        const target = pendingStates.current.get(key)
+        pendingStates.current.delete(key)
+        if (!target) return
+
+        const snapshots = queryClient.getQueriesData<{ docs: Task[] }>({ queryKey: ['tasks'] })
+        const previousData = snapshots.map(([qk, data]) => ({ queryKey: qk, data }))
+
+        try {
+          if (target.taskStatus === 'completed') {
+            await api.tasks.uncompleteSubtask(taskId, subtaskIndex)
+          } else {
+            await api.tasks.toggleSubtask(taskId, subtaskIndex)
+          }
+          queryClient.invalidateQueries({ queryKey: ['list-analytics'] })
+        } catch {
+          previousData.forEach(({ queryKey, data }) => {
+            queryClient.setQueryData(queryKey as string[], data)
+          })
+          queryClient.invalidateQueries({ queryKey: ['tasks'] })
+        }
+      }, 400)
+
+      timers.current.set(key, timer)
     },
-  })
+    [queryClient],
+  )
+
+  return { mutate: toggle }
 }
 
 export function useCompleteTaskWithSubtasks() {
   const queryClient = useQueryClient()
 
-  return useMutation({
-    mutationFn: (taskId: number) => api.tasks.completeWithSubtasks(taskId),
-
-    onMutate: (taskId) => {
+  const mutate = useCallback(
+    async (taskId: number) => {
       const queries = queryClient.getQueriesData<{ docs: Task[] }>({ queryKey: ['tasks'] })
       const previousData = queries.map(([queryKey, data]) => ({ queryKey, data }))
 
@@ -108,18 +130,18 @@ export function useCompleteTaskWithSubtasks() {
         })
       })
 
-      return { previousData }
+      try {
+        await api.tasks.completeWithSubtasks(taskId)
+        queryClient.invalidateQueries({ queryKey: ['list-analytics'] })
+      } catch {
+        previousData.forEach(({ queryKey, data }) => {
+          queryClient.setQueryData(queryKey as string[], data)
+        })
+        queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      }
     },
+    [queryClient],
+  )
 
-    onError: (_err, _vars, context) => {
-      context?.previousData?.forEach(({ queryKey, data }) => {
-        queryClient.setQueryData(queryKey as string[], data)
-      })
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
-    },
-
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['list-analytics'] })
-    },
-  })
+  return { mutate, isPending: false }
 }

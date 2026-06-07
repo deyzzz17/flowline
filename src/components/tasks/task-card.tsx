@@ -321,20 +321,17 @@ export const TaskCard = ({
             id={`${task.id}`}
             checked={isCompleted}
             disabled={
-              taskManager.isTaskPending(task.id) ||
-              isDeleted ||
-              isEditing ||
-              isDisabled ||
-              isInactive ||
-              completeWithSubtasks.isPending
+              isDeleted || isEditing || isDisabled || isInactive || completeWithSubtasks.isPending
             }
             onCheckedChange={() => {
+              if (taskManager.isTaskPending(task.id)) return
               if (isActive && hasSubtasks) {
                 completeWithSubtasks.mutate(task.id)
               } else {
                 toggleStatus(task.id, task.status as 'active' | 'completed')
               }
             }}
+            className={taskManager.isTaskPending(task.id) ? 'opacity-60 pointer-events-none' : ''}
           />
         </div>
 
@@ -1146,13 +1143,7 @@ export const TaskCard = ({
                               <Checkbox
                                 id={`subtask-${task.id}-${index}`}
                                 checked={subtask.done ?? false}
-                                disabled={
-                                  isDeleted ||
-                                  isInactive ||
-                                  (toggleSubtask.isPending &&
-                                    toggleSubtask.variables?.taskId === task.id &&
-                                    toggleSubtask.variables?.subtaskIndex === index)
-                                }
+                                disabled={isDeleted || isInactive}
                                 onCheckedChange={() =>
                                   toggleSubtask.mutate({
                                     taskId: task.id,
