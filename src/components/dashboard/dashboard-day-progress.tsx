@@ -124,12 +124,6 @@ export function DashboardDayProgress({
       color: 'bg-teal-500',
       detail: `${habitsCompletedToday}/${habitsTotal}`,
     },
-    {
-      label: 'Focus',
-      pct: focusPct,
-      color: 'bg-blue-500',
-      detail: formatSeconds(focusTodaySeconds),
-    },
   ]
 
   return (

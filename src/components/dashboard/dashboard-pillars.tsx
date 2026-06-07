@@ -1,6 +1,7 @@
 import { CheckCircle2, Flame, Timer, AlertTriangle, TrendingUp, TrendingDown } from 'lucide-react'
 import type { HabitWithStats } from '@/api/habits/actions'
 import type { SessionAnalytics } from '@/api/timer-analytics/actions'
+import { FocusWeeklyBars } from '@/components/dashboard/focus-weekly-bar'
 
 function formatSeconds(s: number): string {
   if (s === 0) return '0m'
@@ -48,13 +49,17 @@ export function DashboardPillars({
   const focusDiffPct =
     focusYesterdaySeconds > 0 ? Math.round(Math.abs(focusDiff / focusYesterdaySeconds) * 100) : null
 
-  const weeklyBars = timerWeek.timeSeries.map((point) => {
+  // Prépare les barres pour le composant client
+  const weeklyBars = timerWeek.timeSeries.map((point, i) => {
     const total = timerWeek.seriesDefinitions
       .filter((d) => d.type === 'category')
       .reduce((sum, def) => sum + ((point[def.key] as number) ?? 0), 0)
-    return { label: point.label as string, seconds: total }
+    return {
+      label: point.label as string,
+      seconds: total,
+      isToday: i === timerWeek.timeSeries.length - 1,
+    }
   })
-  const maxBarSeconds = Math.max(...weeklyBars.map((b) => b.seconds), 1)
 
   const topCategoryToday = timerWeek.timeByCategory[0]
 
@@ -184,35 +189,7 @@ export function DashboardPillars({
 
           {weeklyBars.length > 0 && focusWeekSeconds > 0 && (
             <div className="mb-3">
-              <div className="flex items-end gap-0.5 h-10">
-                {weeklyBars.map((bar, i) => {
-                  const heightPct = maxBarSeconds > 0 ? (bar.seconds / maxBarSeconds) * 100 : 0
-                  const isToday = i === weeklyBars.length - 1
-                  return (
-                    <div
-                      key={bar.label}
-                      className="flex flex-1 flex-col items-center gap-0.5"
-                      title={`${bar.label}: ${formatSeconds(bar.seconds)}`}
-                    >
-                      <div className="w-full flex flex-col justify-end" style={{ height: 36 }}>
-                        <div
-                          className={`w-full rounded-sm transition-all duration-500 ${
-                            isToday
-                              ? 'bg-pink-500 dark:bg-pink-400'
-                              : bar.seconds > 0
-                                ? 'bg-pink-200 dark:bg-pink-900'
-                                : 'bg-muted'
-                          }`}
-                          style={{ height: `${Math.max(heightPct, bar.seconds > 0 ? 8 : 3)}%` }}
-                        />
-                      </div>
-                      <span className="text-[9px] text-muted-foreground/60 leading-none">
-                        {typeof bar.label === 'string' ? bar.label.slice(0, 1) : ''}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
+              <FocusWeeklyBars bars={weeklyBars} />
             </div>
           )}
 
