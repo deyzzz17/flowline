@@ -23,7 +23,7 @@ interface FocusWeeklyBarsProps {
 export function FocusWeeklyBars({ bars }: FocusWeeklyBarsProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
 
-  const todayIndex = (new Date().getDay() + 6) % 7
+  const todayIndex = new Date().getDay()
 
   const maxSeconds = Math.max(...bars.map((b) => b.seconds), 1)
 
