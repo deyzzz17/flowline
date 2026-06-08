@@ -70,6 +70,7 @@ export interface Config {
     admins: Admin;
     media: Media;
     tasks: Task;
+    'task-completions': TaskCompletion;
     'user-tags': UserTag;
     lists: List;
     'timer-categories': TimerCategory;
@@ -90,6 +91,7 @@ export interface Config {
     admins: AdminsSelect<false> | AdminsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     tasks: TasksSelect<false> | TasksSelect<true>;
+    'task-completions': TaskCompletionsSelect<false> | TaskCompletionsSelect<true>;
     'user-tags': UserTagsSelect<false> | UserTagsSelect<true>;
     lists: ListsSelect<false> | ListsSelect<true>;
     'timer-categories': TimerCategoriesSelect<false> | TimerCategoriesSelect<true>;
@@ -263,6 +265,34 @@ export interface UserTag {
   name: string;
   color: string;
   userId: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-completions".
+ */
+export interface TaskCompletion {
+  id: number;
+  userId: string;
+  taskId: number;
+  taskTitle: string;
+  completedAt: string;
+  tags?: ('urgent' | 'work' | 'personal' | 'health' | 'finance' | 'learning')[] | null;
+  /**
+   * Snapshot of custom tags at completion time: [{ id, name, color }]
+   */
+  customTagsSnapshot?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  listId?: number | null;
+  listName?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -579,6 +609,10 @@ export interface PayloadLockedDocument {
         value: number | Task;
       } | null)
     | ({
+        relationTo: 'task-completions';
+        value: number | TaskCompletion;
+      } | null)
+    | ({
         relationTo: 'user-tags';
         value: number | UserTag;
       } | null)
@@ -734,6 +768,22 @@ export interface TasksSelect<T extends boolean = true> {
   estimatedDuration?: T;
   autoDeleteOnDueDate?: T;
   trashedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-completions_select".
+ */
+export interface TaskCompletionsSelect<T extends boolean = true> {
+  userId?: T;
+  taskId?: T;
+  taskTitle?: T;
+  completedAt?: T;
+  tags?: T;
+  customTagsSnapshot?: T;
+  listId?: T;
+  listName?: T;
   updatedAt?: T;
   createdAt?: T;
 }

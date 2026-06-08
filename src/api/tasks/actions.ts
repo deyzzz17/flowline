@@ -46,6 +46,73 @@ const allSubtasksDone = (subtasks: Subtask[]): boolean => {
   return subtasks.every((s) => s.done)
 }
 
+async function createTaskCompletionSnapshot(
+  payload: Awaited<ReturnType<typeof getPayload>>,
+  task: Task,
+  userId: string,
+): Promise<void> {
+  try {
+    const customTagIds = (task.customTags ?? []).map((t: any) => (typeof t === 'object' ? t.id : t))
+    const customTagsSnapshot: { id: number; name: string; color: string }[] = []
+    for (const tagId of customTagIds) {
+      try {
+        const tag = await payload.findByID({ collection: 'user-tags', id: tagId })
+        customTagsSnapshot.push({ id: tag.id, name: tag.name, color: tag.color })
+      } catch {
+      }
+    }
+
+    const listId =
+      task.list && typeof task.list === 'object'
+        ? (task.list as { id: number }).id
+        : typeof task.list === 'number'
+          ? task.list
+          : null
+    let listName: string | null = null
+    if (listId) {
+      try {
+        const list = await payload.findByID({ collection: 'lists', id: listId })
+        listName = (list as any).name ?? null
+      } catch {}
+    }
+
+    await payload.create({
+      collection: 'task-completions',
+      data: {
+        userId,
+        taskId: task.id,
+        taskTitle: task.title,
+        completedAt: new Date().toISOString(),
+        tags: (task.tags ?? []) as Task['tags'],
+        customTagsSnapshot,
+        ...(listId !== null && { listId }),
+        ...(listName !== null && { listName }),
+      },
+    })
+  } catch (e) {
+    console.error('Failed to create task completion snapshot:', e)
+  }
+}
+
+async function deleteLatestTaskCompletionSnapshot(
+  payload: Awaited<ReturnType<typeof getPayload>>,
+  taskId: number,
+): Promise<void> {
+  try {
+    const { docs } = await payload.find({
+      collection: 'task-completions',
+      where: { taskId: { equals: taskId } },
+      sort: '-completedAt',
+      limit: 1,
+    })
+    if (docs.length > 0) {
+      await payload.delete({ collection: 'task-completions', id: docs[0].id })
+    }
+  } catch (e) {
+    console.error('Failed to delete task completion snapshot:', e)
+  }
+}
+
 export const createTask = async (task: CreateTaskInput) => {
   try {
     const userId = await getSession()
@@ -231,6 +298,8 @@ export const moveToTrash = async (id: number) => {
 export const toggleTaskStatus = async (id: number, currentStatus: 'active' | 'completed') => {
   try {
     const newStatus = currentStatus === 'active' ? 'completed' : 'active'
+    const userId = await getSession()
+    if (!userId) return err('Not authenticated')
 
     const payload = await getPayload({ config })
     const task = await payload.findByID({ collection: 'tasks', id })
@@ -238,6 +307,12 @@ export const toggleTaskStatus = async (id: number, currentStatus: 'active' | 'co
     const subtasks = (task.subtasks ?? []) as NonNullable<Task['subtasks']>
     const hasSubtasks = subtasks.length > 0
     const shouldResetSubtasks = newStatus === 'active' && hasSubtasks
+
+    if (newStatus === 'completed') {
+      await createTaskCompletionSnapshot(payload, task as Task, userId)
+    } else {
+      await deleteLatestTaskCompletionSnapshot(payload, id)
+    }
 
     await payload.update({
       collection: 'tasks',
@@ -460,10 +535,17 @@ export const syncIfNeeded = async (userTimezone: string) => {
 
 export const completeTaskWithSubtasks = async (id: number) => {
   try {
+    const userId = await getSession()
+    if (!userId) return err('Not authenticated')
+
     const payload = await getPayload({ config })
     const task = await payload.findByID({ collection: 'tasks', id })
+
     type Subtask = NonNullable<Task['subtasks']>[number]
     const subtasks = (task.subtasks ?? []) as Subtask[]
+
+    await createTaskCompletionSnapshot(payload, task as Task, userId)
+
     await payload.update({
       collection: 'tasks',
       id,

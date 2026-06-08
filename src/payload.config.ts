@@ -18,6 +18,7 @@ import { CalendarCategories } from './collections/CalendarCategories'
 import { GoogleCalendarSyncs } from './collections/GoogleCalendarSyncs'
 import { Habits } from './collections/Habits'
 import { HabitCompletions } from './collections/HabitCompletions'
+import { TaskCompletions } from './collections/TaskCompletion'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -33,6 +34,7 @@ export default buildConfig({
     Admins,
     Media,
     Tasks,
+    TaskCompletions,
     UserTags,
     Lists,
     TimerCategories,

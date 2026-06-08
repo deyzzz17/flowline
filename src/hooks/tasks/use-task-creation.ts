@@ -67,8 +67,7 @@ export const useTaskCreation = () => {
     setSubtasks((prev) => [...prev, { title: subtaskTitle.trim(), done: false }])
   }
 
-  const removeSubtask = (index: number) =>
-    setSubtasks((prev) => prev.filter((_, i) => i !== index))
+  const removeSubtask = (index: number) => setSubtasks((prev) => prev.filter((_, i) => i !== index))
 
   const updateSubtaskDetail = (index: number, field: keyof SubtaskDetail, value: unknown) =>
     setSubtasks((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)))
@@ -102,6 +101,14 @@ export const useTaskCreation = () => {
         .getQueriesData<{ docs: Task[] }>({ queryKey: ['tasks'] })
         .map(([queryKey, data]) => ({ queryKey, data }))
 
+      const userTagsData = queryClient.getQueryData<{
+        docs: { id: number; name: string; color: string }[]
+      }>(['user-tags'])
+      const userTags = userTagsData?.docs ?? []
+      const resolvedCustomTags = (input.customTags ?? [])
+        .map((tagId) => userTags.find((t) => t.id === tagId))
+        .filter((t): t is { id: number; name: string; color: string } => t !== undefined)
+
       const tempId = nextTempId()
       const optimisticTask: Task = {
         id: tempId,
@@ -110,7 +117,7 @@ export const useTaskCreation = () => {
         status: 'active',
         type: input.type ?? 'simple',
         tags: (input.tags ?? []) as Task['tags'],
-        customTags: (input.customTags ?? []).map((id) => ({ id, name: '', color: '' })) as any,
+        customTags: resolvedCustomTags as any,
         dueDate: input.dueDate ?? null,
         autoDeleteOnDueDate: input.autoDeleteOnDueDate ?? false,
         subtasks: (input.subtasks ?? []).map((s, i) => ({
@@ -121,18 +128,20 @@ export const useTaskCreation = () => {
           dueDate: s.dueDate ?? null,
           tags: (s.tags ?? []) as any,
         })) as Task['subtasks'],
-        recurrence: input.recurrence as Task['recurrence'] ?? null,
+        recurrence: (input.recurrence as Task['recurrence']) ?? null,
         list: input.listId ?? null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       } as Task
 
-      queryClient.getQueriesData<{ docs: Task[] }>({ queryKey: ['tasks'] }).forEach(([queryKey]) => {
-        queryClient.setQueryData<{ docs: Task[] }>(queryKey as string[], (old) => {
-          if (!old) return old
-          return { ...old, docs: [optimisticTask, ...old.docs] }
+      queryClient
+        .getQueriesData<{ docs: Task[] }>({ queryKey: ['tasks'] })
+        .forEach(([queryKey]) => {
+          queryClient.setQueryData<{ docs: Task[] }>(queryKey as string[], (old) => {
+            if (!old) return old
+            return { ...old, docs: [optimisticTask, ...old.docs] }
+          })
         })
-      })
 
       return { previousData, tempId }
     },

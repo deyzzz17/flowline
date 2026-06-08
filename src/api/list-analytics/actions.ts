@@ -3,8 +3,8 @@
 import 'server-only'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
-import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
+import { auth } from '@/lib/auth'
 import { Pool } from 'pg'
 
 const getSession = async () => {
@@ -139,7 +139,7 @@ export const getListAnalytics = async (
   type YMD = { year: number; month: number; day: number }
   let seriesStartYMD: YMD
   let seriesEndYMD: YMD
-  let points: { ymd: YMD; label: string }[] = []
+  let points: { ymd: YMD; label: string; hour?: number }[] = []
 
   if (period === 'day') {
     const target = addDaysToYMD(nowLocal.year, nowLocal.month, nowLocal.day, offset)
@@ -149,11 +149,11 @@ export const getListAnalytics = async (
       ymd: target,
       label: `${String(h).padStart(2, '0')}:00`,
       hour: h,
-    })) as any
+    }))
   } else if (period === 'week') {
     const todayJS = new Date(nowLocal.year, nowLocal.month - 1, nowLocal.day)
     const dayOfWeek = todayJS.getDay()
-    const mondayOffset = (dayOfWeek + 6) % 7 
+    const mondayOffset = (dayOfWeek + 6) % 7
     const mondayJS = new Date(todayJS)
     mondayJS.setDate(mondayJS.getDate() - mondayOffset + offset * 7)
     const sundayJS = new Date(mondayJS)
@@ -188,7 +188,6 @@ export const getListAnalytics = async (
       month: lastJS.getMonth() + 1,
       day: lastJS.getDate(),
     }
-
     points = Array.from({ length: lastJS.getDate() }, (_, i) => {
       const d = new Date(firstJS.getFullYear(), firstJS.getMonth(), i + 1)
       const ymd = { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() }
@@ -224,15 +223,16 @@ export const getListAnalytics = async (
   const fetchStartUTC = donutStartUTC < seriesStartUTC ? donutStartUTC : seriesStartUTC
   const fetchEndUTC = donutEndUTC > seriesEndUTC ? donutEndUTC : seriesEndUTC
 
-  const { docs: userTags } = await payload.find({
-    collection: 'user-tags',
-    where: { userId: { equals: userId } },
+  const { docs: completions } = await payload.find({
+    collection: 'task-completions',
     limit: 0,
-  })
-
-  const customTagMap: Record<string, { label: string; color: string }> = {}
-  userTags.forEach((t) => {
-    customTagMap[String(t.id)] = { label: t.name, color: t.color }
+    where: {
+      and: [
+        { userId: { equals: userId } },
+        { completedAt: { greater_than_equal: fetchStartUTC.toISOString() } },
+        { completedAt: { less_than_equal: fetchEndUTC.toISOString() } },
+      ],
+    },
   })
 
   const { docs: completedTasks } = await payload.find({
@@ -248,23 +248,78 @@ export const getListAnalytics = async (
     },
   })
 
-  const getTagIds = (task: (typeof completedTasks)[0]): string[] => {
-    const systemTags = (task.tags ?? []) as string[]
-    const customTagIds = (task.customTags ?? []).map((t) =>
-      typeof t === 'object' ? String(t.id) : String(t),
-    )
+  const { docs: userTags } = await payload.find({
+    collection: 'user-tags',
+    where: { userId: { equals: userId } },
+    limit: 0,
+  })
+  const customTagMap: Record<string, { label: string; color: string }> = {}
+  userTags.forEach((t) => {
+    customTagMap[String(t.id)] = { label: t.name, color: t.color }
+  })
+
+  type NormalizedCompletion = {
+    completedAt: string
+    tags: string[]
+    customTags: { id: string; label: string; color: string }[]
+  }
+
+  const snapshotTaskIds = new Set(completions.map((c) => c.taskId))
+
+  const allCompletions: NormalizedCompletion[] = [
+    ...completions.map((c) => ({
+      completedAt: c.completedAt as string,
+      tags: (c.tags ?? []) as string[],
+      customTags: ((c.customTagsSnapshot as any[]) ?? []).map((t: any) => ({
+        id: String(t.id),
+        label: t.name,
+        color: t.color,
+      })),
+    })),
+    ...completedTasks
+      .filter((t) => !snapshotTaskIds.has(t.id))
+      .map((t) => ({
+        completedAt: t.completedAt as string,
+        tags: (t.tags ?? []) as string[],
+        customTags: (t.customTags ?? []).map((tag: any) => {
+          const tagId = typeof tag === 'object' ? String(tag.id) : String(tag)
+          const resolved = customTagMap[tagId]
+          return {
+            id: tagId,
+            label: resolved?.label ?? tagId,
+            color: resolved?.color ?? '#8b5cf6',
+          }
+        }),
+      })),
+  ]
+
+  const getTagLabel = (tagId: string) =>
+    SYSTEM_TAG_LABELS[tagId] ?? customTagMap[tagId]?.label ?? tagId
+
+  const getTagColor = (tagId: string) =>
+    SYSTEM_TAG_COLORS[tagId] ?? customTagMap[tagId]?.color ?? '#8b5cf6'
+
+  const getTagIds = (c: NormalizedCompletion): string[] => {
+    const systemTags = c.tags
+    const customTagIds = c.customTags.map((t) => t.id)
     if (systemTags.length === 0 && customTagIds.length === 0) return ['__no_tag__']
     return [...systemTags, ...customTagIds]
   }
 
-  const getTagLabel = (tagId: string) => {
+  const getTagLabelFromCompletion = (tagId: string, c: NormalizedCompletion): string => {
     if (tagId === '__no_tag__') return 'No tag'
-    return SYSTEM_TAG_LABELS[tagId] ?? customTagMap[tagId]?.label ?? tagId
+    if (SYSTEM_TAG_LABELS[tagId]) return SYSTEM_TAG_LABELS[tagId]
+    const custom = c.customTags.find((t) => t.id === tagId)
+    if (custom) return custom.label
+    return customTagMap[tagId]?.label ?? tagId
   }
 
-  const getTagColor = (tagId: string) => {
+  const getTagColorFromCompletion = (tagId: string, c: NormalizedCompletion): string => {
     if (tagId === '__no_tag__') return '#6b7280'
-    return SYSTEM_TAG_COLORS[tagId] ?? customTagMap[tagId]?.color ?? '#8b5cf6'
+    if (SYSTEM_TAG_COLORS[tagId]) return SYSTEM_TAG_COLORS[tagId]
+    const custom = c.customTags.find((t) => t.id === tagId)
+    if (custom) return custom.color
+    return customTagMap[tagId]?.color ?? '#8b5cf6'
   }
 
   const inRange = (completedAt: string, startUTC: Date, endUTC: Date) => {
@@ -272,48 +327,57 @@ export const getListAnalytics = async (
     return t >= startUTC.getTime() && t <= endUTC.getTime()
   }
 
-  const donutTasks = completedTasks.filter(
-    (t) => t.completedAt && inRange(t.completedAt as string, donutStartUTC, donutEndUTC),
+  const donutCompletions = allCompletions.filter(
+    (c) => c.completedAt && inRange(c.completedAt, donutStartUTC, donutEndUTC),
   )
 
-  const donutMap: Record<string, number> = {}
-  donutTasks.forEach((task) => {
-    getTagIds(task).forEach((id) => {
-      donutMap[id] = (donutMap[id] ?? 0) + 1
+  const donutMap: Record<string, { count: number; label: string; color: string }> = {}
+  donutCompletions.forEach((c) => {
+    getTagIds(c).forEach((id) => {
+      if (!donutMap[id]) {
+        donutMap[id] = {
+          count: 0,
+          label: getTagLabelFromCompletion(id, c),
+          color: getTagColorFromCompletion(id, c),
+        }
+      }
+      donutMap[id].count++
     })
   })
 
   const donut: TagStat[] = Object.entries(donutMap)
-    .map(([id, count]) => ({
+    .map(([id, v]) => ({
       id,
-      label: getTagLabel(id),
-      color: getTagColor(id),
-      count,
-      isCustom: !!customTagMap[id],
+      label: v.label,
+      color: v.color,
+      count: v.count,
+      isCustom: !SYSTEM_TAG_LABELS[id] && id !== '__no_tag__',
     }))
     .sort((a, b) => b.count - a.count)
 
-  const seriesTasks = completedTasks.filter(
-    (t) => t.completedAt && inRange(t.completedAt as string, seriesStartUTC, seriesEndUTC),
+  const seriesCompletions = allCompletions.filter(
+    (c) => c.completedAt && inRange(c.completedAt, seriesStartUTC, seriesEndUTC),
   )
 
   const allTagIds = new Set<string>()
-  seriesTasks.forEach((task) => getTagIds(task).forEach((id) => allTagIds.add(id)))
+  seriesCompletions.forEach((c) => getTagIds(c).forEach((id) => allTagIds.add(id)))
 
-  const seriesTags = Array.from(allTagIds).map((id) => ({
-    id,
-    label: getTagLabel(id),
-    color: getTagColor(id),
-  }))
+  const seriesTags = Array.from(allTagIds).map((id) => {
+    const firstCompletion = seriesCompletions.find((c) => getTagIds(c).includes(id))
+    return {
+      id,
+      label: firstCompletion ? getTagLabelFromCompletion(id, firstCompletion) : getTagLabel(id),
+      color: firstCompletion ? getTagColorFromCompletion(id, firstCompletion) : getTagColor(id),
+    }
+  })
 
-  const series: DailyPoint[] = points.map((point: any) => {
+  const series: DailyPoint[] = points.map((point) => {
     const { ymd } = point
     let pointStartUTC: Date
     let pointEndUTC: Date
 
-    if (period === 'day') {
-      const h = point.hour ?? 0
-      pointStartUTC = localToUTC(ymd.year, ymd.month, ymd.day, h, 0, 0, userTimezone)
+    if (period === 'day' && point.hour !== undefined) {
+      pointStartUTC = localToUTC(ymd.year, ymd.month, ymd.day, point.hour, 0, 0, userTimezone)
       pointEndUTC = new Date(pointStartUTC.getTime() + 60 * 60 * 1000 - 1)
     } else {
       pointStartUTC = startOfDayUTC(ymd.year, ymd.month, ymd.day, userTimezone)
@@ -323,10 +387,10 @@ export const getListAnalytics = async (
     const byTag: Record<string, number> = {}
     let total = 0
 
-    seriesTasks.forEach((task) => {
-      if (!task.completedAt) return
-      if (!inRange(task.completedAt as string, pointStartUTC, pointEndUTC)) return
-      getTagIds(task).forEach((tagId) => {
+    seriesCompletions.forEach((c) => {
+      if (!c.completedAt) return
+      if (!inRange(c.completedAt, pointStartUTC, pointEndUTC)) return
+      getTagIds(c).forEach((tagId) => {
         byTag[tagId] = (byTag[tagId] ?? 0) + 1
         total++
       })
@@ -337,7 +401,7 @@ export const getListAnalytics = async (
 
   return {
     donut,
-    totalCompleted: donutTasks.length,
+    totalCompleted: donutCompletions.length,
     series,
     seriesTags,
     period,
