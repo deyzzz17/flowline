@@ -5,7 +5,6 @@ import { autoDeleteExpiredTasks } from '@/inngest/functions/auto-delete-expired-
 import { cleanupTrashedTasks } from '@/inngest/functions/cleanup-trashed-task'
 import { cleanupArchivedHabits } from '@/inngest/functions/cleanup-archived-habits'
 import { syncHabits } from '@/inngest/functions/sync-habits'
-import { migrateTaskCompletions } from '@/inngest/functions/migrate-task-completions'
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -15,6 +14,5 @@ export const { GET, POST, PUT } = serve({
     cleanupTrashedTasks,
     cleanupArchivedHabits,
     syncHabits,
-    migrateTaskCompletions,
   ],
 })
