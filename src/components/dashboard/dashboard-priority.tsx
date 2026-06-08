@@ -35,11 +35,6 @@ export function DashboardPriority({ task, weekFocusSeconds }: DashboardPriorityP
               <span className="rounded-full bg-card border border-border/60 px-2.5 py-0.5 text-xs font-medium text-foreground">
                 {listName}
               </span>
-              {weekFocusSeconds > 0 && (
-                <span className="rounded-full bg-card border border-border/60 px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                  {formatSeconds(weekFocusSeconds)} focus
-                </span>
-              )}
             </div>
           </div>
           <Link href="/timer">
