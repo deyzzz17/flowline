@@ -193,9 +193,10 @@ export const useTaskCreation = () => {
       }),
     }
 
+    resetForm()
+
     try {
       await createMutation.mutateAsync(input)
-      resetForm()
       return true
     } catch {
       return false

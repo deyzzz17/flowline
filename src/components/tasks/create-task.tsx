@@ -181,8 +181,8 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
 
   const handleOnSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const success = await saveTask(listId)
-    if (!success) {
+
+    if (!title.trim()) {
       titleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       titleRef.current?.focus()
       return
@@ -191,6 +191,8 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
     setExpandedIndex(null)
     setShowNewTag(false)
     close()
+
+    await saveTask(listId)
   }
 
   const handleAddSubtask = () => {
