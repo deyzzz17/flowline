@@ -284,6 +284,7 @@ function computeStreaks(
       if (count >= target) {
         current++
       } else if (wk === getDateKey(currentMonday)) {
+        // semaine courante pas encore terminée — ne casse pas
       } else {
         break
       }
@@ -372,34 +373,34 @@ function computeCompletionRate(
   return targets > 0 ? Math.round((completed / targets) * 100) : 0
 }
 
-function shouldUseGoalRate(goals: HabitGoal[]): boolean {
-  return goals.some((g) => {
-    if (g.type !== 'field' || !g.endOnReach) return false
-    const targets =
-      g.fieldTargets ??
-      (g.fieldKey ? [{ fieldKey: g.fieldKey, targetValue: g.targetValue ?? 1 }] : [])
-    return targets.length > 0
-  })
-}
 
-function computeGoalFieldRate(completions: any[], goals: HabitGoal[]): number {
-  const endGoals = goals.filter((g) => {
-    if (g.type !== 'field' || !g.endOnReach) return false
-    const targets =
-      g.fieldTargets ??
-      (g.fieldKey ? [{ fieldKey: g.fieldKey, targetValue: g.targetValue ?? 1 }] : [])
-    return targets.length > 0
-  })
-  if (endGoals.length === 0) return 0
+function computeOverallRate(
+  completionDates: Set<string>,
+  habitCompletions: any[],
+  goals: HabitGoal[],
+  habit: { frequency: string; daysOfWeek?: string[]; timesPerWeek?: number },
+  timezone = 'UTC',
+): number {
+  const habitRate = computeCompletionRate(completionDates, habit, timezone)
 
-  const allPcts: number[] = []
-  for (const goal of endGoals) {
+  if (goals.length === 0) return habitRate
+
+  const goalScores: number[] = goals.map((goal) => {
+    if (goal.completedAt) return 100
+
+    if (goal.type === 'manual') {
+      return 0
+    }
+
     const fieldTargets =
       goal.fieldTargets ??
-      (goal.fieldKey ? [{ fieldKey: goal.fieldKey, targetValue: goal.targetValue ?? 1 }] : [])
-    for (const ft of fieldTargets) {
+      (goal.fieldKey ? [{ fieldKey: goal.fieldKey, targetValue: goal.targetValue ?? 10 }] : [])
+
+    if (fieldTargets.length === 0) return 0
+
+    const fieldPcts = fieldTargets.map((ft) => {
       let total = 0
-      for (const c of completions) {
+      for (const c of habitCompletions) {
         let values: Record<string, any> = {}
         try {
           const raw = (c as any).trackingValues
@@ -408,11 +409,14 @@ function computeGoalFieldRate(completions: any[], goals: HabitGoal[]): number {
         const v = values[ft.fieldKey]
         if (typeof v === 'number') total += v
       }
-      allPcts.push(Math.min(100, Math.round((total / ft.targetValue) * 100)))
-    }
-  }
-  if (allPcts.length === 0) return 0
-  return Math.round(allPcts.reduce((s, p) => s + p, 0) / allPcts.length)
+      return Math.min(100, Math.round((total / ft.targetValue) * 100))
+    })
+
+    return Math.round(fieldPcts.reduce((s, p) => s + p, 0) / fieldPcts.length)
+  })
+
+  const allValues = [habitRate, ...goalScores]
+  return Math.round(allValues.reduce((s, v) => s + v, 0) / allValues.length)
 }
 
 function computeClaimableGoalIds(goals: HabitGoal[], completions: any[]): string[] {
@@ -516,9 +520,7 @@ export const listHabits = async (timezone = 'UTC'): Promise<HabitWithStats[]> =>
     )
     const { current, longest } = computeStreaks(completionDates, habit as any, timezone)
     const goals = parseGoals(habit)
-    const rate = shouldUseGoalRate(goals)
-      ? computeGoalFieldRate(habitCompletions, goals)
-      : computeCompletionRate(completionDates, habit as any, timezone)
+    const rate = computeOverallRate(completionDates, habitCompletions, goals, habit as any, timezone)
     const claimableGoalIds = computeClaimableGoalIds(goals, habitCompletions)
 
     results.push({
@@ -560,9 +562,7 @@ export const getHabitDetail = async (habitId: number): Promise<HabitDetail | nul
   )
   const { current, longest } = computeStreaks(completionDates, habit as any)
   const goals = parseGoals(habit)
-  const rate = shouldUseGoalRate(goals)
-    ? computeGoalFieldRate(completions, goals)
-    : computeCompletionRate(completionDates, habit as any)
+  const rate = computeOverallRate(completionDates, completions, goals, habit as any)
 
   const today = getTodayKey()
 
@@ -600,6 +600,7 @@ export const getHabitDetail = async (habitId: number): Promise<HabitDetail | nul
     longestStreak: longest,
     completedToday: completionDates.has(today),
     completionRate30d: rate,
+    claimableGoalIds: computeClaimableGoalIds(goals, completions),
     completions: Array.from(completionDates).sort(),
     weeklyCompletions,
     trackingData: completions
@@ -826,9 +827,7 @@ export const getHabitAnalytics = async (): Promise<HabitAnalytics> => {
     )
     const { current, longest } = computeStreaks(dates, habit as any)
     const goals = parseGoals(habit)
-    const rate = shouldUseGoalRate(goals)
-      ? computeGoalFieldRate(habitCompletions, goals)
-      : computeCompletionRate(dates, habit as any)
+    const rate = computeOverallRate(dates, habitCompletions, goals, habit as any)
     return {
       id: habit.id,
       slug: (habit as any).slug ?? '',
