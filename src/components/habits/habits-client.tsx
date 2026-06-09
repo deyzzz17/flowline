@@ -60,15 +60,12 @@ const ALL_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 function isHabitActiveToday(habit: HabitWithStats): boolean {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-
   if (habit.startDate) {
     const start = new Date(habit.startDate)
     start.setHours(0, 0, 0, 0)
     if (start > today) return false
   }
-
   const todayDayName = DAY_NAMES[today.getDay()]
-
   if (habit.frequency === 'daily') return true
   if (habit.frequency === 'days_of_week') return (habit.daysOfWeek ?? []).includes(todayDayName)
   if (habit.frequency === 'times_per_week') return true
@@ -294,7 +291,6 @@ function HabitCard({
           ))}
         </div>
       )}
-
       <div
         className="absolute left-0 top-3 bottom-3 w-0.5 rounded-full"
         style={{ backgroundColor: habit.color }}
@@ -406,7 +402,6 @@ function InactiveHabitCard({
           </Button>
         </div>
       </div>
-
       {habit.frequency === 'days_of_week' && habit.daysOfWeek?.length && (
         <div className="flex gap-1 px-4 pb-3">
           {ALL_DAYS.map((day) => (
@@ -429,7 +424,6 @@ function InactiveHabitCard({
           ))}
         </div>
       )}
-
       <div
         className="absolute left-0 top-3 bottom-3 w-0.5 rounded-full opacity-30"
         style={{ backgroundColor: habit.color }}
@@ -528,7 +522,7 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
     refresh()
   }
 
-  const handleTrackingSkip = async () => {
+  const handleTrackingSkip = () => {
     if (!trackingHabit) return
     const habit = trackingHabit
     setTrackingHabit(null)
@@ -536,25 +530,80 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
   }
 
   const handleCreate = async (data: HabitData) => {
+    const snapshot = queryClient.getQueryData<HabitWithStats[]>(['habits'])
+
+    const tempHabit: HabitWithStats = {
+      id: -Date.now(),
+      slug: '',
+      name: data.name,
+      description: data.description ?? null,
+      color: data.color ?? '#f97316',
+      categoryTag: data.categoryTag ?? null,
+      frequency: data.frequency,
+      daysOfWeek: data.daysOfWeek ?? [],
+      timesPerWeek: data.timesPerWeek,
+      currentStreak: 0,
+      longestStreak: 0,
+      completedToday: false,
+      completionRate30d: 0,
+      order: habits.length,
+      startDate: data.startDate ?? null,
+      showInCalendar: data.showInCalendar ?? false,
+      trackingFields: data.trackingFields ?? [],
+      goals: data.goals ?? [],
+      claimableGoalIds: [],
+      repeatEveryDays: data.repeatEveryDays,
+    }
+    queryClient.setQueryData<HabitWithStats[]>(['habits'], (old) =>
+      old ? [...old, tempHabit] : [tempHabit],
+    )
+
     const result = await createHabit(data)
     if ('error' in result) {
       toast.error('Failed to create habit')
+      if (snapshot) queryClient.setQueryData(['habits'], snapshot)
       return
     }
     toast.success('Habit created')
-    setFormOpen(false)
     refresh()
   }
 
   const handleUpdate = async (data: HabitData) => {
     if (!editingHabit) return
+    const snapshot = queryClient.getQueryData<HabitWithStats[]>(['habits'])
+
+    queryClient.setQueryData<HabitWithStats[]>(
+      ['habits'],
+      (old) =>
+        old?.map((h) =>
+          h.id === editingHabit.id
+            ? {
+                ...h,
+                name: data.name,
+                description: data.description ?? null,
+                color: data.color ?? h.color,
+                categoryTag: data.categoryTag ?? null,
+                frequency: data.frequency,
+                daysOfWeek: data.daysOfWeek ?? h.daysOfWeek,
+                timesPerWeek: data.timesPerWeek ?? h.timesPerWeek,
+                startDate: data.startDate ?? h.startDate,
+                showInCalendar: data.showInCalendar ?? h.showInCalendar,
+                trackingFields: data.trackingFields ?? h.trackingFields,
+                goals: data.goals ?? h.goals,
+                repeatEveryDays: data.repeatEveryDays ?? h.repeatEveryDays,
+              }
+            : h,
+        ) ?? old,
+    )
+    setEditingHabit(null)
+
     const result = await updateHabit(editingHabit.id, data)
     if ('error' in result) {
       toast.error('Failed to update habit')
+      if (snapshot) queryClient.setQueryData(['habits'], snapshot)
       return
     }
     toast.success('Habit updated')
-    setEditingHabit(null)
     refresh()
   }
 
@@ -586,7 +635,6 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
     onArchive: handleArchive,
     onDelete: setDeleteTarget,
   }
-
   const inactiveCardProps = {
     onEdit: setEditingHabit,
     onArchive: handleArchive,

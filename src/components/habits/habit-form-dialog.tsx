@@ -163,16 +163,13 @@ function getInitialState(initialData?: HabitWithStats) {
   }
 
   const savedFields = parseJsonField<TrackingField[]>(initialData.trackingFields)
-
   let goals: HabitGoal[] = []
   const rawGoals = parseJsonField<HabitGoal[]>((initialData as any).goals)
   if (rawGoals && rawGoals.length > 0) {
     goals = rawGoals
   } else {
     const oldGoal = parseJsonField<HabitGoal>((initialData as any).goal)
-    if (oldGoal?.description) {
-      goals = [{ ...oldGoal, id: oldGoal.id ?? `goal_${Date.now()}` }]
-    }
+    if (oldGoal?.description) goals = [{ ...oldGoal, id: oldGoal.id ?? `goal_${Date.now()}` }]
   }
 
   return {
@@ -288,7 +285,6 @@ function GoalForm({
         placeholder="e.g. Run 100km total, Complete 30 sessions..."
         className="h-9 text-sm"
       />
-
       <div className="grid grid-cols-2 gap-1.5">
         <button
           type="button"
@@ -318,7 +314,6 @@ function GoalForm({
           Field target
         </button>
       </div>
-
       {draft.type === 'field' && enabledNumberFields.length > 0 && (
         <div className="space-y-2">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">
@@ -382,7 +377,6 @@ function GoalForm({
           })}
         </div>
       )}
-
       {draft.type === 'field' && (
         <button
           type="button"
@@ -412,7 +406,6 @@ function GoalForm({
           </div>
         </button>
       )}
-
       <div className="flex gap-1.5 pt-1">
         <button
           type="button"
@@ -469,7 +462,6 @@ function HabitFormInner({
   const [newFieldLabel, setNewFieldLabel] = useState('')
   const [newFieldType, setNewFieldType] = useState<TrackingFieldType>('number')
   const [showAddField, setShowAddField] = useState(false)
-  const [isPending, setIsPending] = useState(false)
   const [repeatEveryDays, setRepeatEveryDays] = useState(init.repeatEveryDays)
 
   const { data: calendarEvents } = useQuery({
@@ -491,18 +483,11 @@ function HabitFormInner({
       const eventFreq: string = e.recurrence?.frequency ?? ''
       const eventInterval: number = e.recurrence?.interval ?? 1
       const eventDays: string[] = e.recurrence?.daysOfWeek ?? []
-
       let compatible = false
       let compatLabel = ''
-
       if (frequency === 'daily') {
-        if (eventFreq === 'daily' && eventInterval === 1) {
-          compatible = true
-          compatLabel = 'Perfect match'
-        } else {
-          compatible = false
-          compatLabel = 'Incompatible — event not daily'
-        }
+        compatible = eventFreq === 'daily' && eventInterval === 1
+        compatLabel = compatible ? 'Perfect match' : 'Incompatible — event not daily'
       } else if (frequency === 'days_of_week') {
         if (eventFreq === 'weekly') {
           if (eventDays.length === 0) {
@@ -531,31 +516,21 @@ function HabitFormInner({
           compatLabel = 'Incompatible frequency'
         }
       } else if (frequency === 'times_per_week') {
-        if (eventFreq === 'weekly' || (eventFreq === 'daily' && eventInterval === 1)) {
-          compatible = true
-          compatLabel = 'Compatible — align days manually'
-        } else {
-          compatible = false
-          compatLabel = 'Incompatible frequency'
-        }
+        compatible = eventFreq === 'weekly' || (eventFreq === 'daily' && eventInterval === 1)
+        compatLabel = compatible ? 'Compatible — align days manually' : 'Incompatible frequency'
       } else if (frequency === 'every_x_days') {
         if (eventFreq === 'daily' && eventInterval === repeatEveryDays) {
-          // Vérifie l'alignement des dates si on a les deux
           const habitStart = startDate ? new Date(startDate) : null
           const eventStart = e.startDate ? new Date(e.startDate) : null
-
           if (habitStart && eventStart) {
             const diffDays = Math.round(
               Math.abs(habitStart.getTime() - eventStart.getTime()) / (1000 * 60 * 60 * 24),
             )
             const aligned = diffDays % repeatEveryDays === 0
-            if (aligned) {
-              compatible = true
-              compatLabel = 'Perfect match'
-            } else {
-              compatible = false
-              compatLabel = `Misaligned — ${diffDays % repeatEveryDays}d offset`
-            }
+            compatible = aligned
+            compatLabel = aligned
+              ? 'Perfect match'
+              : `Misaligned — ${diffDays % repeatEveryDays}d offset`
           } else {
             compatible = true
             compatLabel = 'Set start dates to verify alignment'
@@ -571,12 +546,10 @@ function HabitFormInner({
           compatLabel = 'Incompatible frequency'
         }
       }
-
       return { ...e, compatible, compatLabel }
     })
     .filter((e: any) => e.compatible)
     .sort((a: any, b: any) => a.title.localeCompare(b.title))
-    .sort((a: any, b: any) => (b.compatible ? 1 : 0) - (a.compatible ? 1 : 0))
 
   const toggleDay = (day: string) =>
     setDaysOfWeek((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]))
@@ -606,10 +579,7 @@ function HabitFormInner({
   const removeCustomField = (key: string) => {
     setTrackingFields((prev) => prev.filter((f) => f.key !== key))
     setGoals((prev) =>
-      prev.map((g) => ({
-        ...g,
-        fieldTargets: g.fieldTargets?.filter((t) => t.fieldKey !== key),
-      })),
+      prev.map((g) => ({ ...g, fieldTargets: g.fieldTargets?.filter((t) => t.fieldKey !== key) })),
     )
   }
 
@@ -635,7 +605,6 @@ function HabitFormInner({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim()) return
-    setIsPending(true)
 
     const calendarConfig = showInCalendar
       ? {
@@ -648,7 +617,7 @@ function HabitFormInner({
         }
       : { showInCalendar: false }
 
-    await onSubmit({
+    const data = {
       name: name.trim(),
       description: description.trim() || undefined,
       color,
@@ -661,8 +630,10 @@ function HabitFormInner({
       trackingFields,
       goals: goals.length > 0 ? goals : [],
       ...calendarConfig,
-    } as any)
-    setIsPending(false)
+    } as any
+
+    onOpenChange(false)
+    await onSubmit(data)
   }
 
   return (
@@ -1201,7 +1172,6 @@ function HabitFormInner({
         <p className="text-xs text-muted-foreground">
           Add goals to track your progress and stay motivated.
         </p>
-
         {activeGoals.length > 0 && !editingGoal && (
           <div className="space-y-1.5">
             {activeGoals.map((goal) => (
@@ -1236,7 +1206,6 @@ function HabitFormInner({
             ))}
           </div>
         )}
-
         {completedGoals.length > 0 && !editingGoal && (
           <div className="space-y-1">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/40">
@@ -1262,7 +1231,6 @@ function HabitFormInner({
             ))}
           </div>
         )}
-
         {editingGoal && (
           <GoalForm
             draft={editingGoal}
@@ -1272,7 +1240,6 @@ function HabitFormInner({
             onCancel={() => setEditingGoal(null)}
           />
         )}
-
         {!editingGoal && (
           <button
             type="button"
@@ -1289,18 +1256,9 @@ function HabitFormInner({
         <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
           Cancel
         </Button>
-        <Button type="submit" disabled={!name.trim() || isPending} className="gap-2">
-          {isPending ? (
-            <>
-              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-              Saving...
-            </>
-          ) : (
-            <>
-              <Check className="h-3.5 w-3.5" />
-              {initialData ? 'Save changes' : 'Create habit'}
-            </>
-          )}
+        <Button type="submit" disabled={!name.trim()} className="gap-2">
+          <Check className="h-3.5 w-3.5" />
+          {initialData ? 'Save changes' : 'Create habit'}
         </Button>
       </DialogFooter>
     </form>
