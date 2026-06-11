@@ -5,7 +5,7 @@ import { Resend } from 'resend'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+const resend = new Resend(process.env.RESEND_FULL_ACCESS_KEY)
 const AUDIENCE_ID = '575501fb-7e5d-4b50-b582-fde770ca8a20'
 
 export async function subscribeToNewsletter(email: string) {
@@ -36,8 +36,6 @@ export async function subscribeToNewsletter(email: string) {
       lastName: session.user.name?.split(' ').slice(1).join(' ') ?? '',
       unsubscribed: false,
     })
-
-    console.log('Resend result:', JSON.stringify(result))
 
     if (result.error) {
       console.error('Resend error:', result.error)
