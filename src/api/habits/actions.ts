@@ -373,7 +373,6 @@ function computeCompletionRate(
   return targets > 0 ? Math.round((completed / targets) * 100) : 0
 }
 
-
 function computeOverallRate(
   completionDates: Set<string>,
   habitCompletions: any[],
@@ -520,7 +519,13 @@ export const listHabits = async (timezone = 'UTC'): Promise<HabitWithStats[]> =>
     )
     const { current, longest } = computeStreaks(completionDates, habit as any, timezone)
     const goals = parseGoals(habit)
-    const rate = computeOverallRate(completionDates, habitCompletions, goals, habit as any, timezone)
+    const rate = computeOverallRate(
+      completionDates,
+      habitCompletions,
+      goals,
+      habit as any,
+      timezone,
+    )
     const claimableGoalIds = computeClaimableGoalIds(goals, habitCompletions)
 
     results.push({
@@ -697,11 +702,30 @@ export const updateHabit = async (id: number, data: Partial<HabitData>) => {
 
 export const archiveHabit = async (id: number) => {
   try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
     const payload = await getPayload({ config })
+
+    const { docs: completions } = await payload.find({
+      collection: 'habit-completions',
+      where: { and: [{ userId: { equals: userId } }, { habitId: { equals: id } }] },
+      limit: 0,
+    })
+
+    const habit = await payload.findByID({ collection: 'habits', id })
+    const completionDates = new Set(
+      completions.map((c) => getDateKey(new Date(c.completedAt as string))),
+    )
+    const { longest } = computeStreaks(completionDates, habit as any)
+
     await payload.update({
       collection: 'habits',
       id,
-      data: { archivedAt: new Date().toISOString() } as any,
+      data: {
+        archivedAt: new Date().toISOString(),
+        archivedLongestStreak: longest,
+        archivedTotalCompletions: completions.length,
+      } as any,
     })
     return ok(true)
   } catch {
@@ -932,6 +956,7 @@ export const listArchivedHabits = async (): Promise<ArchivedHabit[]> => {
   if (!userId) return []
 
   const payload = await getPayload({ config })
+
   const { docs: habits } = await payload.find({
     collection: 'habits',
     where: {
@@ -941,35 +966,19 @@ export const listArchivedHabits = async (): Promise<ArchivedHabit[]> => {
     limit: 0,
   })
 
-  if (habits.length === 0) return []
-
-  const { docs: completions } = await payload.find({
-    collection: 'habit-completions',
-    where: { userId: { equals: userId } },
-    limit: 0,
-  })
-
-  return habits.map((habit) => {
-    const habitCompletions = completions.filter((c) => c.habitId === habit.id)
-    const completionDates = new Set(
-      habitCompletions.map((c) => getDateKey(new Date(c.completedAt as string))),
-    )
-    const { longest } = computeStreaks(completionDates, habit as any)
-
-    return {
-      id: habit.id,
-      slug: (habit as any).slug ?? '',
-      name: habit.name,
-      color: (habit as any).color ?? '#8b5cf6',
-      categoryTag: (habit as any).categoryTag ?? null,
-      frequency: (habit as any).frequency,
-      daysOfWeek: (habit as any).daysOfWeek ?? [],
-      timesPerWeek: (habit as any).timesPerWeek ?? undefined,
-      archivedAt: new Date((habit as any).archivedAt).toISOString(),
-      longestStreak: longest,
-      totalCompletions: habitCompletions.length,
-    }
-  })
+  return habits.map((habit) => ({
+    id: habit.id,
+    slug: (habit as any).slug ?? '',
+    name: habit.name,
+    color: (habit as any).color ?? '#8b5cf6',
+    categoryTag: (habit as any).categoryTag ?? null,
+    frequency: (habit as any).frequency,
+    daysOfWeek: (habit as any).daysOfWeek ?? [],
+    timesPerWeek: (habit as any).timesPerWeek ?? undefined,
+    archivedAt: new Date((habit as any).archivedAt).toISOString(),
+    longestStreak: (habit as any).archivedLongestStreak ?? 0,
+    totalCompletions: (habit as any).archivedTotalCompletions ?? 0,
+  }))
 }
 
 export const restoreHabit = async (id: number) => {

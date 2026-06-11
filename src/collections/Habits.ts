@@ -135,6 +135,16 @@ export const Habits: CollectionConfig = {
       required: false,
       admin: { description: 'Array of HabitGoal objects' },
     },
+    {
+      name: 'archivedLongestStreak',
+      type: 'number',
+      admin: { condition: (data) => !!data.archivedAt },
+    },
+    {
+      name: 'archivedTotalCompletions',
+      type: 'number',
+      admin: { condition: (data) => !!data.archivedAt },
+    },
   ],
   hooks: {
     afterRead: [

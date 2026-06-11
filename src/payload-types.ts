@@ -544,6 +544,8 @@ export interface Habit {
     | number
     | boolean
     | null;
+  archivedLongestStreak?: number | null;
+  archivedTotalCompletions?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -975,6 +977,8 @@ export interface HabitsSelect<T extends boolean = true> {
   goal?: T;
   goalCompletedAt?: T;
   goals?: T;
+  archivedLongestStreak?: T;
+  archivedTotalCompletions?: T;
   updatedAt?: T;
   createdAt?: T;
 }
