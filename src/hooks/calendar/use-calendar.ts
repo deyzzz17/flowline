@@ -128,12 +128,20 @@ function parseViewFromUrl(raw: string | null): CalendarView {
 
 function parseDateFromUrl(raw: string | null): Date {
   if (!raw) return new Date()
-  const d = new Date(raw)
+  const parts = raw.split('-').map(Number)
+  if (parts.length !== 3 || parts.some(isNaN)) return new Date()
+  const [year, month, day] = parts
+  const d = new Date(year, month - 1, day, 12, 0, 0)
   return isNaN(d.getTime()) ? new Date() : d
 }
 
 function formatDateForUrl(date: Date): string {
-  return date.toISOString().slice(0, 10)
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
 }
 
 export const useCalendar = () => {
@@ -729,7 +737,13 @@ export const useCalendar = () => {
         return new Date(aDate).getTime() - new Date(bDate).getTime()
       })
     },
-    [eventsWithOverrides, tasksWithOverrides, isCategoryVisible, isGoogleCalendarVisible],
+    [
+      eventsWithOverrides,
+      tasksWithOverrides,
+      isCategoryVisible,
+      isGoogleCalendarVisible,
+      habitsVisible,
+    ],
   )
 
   const goToDay = useCallback((date: Date) => pushUrl('day', date), [pushUrl])
