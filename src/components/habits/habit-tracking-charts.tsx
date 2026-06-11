@@ -78,14 +78,11 @@ function niceAxisDomain(max: number): [number, number] {
 
 function FieldChart({ field, color }: { field: TrackingFieldAnalytics; color: string }) {
   const [chartType, setChartType] = useState<'bar' | 'line'>('bar')
-
   const hasData = field.points.some((p) => p.value > 0)
   const [yMin, yMax] = niceAxisDomain(field.max)
-
   const tickCount = 5
   const tickStep = yMax / (tickCount - 1)
   const yTicks = Array.from({ length: tickCount }, (_, i) => Math.round(i * tickStep))
-
   const unit = field.fieldKey === 'duration' ? ' min' : ''
 
   return (
@@ -129,7 +126,6 @@ function FieldChart({ field, color }: { field: TrackingFieldAnalytics; color: st
           </button>
         </div>
       </div>
-
       <div className="px-4 py-4">
         {!hasData ? (
           <div className="flex h-32 items-center justify-center">
@@ -220,19 +216,24 @@ function FieldChart({ field, color }: { field: TrackingFieldAnalytics; color: st
 interface HabitTrackingChartsProps {
   habitId: number
   color: string
-  initialData: HabitTrackingAnalyticsResult
+  data: HabitTrackingAnalyticsResult
+  onDataChange: (data: HabitTrackingAnalyticsResult) => void
 }
 
-export function HabitTrackingCharts({ habitId, color, initialData }: HabitTrackingChartsProps) {
+export function HabitTrackingCharts({
+  habitId,
+  color,
+  data,
+  onDataChange,
+}: HabitTrackingChartsProps) {
   const [period, setPeriod] = useState<TrackingPeriod>('week')
   const [offset, setOffset] = useState(0)
-  const [data, setData] = useState<HabitTrackingAnalyticsResult>(initialData)
   const [isPending, startTransition] = useTransition()
 
   const fetchData = (p: TrackingPeriod, o: number) => {
     startTransition(async () => {
       const fresh = await getHabitTrackingAnalytics(habitId, p, o)
-      setData(fresh)
+      onDataChange(fresh)
     })
   }
 
@@ -258,7 +259,6 @@ export function HabitTrackingCharts({ habitId, color, initialData }: HabitTracki
           <p className="text-sm font-semibold text-foreground">Tracking analytics</p>
           {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground/50" />}
         </div>
-
         <div className="flex items-center gap-2 flex-wrap">
           <PeriodSelector value={period} onChange={handlePeriodChange} />
           <div className="flex items-center gap-1">
@@ -290,7 +290,6 @@ export function HabitTrackingCharts({ habitId, color, initialData }: HabitTracki
           </div>
         </div>
       </div>
-
       <div className={cn('space-y-4 transition-opacity', isPending && 'opacity-40')}>
         {data.fields.map((field) => (
           <FieldChart key={field.fieldKey} field={field} color={color} />
