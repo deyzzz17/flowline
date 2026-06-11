@@ -75,7 +75,7 @@ export const useNewsletter = () => {
     return localStorage.getItem(subscribedKey) === 'true'
   }
 
-  const isVisible = !sessionDismissed && !subscribed && !isPermanentlyHidden()
+  const isVisible = subscribed || (!sessionDismissed && !isPermanentlyHidden())
 
   return {
     email,
