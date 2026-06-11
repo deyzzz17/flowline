@@ -81,23 +81,23 @@ export function CalendarEventBlock({
       ? new Date((item as CalendarEvent).endDate)
       : new Date(startDate.getTime() + 30 * 60000)
 
-  const continuesNextDay = viewDate
-    ? endDate >
-      (() => {
-        const d = new Date(viewDate)
-        d.setHours(24, 0, 0, 0)
-        return d
-      })()
-    : false
-
-  const continuesPrevDay = viewDate
-    ? startDate <
-      (() => {
+  const dayStart = viewDate
+    ? (() => {
         const d = new Date(viewDate)
         d.setHours(0, 0, 0, 0)
         return d
       })()
-    : false
+    : null
+  const dayEnd = viewDate
+    ? (() => {
+        const d = new Date(viewDate)
+        d.setHours(24, 0, 0, 0)
+        return d
+      })()
+    : null
+
+  const continuesNextDay = dayEnd ? endDate > dayEnd : false
+  const continuesPrevDay = dayStart ? startDate < dayStart : false
 
   const isDragDisabled = isGoogle || isHabit || continuesPrevDay
 
@@ -120,14 +120,7 @@ export function CalendarEventBlock({
   const color =
     item.type === 'event' ? (item as CalendarEvent).color : (item as CalendarTask).listColor
 
-  const resizeBaseDate =
-    continuesPrevDay && viewDate
-      ? (() => {
-          const d = new Date(viewDate)
-          d.setHours(0, 0, 0, 0)
-          return d
-        })()
-      : startDate
+  const resizeBaseDate = continuesPrevDay && dayStart ? dayStart : startDate
 
   const minutesBeforeThisDay = continuesPrevDay
     ? 0
@@ -179,7 +172,9 @@ export function CalendarEventBlock({
         resizeStartHeight.current + deltaY,
       )
       const newDurationMin = Math.round(pxToMinutes(newHeightPx) / 15) * 15
+
       const newEnd = new Date(resizeBaseDate.getTime() + newDurationMin * 60000)
+
       resizeStartY.current = null
       onResizeOverflow?.(0)
       onResizeEnd(item, newEnd)
@@ -231,6 +226,8 @@ export function CalendarEventBlock({
     [startResize, updateResize, endResize],
   )
 
+  const displayStartTime = continuesPrevDay ? startDate : startDate
+
   return (
     <div
       ref={(node) => {
@@ -257,6 +254,13 @@ export function CalendarEventBlock({
         isGoogle || isHabit ? 'cursor-pointer' : '',
       )}
     >
+      {continuesPrevDay && (
+        <div
+          className="absolute top-0 left-0 right-0 h-0.5 opacity-60"
+          style={{ backgroundColor: color }}
+        />
+      )}
+
       <div
         {...(!isDragDisabled ? listeners : {})}
         {...(!isDragDisabled ? attributes : {})}
@@ -285,7 +289,9 @@ export function CalendarEventBlock({
         )}
         {height > 32 && (
           <p className="text-[10px] leading-tight" style={{ color, opacity: 0.7 }}>
-            {formatTime(startDate)} – {formatTime(endDate)}
+            {continuesPrevDay ? '← ' : ''}
+            {formatTime(displayStartTime)} – {formatTime(endDate)}
+            {continuesNextDay ? ' →' : ''}
           </p>
         )}
       </div>

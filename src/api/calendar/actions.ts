@@ -25,6 +25,11 @@ function toMidnight(iso: string): string {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0).toISOString()
 }
 
+function getLocalKey(iso: string): string {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export interface CalendarCategoryData {
   name: string
   color: string
@@ -448,17 +453,15 @@ export const updateCalendarEvent = async (
           ).toISOString()
         }
       } else if (data.endDate) {
-        const occStartDate = data.startDate
-          ? new Date(data.startDate)
-          : new Date(
-              new Date(occDate).getFullYear(),
-              new Date(occDate).getMonth(),
-              new Date(occDate).getDate(),
-              parentStart.getHours(),
-              parentStart.getMinutes(),
-              0,
-              0,
-            )
+        const occStartDate = new Date(
+          new Date(occDate).getFullYear(),
+          new Date(occDate).getMonth(),
+          new Date(occDate).getDate(),
+          parentStart.getHours(),
+          parentStart.getMinutes(),
+          0,
+          0,
+        )
         const newDuration = new Date(data.endDate).getTime() - occStartDate.getTime()
         updateData.endDate = new Date(parentStart.getTime() + newDuration).toISOString()
       }
@@ -482,9 +485,9 @@ export const updateCalendarEvent = async (
 
     if (scope === 'this') {
       const exceptions = ((parent as any).exceptions ?? []) as { date: string }[]
-      const occDateKey = new Date(occDate).toISOString().slice(0, 10)
+      const occDateKey = getLocalKey(occDate)
 
-      if (!exceptions.find((e) => new Date(e.date).toISOString().slice(0, 10) === occDateKey)) {
+      if (!exceptions.find((e) => getLocalKey(e.date) === occDateKey)) {
         await payload.update({
           collection: 'calendar-events',
           id: parentId,
@@ -666,8 +669,8 @@ export const deleteCalendarEvent = async (
     if (scope === 'this') {
       if (isOverride) await payload.delete({ collection: 'calendar-events', id })
       const exceptions = ((parent as any).exceptions ?? []) as { date: string }[]
-      const occDateKey = new Date(occDate).toISOString().slice(0, 10)
-      if (!exceptions.find((e) => new Date(e.date).toISOString().slice(0, 10) === occDateKey)) {
+      const occDateKey = getLocalKey(occDate)
+      if (!exceptions.find((e) => getLocalKey(e.date) === occDateKey)) {
         await payload.update({
           collection: 'calendar-events',
           id: parentId,
