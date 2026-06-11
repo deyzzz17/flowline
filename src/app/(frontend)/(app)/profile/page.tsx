@@ -12,6 +12,7 @@ export default async function ProfilePage() {
   let hasPassword = false
   try {
     const accounts = await auth.api.listUserAccounts({ headers: await headers() })
+    console.log('accounts:', JSON.stringify(accounts))
     hasPassword =
       !accounts.some((a: any) => a.provider === 'google') ||
       accounts.some((a: any) => a.provider === 'credential' || a.provider === 'credentials')
