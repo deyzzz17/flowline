@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { Settings, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { useUser } from '@/contexts/user-context'
+import { useSession } from '@/lib/auth-client'
 
 function getGreeting(): string {
   const h = new Date().getHours()
@@ -38,7 +38,9 @@ function formatDate(): string {
 }
 
 export function DashboardHeader() {
-  const { user } = useUser()
+  const { data: session } = useSession()
+  const user = session?.user
+
   const firstName = getFirstName(user?.name)
   const initials = getInitials(user?.name, user?.email)
 
@@ -54,7 +56,6 @@ export function DashboardHeader() {
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">{formatDate()}</p>
       </div>
-
       <div className="flex items-center gap-2.5 shrink-0 mt-1">
         <Link href="/profile">
           <Avatar className="h-9 w-9 cursor-pointer ring-offset-background transition-opacity hover:opacity-80">
@@ -64,7 +65,6 @@ export function DashboardHeader() {
             </AvatarFallback>
           </Avatar>
         </Link>
-
         <Link href="/profile">
           <Button variant="outline" size="sm" className="gap-1.5">
             <Settings className="h-3.5 w-3.5" />
