@@ -58,8 +58,7 @@ async function createTaskCompletionSnapshot(
       try {
         const tag = await payload.findByID({ collection: 'user-tags', id: tagId })
         customTagsSnapshot.push({ id: tag.id, name: tag.name, color: tag.color })
-      } catch {
-      }
+      } catch {}
     }
 
     const listId =
@@ -402,6 +401,9 @@ export const editTask = async (id: number, draft: EditTaskInput) => {
 
 export const toggleSubtask = async (taskId: number, subtaskIndex: number) => {
   try {
+    const userId = await getSession()
+    if (!userId) return err('Not authenticated')
+
     const payload = await getPayload({ config })
     const task = await payload.findByID({ collection: 'tasks', id: taskId })
 
@@ -412,14 +414,27 @@ export const toggleSubtask = async (taskId: number, subtaskIndex: number) => {
       i === subtaskIndex ? { ...s, done: !s.done } : s,
     )
 
-    const newStatus = allSubtasksDone(updatedSubtasks) ? 'completed' : task.status
+    const wasCompleted = task.status === 'completed'
+    const nowCompleted = allSubtasksDone(updatedSubtasks)
+    const newStatus = nowCompleted ? 'completed' : task.status
+
+    if (nowCompleted && !wasCompleted) {
+      await createTaskCompletionSnapshot(payload, task as Task, userId)
+    }
+
+    if (wasCompleted && !nowCompleted) {
+      await deleteLatestTaskCompletionSnapshot(payload, taskId)
+    }
 
     await payload.update({
       collection: 'tasks',
       id: taskId,
       data: {
         subtasks: updatedSubtasks,
-        ...(newStatus !== task.status && { status: newStatus }),
+        ...(newStatus !== task.status && {
+          status: newStatus,
+          completedAt: nowCompleted ? new Date().toISOString() : null,
+        }),
       },
     })
 
