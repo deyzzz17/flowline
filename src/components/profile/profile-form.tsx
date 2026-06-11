@@ -33,6 +33,7 @@ import { useUploadAvatar } from '@/hooks/profile/use-upload-avatar'
 import { useDeleteAccount } from '@/hooks/profile/use-delete-account'
 import { useUser } from '@/contexts/user-context'
 import { ChangePasswordDialog } from '@/components/profile/change-password-dialog'
+import { useVerifyEmail } from '@/hooks/profile/use-verify-email'
 
 function getInitials(name: string): string {
   if (!name) return '?'
@@ -85,6 +86,8 @@ export const ProfileForm = ({
   const isDirty = name !== initialName || pendingFile !== null
   const displayError = uploadError ?? saveError ?? deleteError
   const { updateUser } = useUser()
+
+  const { sendVerification, isSending: isVerifying, sent: verificationSent } = useVerifyEmail()
 
   const clearAllErrors = () => {
     clearUploadError()
@@ -218,15 +221,31 @@ export const ProfileForm = ({
                     {!isEmailVerified && (
                       <button
                         type="button"
-                        className="shrink-0 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-600 transition-all hover:bg-amber-500/20 dark:text-amber-400"
+                        onClick={() => sendVerification(initialEmail)}
+                        disabled={isVerifying || verificationSent}
+                        className="flex shrink-0 items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-600 transition-all hover:bg-amber-500/20 disabled:opacity-60 dark:text-amber-400"
                       >
-                        Verify
+                        {isVerifying ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Sending...
+                          </>
+                        ) : verificationSent ? (
+                          <>
+                            <CheckCircle2 className="h-3 w-3" />
+                            Sent
+                          </>
+                        ) : (
+                          'Verify'
+                        )}
                       </button>
                     )}
                   </div>
                   {!isEmailVerified && (
                     <p className="text-xs text-amber-600/70 dark:text-amber-400/70">
-                      Verify your email to access all features.
+                      {verificationSent
+                        ? 'Check your inbox and click the link to verify your email.'
+                        : 'Verify your email to access all features.'}
                     </p>
                   )}
                 </div>
