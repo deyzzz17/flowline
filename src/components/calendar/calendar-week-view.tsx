@@ -318,12 +318,14 @@ export function CalendarWeekView({
     : 0
 
   const totalGridHeight = SLOT_HEIGHT * 24
-
   const timeColWidth = isMobile ? 'w-10' : 'w-14'
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
-      <div className="flex shrink-0 border-b border-border/40 bg-background z-20">
+      <div
+        className="flex shrink-0 border-b border-border/40 bg-background z-20"
+        style={{ scrollbarGutter: 'stable', paddingRight: 'var(--scrollbar-width, 0px)' }}
+      >
         <div className={cn(timeColWidth, 'shrink-0 border-r border-border/40')} />
         <div className="flex flex-1 min-w-0">
           {days.map((date, i) => {
@@ -359,7 +361,10 @@ export function CalendarWeekView({
       </div>
 
       {hasAnyAllDay && (
-        <div className="flex shrink-0 border-b border-border/40 bg-background z-10">
+        <div
+          className="flex shrink-0 border-b border-border/40 bg-background z-10"
+          style={{ paddingRight: 'var(--scrollbar-width, 0px)' }}
+        >
           <div
             className={cn(timeColWidth, 'shrink-0 border-r border-border/40')}
             style={{ height: allDayBandHeight }}
@@ -396,7 +401,10 @@ export function CalendarWeekView({
         </div>
       )}
 
-      <div className="flex flex-1 overflow-y-auto overflow-x-hidden min-h-0">
+      <div
+        className="flex flex-1 overflow-y-auto overflow-x-hidden min-h-0"
+        style={{ scrollbarGutter: 'stable' }}
+      >
         <div
           className={cn(timeColWidth, 'shrink-0 border-r border-border/40 relative')}
           style={{ height: totalGridHeight }}
