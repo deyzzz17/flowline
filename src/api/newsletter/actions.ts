@@ -37,6 +37,8 @@ export async function subscribeToNewsletter(email: string) {
       unsubscribed: false,
     })
 
+    console.log('Resend result:', JSON.stringify(result))
+
     if (result.error) {
       console.error('Resend error:', result.error)
       return { error: 'Failed to subscribe. Please try again.' }
