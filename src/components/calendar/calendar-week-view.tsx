@@ -46,6 +46,14 @@ function isAllDay(item: CalendarItem): boolean {
   return item.type === 'event' && (item as CalendarEvent).allDay
 }
 
+function isContinuesPrevDay(item: CalendarItem, viewDate: Date): boolean {
+  if (item.type !== 'event') return false
+  const start = new Date((item as CalendarEvent).startDate)
+  const dayStart = new Date(viewDate)
+  dayStart.setHours(0, 0, 0, 0)
+  return start < dayStart
+}
+
 function AllDayPill({
   item,
   onClick,
@@ -111,12 +119,31 @@ function getSlotDate(date: Date, clientY: number, rect: DOMRect): Date {
   return slotDate
 }
 
-function computeColumnsForDay(items: CalendarItem[], viewDate: Date) {
+function computeColumnsForDay(
+  items: CalendarItem[],
+  viewDate: Date,
+): { item: CalendarItem; column: number; totalColumns: number; isContinuation: boolean }[] {
   if (items.length === 0) return []
-  const sorted = [...items].sort((a, b) => getItemTop(a, viewDate) - getItemTop(b, viewDate))
+
+  const continuations = items.filter((i) => isContinuesPrevDay(i, viewDate))
+  const normalItems = items.filter((i) => !isContinuesPrevDay(i, viewDate))
+
+  const continuationResults = continuations.map((item) => ({
+    item,
+    column: 0,
+    totalColumns: 1,
+    isContinuation: true,
+  }))
+
+  if (normalItems.length === 0) return continuationResults
+
+  // Calcul des colonnes uniquement pour les events normaux
+  const sorted = [...normalItems].sort((a, b) => getItemTop(a, viewDate) - getItemTop(b, viewDate))
+
   const groups: CalendarItem[][] = []
   let currentGroup: CalendarItem[] = []
   let groupEnd = 0
+
   for (const item of sorted) {
     const top = getItemTop(item, viewDate)
     const end = top + getItemHeight(item, viewDate)
@@ -130,7 +157,14 @@ function computeColumnsForDay(items: CalendarItem[], viewDate: Date) {
     }
   }
   if (currentGroup.length > 0) groups.push(currentGroup)
-  const result: { item: CalendarItem; column: number; totalColumns: number }[] = []
+
+  const normalResults: {
+    item: CalendarItem
+    column: number
+    totalColumns: number
+    isContinuation: boolean
+  }[] = []
+
   for (const group of groups) {
     const columns: CalendarItem[][] = []
     for (const item of group) {
@@ -149,10 +183,13 @@ function computeColumnsForDay(items: CalendarItem[], viewDate: Date) {
     }
     const totalColumns = columns.length
     columns.forEach((col, colIndex) => {
-      col.forEach((item) => result.push({ item, column: colIndex, totalColumns }))
+      col.forEach((item) =>
+        normalResults.push({ item, column: colIndex, totalColumns, isContinuation: false }),
+      )
     })
   }
-  return result
+
+  return [...continuationResults, ...normalResults]
 }
 
 function GhostBlock({ color, height }: { color: string; height: number }) {
@@ -238,10 +275,42 @@ function DayColumn({
         <DroppableSlot key={s} date={date} slotIndex={s} />
       ))}
       {ghostOverflow > 0 && <GhostBlock color="#8b5cf6" height={minutesToPx(ghostOverflow)} />}
-      {layouts.map(({ item, column, totalColumns }) => {
+      {layouts.map(({ item, column, totalColumns, isContinuation }) => {
+        const color = item.type === 'event' ? (item as CalendarEvent).color : '#8b5cf6'
+
+        if (isContinuation) {
+          return (
+            <CalendarEventBlock
+              key={`${item.type}-${item.id}-${date.toDateString()}`}
+              item={item}
+              onClickItem={onClickItem}
+              onResizeEnd={(item, newEndDate) => {
+                onResizeOverflow(null)
+                onResizeEnd(item, newEndDate)
+              }}
+              viewDate={date}
+              style={{
+                left: PADDING,
+                right: PADDING,
+                width: 'auto',
+                zIndex: 5, 
+              }}
+              onResizeOverflow={(overflowMin) => {
+                if (overflowMin > 0)
+                  onResizeOverflow({
+                    itemId: `${item.type}-${item.id}`,
+                    dayIndex: 0,
+                    overflowMinutes: overflowMin,
+                    color,
+                  })
+                else onResizeOverflow(null)
+              }}
+            />
+          )
+        }
+
         const widthPct = 100 / totalColumns
         const leftPct = column * widthPct
-        const color = item.type === 'event' ? (item as CalendarEvent).color : '#8b5cf6'
         return (
           <CalendarEventBlock
             key={`${item.type}-${item.id}-${date.toDateString()}`}
