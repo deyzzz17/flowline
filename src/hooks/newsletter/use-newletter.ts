@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSession } from '@/lib/auth-client'
 import { subscribeToNewsletter } from '@/api/newsletter/actions'
 
@@ -9,6 +9,10 @@ const SESSION_KEY = 'newsletter_dismissed'
 export const useNewsletter = () => {
   const { data: session } = useSession()
   const isEmailVerified = session?.user?.emailVerified ?? false
+  const accountEmail = session?.user?.email ?? ''
+  const userId = session?.user?.id ?? ''
+
+  const subscribedKey = userId ? `newsletter_subscribed_${userId}` : 'newsletter_subscribed'
 
   const [sessionDismissed, setSessionDismissed] = useState(() => {
     if (typeof window === 'undefined') return false
@@ -19,7 +23,14 @@ export const useNewsletter = () => {
   const [error, setError] = useState<string | null>(null)
   const [subscribed, setSubscribed] = useState(false)
 
+  useEffect(() => {
+    if (accountEmail && !email) {
+      setEmail(accountEmail)
+    }
+  }, [accountEmail])
+
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  const isAccountEmail = email.toLowerCase() === accountEmail.toLowerCase()
 
   const dismiss = () => {
     if (typeof window !== 'undefined') {
@@ -31,6 +42,11 @@ export const useNewsletter = () => {
   const subscribe = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!isValidEmail || !isEmailVerified) return
+
+    if (!isAccountEmail) {
+      setError('You must use your account email address to subscribe.')
+      return
+    }
 
     setIsLoading(true)
     setError(null)
@@ -44,7 +60,7 @@ export const useNewsletter = () => {
       }
 
       if (typeof window !== 'undefined') {
-        localStorage.setItem('newsletter_subscribed', 'true')
+        localStorage.setItem(subscribedKey, 'true')
       }
       setSubscribed(true)
     } catch {
@@ -56,7 +72,7 @@ export const useNewsletter = () => {
 
   const isPermanentlyHidden = () => {
     if (typeof window === 'undefined') return true
-    return localStorage.getItem('newsletter_subscribed') === 'true'
+    return localStorage.getItem(subscribedKey) === 'true'
   }
 
   const isVisible = !sessionDismissed && !subscribed && !isPermanentlyHidden()
@@ -67,9 +83,11 @@ export const useNewsletter = () => {
     isLoading,
     error,
     isValidEmail,
+    isAccountEmail,
     isVisible,
     subscribed,
     isEmailVerified,
+    accountEmail,
     dismiss,
     subscribe,
   }

@@ -19,19 +19,28 @@ export async function subscribeToNewsletter(email: string) {
     return { error: 'You must verify your email before subscribing.' }
   }
 
+  if (email.toLowerCase() !== session.user.email.toLowerCase()) {
+    return { error: 'You must use your account email address to subscribe.' }
+  }
+
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   if (!emailRegex.test(email)) {
     return { error: 'Invalid email address.' }
   }
 
   try {
-    await resend.contacts.create({
+    const result = await resend.contacts.create({
       audienceId: AUDIENCE_ID,
       email,
       firstName: session.user.name?.split(' ')[0] ?? '',
       lastName: session.user.name?.split(' ').slice(1).join(' ') ?? '',
       unsubscribed: false,
     })
+
+    if (result.error) {
+      console.error('Resend error:', result.error)
+      return { error: 'Failed to subscribe. Please try again.' }
+    }
 
     return { success: true }
   } catch (e) {

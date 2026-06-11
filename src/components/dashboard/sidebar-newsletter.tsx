@@ -1,9 +1,8 @@
 'use client'
 
-import { X, Mail, Check, Loader2, ShieldAlert } from 'lucide-react'
+import { X, Mail, Check, Loader2, ShieldAlert, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-
 import Link from 'next/link'
 import { useNewsletter } from '@/hooks/newsletter/use-newletter'
 
@@ -14,6 +13,7 @@ export const SidebarNewsletter = () => {
     isLoading,
     error,
     isValidEmail,
+    isAccountEmail,
     isVisible,
     subscribed,
     isEmailVerified,
@@ -52,7 +52,6 @@ export const SidebarNewsletter = () => {
             type="button"
             onClick={dismiss}
             className="text-muted-foreground/40 hover:text-muted-foreground transition-colors shrink-0"
-            aria-label="Dismiss"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -89,7 +88,6 @@ export const SidebarNewsletter = () => {
           type="button"
           onClick={dismiss}
           className="text-muted-foreground/40 hover:text-muted-foreground transition-colors shrink-0"
-          aria-label="Dismiss"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -97,19 +95,32 @@ export const SidebarNewsletter = () => {
       <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
         Get updates on new features and improvements.
       </p>
-      {error && <p className="mb-2 text-[10px] text-destructive">{error}</p>}
+      {error && (
+        <div className="mb-2 flex items-center gap-1.5 text-[10px] text-destructive">
+          <AlertCircle className="h-3 w-3 shrink-0" />
+          {error}
+        </div>
+      )}
       <form onSubmit={subscribe} className="space-y-2">
-        <Input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="your@email.com"
-          className="h-8 text-xs"
-        />
+        <div className="space-y-1">
+          <Input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="your@email.com"
+            className={`h-8 text-xs ${!isAccountEmail && email ? 'border-destructive focus-visible:ring-destructive/30' : ''}`}
+          />
+          {!isAccountEmail && email && (
+            <p className="text-[10px] text-destructive flex items-center gap-1">
+              <AlertCircle className="h-2.5 w-2.5 shrink-0" />
+              Must match your account email.
+            </p>
+          )}
+        </div>
         <Button
           type="submit"
           size="sm"
-          disabled={!isValidEmail || isLoading}
+          disabled={!isValidEmail || !isAccountEmail || isLoading}
           className="w-full h-8 text-xs gap-1.5"
         >
           {isLoading ? (
