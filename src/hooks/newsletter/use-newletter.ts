@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useSession } from '@/lib/auth-client'
+import { subscribeToNewsletter } from '@/api/newsletter/actions'
 
 const SESSION_KEY = 'newsletter_dismissed'
 
@@ -30,10 +31,18 @@ export const useNewsletter = () => {
   const subscribe = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!isValidEmail || !isEmailVerified) return
+
     setIsLoading(true)
     setError(null)
+
     try {
-      await new Promise((resolve) => setTimeout(resolve, 800))
+      const result = await subscribeToNewsletter(email)
+
+      if ('error' in result) {
+        setError(result.error ?? 'Something went wrong. Please try again.')
+        return
+      }
+
       if (typeof window !== 'undefined') {
         localStorage.setItem('newsletter_subscribed', 'true')
       }
