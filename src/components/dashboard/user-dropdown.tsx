@@ -10,10 +10,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { signOut } from '@/lib/auth-client'
+import { signOut, useSession } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
-import { useUser } from '@/contexts/user-context'
 import { toast } from 'sonner'
 
 function getInitials(name: string | null | undefined): string {
@@ -27,7 +26,8 @@ function getInitials(name: string | null | undefined): string {
 }
 
 export const UserDropdown = () => {
-  const { user } = useUser()
+  const { data: session } = useSession()
+  const user = session?.user
   const router = useRouter()
   const queryClient = useQueryClient()
 
