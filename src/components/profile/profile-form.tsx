@@ -49,6 +49,7 @@ interface ProfileFormProps {
   initialEmail: string
   initialImage: string | null
   isEmailVerified: boolean
+  hasPassword: boolean
 }
 
 export const ProfileForm = ({
@@ -56,6 +57,7 @@ export const ProfileForm = ({
   initialEmail,
   initialImage,
   isEmailVerified,
+  hasPassword,
 }: ProfileFormProps) => {
   const router = useRouter()
   const [name, setName] = useState(initialName)
@@ -113,7 +115,7 @@ export const ProfileForm = ({
 
   return (
     <>
-      <div className="mx-auto max-w-2xl px-4 pb-24 sm:px-6">
+      <div className="mx-auto max-w-2xl px-4 pb-16 sm:px-6">
         <section className="mt-10 mb-8">
           <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-violet-600 dark:text-violet-400">
             Account
@@ -233,21 +235,33 @@ export const ProfileForm = ({
                   <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Password
                   </Label>
-                  <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/40 px-3 py-2.5">
-                    <div className="flex items-center gap-2.5">
-                      <KeyRound className="h-4 w-4 shrink-0 text-muted-foreground/50" />
-                      <span className="text-sm text-muted-foreground tracking-widest">
-                        ••••••••
-                      </span>
+                  {hasPassword ? (
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/40 px-3 py-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <KeyRound className="h-4 w-4 shrink-0 text-muted-foreground/50" />
+                        <span className="text-sm text-muted-foreground tracking-widest">
+                          ••••••••
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPasswordDialogOpen(true)}
+                        className="shrink-0 rounded-lg border border-border/60 bg-background px-3 py-1 text-xs font-medium text-muted-foreground transition-all hover:border-border hover:bg-muted hover:text-foreground"
+                      >
+                        Change
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setPasswordDialogOpen(true)}
-                      className="shrink-0 rounded-lg border border-border/60 bg-background px-3 py-1 text-xs font-medium text-muted-foreground transition-all hover:border-border hover:bg-muted hover:text-foreground"
-                    >
-                      Change
-                    </button>
-                  </div>
+                  ) : (
+                    <div className="flex items-center gap-3 rounded-xl border border-border/40 bg-muted/20 px-3 py-2.5">
+                      <KeyRound className="h-4 w-4 shrink-0 text-muted-foreground/30" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-muted-foreground/60">Managed by Google</p>
+                        <p className="text-[11px] text-muted-foreground/40 mt-0.5">
+                          Your account uses Google Sign-In — password is managed by Google.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -345,7 +359,10 @@ export const ProfileForm = ({
           </div>
         </div>
       </div>
-      <ChangePasswordDialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen} />
+
+      {hasPassword && (
+        <ChangePasswordDialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen} />
+      )}
     </>
   )
 }
