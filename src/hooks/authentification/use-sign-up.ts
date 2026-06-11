@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 
 export const passwordRules = [
@@ -18,6 +19,7 @@ export const passwordRules = [
 
 export const useSignUp = () => {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -45,12 +47,13 @@ export const useSignUp = () => {
     setIsLoading(true)
 
     const result = await api.authentifications.signUp(name, email, password)
-
     if (!result.ok) {
       setError(result.error)
       setIsLoading(false)
       return
     }
+
+    queryClient.clear()
 
     router.push('/dashboard')
   }

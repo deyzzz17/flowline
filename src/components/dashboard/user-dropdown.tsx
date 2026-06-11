@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { signOut } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { useUser } from '@/contexts/user-context'
 import { toast } from 'sonner'
 
@@ -28,9 +29,11 @@ function getInitials(name: string | null | undefined): string {
 export const UserDropdown = () => {
   const { user } = useUser()
   const router = useRouter()
+  const queryClient = useQueryClient()
 
   const handleSignOut = async () => {
     await signOut()
+    queryClient.clear()
     toast.info('Log out successfull', {
       description: `You have been successfully logged out. See you soon.`,
     })
@@ -49,7 +52,6 @@ export const UserDropdown = () => {
           </Avatar>
         </button>
       </DropdownMenuTrigger>
-
       <DropdownMenuContent align="end" className="w-56 rounded-xl p-1.5">
         <div className="flex items-center gap-3 px-2 py-2">
           <Avatar className="h-8 w-8 shrink-0">
@@ -65,18 +67,14 @@ export const UserDropdown = () => {
             <p className="truncate text-xs text-muted-foreground">{user?.email ?? ''}</p>
           </div>
         </div>
-
         <DropdownMenuSeparator />
-
         <DropdownMenuItem asChild className="cursor-pointer rounded-lg">
           <Link href="/dashboard" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             Dashboard
           </Link>
         </DropdownMenuItem>
-
         <DropdownMenuSeparator />
-
         <DropdownMenuItem
           onClick={handleSignOut}
           className="cursor-pointer rounded-lg text-destructive focus:bg-destructive/10 focus:text-destructive"
