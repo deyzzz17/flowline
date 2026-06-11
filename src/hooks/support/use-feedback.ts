@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import { sendFeedbackEmail } from '@/api/support/actions'
+import { toast } from 'sonner'
 
 export type FeedbackCategory = 'bug' | 'suggestion' | 'other'
 
@@ -37,7 +39,14 @@ export const useFeedback = () => {
     setError(null)
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 800)) // simulé pour l'instant
+      const result = await sendFeedbackEmail({ subject: subject.trim(), message: message.trim() })
+
+      if ('error' in result) {
+        setError(result.error ?? 'Something went wrong. Please try again.')
+        return
+      }
+
+      toast.success('Feedback sent — thank you!')
       handleClose()
     } catch {
       setError('Something went wrong. Please try again.')
