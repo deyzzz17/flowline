@@ -274,7 +274,7 @@ function RecurrencePicker({
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-4 space-y-4 shadow-xl" align="start">
+      <PopoverContent className="w-80 p-4 space-y-4 shadow-xl" align="start" side="top">
         <p className="text-sm font-semibold text-foreground">Repeat</p>
 
         <div className="space-y-1.5">

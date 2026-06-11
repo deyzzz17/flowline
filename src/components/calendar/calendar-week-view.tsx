@@ -357,7 +357,7 @@ export function CalendarWeekView({
           })}
         </div>
       </div>
-      
+
       {hasAnyAllDay && (
         <div className="flex shrink-0 border-b border-border/40 bg-background z-10">
           <div
@@ -405,10 +405,12 @@ export function CalendarWeekView({
             <div
               key={h}
               className="absolute right-0 flex items-start justify-end pr-1.5"
-              style={{ top: h * SLOT_HEIGHT - 8, height: SLOT_HEIGHT }}
+              style={{ top: h * SLOT_HEIGHT, height: SLOT_HEIGHT }}
             >
               {h !== 0 && (
-                <span className="text-[10px] text-muted-foreground/50">{formatHourLabel(h)}</span>
+                <span className="text-[10px] text-muted-foreground/50 -translate-y-1/2 inline-block">
+                  {formatHourLabel(h)}
+                </span>
               )}
             </div>
           ))}
