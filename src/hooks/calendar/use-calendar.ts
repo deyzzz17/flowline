@@ -818,7 +818,14 @@ export const useCalendar = () => {
         dayStart.setHours(0, 0, 0, 0)
         const dayEnd = new Date(date)
         dayEnd.setHours(23, 59, 59, 999)
-        return start <= dayEnd && end >= dayStart
+        if (!(start <= dayEnd && end >= dayStart)) return false
+
+        if (e.isOccurrence && e.occurrenceDate && !e.optimisticKey?.startsWith('optimistic-')) {
+          const occDateKey = getLocalDateKey(e.occurrenceDate)
+          if (optimisticExceptions.has(`${e.id}:${occDateKey}`)) return false
+        }
+
+        return true
       })
 
       const dayTasks = tasksWithOverrides.filter((t) => sameLocalDate(t.dueDate))
@@ -835,6 +842,7 @@ export const useCalendar = () => {
       isCategoryVisible,
       isGoogleCalendarVisible,
       habitsVisible,
+      optimisticExceptions,
     ],
   )
 
