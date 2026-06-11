@@ -668,7 +668,10 @@ export const useCalendar = () => {
 
       updateMutation.mutate({
         id,
-        data: { endDate: newEndDate.toISOString() },
+        data: {
+          startDate: event?.startDate,
+          endDate: newEndDate.toISOString(),
+        },
         scope: scope ?? (event?.isOccurrence ? 'this' : 'all'),
         originalDate:
           originalDate ?? event?.occurrenceDate ?? event?.originalDate ?? event?.startDate,

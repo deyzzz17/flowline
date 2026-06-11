@@ -436,16 +436,11 @@ export const updateCalendarEvent = async (
           0,
           0,
         ).toISOString()
+
         if (data.endDate) {
-          const newOccEnd = new Date(data.endDate)
+          const newDuration = new Date(data.endDate).getTime() - new Date(data.startDate).getTime()
           updateData.endDate = new Date(
-            parentEnd.getFullYear(),
-            parentEnd.getMonth(),
-            parentEnd.getDate(),
-            newOccEnd.getHours(),
-            newOccEnd.getMinutes(),
-            0,
-            0,
+            new Date(updateData.startDate).getTime() + newDuration,
           ).toISOString()
         } else {
           updateData.endDate = new Date(
@@ -453,17 +448,18 @@ export const updateCalendarEvent = async (
           ).toISOString()
         }
       } else if (data.endDate) {
-        const occStart = new Date(occDate)
-        const occStartInSeries = new Date(
-          occStart.getFullYear(),
-          occStart.getMonth(),
-          occStart.getDate(),
-          parentStart.getHours(),
-          parentStart.getMinutes(),
-          0,
-          0,
-        )
-        const newDuration = new Date(data.endDate).getTime() - occStartInSeries.getTime()
+        const occStartDate = data.startDate
+          ? new Date(data.startDate)
+          : new Date(
+              new Date(occDate).getFullYear(),
+              new Date(occDate).getMonth(),
+              new Date(occDate).getDate(),
+              parentStart.getHours(),
+              parentStart.getMinutes(),
+              0,
+              0,
+            )
+        const newDuration = new Date(data.endDate).getTime() - occStartDate.getTime()
         updateData.endDate = new Date(parentStart.getTime() + newDuration).toISOString()
       }
 
@@ -512,10 +508,29 @@ export const updateCalendarEvent = async (
         })
         return ok(updated)
       } else {
-        const duration = parentEnd.getTime() - parentStart.getTime()
-        const newStart = data.startDate ?? occDate
-        const newEnd =
-          data.endDate ?? new Date(new Date(newStart).getTime() + duration).toISOString()
+        const occStartTime = new Date(
+          new Date(occDate).getFullYear(),
+          new Date(occDate).getMonth(),
+          new Date(occDate).getDate(),
+          parentStart.getHours(),
+          parentStart.getMinutes(),
+          0,
+          0,
+        )
+
+        const newStart = data.startDate ?? occStartTime.toISOString()
+
+        let newEnd: string
+        if (data.endDate && data.startDate) {
+          const newDuration = new Date(data.endDate).getTime() - new Date(data.startDate).getTime()
+          newEnd = new Date(new Date(newStart).getTime() + newDuration).toISOString()
+        } else if (data.endDate) {
+          newEnd = data.endDate
+        } else {
+          const originalDuration = parentEnd.getTime() - parentStart.getTime()
+          newEnd = new Date(new Date(newStart).getTime() + originalDuration).toISOString()
+        }
+
         const created = await payload.create({
           collection: 'calendar-events',
           data: {
@@ -561,8 +576,13 @@ export const updateCalendarEvent = async (
 
       if (data.startDate) {
         newStart = data.startDate
-        const baseDuration = parentEnd.getTime() - parentStart.getTime()
-        newEnd = data.endDate ?? new Date(new Date(newStart).getTime() + baseDuration).toISOString()
+        if (data.endDate) {
+          const newDuration = new Date(data.endDate).getTime() - new Date(data.startDate).getTime()
+          newEnd = new Date(new Date(newStart).getTime() + newDuration).toISOString()
+        } else {
+          const baseDuration = parentEnd.getTime() - parentStart.getTime()
+          newEnd = new Date(new Date(newStart).getTime() + baseDuration).toISOString()
+        }
       } else {
         newStart = new Date(
           occDateTime.getFullYear(),
@@ -573,8 +593,13 @@ export const updateCalendarEvent = async (
           0,
           0,
         ).toISOString()
-        const baseDuration = parentEnd.getTime() - parentStart.getTime()
-        newEnd = data.endDate ?? new Date(new Date(newStart).getTime() + baseDuration).toISOString()
+        if (data.endDate) {
+          const newDuration = new Date(data.endDate).getTime() - new Date(newStart).getTime()
+          newEnd = new Date(new Date(newStart).getTime() + newDuration).toISOString()
+        } else {
+          const baseDuration = parentEnd.getTime() - parentStart.getTime()
+          newEnd = new Date(new Date(newStart).getTime() + baseDuration).toISOString()
+        }
       }
 
       const existingAdjustments = ((parent as any).adjustments ?? []) as SeriesAdjustment[]
