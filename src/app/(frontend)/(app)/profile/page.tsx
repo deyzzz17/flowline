@@ -12,14 +12,16 @@ export default async function ProfilePage() {
   let hasPassword = false
   try {
     const accounts = await auth.api.listUserAccounts({ headers: await headers() })
-    hasPassword = accounts.some((a: any) => a.provider === 'credential')
+    hasPassword =
+      !accounts.some((a: any) => a.provider === 'google') ||
+      accounts.some((a: any) => a.provider === 'credential' || a.provider === 'credentials')
   } catch {
     hasPassword = true
   }
 
   return (
     <ProtectedRoute>
-      <div className="relative min-h-dvh overflow-x-hidden">
+      <div className="relative">
         <Orb className="pointer-events-none absolute -top-32 -left-32 h-96 w-96 rounded-full bg-violet-500 opacity-5 dark:opacity-10 blur-3xl animate-pulse" />
         <Orb className="pointer-events-none fixed -bottom-32 -right-32 h-64 w-64 rounded-full bg-indigo-500 opacity-5 dark:opacity-10 blur-3xl animate-pulse" />
         <ProfileForm
