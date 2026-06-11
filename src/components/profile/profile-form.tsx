@@ -32,6 +32,7 @@ import { useUpdateProfile } from '@/hooks/profile/use-update-profile'
 import { useUploadAvatar } from '@/hooks/profile/use-upload-avatar'
 import { useDeleteAccount } from '@/hooks/profile/use-delete-account'
 import { useUser } from '@/contexts/user-context'
+import { ChangePasswordDialog } from '@/components/profile/change-password-dialog'
 
 function getInitials(name: string): string {
   if (!name) return '?'
@@ -61,6 +62,7 @@ export const ProfileForm = ({
   const [previewImage, setPreviewImage] = useState<string | null>(initialImage)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
 
   const { save, isSaving, saved, error: saveError, clearError: clearSaveError } = useUpdateProfile()
   const {
@@ -110,234 +112,240 @@ export const ProfileForm = ({
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 pb-16 sm:px-6">
-      <section className="mt-10 mb-8">
-        <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-violet-600 dark:text-violet-400">
-          Account
-        </p>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Profile</h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">
-          Manage your personal information and preferences.
-        </p>
-      </section>
+    <>
+      <div className="mx-auto max-w-2xl px-4 pb-24 sm:px-6">
+        <section className="mt-10 mb-8">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-violet-600 dark:text-violet-400">
+            Account
+          </p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Profile</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            Manage your personal information and preferences.
+          </p>
+        </section>
 
-      {displayError && (
-        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/8 px-4 py-3 animate-in fade-in slide-in-from-top-1">
-          <div className="flex items-center gap-2 text-sm text-destructive">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            {displayError}
-          </div>
-          <button
-            type="button"
-            onClick={clearAllErrors}
-            className="text-destructive/60 transition-colors hover:text-destructive"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
-
-      <div className="space-y-4">
-        <div className="rounded-2xl border border-border/60 bg-card/40 p-6 backdrop-blur-sm">
-          <h2 className="mb-5 text-sm font-semibold text-foreground">General</h2>
-
-          <div className="flex items-start gap-6">
+        {displayError && (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/8 px-4 py-3 animate-in fade-in slide-in-from-top-1">
+            <div className="flex items-center gap-2 text-sm text-destructive">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {displayError}
+            </div>
             <button
               type="button"
-              onClick={() => fileRef.current?.click()}
-              disabled={isSaving}
-              className="group relative shrink-0"
-              aria-label="Change avatar"
+              onClick={clearAllErrors}
+              className="text-destructive/60 transition-colors hover:text-destructive"
             >
-              <Avatar className="h-20 w-20">
-                <AvatarImage src={previewImage ?? undefined} alt={name} />
-                <AvatarFallback className="bg-linear-to-br from-violet-500 to-purple-600 text-2xl font-bold text-white">
-                  {name ? getInitials(name) : <User className="h-8 w-8" />}
-                </AvatarFallback>
-              </Avatar>
-              {pendingFile && (
-                <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-violet-500 ring-2 ring-background" />
-              )}
-              <div className="absolute inset-0 flex flex-col items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-                <Camera className="h-5 w-5 text-white" />
-                <span className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
-                  Change
-                </span>
-              </div>
+              <X className="h-4 w-4" />
             </button>
+          </div>
+        )}
 
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/jpeg,image/png,image/gif,image/webp"
-              className="hidden"
-              onChange={handleFileChange}
-            />
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-border/60 bg-card/40 p-6 backdrop-blur-sm">
+            <h2 className="mb-5 text-sm font-semibold text-foreground">General</h2>
 
-            <div className="flex-1 min-w-0 space-y-4">
-              <div className="space-y-1.5">
-                <Label
-                  htmlFor="name"
-                  className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
-                >
-                  Name
-                </Label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Your display name"
-                  className="h-10 rounded-xl border-border/60 bg-background text-sm focus-visible:ring-violet-500/30"
-                />
-              </div>
+            <div className="flex items-start gap-6">
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={isSaving}
+                className="group relative shrink-0"
+                aria-label="Change avatar"
+              >
+                <Avatar className="h-20 w-20">
+                  <AvatarImage src={previewImage ?? undefined} alt={name} />
+                  <AvatarFallback className="bg-linear-to-br from-violet-500 to-purple-600 text-2xl font-bold text-white">
+                    {name ? getInitials(name) : <User className="h-8 w-8" />}
+                  </AvatarFallback>
+                </Avatar>
+                {pendingFile && (
+                  <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-violet-500 ring-2 ring-background" />
+                )}
+                <div className="absolute inset-0 flex flex-col items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                  <Camera className="h-5 w-5 text-white" />
+                  <span className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+                    Change
+                  </span>
+                </div>
+              </button>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Email address
-                </Label>
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/40 px-3 py-2.5">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="truncate text-sm text-muted-foreground">{initialEmail}</span>
-                    {isEmailVerified ? (
-                      <span className="flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                        <CheckCircle2 className="h-2.5 w-2.5" />
-                        Verified
-                      </span>
-                    ) : (
-                      <span className="flex shrink-0 items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
-                        <ShieldAlert className="h-2.5 w-2.5" />
-                        Unverified
-                      </span>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+
+              <div className="flex-1 min-w-0 space-y-4">
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="name"
+                    className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
+                  >
+                    Name
+                  </Label>
+                  <Input
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Your display name"
+                    className="h-10 rounded-xl border-border/60 bg-background text-sm focus-visible:ring-violet-500/30"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Email address
+                  </Label>
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/40 px-3 py-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="truncate text-sm text-muted-foreground">{initialEmail}</span>
+                      {isEmailVerified ? (
+                        <span className="flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                          <CheckCircle2 className="h-2.5 w-2.5" />
+                          Verified
+                        </span>
+                      ) : (
+                        <span className="flex shrink-0 items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                          <ShieldAlert className="h-2.5 w-2.5" />
+                          Unverified
+                        </span>
+                      )}
+                    </div>
+                    {!isEmailVerified && (
+                      <button
+                        type="button"
+                        className="shrink-0 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-600 transition-all hover:bg-amber-500/20 dark:text-amber-400"
+                      >
+                        Verify
+                      </button>
                     )}
                   </div>
                   {!isEmailVerified && (
+                    <p className="text-xs text-amber-600/70 dark:text-amber-400/70">
+                      Verify your email to access all features.
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Password
+                  </Label>
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/40 px-3 py-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <KeyRound className="h-4 w-4 shrink-0 text-muted-foreground/50" />
+                      <span className="text-sm text-muted-foreground tracking-widest">
+                        ••••••••
+                      </span>
+                    </div>
                     <button
                       type="button"
-                      className="shrink-0 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-600 transition-all hover:bg-amber-500/20 dark:text-amber-400"
+                      onClick={() => setPasswordDialogOpen(true)}
+                      className="shrink-0 rounded-lg border border-border/60 bg-background px-3 py-1 text-xs font-medium text-muted-foreground transition-all hover:border-border hover:bg-muted hover:text-foreground"
                     >
-                      Verify
+                      Change
                     </button>
-                  )}
-                </div>
-                {!isEmailVerified && (
-                  <p className="text-xs text-amber-600/70 dark:text-amber-400/70">
-                    Verify your email to access all features.
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Password
-                </Label>
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/40 px-3 py-2.5">
-                  <div className="flex items-center gap-2.5">
-                    <KeyRound className="h-4 w-4 shrink-0 text-muted-foreground/50" />
-                    <span className="text-sm text-muted-foreground tracking-widest">••••••••</span>
                   </div>
-                  <button
-                    type="button"
-                    className="shrink-0 rounded-lg border border-border/60 bg-background px-3 py-1 text-xs font-medium text-muted-foreground transition-all hover:border-border hover:bg-muted hover:text-foreground"
-                  >
-                    Change
-                  </button>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div className="mt-6 flex items-center justify-between border-t border-border/50 pt-5">
-            <p className="text-xs text-muted-foreground/60">
-              {saved ? (
-                <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  Changes saved
-                </span>
-              ) : isDirty ? (
-                'You have unsaved changes.'
-              ) : (
-                'No changes to save.'
-              )}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="rounded-xl px-4 py-2 text-xs font-semibold text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={!isDirty || isSaving}
-                className={cn(
-                  'flex items-center gap-2 rounded-xl px-5 py-2 text-xs font-semibold transition-all duration-200',
-                  isDirty && !isSaving
-                    ? 'bg-violet-600 text-white shadow-sm shadow-violet-500/20 hover:bg-violet-500'
-                    : 'cursor-not-allowed bg-muted text-muted-foreground',
-                )}
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Saving...
-                  </>
+            <div className="mt-6 flex items-center justify-between border-t border-border/50 pt-5">
+              <p className="text-xs text-muted-foreground/60">
+                {saved ? (
+                  <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Changes saved
+                  </span>
+                ) : isDirty ? (
+                  'You have unsaved changes.'
                 ) : (
-                  'Save changes'
+                  'No changes to save.'
                 )}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6">
-          <h2 className="mb-1 text-sm font-semibold text-foreground">Danger zone</h2>
-          <p className="mb-4 text-xs text-muted-foreground">
-            Once you delete your account, there is no going back. All your data will be permanently
-            removed.
-          </p>
-
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <button
-                type="button"
-                className="flex items-center gap-2 rounded-xl border border-destructive/40 bg-background px-4 py-2 text-xs font-semibold text-destructive transition-all hover:bg-destructive hover:text-white hover:border-transparent"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Delete account
-              </button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. Your account and all associated data (including your
-                  tasks) will be permanently deleted.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={remove}
-                  disabled={isDeleting}
-                  variant="destructive"
-                  className="flex items-center gap-2"
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="rounded-xl px-4 py-2 text-xs font-semibold text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
                 >
-                  {isDeleting ? (
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={!isDirty || isSaving}
+                  className={cn(
+                    'flex items-center gap-2 rounded-xl px-5 py-2 text-xs font-semibold transition-all duration-200',
+                    isDirty && !isSaving
+                      ? 'bg-violet-600 text-white shadow-sm shadow-violet-500/20 hover:bg-violet-500'
+                      : 'cursor-not-allowed bg-muted text-muted-foreground',
+                  )}
+                >
+                  {isSaving ? (
                     <>
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Deleting...
+                      Saving...
                     </>
                   ) : (
-                    'Delete permanently'
+                    'Save changes'
                   )}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6">
+            <h2 className="mb-1 text-sm font-semibold text-foreground">Danger zone</h2>
+            <p className="mb-4 text-xs text-muted-foreground">
+              Once you delete your account, there is no going back. All your data will be
+              permanently removed.
+            </p>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center gap-2 rounded-xl border border-destructive/40 bg-background px-4 py-2 text-xs font-semibold text-destructive transition-all hover:bg-destructive hover:text-white hover:border-transparent"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete account
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. Your account and all associated data (including
+                    your tasks) will be permanently deleted.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={remove}
+                    disabled={isDeleting}
+                    variant="destructive"
+                    className="flex items-center gap-2"
+                  >
+                    {isDeleting ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Deleting...
+                      </>
+                    ) : (
+                      'Delete permanently'
+                    )}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
       </div>
-    </div>
+      <ChangePasswordDialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen} />
+    </>
   )
 }
