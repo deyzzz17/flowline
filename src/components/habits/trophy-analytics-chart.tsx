@@ -127,6 +127,8 @@ export function TrophyAnalyticsChart({
     )
   }
 
+  const showEmpty = isPending || data.total === 0
+
   return (
     <div className="rounded-2xl border border-border/60 bg-card/40 p-5 space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -136,7 +138,14 @@ export function TrophyAnalyticsChart({
           </div>
           <div>
             <p className="text-sm font-semibold text-foreground">Goals claimed</p>
-            <p className="text-xs text-muted-foreground">{data.periodLabel}</p>
+            <p
+              className={cn(
+                'text-xs text-muted-foreground transition-opacity',
+                isPending && 'opacity-40',
+              )}
+            >
+              {data.periodLabel}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-0.5 rounded-xl border border-border/60 bg-muted/30 p-0.5">
@@ -176,18 +185,22 @@ export function TrophyAnalyticsChart({
             <ChevronRight className="h-3.5 w-3.5" />
           </button>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div
+          className={cn('flex items-center gap-1.5 transition-opacity', isPending && 'opacity-40')}
+        >
           <Trophy className="h-3.5 w-3.5 text-amber-500" />
           <span className="text-sm font-bold text-foreground">{data.total}</span>
           <span className="text-xs text-muted-foreground">claimed this period</span>
         </div>
       </div>
 
-      <div className={cn('transition-opacity', isPending && 'opacity-50')} style={{ height: 200 }}>
-        {data.total === 0 && !isPending ? (
+      <div style={{ height: 200 }}>
+        {showEmpty ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
             <Trophy className="h-8 w-8 text-muted-foreground/20" />
-            <p className="text-xs text-muted-foreground/60">No goals claimed this period</p>
+            <p className="text-xs text-muted-foreground/60">
+              {isPending ? 'Loading...' : 'No goals claimed this period'}
+            </p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
@@ -227,7 +240,7 @@ export function TrophyAnalyticsChart({
         )}
       </div>
 
-      {data.claimed.length > 0 && (
+      {data.claimed.length > 0 && !isPending && (
         <div className="space-y-2 pt-1 border-t border-border/40">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/50">
             Claimed goals
