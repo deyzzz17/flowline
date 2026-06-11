@@ -62,6 +62,11 @@ function minutesToPx(minutes: number) {
   return (minutes / 60) * SLOT_HEIGHT
 }
 
+function getLocalDateKey(iso: string): string {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function getViewRange(date: Date, view: CalendarView): { from: Date; to: Date } {
   const y = date.getFullYear()
   const m = date.getMonth()
@@ -179,6 +184,10 @@ export const useCalendar = () => {
     Map<string, { startDate?: string; endDate?: string }>
   >(new Map())
 
+  const [optimisticExceptions, setOptimisticExceptions] = useState<
+    Map<string, { startDate: string; endDate: string }>
+  >(new Map())
+
   const queryClient = useQueryClient()
   const { isCategoryVisible, isGoogleCalendarVisible, habitsVisible } = useCalendarFilter()
   const { from, to } = getViewRange(currentDate, view)
@@ -266,15 +275,23 @@ export const useCalendar = () => {
     )
 
     for (const parent of parents) {
-      const exceptions = new Set(
-        (parent.exceptions ?? []).map((ex) => new Date(ex.date).toISOString().slice(0, 10)),
-      )
-      const overrideDates = new Set(
-        overrides
+      const serverExceptions = new Set((parent.exceptions ?? []).map((ex) => ex.date.slice(0, 10)))
+
+      const parentOptExceptions = new Map<string, { startDate: string; endDate: string }>()
+      for (const [key, val] of optimisticExceptions.entries()) {
+        if (key.startsWith(`${parent.id}:`)) {
+          const dateKey = key.split(':')[1]
+          if (dateKey) parentOptExceptions.set(dateKey, val)
+        }
+      }
+
+      const allExceptions = new Set([
+        ...serverExceptions,
+        ...parentOptExceptions.keys(),
+        ...overrides
           .filter((o) => o.recurrenceId === parent.id)
-          .map((o) => new Date(o.originalDate ?? o.startDate).toISOString().slice(0, 10)),
-      )
-      const allExceptions = new Set([...exceptions, ...overrideDates])
+          .map((o) => (o.originalDate ?? o.startDate).slice(0, 10)),
+      ])
 
       const occurrences = generateOccurrences(
         { ...parent, adjustments: parent.adjustments ?? [] },
@@ -307,6 +324,36 @@ export const useCalendar = () => {
           type: 'event',
         })
       }
+
+      for (const [dateKey, override] of parentOptExceptions.entries()) {
+        const overrideKey = `optimistic-${parent.id}-${dateKey}`
+        const serverOverrideExists = overrides.some(
+          (o) =>
+            o.recurrenceId === parent.id &&
+            (o.originalDate ?? o.startDate).slice(0, 10) === dateKey,
+        )
+        if (!serverOverrideExists) {
+          result.push({
+            id: parent.id,
+            title: parent.title,
+            description: parent.description,
+            startDate: override.startDate,
+            endDate: override.endDate,
+            allDay: parent.allDay,
+            color: parent.color,
+            categoryId: parent.categoryId,
+            recurrence: parent.recurrence,
+            recurrenceId: null,
+            originalDate: override.startDate,
+            isOccurrence: true,
+            occurrenceDate: override.startDate,
+            optimisticKey: overrideKey,
+            source: 'flowline',
+            activeAdjustment: null,
+            type: 'event',
+          })
+        }
+      }
     }
 
     result.push(
@@ -319,7 +366,7 @@ export const useCalendar = () => {
     result.push(...rawHabitEvents)
 
     return result
-  }, [rawEvents, rawHabitEvents, from, to])
+  }, [rawEvents, rawHabitEvents, from, to, optimisticExceptions])
 
   const tasks: CalendarTask[] = useMemo(() => {
     const allTasks = (tasksData?.docs ?? []) as Task[]
@@ -407,6 +454,27 @@ export const useCalendar = () => {
     })
   }, [])
 
+  const addOptimisticException = useCallback(
+    (parentId: number, occDate: string, newStartDate: string, newEndDate: string) => {
+      const dateKey = getLocalDateKey(occDate)
+      setOptimisticExceptions((prev) => {
+        const next = new Map(prev)
+        next.set(`${parentId}:${dateKey}`, { startDate: newStartDate, endDate: newEndDate })
+        return next
+      })
+    },
+    [],
+  )
+
+  const clearOptimisticException = useCallback((parentId: number, occDate: string) => {
+    const dateKey = getLocalDateKey(occDate)
+    setOptimisticExceptions((prev) => {
+      const next = new Map(prev)
+      next.delete(`${parentId}:${dateKey}`)
+      return next
+    })
+  }, [])
+
   const getItemDisplayHeight = useCallback(
     (item: CalendarItem): number => {
       if (item.type === 'event') {
@@ -456,6 +524,7 @@ export const useCalendar = () => {
       scope?: EditScope
       originalDate?: string
       optimisticKey?: string
+      occDate?: string
     }) => api.calendar.update(id, data, scope, originalDate),
 
     onMutate: async ({ optimisticKey: key }) => {
@@ -464,7 +533,7 @@ export const useCalendar = () => {
       return { snapshot, key }
     },
 
-    onSuccess: (_, { id, data, scope, optimisticKey: key }) => {
+    onSuccess: (_, { id, data, scope, optimisticKey: key, occDate }) => {
       if (!scope || scope === 'all') {
         queryClient.setQueriesData<{ docs: any[] }>(
           { queryKey: ['calendar-events-flowline'] },
@@ -481,6 +550,7 @@ export const useCalendar = () => {
         queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] }).then(() => {
           if (key) clearOptimistic(key)
           else clearOptimisticDate('event', id)
+          if (occDate) clearOptimisticException(id, occDate)
         })
         queryClient.invalidateQueries({ queryKey: ['calendar-events-habits'] })
       }
@@ -490,7 +560,7 @@ export const useCalendar = () => {
       }
     },
 
-    onError: (_, { id, optimisticKey: key }, context: any) => {
+    onError: (_, { id, optimisticKey: key, occDate }, context: any) => {
       if (context?.snapshot) {
         for (const [queryKey, data] of context.snapshot) {
           queryClient.setQueryData(queryKey, data)
@@ -498,6 +568,7 @@ export const useCalendar = () => {
       }
       if (key) clearOptimistic(key)
       else clearOptimisticDate('event', id)
+      if (occDate) clearOptimisticException(id, occDate)
       toast.error('Failed to update event')
     },
   })
@@ -628,8 +699,19 @@ export const useCalendar = () => {
 
       const key = event.optimisticKey ?? `event-${id}`
       const duration = new Date(event.endDate).getTime() - new Date(event.startDate).getTime()
+      const effectiveScope = scope ?? (event.isOccurrence ? 'this' : 'all')
+      const occDate = originalDate ?? event.occurrenceDate ?? event.startDate
 
       setOptimisticMove(key, newStartDate.toISOString())
+
+      if (effectiveScope === 'this' && event.isOccurrence) {
+        addOptimisticException(
+          id,
+          occDate,
+          newStartDate.toISOString(),
+          new Date(newStartDate.getTime() + duration).toISOString(),
+        )
+      }
 
       updateMutation.mutate({
         id,
@@ -637,12 +719,13 @@ export const useCalendar = () => {
           startDate: newStartDate.toISOString(),
           endDate: new Date(newStartDate.getTime() + duration).toISOString(),
         },
-        scope: scope ?? (event.isOccurrence ? 'this' : 'all'),
-        originalDate: originalDate ?? event.occurrenceDate ?? event.startDate,
+        scope: effectiveScope,
+        originalDate: occDate,
         optimisticKey: key,
+        occDate,
       })
     },
-    [events, updateMutation, setOptimisticMove],
+    [events, updateMutation, setOptimisticMove, addOptimisticException],
   )
 
   const resizeEvent = useCallback(
@@ -662,8 +745,15 @@ export const useCalendar = () => {
       if (event?.source === 'google') return
 
       const key = event?.optimisticKey ?? `event-${id}`
+      const effectiveScope = scope ?? (event?.isOccurrence ? 'this' : 'all')
+      const occDate =
+        originalDate ?? event?.occurrenceDate ?? event?.originalDate ?? event?.startDate ?? ''
 
       setOptimisticResize(key, newEndDate.toISOString())
+
+      if (effectiveScope === 'this' && event?.isOccurrence && occDate) {
+        addOptimisticException(id, occDate, event.startDate, newEndDate.toISOString())
+      }
 
       updateMutation.mutate({
         id,
@@ -671,13 +761,13 @@ export const useCalendar = () => {
           startDate: event?.startDate,
           endDate: newEndDate.toISOString(),
         },
-        scope: scope ?? (event?.isOccurrence ? 'this' : 'all'),
-        originalDate:
-          originalDate ?? event?.occurrenceDate ?? event?.originalDate ?? event?.startDate,
+        scope: effectiveScope,
+        originalDate: occDate,
         optimisticKey: key,
+        occDate,
       })
     },
-    [updateMutation, events, setOptimisticResize],
+    [updateMutation, events, setOptimisticResize, addOptimisticException],
   )
 
   const moveTask = useCallback(
