@@ -30,6 +30,7 @@ const getUserId = async () => {
   return session?.user?.id ?? null
 }
 
+
 export const createList = async (input: CreateListInput) => {
   try {
     const userId = await getUserId()
@@ -40,6 +41,16 @@ export const createList = async (input: CreateListInput) => {
     }
 
     const payload = await getPayload({ config })
+
+    const { totalDocs } = await payload.find({
+      collection: 'lists',
+      where: { userId: { equals: userId } },
+      limit: 0,
+    })
+
+    if (totalDocs >= 3) {
+      return err('LIMIT_REACHED')
+    }
 
     const { docs: existing } = await payload.find({
       collection: 'lists',

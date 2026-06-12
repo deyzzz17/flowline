@@ -631,6 +631,19 @@ export const createHabit = async (data: HabitData) => {
     }
 
     const payload = await getPayload({ config })
+
+    const { totalDocs } = await payload.find({
+      collection: 'habits',
+      where: {
+        and: [{ userId: { equals: userId } }, { archivedAt: { exists: false } }],
+      },
+      limit: 0,
+    })
+
+    if (totalDocs >= 5) {
+      return err('LIMIT_REACHED')
+    }
+
     const habit = await payload.create({
       collection: 'habits',
       data: {
