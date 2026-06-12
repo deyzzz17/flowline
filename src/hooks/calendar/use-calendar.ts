@@ -822,7 +822,22 @@ export const useCalendar = () => {
 
         if (e.isOccurrence && e.occurrenceDate && !e.optimisticKey?.startsWith('optimistic-')) {
           const occDateKey = getLocalDateKey(e.occurrenceDate)
-          if (optimisticExceptions.has(`${e.id}:${occDateKey}`)) return false
+          const exKey = `${e.id}:${occDateKey}`
+
+          if (optimisticExceptions.size > 0) {
+            console.log('[Calendar debug]', {
+              eventId: e.id,
+              occurrenceDate: e.occurrenceDate,
+              occDateKey,
+              exKey,
+              optimisticExceptionsKeys: [...optimisticExceptions.keys()],
+              hasMatch: optimisticExceptions.has(exKey),
+              startDate: e.startDate,
+              endDate: e.endDate,
+            })
+          }
+
+          if (optimisticExceptions.has(exKey)) return false
         }
 
         return true
