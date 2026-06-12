@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '@/api'
 import {
@@ -196,6 +196,7 @@ export const useCalendar = () => {
     queryKey: ['calendar-events-flowline', from.toISOString(), to.toISOString()],
     queryFn: () => api.calendar.listFlowline(from.toISOString(), to.toISOString()),
     staleTime: Infinity,
+    placeholderData: keepPreviousData,
   })
 
   const { data: googleEventsData } = useQuery({
@@ -533,17 +534,12 @@ export const useCalendar = () => {
       return { snapshot, key }
     },
 
-    onSuccess: (updatedEvent, { id, data, scope, optimisticKey: key, occDate }) => {
+    onSuccess: (_, { id, scope, optimisticKey: key, occDate }) => {
       if (!scope || scope === 'all') {
-        queryClient
-          .fetchQuery({
-            queryKey: ['calendar-events-flowline', from.toISOString(), to.toISOString()],
-            queryFn: () => api.calendar.listFlowline(from.toISOString(), to.toISOString()),
-          })
-          .then(() => {
-            if (key) clearOptimistic(key)
-            else clearOptimisticDate('event', id)
-          })
+        if (key) clearOptimistic(key)
+        else clearOptimisticDate('event', id)
+        queryClient.removeQueries({ queryKey: ['calendar-events-flowline'] })
+        queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] })
         queryClient.invalidateQueries({ queryKey: ['calendar-events-habits'] })
       } else {
         queryClient.resetQueries({ queryKey: ['calendar-events-flowline'] }).then(() => {
