@@ -85,7 +85,7 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
   const { hiddenCategories, toggleCategory, habitsVisible, toggleHabits } = useCalendarFilter()
 
   const [listsOpen, setListsOpen] = useState(false)
-  const [habitsOpen, setHabitsOpen] = useState(pathname.startsWith('/habits'))
+  const [habitsOpen, setHabitsOpen] = useState(false)
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [timerOpen, setTimerOpen] = useState(false)
   const [showNewCategory, setShowNewCategory] = useState(false)
