@@ -27,8 +27,6 @@ export function useForgotPassword() {
         body: JSON.stringify({ email }),
       })
 
-      console.log('[check-account-type]', res.status, await res.clone().text())
-
       if (res.status === 429) {
         setError('Too many attempts. Please wait a moment and try again.')
         return
@@ -46,7 +44,11 @@ export function useForgotPassword() {
         return
       }
 
-      await forgetPassword(email, `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/reset-password`)
+      const result = await forgetPassword(
+        email,
+        `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/reset-password`,
+      )
+      console.log('[forgetPassword]', result)
       setState('sent')
     } catch {
       setError('Something went wrong. Please try again.')
