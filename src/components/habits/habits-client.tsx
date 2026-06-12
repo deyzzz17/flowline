@@ -480,6 +480,7 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
   const [archives, setArchives] = useState<ArchivedHabit[] | null>(null)
   const [archivesLoading, setArchivesLoading] = useState(false)
   const [inactiveExpanded, setInactiveExpanded] = useState(false)
+  const [habitLimitOpen, setHabitLimitOpen] = useState(false)
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['habits'] })
 
@@ -559,9 +560,13 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
     )
 
     const result = await createHabit(data)
-    if ('error' in result) {
-      toast.error('Failed to create habit')
+    if (!result.ok) {
       if (snapshot) queryClient.setQueryData(['habits'], snapshot)
+      if (result.error === 'LIMIT_REACHED') {
+        setHabitLimitOpen(true)
+        return
+      }
+      toast.error('Failed to create habit')
       return
     }
     toast.success('Habit created')
@@ -799,6 +804,21 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
             <AlertDialogAction onClick={handleDelete} variant="destructive">
               Delete permanently
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={habitLimitOpen} onOpenChange={setHabitLimitOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Habit limit reached</AlertDialogTitle>
+            <AlertDialogDescription>
+              You&apos;ve reached the limit of <strong>5 active habits</strong>. Archive or delete
+              an existing habit to create a new one.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Got it</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

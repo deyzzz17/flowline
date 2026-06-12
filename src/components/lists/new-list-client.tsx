@@ -10,6 +10,15 @@ import { AlertCircle, Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCreateList } from '@/hooks/lists/use-create-list'
 import { toast } from 'sonner'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 function hexToRgba(hex: string, alpha: number) {
   try {
@@ -41,8 +50,18 @@ export const NewListClient = () => {
   const router = useRouter()
   const queryClient = useQueryClient()
 
-  const { name, setName, categoryName, setCategoryName, color, setColor, error, setError } =
-    useCreateList()
+  const {
+    name,
+    setName,
+    categoryName,
+    setCategoryName,
+    color,
+    setColor,
+    error,
+    setError,
+    limitOpen,
+    setLimitOpen,
+  } = useCreateList()
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -55,6 +74,10 @@ export const NewListClient = () => {
       }),
     onSuccess: (result) => {
       if (!result.ok) {
+        if (result.error === 'LIMIT_REACHED') {
+          setLimitOpen(true)
+          return
+        }
         setError(
           result.error === 'DUPLICATE_NAME'
             ? `A list named "${name.trim()}" already exists. Please choose a different name.`
@@ -215,6 +238,20 @@ export const NewListClient = () => {
           </Button>
         </div>
       </form>
+      <AlertDialog open={limitOpen} onOpenChange={setLimitOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>List limit reached</AlertDialogTitle>
+            <AlertDialogDescription>
+              You&apos;ve reached the limit of <strong>3 lists</strong>. Delete an existing list to
+              create a new one.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Got it</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
