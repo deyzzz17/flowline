@@ -1,12 +1,19 @@
 'use server'
 
-import { cloudinary } from '@/lib/cloudinary'
-import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
-import { ok, err } from '@/types/result'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
+import { auth } from '@/lib/auth'
+import { v2 as cloudinary } from 'cloudinary'
+import { Pool } from 'pg'
+import { ok, err } from '@/types/result'
 import { revalidatePath } from 'next/cache'
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+})
 
 export const getCloudinarySignature = async () => {
   try {
@@ -64,18 +71,72 @@ export const deleteAccount = async () => {
   try {
     const session = await auth.api.getSession({ headers: await headers() })
     const userId = session?.user?.id
+    const userEmail = session?.user?.email
     if (!userId) return err('Not authenticated')
 
     const payload = await getPayload({ config })
+
+    await payload.delete({ collection: 'tasks', where: { userId: { equals: userId } } })
+    await payload.delete({ collection: 'task-completions', where: { userId: { equals: userId } } })
+
+    await payload.delete({ collection: 'lists', where: { userId: { equals: userId } } })
+    await payload.delete({ collection: 'user-tags', where: { userId: { equals: userId } } })
+
+    await payload.delete({ collection: 'timer-sessions', where: { userId: { equals: userId } } })
+    await payload.delete({ collection: 'timer-categories', where: { userId: { equals: userId } } })
+    await payload.delete({ collection: 'timer-configs', where: { userId: { equals: userId } } })
+
+    await payload.delete({ collection: 'calendar-events', where: { userId: { equals: userId } } })
     await payload.delete({
-      collection: 'tasks',
+      collection: 'calendar-categories',
+      where: { userId: { equals: userId } },
+    })
+    await payload.delete({
+      collection: 'google-calendar-syncs',
       where: { userId: { equals: userId } },
     })
 
-    await cloudinary.uploader.destroy(`flowline/avatars/user_${userId}`)
+    await payload.delete({ collection: 'habits', where: { userId: { equals: userId } } })
+    await payload.delete({ collection: 'habit-completions', where: { userId: { equals: userId } } })
+
+    try {
+      await cloudinary.uploader.destroy(`flowline/avatars/user_${userId}`)
+    } catch {}
+
+    if (userEmail) {
+      try {
+        const audienceId = process.env.RESEND_AUDIENCE_ID
+        if (audienceId) {
+          await fetch(
+            `https://api.resend.com/audiences/${audienceId}/contacts/email:${encodeURIComponent(userEmail)}`,
+            {
+              method: 'DELETE',
+              headers: { Authorization: `Bearer ${process.env.RESEND_FULL_ACCESS_KEY}` },
+            },
+          )
+        }
+      } catch {}
+    }
+
+    if (userEmail) {
+      const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+      try {
+        await pool.query(`DELETE FROM verification WHERE identifier = $1`, [
+          `reset-password:${userEmail}`,
+        ])
+      } finally {
+        await pool.end()
+      }
+    }
+
+    await auth.api.deleteUser({
+      headers: await headers(),
+      body: {},
+    })
 
     return ok(true)
-  } catch {
+  } catch (e) {
+    console.error('deleteAccount error:', e)
     return err('Error while deleting account')
   }
 }
