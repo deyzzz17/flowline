@@ -278,7 +278,14 @@ export function CalendarClient() {
       if ((item as CalendarEvent).source === 'google') return
       if ((item as any).source === 'habit') return
       if (isRecurringEvent(item as CalendarEvent)) {
-        setPendingAction({ type: 'resize', item: item as CalendarEvent, newEndDate })
+        const ev = item as CalendarEvent
+        const occDate = ev.occurrenceDate ?? ev.originalDate ?? ev.startDate
+        resizeEvent(ev.id as number, newEndDate, 'this', occDate, ev.optimisticKey)
+        if (view === 'day') {
+          const midnight = new Date(currentDate)
+          midnight.setHours(24, 0, 0, 0)
+          if (newEndDate > midnight) setTimeout(() => navigate('next'), 400)
+        }
       } else {
         resizeEvent(item.id as number, newEndDate)
         if (view === 'day') {
