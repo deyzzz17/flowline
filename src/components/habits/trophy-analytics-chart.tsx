@@ -101,13 +101,7 @@ export function TrophyAnalyticsChart({
   const maxVal = Math.max(...data.points.map((p) => p.count), 0)
   const { domain, ticks } = niceYAxis(maxVal)
 
-  const visiblePoints = data.points.map((p, i) => {
-    let showLabel = true
-    if (period === 'month' && data.points.length > 20) {
-      showLabel = i === 0 || (i + 1) % 5 === 0 || i === data.points.length - 1
-    }
-    return { ...p, displayLabel: showLabel ? p.label : '' }
-  })
+  const visiblePoints = data.points.map((p) => ({ ...p, displayLabel: p.label }))
 
   const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: any[] }) => {
     if (!active || !payload?.length) return null
@@ -213,10 +207,11 @@ export function TrophyAnalyticsChart({
               />
               <XAxis
                 dataKey="displayLabel"
-                tick={{ fontSize: 10, fill: 'currentColor' }}
+                tick={{ fontSize: 9, fill: 'currentColor' }}
                 className="text-muted-foreground/60"
                 axisLine={false}
                 tickLine={false}
+                interval={0}
               />
               <YAxis
                 domain={domain}
