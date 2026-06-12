@@ -14,9 +14,6 @@ export const useDeleteAccount = () => {
     setIsDeleting(true)
     setError(null)
 
-    await authClient.signOut()
-    router.push('/')
-
     const result = await api.profile.delete()
 
     if (!result.ok) {
@@ -25,6 +22,8 @@ export const useDeleteAccount = () => {
       return false
     }
 
+    await authClient.signOut()
+    router.push('/')
     setIsDeleting(false)
     return true
   }
