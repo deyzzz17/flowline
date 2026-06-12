@@ -15,26 +15,6 @@ export const metadata = {
 export default function TermsOfServicePage() {
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border/60 bg-background/80 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <FlowlineLogo />
-            <span
-              translate="no"
-              className="text-[17px] font-bold tracking-tight text-foreground group-hover:text-foreground/80 transition-colors"
-            >
-              Flowline
-            </span>
-          </Link>
-          <Link
-            href="/dashboard"
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Back to app
-          </Link>
-        </div>
-      </header>
-
       <main className="max-w-4xl mx-auto px-6 py-16">
         <div className="mb-12">
           <h1 className="text-4xl font-bold tracking-tight text-foreground mb-4">
