@@ -27,6 +27,8 @@ export function useForgotPassword() {
         body: JSON.stringify({ email }),
       })
 
+      console.log('[check-account-type]', res.status, await res.clone().text())
+
       if (res.status === 429) {
         setError('Too many attempts. Please wait a moment and try again.')
         return
