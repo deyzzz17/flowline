@@ -400,12 +400,7 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
             <button
               type="button"
               onClick={() => setHabitsOpen((v) => !v)}
-              className={cn(
-                'flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
-                isHabitsActive
-                  ? 'text-orange-600 dark:text-orange-400 bg-orange-500/10'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-              )}
+              className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
             >
               <div className="flex items-center gap-3">
                 <Flame className="h-4 w-4 shrink-0" />
