@@ -15,12 +15,5 @@ export const signInWithGoogle = async () => {
 
 export const { signIn, signUp, signOut, useSession, updateUser, deleteUser } = authClient
 
-export const forgetPassword = (email: string, redirectTo: string) =>
-  fetch('/api/auth/request-password-reset', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, redirectTo }),
-  }).then((r) => r.json())
-
 export const resetPassword = (newPassword: string, token: string) =>
   authClient.resetPassword({ newPassword, token })

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { forgetPassword } from '@/lib/auth-client'
+import { requestPasswordReset } from '@/api/authentification/request-password-reset'
 
 export type ForgotPasswordState = 'idle' | 'sent' | 'google_account'
 
@@ -44,11 +44,7 @@ export function useForgotPassword() {
         return
       }
 
-      const result = await forgetPassword(
-        email,
-        `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/reset-password`,
-      )
-      console.log('[forgetPassword]', result)
+      await requestPasswordReset(email)
       setState('sent')
     } catch {
       setError('Something went wrong. Please try again.')

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { resetPassword } from '@/lib/auth-client'
+import { doResetPassword } from '@/api/authentification/do-reset-password'
 
 export const passwordRules = [
   { id: 'length', label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
@@ -20,6 +20,7 @@ export function useResetPassword() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
+  const email = searchParams.get('email')
 
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -35,29 +36,19 @@ export function useResetPassword() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!allRulesPassed || !passwordsMatch || !token) return
+    if (!allRulesPassed || !passwordsMatch || !token || !email) return
 
     setIsLoading(true)
     setError(null)
 
     try {
-      const result = (await resetPassword(password, token)) as any
+      const result = await doResetPassword(email, token, password)
 
-      if (result?.error) {
-        setError('This reset link has expired or is invalid. Please request a new one.')
-        return
-      }
-
-      setSuccess(true)
-      setTimeout(() => router.push('/sign-in'), 2000)
-
-      if (result.error) {
-        if (
-          result.error.status === 400 ||
-          result.error.status === 401 ||
-          result.error.code === 'INVALID_TOKEN'
-        ) {
-          setError('This reset link has expired or is invalid. Please request a new one.')
+      if (!result.ok) {
+        if (result.error === 'expired') {
+          setError('This reset link has expired. Please request a new one.')
+        } else if (result.error === 'invalid') {
+          setError('This reset link is invalid. Please request a new one.')
         } else {
           setError('Something went wrong. Please try again.')
         }
@@ -75,6 +66,7 @@ export function useResetPassword() {
 
   return {
     token,
+    email,
     password,
     setPassword,
     confirm,
