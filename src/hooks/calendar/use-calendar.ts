@@ -697,6 +697,13 @@ export const useCalendar = () => {
       if (!event) return
       if (event.source === 'google') return
 
+      console.log('[moveEvent]', {
+        id,
+        foundEvent: event?.optimisticKey,
+        isOccurrence: event?.isOccurrence,
+        occurrenceDate: event?.occurrenceDate,
+      })
+
       const key = event.optimisticKey ?? `event-${id}`
       const duration = new Date(event.endDate).getTime() - new Date(event.startDate).getTime()
       const effectiveScope = scope ?? (event.isOccurrence ? 'this' : 'all')
@@ -748,14 +755,6 @@ export const useCalendar = () => {
       const effectiveScope = scope ?? (event?.isOccurrence ? 'this' : 'all')
       const occDate =
         originalDate ?? event?.occurrenceDate ?? event?.originalDate ?? event?.startDate ?? ''
-
-      console.log('[resizeEvent]', {
-        id,
-        isOccurrence: event?.isOccurrence,
-        effectiveScope,
-        occDate,
-        optimisticKey: key,
-      })
 
       setOptimisticResize(key, newEndDate.toISOString())
 
@@ -830,22 +829,7 @@ export const useCalendar = () => {
 
         if (e.isOccurrence && e.occurrenceDate && !e.optimisticKey?.startsWith('optimistic-')) {
           const occDateKey = getLocalDateKey(e.occurrenceDate)
-          const exKey = `${e.id}:${occDateKey}`
-
-          if (optimisticExceptions.size > 0) {
-            console.log('[Calendar debug]', {
-              eventId: e.id,
-              occurrenceDate: e.occurrenceDate,
-              occDateKey,
-              exKey,
-              optimisticExceptionsKeys: [...optimisticExceptions.keys()],
-              hasMatch: optimisticExceptions.has(exKey),
-              startDate: e.startDate,
-              endDate: e.endDate,
-            })
-          }
-
-          if (optimisticExceptions.has(exKey)) return false
+          if (optimisticExceptions.has(`${e.id}:${occDateKey}`)) return false
         }
 
         return true
