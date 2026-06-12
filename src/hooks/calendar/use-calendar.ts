@@ -692,13 +692,6 @@ export const useCalendar = () => {
       if (!event) return
       if (event.source === 'google') return
 
-      console.log('[moveEvent]', {
-        id,
-        foundEvent: event?.optimisticKey,
-        isOccurrence: event?.isOccurrence,
-        occurrenceDate: event?.occurrenceDate,
-      })
-
       const key = event.optimisticKey ?? `event-${id}`
       const duration = new Date(event.endDate).getTime() - new Date(event.startDate).getTime()
       const effectiveScope = scope ?? (event.isOccurrence ? 'this' : 'all')
@@ -706,7 +699,7 @@ export const useCalendar = () => {
 
       setOptimisticMove(key, newStartDate.toISOString())
 
-      if (effectiveScope === 'this' && event.isOccurrence) {
+      if (effectiveScope === 'this' && occDate) {
         addOptimisticException(
           id,
           occDate,
