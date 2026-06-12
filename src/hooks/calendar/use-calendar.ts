@@ -196,7 +196,6 @@ export const useCalendar = () => {
     queryKey: ['calendar-events-flowline', from.toISOString(), to.toISOString()],
     queryFn: () => api.calendar.listFlowline(from.toISOString(), to.toISOString()),
     staleTime: Infinity,
-    placeholderData: keepPreviousData,
   })
 
   const { data: googleEventsData } = useQuery({
@@ -596,7 +595,6 @@ export const useCalendar = () => {
       if (!scope || scope === 'all') {
         if (key) clearOptimistic(key)
         else clearOptimisticDate('event', id)
-        queryClient.removeQueries({ queryKey: ['calendar-events-flowline'] })
         queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] })
         queryClient.invalidateQueries({ queryKey: ['calendar-events-habits'] })
       } else {
