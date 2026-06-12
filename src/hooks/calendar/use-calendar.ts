@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '@/api'
 import {
@@ -188,10 +188,6 @@ export const useCalendar = () => {
     Map<string, { startDate: string; endDate: string }>
   >(new Map())
 
-  const [optimisticParentOverrides, setOptimisticParentOverrides] = useState<
-    Map<number, { startDate: string; endDate: string }>
-  >(new Map())
-
   const queryClient = useQueryClient()
   const { isCategoryVisible, isGoogleCalendarVisible, habitsVisible } = useCalendarFilter()
   const { from, to } = getViewRange(currentDate, view)
@@ -279,20 +275,7 @@ export const useCalendar = () => {
     )
 
     for (const parent of parents) {
-      const parentOverride = optimisticParentOverrides.get(parent.id)
-      const effectiveParent = parentOverride
-        ? {
-            ...parent,
-            startDate: parentOverride.startDate,
-            endDate: parentOverride.endDate,
-            exceptions: [],
-            adjustments: [],
-          }
-        : parent
-
-      const serverExceptions = new Set(
-        (effectiveParent.exceptions ?? []).map((ex) => ex.date.slice(0, 10)),
-      )
+      const serverExceptions = new Set((parent.exceptions ?? []).map((ex) => ex.date.slice(0, 10)))
 
       const parentOptExceptions = new Map<string, { startDate: string; endDate: string }>()
       for (const [key, val] of optimisticExceptions.entries()) {
@@ -311,7 +294,7 @@ export const useCalendar = () => {
       ])
 
       const occurrences = generateOccurrences(
-        { ...effectiveParent, adjustments: effectiveParent.adjustments ?? [] },
+        { ...parent, adjustments: parent.adjustments ?? [] },
         from,
         to,
         allExceptions,
@@ -323,13 +306,13 @@ export const useCalendar = () => {
 
         result.push({
           id: parent.id,
-          title: adj?.title ?? effectiveParent.title,
-          description: adj?.description ?? effectiveParent.description,
+          title: adj?.title ?? parent.title,
+          description: adj?.description ?? parent.description,
           startDate: occIso,
           endDate: occ.endDate.toISOString(),
-          allDay: adj?.allDay ?? effectiveParent.allDay,
-          color: adj?.color ?? effectiveParent.color,
-          categoryId: adj?.categoryId ?? effectiveParent.categoryId,
+          allDay: adj?.allDay ?? parent.allDay,
+          color: adj?.color ?? parent.color,
+          categoryId: adj?.categoryId ?? parent.categoryId,
           recurrence: parent.recurrence,
           recurrenceId: null,
           originalDate: occIso,
@@ -352,13 +335,13 @@ export const useCalendar = () => {
         if (!serverOverrideExists) {
           result.push({
             id: parent.id,
-            title: effectiveParent.title,
-            description: effectiveParent.description,
+            title: parent.title,
+            description: parent.description,
             startDate: override.startDate,
             endDate: override.endDate,
-            allDay: effectiveParent.allDay,
-            color: effectiveParent.color,
-            categoryId: effectiveParent.categoryId,
+            allDay: parent.allDay,
+            color: parent.color,
+            categoryId: parent.categoryId,
             recurrence: parent.recurrence,
             recurrenceId: null,
             originalDate: override.startDate,
@@ -383,7 +366,7 @@ export const useCalendar = () => {
     result.push(...rawHabitEvents)
 
     return result
-  }, [rawEvents, rawHabitEvents, from, to, optimisticExceptions, optimisticParentOverrides])
+  }, [rawEvents, rawHabitEvents, from, to, optimisticExceptions])
 
   const tasks: CalendarTask[] = useMemo(() => {
     const allTasks = (tasksData?.docs ?? []) as Task[]
@@ -492,25 +475,6 @@ export const useCalendar = () => {
     })
   }, [])
 
-  const setOptimisticParentOverride = useCallback(
-    (parentId: number, startDate: string, endDate: string) => {
-      setOptimisticParentOverrides((prev) => {
-        const next = new Map(prev)
-        next.set(parentId, { startDate, endDate })
-        return next
-      })
-    },
-    [],
-  )
-
-  const clearOptimisticParentOverride = useCallback((parentId: number) => {
-    setOptimisticParentOverrides((prev) => {
-      const next = new Map(prev)
-      next.delete(parentId)
-      return next
-    })
-  }, [])
-
   const getItemDisplayHeight = useCallback(
     (item: CalendarItem): number => {
       if (item.type === 'event') {
@@ -563,9 +527,62 @@ export const useCalendar = () => {
       occDate?: string
     }) => api.calendar.update(id, data, scope, originalDate),
 
-    onMutate: async ({ optimisticKey: key }) => {
+    onMutate: async ({ id, data, scope, optimisticKey: key }) => {
       await queryClient.cancelQueries({ queryKey: ['calendar-events-flowline'] })
       const snapshot = queryClient.getQueriesData({ queryKey: ['calendar-events-flowline'] })
+
+      if (!scope || scope === 'all') {
+        for (const [cacheKey, cacheData] of snapshot) {
+          const currentData = cacheData as { docs: any[] } | undefined
+          if (!currentData?.docs) continue
+          const parentDoc = currentData.docs.find((e: any) => e.id === id)
+          if (!parentDoc) continue
+
+          const parentStart = new Date(parentDoc.startDate)
+          const parentEnd = new Date(parentDoc.endDate)
+          const originalDuration = parentEnd.getTime() - parentStart.getTime()
+          let newStartDate = parentDoc.startDate
+          let newEndDate = parentDoc.endDate
+
+          if (data.startDate) {
+            const newOccStart = new Date(data.startDate)
+            newStartDate = new Date(
+              parentStart.getFullYear(),
+              parentStart.getMonth(),
+              parentStart.getDate(),
+              newOccStart.getHours(),
+              newOccStart.getMinutes(),
+              0,
+              0,
+            ).toISOString()
+            if (data.endDate) {
+              const newDuration =
+                new Date(data.endDate).getTime() - new Date(data.startDate).getTime()
+              newEndDate = new Date(new Date(newStartDate).getTime() + newDuration).toISOString()
+            } else {
+              newEndDate = new Date(
+                new Date(newStartDate).getTime() + originalDuration,
+              ).toISOString()
+            }
+          }
+
+          queryClient.setQueryData(cacheKey, {
+            ...currentData,
+            docs: currentData.docs.map((e: any) =>
+              e.id === id
+                ? {
+                    ...e,
+                    startDate: newStartDate,
+                    endDate: newEndDate,
+                    exceptions: [],
+                    adjustments: [],
+                  }
+                : e,
+            ),
+          })
+        }
+      }
+
       return { snapshot, key }
     },
 
@@ -573,7 +590,6 @@ export const useCalendar = () => {
       if (!scope || scope === 'all') {
         if (key) clearOptimistic(key)
         else clearOptimisticDate('event', id)
-        clearOptimisticParentOverride(id)
         queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] })
         queryClient.invalidateQueries({ queryKey: ['calendar-events-habits'] })
       } else {
@@ -599,7 +615,6 @@ export const useCalendar = () => {
       if (key) clearOptimistic(key)
       else clearOptimisticDate('event', id)
       if (occDate) clearOptimisticException(id, occDate)
-      clearOptimisticParentOverride(id)
       toast.error('Failed to update event')
     },
   })
@@ -744,33 +759,6 @@ export const useCalendar = () => {
         )
       }
 
-      if (effectiveScope === 'all') {
-        const rawParent = queryClient
-          .getQueriesData<{ docs: any[] }>({ queryKey: ['calendar-events-flowline'] })
-          .flatMap(([, d]) => d?.docs ?? [])
-          .find((e: any) => e.id === id)
-
-        if (rawParent) {
-          const parentStart = new Date(rawParent.startDate)
-          const parentEnd = new Date(rawParent.endDate)
-          const originalDuration = parentEnd.getTime() - parentStart.getTime()
-          const newOccStart = new Date(newStartDate)
-          const newParentStart = new Date(
-            parentStart.getFullYear(),
-            parentStart.getMonth(),
-            parentStart.getDate(),
-            newOccStart.getHours(),
-            newOccStart.getMinutes(),
-            0,
-            0,
-          ).toISOString()
-          const newParentEnd = new Date(
-            new Date(newParentStart).getTime() + originalDuration,
-          ).toISOString()
-          setOptimisticParentOverride(id, newParentStart, newParentEnd)
-        }
-      }
-
       updateMutation.mutate({
         id,
         data: {
@@ -783,14 +771,7 @@ export const useCalendar = () => {
         occDate,
       })
     },
-    [
-      events,
-      updateMutation,
-      setOptimisticMove,
-      addOptimisticException,
-      setOptimisticParentOverride,
-      queryClient,
-    ],
+    [events, updateMutation, setOptimisticMove, addOptimisticException],
   )
 
   const resizeEvent = useCallback(
@@ -820,31 +801,6 @@ export const useCalendar = () => {
         addOptimisticException(id, occDate, event.startDate, newEndDate.toISOString())
       }
 
-      if (effectiveScope === 'all' && event) {
-        const rawParent = queryClient
-          .getQueriesData<{ docs: any[] }>({ queryKey: ['calendar-events-flowline'] })
-          .flatMap(([, d]) => d?.docs ?? [])
-          .find((e: any) => e.id === id)
-
-        if (rawParent) {
-          const parentStart = new Date(rawParent.startDate)
-          const occStart = occDate
-            ? new Date(
-                new Date(occDate).getFullYear(),
-                new Date(occDate).getMonth(),
-                new Date(occDate).getDate(),
-                parentStart.getHours(),
-                parentStart.getMinutes(),
-                0,
-                0,
-              )
-            : parentStart
-          const newDuration = newEndDate.getTime() - occStart.getTime()
-          const newParentEnd = new Date(parentStart.getTime() + newDuration).toISOString()
-          setOptimisticParentOverride(id, rawParent.startDate, newParentEnd)
-        }
-      }
-
       updateMutation.mutate({
         id,
         data: {
@@ -857,14 +813,7 @@ export const useCalendar = () => {
         occDate,
       })
     },
-    [
-      updateMutation,
-      events,
-      setOptimisticResize,
-      addOptimisticException,
-      setOptimisticParentOverride,
-      queryClient,
-    ],
+    [updateMutation, events, setOptimisticResize, addOptimisticException],
   )
 
   const moveTask = useCallback(
@@ -917,9 +866,19 @@ export const useCalendar = () => {
         dayEnd.setHours(23, 59, 59, 999)
         if (!(start <= dayEnd && end >= dayStart)) return false
 
-        if (e.isOccurrence && e.occurrenceDate && !e.optimisticKey?.startsWith('optimistic-')) {
-          const occDateKey = getLocalDateKey(e.occurrenceDate)
-          if (optimisticExceptions.has(`${e.id}:${occDateKey}`)) return false
+        if (e.isOccurrence && !e.optimisticKey?.startsWith('optimistic-')) {
+          if (e.occurrenceDate) {
+            const occDateKey = getLocalDateKey(e.occurrenceDate)
+            if (optimisticExceptions.has(`${e.id}:${occDateKey}`)) return false
+          }
+          const dayStart = new Date(date)
+          dayStart.setHours(0, 0, 0, 0)
+          const start = new Date(e.startDate)
+          if (start < dayStart) {
+            for (const key of optimisticExceptions.keys()) {
+              if (key.startsWith(`${e.id}:`)) return false
+            }
+          }
         }
 
         return true
