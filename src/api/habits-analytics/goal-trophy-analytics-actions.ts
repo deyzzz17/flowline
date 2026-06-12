@@ -52,7 +52,7 @@ function getPeriodRange(
   timezone: string,
 ): { from: Date; to: Date } {
   const now = new Date()
-  const todayStr = localDateStr(now, timezone) 
+  const todayStr = localDateStr(now, timezone)
   const [y, m, d] = todayStr.split('-').map(Number)
 
   if (period === 'day') {
@@ -151,12 +151,13 @@ function getBuckets(
     const dateStr = fmtDate(from)
     const [y, m] = dateStr.split('-').map(Number)
     const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate()
-    for (let i = 0; i < daysInMonth; i++) {
-      const bucketFrom = new Date(from.getTime() + i * 24 * 60 * 60 * 1000)
+    for (let i = 1; i <= daysInMonth; i++) {
+      const dayStr = `${y}-${String(m).padStart(2, '0')}-${String(i).padStart(2, '0')}`
+      const bucketFrom = localMidnight(dayStr, timezone)
       const bucketTo = new Date(bucketFrom.getTime() + 24 * 60 * 60 * 1000 - 1)
       buckets.push({
-        label: String(i + 1),
-        dateKey: fmtDate(bucketFrom),
+        label: String(i),
+        dateKey: dayStr,
         from: bucketFrom,
         to: bucketTo,
       })
