@@ -293,6 +293,7 @@ export function CalendarClient() {
   }
 
   const handleScopeSelect = (scope: EditScope) => {
+    console.log('[handleScopeSelect]', { scope, pendingAction })
     if (!pendingAction) return
     const { item } = pendingAction
     const occDate = item.occurrenceDate ?? item.originalDate ?? item.startDate

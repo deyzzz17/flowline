@@ -14,3 +14,6 @@ export const signInWithGoogle = async () => {
 }
 
 export const { signIn, signUp, signOut, useSession, updateUser, deleteUser } = authClient
+
+export const resetPassword = (newPassword: string, token: string) =>
+  authClient.resetPassword({ newPassword, token })

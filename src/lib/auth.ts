@@ -9,6 +9,36 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,
+    sendResetPassword: async ({ user, url }) => {
+      await sendEmail({
+        to: user.email,
+        subject: 'Reset your Flowline password',
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 24px;">
+            <div style="margin-bottom: 24px;">
+              <span style="font-size: 20px; font-weight: 700; color: #111;">Flowline</span>
+            </div>
+            <h1 style="font-size: 22px; font-weight: 700; color: #111; margin: 0 0 8px;">
+              Reset your password
+            </h1>
+            <p style="font-size: 15px; color: #555; margin: 0 0 24px; line-height: 1.5;">
+              We received a request to reset the password for your Flowline account.
+              Click the button below to choose a new password.
+              This link expires in <strong>1 hour</strong>.
+            </p>
+            <a href="${url}"
+              style="display: inline-block; background: #7c3aed; color: #fff; font-size: 14px; font-weight: 600; padding: 12px 24px; border-radius: 10px; text-decoration: none;">
+              Reset password
+            </a>
+            <p style="font-size: 13px; color: #999; margin: 24px 0 0; line-height: 1.5;">
+              If you didn't request a password reset, you can safely ignore this email.
+              Your password will not be changed.<br/>
+              This link will expire in 1 hour.
+            </p>
+          </div>
+        `,
+      })
+    },
   },
   emailVerification: {
     expiresIn: 60 * 60,
