@@ -815,9 +815,19 @@ export const useCalendar = () => {
         dayEnd.setHours(23, 59, 59, 999)
         if (!(start <= dayEnd && end >= dayStart)) return false
 
-        if (e.isOccurrence && e.occurrenceDate && !e.optimisticKey?.startsWith('optimistic-')) {
+        if (e.isOccurrence && e.occurrenceDate) {
           const occDateKey = getLocalDateKey(e.occurrenceDate)
-          if (optimisticExceptions.has(`${e.id}:${occDateKey}`)) return false
+          const exKey = `${e.id}:${occDateKey}`
+          if (optimisticExceptions.size > 0) {
+            console.log('[filter check]', {
+              eventId: e.id,
+              occurrenceDate: e.occurrenceDate,
+              occDateKey,
+              exKey,
+              optimisticExceptionsKeys: [...optimisticExceptions.keys()],
+              startsWith: e.optimisticKey?.startsWith('optimistic-'),
+            })
+          }
         }
 
         return true
