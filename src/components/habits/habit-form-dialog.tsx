@@ -1278,7 +1278,7 @@ export function HabitFormDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg max-h-[calc(100vh-2rem)] overflow-y-auto my-4">
         <DialogHeader>
           <DialogTitle>{initialData ? 'Edit habit' : 'New habit'}</DialogTitle>
         </DialogHeader>
