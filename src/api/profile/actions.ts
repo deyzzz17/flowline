@@ -8,6 +8,7 @@ import { v2 as cloudinary } from 'cloudinary'
 import { Pool } from 'pg'
 import { ok, err } from '@/types/result'
 import { revalidatePath } from 'next/cache'
+import { Resend } from 'resend'
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -101,21 +102,15 @@ export const deleteAccount = async () => {
 
     try {
       await cloudinary.uploader.destroy(`flowline/avatars/user_${userId}`)
-    } catch {}
+    } catch {
+    }
 
     if (userEmail) {
       try {
-        const audienceId = process.env.RESEND_AUDIENCE_ID
-        if (audienceId) {
-          await fetch(
-            `https://api.resend.com/audiences/${audienceId}/contacts/email:${encodeURIComponent(userEmail)}`,
-            {
-              method: 'DELETE',
-              headers: { Authorization: `Bearer ${process.env.RESEND_FULL_ACCESS_KEY}` },
-            },
-          )
-        }
-      } catch {}
+        const resend = new Resend(process.env.RESEND_FULL_ACCESS_KEY)
+        await resend.contacts.remove({ email: userEmail })
+      } catch {
+      }
     }
 
     if (userEmail) {
