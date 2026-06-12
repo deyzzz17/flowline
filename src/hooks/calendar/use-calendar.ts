@@ -528,9 +528,60 @@ export const useCalendar = () => {
       occDate?: string
     }) => api.calendar.update(id, data, scope, originalDate),
 
-    onMutate: async ({ optimisticKey: key }) => {
+    onMutate: async ({ id, data, scope, optimisticKey: key }) => {
       await queryClient.cancelQueries({ queryKey: ['calendar-events-flowline'] })
       const snapshot = queryClient.getQueriesData({ queryKey: ['calendar-events-flowline'] })
+
+      if (!scope || scope === 'all') {
+        queryClient.setQueriesData<{ docs: any[] }>(
+          { queryKey: ['calendar-events-flowline'] },
+          (old) => {
+            if (!old) return old
+            return {
+              ...old,
+              docs: old.docs.map((e) => {
+                if (e.id !== id) return e
+                const parentStart = new Date(e.startDate)
+                const parentEnd = new Date(e.endDate)
+                const originalDuration = parentEnd.getTime() - parentStart.getTime()
+                let newStartDate = e.startDate
+                let newEndDate = e.endDate
+                if (data.startDate) {
+                  const newOccStart = new Date(data.startDate)
+                  newStartDate = new Date(
+                    parentStart.getFullYear(),
+                    parentStart.getMonth(),
+                    parentStart.getDate(),
+                    newOccStart.getHours(),
+                    newOccStart.getMinutes(),
+                    0,
+                    0,
+                  ).toISOString()
+                  if (data.endDate) {
+                    const newDuration =
+                      new Date(data.endDate).getTime() - new Date(data.startDate).getTime()
+                    newEndDate = new Date(
+                      new Date(newStartDate).getTime() + newDuration,
+                    ).toISOString()
+                  } else {
+                    newEndDate = new Date(
+                      new Date(newStartDate).getTime() + originalDuration,
+                    ).toISOString()
+                  }
+                }
+                return {
+                  ...e,
+                  startDate: newStartDate,
+                  endDate: newEndDate,
+                  exceptions: [],
+                  adjustments: [],
+                }
+              }),
+            }
+          },
+        )
+      }
+
       return { snapshot, key }
     },
 
