@@ -293,7 +293,7 @@ function DayColumn({
                 left: PADDING,
                 right: PADDING,
                 width: 'auto',
-                zIndex: 5, 
+                zIndex: 5,
               }}
               onResizeOverflow={(overflowMin) => {
                 if (overflowMin > 0)
@@ -491,7 +491,7 @@ export function CalendarWeekView({
                 const ghostMinutes =
                   overflow && overflow.dayIndex === i - 1 ? overflow.overflowMinutes : 0
                 return (
-                  <div key={date.toISOString()} className="flex-1 min-w-0">
+                  <div key={`${date.toISOString()}-${items.length}`} className="flex-1 min-w-0">
                     <DayColumn
                       date={date}
                       items={items}
