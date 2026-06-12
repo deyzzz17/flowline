@@ -531,61 +531,56 @@ export const useCalendar = () => {
       await queryClient.cancelQueries({ queryKey: ['calendar-events-flowline'] })
       const snapshot = queryClient.getQueriesData({ queryKey: ['calendar-events-flowline'] })
 
-      console.log('[onMutate]', {
-        id,
-        scope,
-        cacheKeys: snapshot.map(([k]) => k),
-        cacheDocs: snapshot.map(([, v]: any) => v?.docs?.map((d: any) => d.id)),
-      })
-
       if (!scope || scope === 'all') {
-        queryClient.setQueriesData<{ docs: any[] }>(
-          { queryKey: ['calendar-events-flowline'] },
-          (old) => {
-            if (!old) return old
-            return {
-              ...old,
-              docs: old.docs.map((e) => {
-                if (e.id !== id) return e
-                const parentStart = new Date(e.startDate)
-                const parentEnd = new Date(e.endDate)
-                const originalDuration = parentEnd.getTime() - parentStart.getTime()
-                let newStartDate = e.startDate
-                let newEndDate = e.endDate
-                if (data.startDate) {
-                  const newOccStart = new Date(data.startDate)
-                  newStartDate = new Date(
-                    parentStart.getFullYear(),
-                    parentStart.getMonth(),
-                    parentStart.getDate(),
-                    newOccStart.getHours(),
-                    newOccStart.getMinutes(),
-                    0,
-                    0,
-                  ).toISOString()
-                  if (data.endDate) {
-                    const newDuration =
-                      new Date(data.endDate).getTime() - new Date(data.startDate).getTime()
-                    newEndDate = new Date(
-                      new Date(newStartDate).getTime() + newDuration,
-                    ).toISOString()
-                  } else {
-                    newEndDate = new Date(
-                      new Date(newStartDate).getTime() + originalDuration,
-                    ).toISOString()
-                  }
-                }
-                return {
-                  ...e,
-                  startDate: newStartDate,
-                  endDate: newEndDate,
-                  exceptions: [],
-                  adjustments: [],
-                }
-              }),
+        for (const [cacheKey, cacheData] of snapshot) {
+          const currentData = cacheData as { docs: any[] } | undefined
+          if (!currentData?.docs) continue
+          const parentDoc = currentData.docs.find((e: any) => e.id === id)
+          if (!parentDoc) continue
+
+          const parentStart = new Date(parentDoc.startDate)
+          const parentEnd = new Date(parentDoc.endDate)
+          const originalDuration = parentEnd.getTime() - parentStart.getTime()
+          let newStartDate = parentDoc.startDate
+          let newEndDate = parentDoc.endDate
+
+          if (data.startDate) {
+            const newOccStart = new Date(data.startDate)
+            newStartDate = new Date(
+              parentStart.getFullYear(),
+              parentStart.getMonth(),
+              parentStart.getDate(),
+              newOccStart.getHours(),
+              newOccStart.getMinutes(),
+              0,
+              0,
+            ).toISOString()
+            if (data.endDate) {
+              const newDuration =
+                new Date(data.endDate).getTime() - new Date(data.startDate).getTime()
+              newEndDate = new Date(new Date(newStartDate).getTime() + newDuration).toISOString()
+            } else {
+              newEndDate = new Date(
+                new Date(newStartDate).getTime() + originalDuration,
+              ).toISOString()
             }
-          },
-        )
+          }
+
+          queryClient.setQueryData(cacheKey, {
+            ...currentData,
+            docs: currentData.docs.map((e: any) =>
+              e.id === id
+                ? {
+                    ...e,
+                    startDate: newStartDate,
+                    endDate: newEndDate,
+                    exceptions: [],
+                    adjustments: [],
+                  }
+                : e,
+            ),
+          })
+        }
       }
 
       return { snapshot, key }
