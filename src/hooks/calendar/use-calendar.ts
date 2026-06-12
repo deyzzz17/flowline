@@ -653,11 +653,7 @@ export const useCalendar = () => {
         queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] })
         queryClient.invalidateQueries({ queryKey: ['calendar-events-habits'] })
       } else {
-<<<<<<< HEAD
-        queryClient.resetQueries({ queryKey: ['calendar-events-flowline'] }).then(() => {
-=======
         queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] }).then(() => {
->>>>>>> preview/dev
           if (key) clearOptimistic(key)
           else clearOptimisticDate('event', id)
           if (occDate) clearOptimisticException(id, occDate)
