@@ -41,10 +41,13 @@ export function useResetPassword() {
     setError(null)
 
     try {
-      const result = (await authClient.resetPassword({ newPassword: password, token })) as any
+      const { error } = await authClient.resetPassword({
+        newPassword: password,
+        token,
+      })
 
-      if (result?.error) {
-        if (result.error.status === 400 || result.error.status === 401) {
+      if (error) {
+        if (error.status === 400 || error.status === 401) {
           setError('This reset link has expired or is invalid. Please request a new one.')
         } else {
           setError('Something went wrong. Please try again.')
