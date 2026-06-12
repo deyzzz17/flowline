@@ -532,6 +532,13 @@ export const useCalendar = () => {
       await queryClient.cancelQueries({ queryKey: ['calendar-events-flowline'] })
       const snapshot = queryClient.getQueriesData({ queryKey: ['calendar-events-flowline'] })
 
+      console.log('[onMutate]', {
+        id,
+        scope,
+        cacheKeys: snapshot.map(([k]) => k),
+        cacheDocs: snapshot.map(([, v]: any) => v?.docs?.map((d: any) => d.id)),
+      })
+
       if (!scope || scope === 'all') {
         queryClient.setQueriesData<{ docs: any[] }>(
           { queryKey: ['calendar-events-flowline'] },
