@@ -320,7 +320,7 @@ export const TaskCard = ({
       <div
         data-task-id={task.id}
         className={cn(
-          'relative z-20 flex items-start gap-2 p-3 sm:gap-3 sm:p-4 rounded-xl border bg-background transition-all',
+          'relative z-20 flex items-start gap-2 p-3 sm:gap-3 sm:p-4 rounded-xl border bg-background transition-all min-w-0 overflow-hidden',
           isEditing ? 'ring-2 ring-primary shadow-md border-transparent' : 'hover:bg-accent/50',
           isDisabled ? 'opacity-40 grayscale pointer-events-none' : 'opacity-100',
           isInactive && !isEditing && 'opacity-60',
@@ -346,7 +346,7 @@ export const TaskCard = ({
           />
         </div>
 
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 overflow-hidden">
           {isEditing ? (
             <div className="space-y-4">
               <div className="flex gap-2">
@@ -867,7 +867,7 @@ export const TaskCard = ({
             </div>
           ) : (
             <div className="space-y-2 py-0.5">
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap min-w-0">
                 <span
                   className={cn(
                     'h-2 w-2 shrink-0 rounded-full',
@@ -880,7 +880,7 @@ export const TaskCard = ({
                 />
                 <label
                   className={cn(
-                    'text-base font-semibold transition-colors leading-snug min-w-0',
+                    'text-base font-semibold transition-colors leading-snug min-w-0 wrap-break-words max-w-full',
                     isCompleted
                       ? 'line-through text-muted-foreground/60'
                       : isInactive
