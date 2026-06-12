@@ -3,9 +3,8 @@
 import 'server-only'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
-import { headers } from 'next/headers'
-import { auth } from '@/lib/auth'
 import { ok, err } from '@/types/result'
+import { getSession } from '@/lib/get-session'
 
 const DEFAULT_CATEGORIES = [
   { name: 'Work', color: '#6366f1' },
@@ -16,10 +15,9 @@ const DEFAULT_CATEGORIES = [
 ]
 
 export const getUserId = async () => {
-  const session = await auth.api.getSession({ headers: await headers() })
+  const session = await getSession()
   return session?.user?.id ?? null
 }
-
 
 export const listTimerCategories = async () => {
   const userId = await getUserId()
@@ -74,7 +72,6 @@ export const deleteTimerCategory = async (id: number) => {
     return err('Error deleting category')
   }
 }
-
 
 export interface CreateSessionData {
   duration: number
@@ -137,7 +134,6 @@ export const getTaskSessions = async (taskId: number) => {
     totalSeconds: docs.reduce((s, d) => s + d.duration, 0),
   }
 }
-
 
 export interface SavedTimerConfig {
   id: number

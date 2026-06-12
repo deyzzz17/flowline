@@ -6,9 +6,8 @@ import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { revalidatePath } from 'next/cache'
 import { ok, err } from '@/types/result'
-import { auth } from '@/lib/auth'
-import { headers } from 'next/headers'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { getSession } from '@/lib/get-session'
 
 type CreateListInput = {
   name: string
@@ -26,14 +25,14 @@ type EditListInput = {
   }
 }
 
-const getSession = async () => {
-  const session = await auth.api.getSession({ headers: await headers() })
+const getUserId = async () => {
+  const session = await getSession()
   return session?.user?.id ?? null
 }
 
 export const createList = async (input: CreateListInput) => {
   try {
-    const userId = await getSession()
+    const userId = await getUserId()
     if (!userId) return err('Not authenticated')
 
     if (!checkRateLimit(`create-list:${userId}`, 1, 1000)) {
@@ -72,7 +71,7 @@ export const createList = async (input: CreateListInput) => {
 }
 
 export const listLists = async () => {
-  const userId = await getSession()
+  const userId = await getUserId()
   if (!userId) return { docs: [] }
 
   const payload = await getPayload({ config })
@@ -89,7 +88,7 @@ export const listLists = async () => {
 
 export const getListById = async (id: number) => {
   try {
-    const userId = await getSession()
+    const userId = await getUserId()
     if (!userId) return err('Not authenticated')
 
     const payload = await getPayload({ config })
@@ -105,7 +104,7 @@ export const getListById = async (id: number) => {
 
 export const editList = async (id: number, input: EditListInput) => {
   try {
-    const userId = await getSession()
+    const userId = await getUserId()
     if (!userId) return err('Not authenticated')
 
     const payload = await getPayload({ config })
@@ -148,7 +147,7 @@ export const editList = async (id: number, input: EditListInput) => {
 
 export const deleteList = async (id: number) => {
   try {
-    const userId = await getSession()
+    const userId = await getUserId()
     if (!userId) return err('Not authenticated')
 
     const payload = await getPayload({ config })
@@ -177,7 +176,7 @@ export const deleteList = async (id: number) => {
 
 export const createDefaultList = async () => {
   try {
-    const userId = await getSession()
+    const userId = await getUserId()
     if (!userId) return err('Not authenticated')
 
     const payload = await getPayload({ config })
@@ -227,7 +226,7 @@ export const createDefaultList = async () => {
 }
 
 export const getListBySlug = async (slug: string) => {
-  const userId = await getSession()
+  const userId = await getUserId()
   if (!userId) return err('Not authenticated')
   const payload = await getPayload({ config })
   const { docs } = await payload.find({

@@ -2,14 +2,13 @@
 
 import 'server-only'
 import { Resend } from 'resend'
-import { headers } from 'next/headers'
-import { auth } from '@/lib/auth'
+import { getSession } from '@/lib/get-session'
 
 const resend = new Resend(process.env.RESEND_FULL_ACCESS_KEY)
 const AUDIENCE_ID = '575501fb-7e5d-4b50-b582-fde770ca8a20'
 
 export async function subscribeToNewsletter(email: string) {
-  const session = await auth.api.getSession({ headers: await headers() })
+  const session = await getSession()
 
   if (!session?.user) {
     return { error: 'Not authenticated' }

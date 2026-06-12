@@ -1,4 +1,3 @@
-import { ProtectedRoute } from '@/components/route/protected-route'
 import { DashboardHeader } from '@/components/dashboard/dashboard-header'
 import { DashboardDayProgress } from '@/components/dashboard/dashboard-day-progress'
 import { DashboardPriority } from '@/components/dashboard/dashboard-priority'
@@ -11,9 +10,11 @@ import { listHabits, getHabitAnalytics } from '@/api/habits/actions'
 import { getTimerAnalytics } from '@/api/timer-analytics/actions'
 import { getDashboardTodayEvents } from '@/api/dashboard/actions'
 import { listTasksToday } from '@/api/tasks/actions'
+import { requireAuth } from '@/lib/require-auth'
 
 export default async function DashboardPage() {
   const [
+    ,
     todayTasksResult,
     timerToday,
     timerYesterday,
@@ -24,6 +25,7 @@ export default async function DashboardPage() {
     todayEvents,
     allTasksResult,
   ] = await Promise.all([
+    requireAuth(),
     listTasksToday(),
     getTimerAnalytics('day', 0),
     getTimerAnalytics('day', -1),
@@ -41,58 +43,48 @@ export default async function DashboardPage() {
   const overdueTodayTasks = activeTodayTasks.filter(
     (t) => t.dueDate && new Date(t.dueDate) < new Date(),
   )
-
   const allActiveTasks = allTasksResult.docs.filter((t) => t.status === 'active')
   const allCompletedTasks = allTasksResult.docs.filter((t) => t.status === 'completed')
-
   const priorityTask = activeTodayTasks[0] ?? null
 
   return (
-    <ProtectedRoute>
-      <div className="relative px-4 pb-16 sm:px-6 lg:px-10">
-        <DashboardHeader />
-
-        <DashboardDayProgress
-          activeTasks={activeTodayTasks.length}
-          completedTasks={completedTodayTasks.length}
-          totalTasks={todayTasks.length}
-          habitsCompletedToday={habitAnalytics.todayCompleted}
-          habitsTotal={habitAnalytics.todayTotal}
-          focusTodaySeconds={timerToday.totalSeconds}
-          todayEvents={todayEvents}
-        />
-
-        {priorityTask && (
-          <DashboardPriority task={priorityTask} weekFocusSeconds={timerWeek.totalSeconds} />
-        )}
-
-        <DashboardPillars
-          activeTasks={activeTodayTasks.length}
-          overdueTasks={overdueTodayTasks.length}
-          completedTodayTasks={completedTodayTasks.length}
-          habitWeekRate={habitAnalytics.avgCompletionRate}
-          habitStreak={habitAnalytics.bestStreak?.streak ?? 0}
-          focusTodaySeconds={timerToday.totalSeconds}
-          focusWeekSeconds={timerWeek.totalSeconds}
-          focusYesterdaySeconds={timerYesterday.totalSeconds}
-          timerWeek={timerWeek}
-          habits={habits}
-        />
-
-        <DashboardInsights
-          habits={habits}
-          timerToday={timerToday}
-          timerWeek={timerWeek}
-          timerLastWeek={timerLastWeek}
-          timerYesterday={timerYesterday}
-          activeTasks={allActiveTasks}
-          completedTasks={allCompletedTasks}
-        />
-
-        <DashboardTimeAndCalendar timerWeek={timerWeek} todayEvents={todayEvents} />
-
-        <DashboardGoals habits={habits} />
-      </div>
-    </ProtectedRoute>
+    <div className="relative px-4 pb-16 sm:px-6 lg:px-10">
+      <DashboardHeader />
+      <DashboardDayProgress
+        activeTasks={activeTodayTasks.length}
+        completedTasks={completedTodayTasks.length}
+        totalTasks={todayTasks.length}
+        habitsCompletedToday={habitAnalytics.todayCompleted}
+        habitsTotal={habitAnalytics.todayTotal}
+        focusTodaySeconds={timerToday.totalSeconds}
+        todayEvents={todayEvents}
+      />
+      {priorityTask && (
+        <DashboardPriority task={priorityTask} weekFocusSeconds={timerWeek.totalSeconds} />
+      )}
+      <DashboardPillars
+        activeTasks={activeTodayTasks.length}
+        overdueTasks={overdueTodayTasks.length}
+        completedTodayTasks={completedTodayTasks.length}
+        habitWeekRate={habitAnalytics.avgCompletionRate}
+        habitStreak={habitAnalytics.bestStreak?.streak ?? 0}
+        focusTodaySeconds={timerToday.totalSeconds}
+        focusWeekSeconds={timerWeek.totalSeconds}
+        focusYesterdaySeconds={timerYesterday.totalSeconds}
+        timerWeek={timerWeek}
+        habits={habits}
+      />
+      <DashboardInsights
+        habits={habits}
+        timerToday={timerToday}
+        timerWeek={timerWeek}
+        timerLastWeek={timerLastWeek}
+        timerYesterday={timerYesterday}
+        activeTasks={allActiveTasks}
+        completedTasks={allCompletedTasks}
+      />
+      <DashboardTimeAndCalendar timerWeek={timerWeek} todayEvents={todayEvents} />
+      <DashboardGoals habits={habits} />
+    </div>
   )
 }

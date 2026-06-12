@@ -2,9 +2,8 @@
 
 import 'server-only'
 import { Resend } from 'resend'
-import { headers } from 'next/headers'
-import { auth } from '@/lib/auth'
 import { z } from 'zod'
+import { getSession } from '@/lib/get-session'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -14,7 +13,7 @@ const feedbackSchema = z.object({
 })
 
 export async function sendFeedbackEmail(input: { subject: string; message: string }) {
-  const session = await auth.api.getSession({ headers: await headers() })
+  const session = await getSession()
   if (!session?.user) {
     return { error: 'Not authenticated' }
   }
@@ -34,12 +33,7 @@ export async function sendFeedbackEmail(input: { subject: string; message: strin
       to: 'support@flowlineworkspace.com',
       replyTo: userEmail,
       subject: `[Feedback] ${subject}`,
-      text: [
-        `From: ${userName} <${userEmail}>`,
-        `Subject: ${subject}`,
-        '',
-        message,
-      ].join('\n'),
+      text: [`From: ${userName} <${userEmail}>`, `Subject: ${subject}`, '', message].join('\n'),
     })
 
     return { success: true }

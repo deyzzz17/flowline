@@ -6,10 +6,10 @@ import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { revalidatePath } from 'next/cache'
 import { ok, err } from '@/types/result'
-import { auth } from '@/lib/auth'
-import { cookies, headers } from 'next/headers'
+import { cookies } from 'next/headers'
 import { Task } from '@/payload-types'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { getSession } from '@/lib/get-session'
 
 type CreateTaskInput = {
   title: string
@@ -36,8 +36,8 @@ type Subtask = NonNullable<Task['subtasks']>[number]
 
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
 
-const getSession = async () => {
-  const session = await auth.api.getSession({ headers: await headers() })
+const getUserId = async () => {
+  const session = await getSession()
   return session?.user?.id ?? null
 }
 
@@ -114,7 +114,7 @@ async function deleteLatestTaskCompletionSnapshot(
 
 export const createTask = async (task: CreateTaskInput) => {
   try {
-    const userId = await getSession()
+    const userId = await getUserId()
     if (!userId) return err('Not authenticated')
 
     if (!checkRateLimit(`create-task:${userId}`, 1, 1000)) {
@@ -158,7 +158,7 @@ export const listTasks = async (
   status?: 'active' | 'completed' | 'deleted' | 'inactive',
   listId?: number,
 ) => {
-  const userId = await getSession()
+  const userId = await getUserId()
   if (!userId) return { docs: [] }
 
   const payload = await getPayload({ config })
@@ -179,7 +179,7 @@ export const listTasks = async (
 }
 
 export const listTasksToday = async () => {
-  const userId = await getSession()
+  const userId = await getUserId()
   if (!userId) return { docs: [] }
 
   const payload = await getPayload({ config })
@@ -231,7 +231,7 @@ export const listTasksToday = async () => {
 }
 
 export const listTasksRecurring = async () => {
-  const userId = await getSession()
+  const userId = await getUserId()
   if (!userId) return { docs: [] }
 
   const payload = await getPayload({ config })
@@ -250,7 +250,7 @@ export const updateTaskStatus = async (
   id: number,
   newStatus: 'active' | 'completed' | 'deleted' | 'inactive',
 ) => {
-  const userId = await getSession()
+  const userId = await getUserId()
   if (!userId) return err('Not authenticated')
 
   const payload = await getPayload({ config })
@@ -297,7 +297,7 @@ export const moveToTrash = async (id: number) => {
 export const toggleTaskStatus = async (id: number, currentStatus: 'active' | 'completed') => {
   try {
     const newStatus = currentStatus === 'active' ? 'completed' : 'active'
-    const userId = await getSession()
+    const userId = await getUserId()
     if (!userId) return err('Not authenticated')
 
     const payload = await getPayload({ config })
@@ -401,7 +401,7 @@ export const editTask = async (id: number, draft: EditTaskInput) => {
 
 export const toggleSubtask = async (taskId: number, subtaskIndex: number) => {
   try {
-    const userId = await getSession()
+    const userId = await getUserId()
     if (!userId) return err('Not authenticated')
 
     const payload = await getPayload({ config })
@@ -475,7 +475,7 @@ export const deleteSubtask = async (taskId: number, subtaskIndex: number) => {
 
 export const syncRecurringTasksForUser = async () => {
   try {
-    const userId = await getSession()
+    const userId = await getUserId()
     if (!userId) return
 
     const payload = await getPayload({ config })
@@ -550,7 +550,7 @@ export const syncIfNeeded = async (userTimezone: string) => {
 
 export const completeTaskWithSubtasks = async (id: number) => {
   try {
-    const userId = await getSession()
+    const userId = await getUserId()
     if (!userId) return err('Not authenticated')
 
     const payload = await getPayload({ config })

@@ -1,10 +1,8 @@
 import { TimerPageClient } from '@/components/timer/timer-page-client'
-import { ProtectedRoute } from '@/components/route/protected-route'
+import { requireAuth } from '@/lib/require-auth'
 
-export default function TimerPage() {
-  return (
-    <ProtectedRoute>
-      <TimerPageClient />
-    </ProtectedRoute>
-  )
+export default async function TimerPage() {
+  await requireAuth()
+
+  return <TimerPageClient />
 }

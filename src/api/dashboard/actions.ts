@@ -3,12 +3,11 @@
 import 'server-only'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
-import { headers } from 'next/headers'
-import { auth } from '@/lib/auth'
 import { generateOccurrences } from '@/api/calendar/calendar-recurrence'
+import { getSession } from '@/lib/get-session'
 
 const getUserId = async () => {
-  const session = await auth.api.getSession({ headers: await headers() })
+  const session = await getSession()
   return session?.user?.id ?? null
 }
 

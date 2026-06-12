@@ -3,12 +3,11 @@
 import 'server-only'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
-import { headers } from 'next/headers'
-import { auth } from '@/lib/auth'
 import { Pool } from 'pg'
+import { getSession } from '@/lib/get-session'
 
-const getSession = async () => {
-  const session = await auth.api.getSession({ headers: await headers() })
+const getUserId = async () => {
+  const session = await getSession()
   return session?.user?.id ?? null
 }
 
@@ -110,7 +109,7 @@ export const getListAnalytics = async (
   period: 'day' | 'week' | 'month' = 'week',
   offset: number = 0,
 ): Promise<ListAnalyticsData> => {
-  const userId = await getSession()
+  const userId = await getUserId()
   if (!userId)
     return {
       donut: [],

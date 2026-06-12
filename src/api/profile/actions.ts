@@ -9,6 +9,7 @@ import { Pool } from 'pg'
 import { ok, err } from '@/types/result'
 import { revalidatePath } from 'next/cache'
 import { Resend } from 'resend'
+import { getSession } from '@/lib/get-session'
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -18,7 +19,7 @@ cloudinary.config({
 
 export const getCloudinarySignature = async () => {
   try {
-    const session = await auth.api.getSession({ headers: await headers() })
+    const session = await getSession()
     const userId = session?.user?.id
     if (!userId) return err('Not authenticated')
 
@@ -49,7 +50,7 @@ export const getCloudinarySignature = async () => {
 
 export const updateProfile = async (data: { name?: string; image?: string }) => {
   try {
-    const session = await auth.api.getSession({ headers: await headers() })
+    const session = await getSession()
     if (!session) return err('Not authenticated')
 
     await auth.api.updateUser({
@@ -70,7 +71,7 @@ export const updateProfile = async (data: { name?: string; image?: string }) => 
 
 export const deleteAccount = async () => {
   try {
-    const session = await auth.api.getSession({ headers: await headers() })
+    const session = await getSession()
     const userId = session?.user?.id
     const userEmail = session?.user?.email
     if (!userId) return err('Not authenticated')
@@ -102,15 +103,13 @@ export const deleteAccount = async () => {
 
     try {
       await cloudinary.uploader.destroy(`flowline/avatars/user_${userId}`)
-    } catch {
-    }
+    } catch {}
 
     if (userEmail) {
       try {
         const resend = new Resend(process.env.RESEND_FULL_ACCESS_KEY)
         await resend.contacts.remove({ email: userEmail })
-      } catch {
-      }
+      } catch {}
     }
 
     if (userEmail) {

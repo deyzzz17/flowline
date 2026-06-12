@@ -5,17 +5,16 @@ import 'server-only'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { ok, err } from '@/types/result'
-import { auth } from '@/lib/auth'
-import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
+import { getSession } from '@/lib/get-session'
 
-const getSession = async () => {
-  const session = await auth.api.getSession({ headers: await headers() })
+const getUserId = async () => {
+  const session = await getSession()
   return session?.user?.id ?? null
 }
 
 export const listUserTags = async () => {
-  const userId = await getSession()
+  const userId = await getUserId()
   if (!userId) return { docs: [] }
 
   const payload = await getPayload({ config })
@@ -30,7 +29,7 @@ export const listUserTags = async () => {
 
 export const createUserTag = async (data: { name: string; color: string }) => {
   try {
-    const userId = await getSession()
+    const userId = await getUserId()
     if (!userId) return err('Not authenticated')
 
     if (!data.name.trim()) return err('Name is required')
@@ -56,7 +55,7 @@ export const createUserTag = async (data: { name: string; color: string }) => {
 
 export const deleteUserTag = async (id: number) => {
   try {
-    const userId = await getSession()
+    const userId = await getUserId()
     if (!userId) return err('Not authenticated')
 
     const payload = await getPayload({ config })
@@ -75,7 +74,7 @@ export const deleteUserTag = async (id: number) => {
 
 export const updateUserTag = async (id: number, data: { name?: string; color?: string }) => {
   try {
-    const userId = await getSession()
+    const userId = await getUserId()
     if (!userId) return err('Not authenticated')
 
     const payload = await getPayload({ config })

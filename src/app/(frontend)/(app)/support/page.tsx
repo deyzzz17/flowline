@@ -1,5 +1,5 @@
-import { ProtectedRoute } from '@/components/route/protected-route'
 import { SupportClient } from '@/components/support/support-client'
+import { requireAuth } from '@/lib/require-auth'
 
 export const metadata = {
   title: 'Flowline Support',
@@ -47,7 +47,6 @@ const FAQ_ITEMS = [
     answer:
       'The Today view shows all tasks due today plus all recurring tasks scheduled for the current day. It updates automatically — you cannot add tasks directly to it, but tasks appear here based on their due date or recurrence schedule.',
   },
-
   {
     question: 'Can two lists have the same name?',
     answer:
@@ -58,7 +57,6 @@ const FAQ_ITEMS = [
     answer:
       'Deleting a list permanently deletes all tasks inside it as well. This action cannot be undone, so make sure you no longer need those tasks before deleting the list.',
   },
-
   {
     question: 'What habit frequency options are available?',
     answer:
@@ -79,7 +77,6 @@ const FAQ_ITEMS = [
     answer:
       'Yes. When creating or editing a habit, enable "Show in calendar". You can set a fixed time or position it relative to another calendar event (before or after). Completed habits appear with a checkmark in the calendar.',
   },
-
   {
     question: 'How do I connect Google Calendar?',
     answer:
@@ -95,7 +92,6 @@ const FAQ_ITEMS = [
     answer:
       'Yes you can drag any Flowline event to a new time slot. Google Calendar events are read-only and cannot be moved from within Flowline.',
   },
-
   {
     question: 'What is the difference between a free timer and a session timer?',
     answer:
@@ -111,7 +107,6 @@ const FAQ_ITEMS = [
     answer:
       'Yes. Before or during a session, you can link it to a task. The session time will appear on the task card, and the task can be marked as complete when the session ends.',
   },
-
   {
     question: 'How is the day progress percentage calculated?',
     answer:
@@ -124,10 +119,8 @@ const FAQ_ITEMS = [
   },
 ]
 
-export default function SupportPage() {
-  return (
-    <ProtectedRoute>
-      <SupportClient faqItems={FAQ_ITEMS} />
-    </ProtectedRoute>
-  )
+export default async function SupportPage() {
+  await requireAuth()
+
+  return <SupportClient faqItems={FAQ_ITEMS} />
 }

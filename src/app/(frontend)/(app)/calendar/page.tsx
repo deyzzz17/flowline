@@ -1,15 +1,15 @@
 import { CalendarClient } from '@/components/calendar/calendar-client'
-import { ProtectedRoute } from '@/components/route/protected-route'
+import { requireAuth } from '@/lib/require-auth'
 import { Suspense } from 'react'
 
-export default function CalendarPage() {
+export default async function CalendarPage() {
+  await requireAuth()
+
   return (
     <div className="h-full overflow-hidden">
-      <ProtectedRoute>
-        <Suspense>
-          <CalendarClient />
-        </Suspense>
-      </ProtectedRoute>
+      <Suspense>
+        <CalendarClient />
+      </Suspense>
     </div>
   )
 }
