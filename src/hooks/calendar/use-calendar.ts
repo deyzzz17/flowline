@@ -547,14 +547,12 @@ export const useCalendar = () => {
         queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] })
         queryClient.invalidateQueries({ queryKey: ['calendar-events-habits'] })
       } else {
-        Promise.all([
-          queryClient.refetchQueries({ queryKey: ['calendar-events-flowline'] }),
-          queryClient.refetchQueries({ queryKey: ['calendar-events-habits'] }),
-        ]).then(() => {
+        queryClient.resetQueries({ queryKey: ['calendar-events-flowline'] }).then(() => {
           if (key) clearOptimistic(key)
           else clearOptimisticDate('event', id)
           if (occDate) clearOptimisticException(id, occDate)
         })
+        queryClient.invalidateQueries({ queryKey: ['calendar-events-habits'] })
       }
       if (dialogOpen) {
         toast.success('Event updated')
