@@ -535,31 +535,15 @@ export const useCalendar = () => {
 
     onSuccess: (updatedEvent, { id, data, scope, optimisticKey: key, occDate }) => {
       if (!scope || scope === 'all') {
-        const serverDoc = (updatedEvent as any)?.value
-
-        queryClient.setQueriesData<{ docs: any[] }>(
-          { queryKey: ['calendar-events-flowline'] },
-          (old) => {
-            if (!old) return old
-            return {
-              ...old,
-              docs: old.docs.map((e) => {
-                if (e.id !== id) return e
-                if (serverDoc?.id) return serverDoc
-                return {
-                  ...e,
-                  ...(data.startDate && { startDate: data.startDate }),
-                  ...(data.endDate && { endDate: data.endDate }),
-                  exceptions: [],
-                  adjustments: [],
-                }
-              }),
-            }
-          },
-        )
-        if (key) clearOptimistic(key)
-        else clearOptimisticDate('event', id)
-        queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] })
+        queryClient
+          .fetchQuery({
+            queryKey: ['calendar-events-flowline', from.toISOString(), to.toISOString()],
+            queryFn: () => api.calendar.listFlowline(from.toISOString(), to.toISOString()),
+          })
+          .then(() => {
+            if (key) clearOptimistic(key)
+            else clearOptimisticDate('event', id)
+          })
         queryClient.invalidateQueries({ queryKey: ['calendar-events-habits'] })
       } else {
         queryClient.resetQueries({ queryKey: ['calendar-events-flowline'] }).then(() => {
