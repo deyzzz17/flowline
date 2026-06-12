@@ -535,7 +535,7 @@ export const useCalendar = () => {
 
     onSuccess: (updatedEvent, { id, data, scope, optimisticKey: key, occDate }) => {
       if (!scope || scope === 'all') {
-        const serverDoc = (updatedEvent as any)?.data
+        const serverDoc = (updatedEvent as any)?.value
 
         queryClient.setQueriesData<{ docs: any[] }>(
           { queryKey: ['calendar-events-flowline'] },
