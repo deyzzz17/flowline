@@ -749,6 +749,14 @@ export const useCalendar = () => {
       const occDate =
         originalDate ?? event?.occurrenceDate ?? event?.originalDate ?? event?.startDate ?? ''
 
+      console.log('[resizeEvent]', {
+        id,
+        isOccurrence: event?.isOccurrence,
+        effectiveScope,
+        occDate,
+        optimisticKey: key,
+      })
+
       setOptimisticResize(key, newEndDate.toISOString())
 
       if (effectiveScope === 'this' && event?.isOccurrence && occDate) {
