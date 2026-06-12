@@ -533,7 +533,7 @@ export const useCalendar = () => {
       return { snapshot, key }
     },
 
-    onSuccess: (_, { id, data, scope, optimisticKey: key, occDate }) => {
+    onSuccess: (updatedEvent, { id, data, scope, optimisticKey: key, occDate }) => {
       if (!scope || scope === 'all') {
         queryClient.setQueriesData<{ docs: any[] }>(
           { queryKey: ['calendar-events-flowline'] },
@@ -543,13 +543,8 @@ export const useCalendar = () => {
               ...old,
               docs: old.docs.map((e) => {
                 if (e.id !== id) return e
-                return {
-                  ...e,
-                  ...(data.startDate && { startDate: data.startDate }),
-                  ...(data.endDate && { endDate: data.endDate }),
-                  exceptions: [],
-                  adjustments: [],
-                }
+                const serverData = (updatedEvent as any)?.doc ?? updatedEvent
+                return serverData ?? { ...e, ...data }
               }),
             }
           },
