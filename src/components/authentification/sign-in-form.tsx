@@ -102,9 +102,12 @@ export const SignInForm = () => {
                 {fieldErrors.password}
               </p>
             ) : (
-              <p className="text-xs text-muted-foreground transition-colors hover:text-foreground cursor-pointer">
+              <Link
+                href="/forgot-password"
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
                 Forgot password?
-              </p>
+              </Link>
             )}
           </div>
           <div className="relative">

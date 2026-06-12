@@ -1,50 +1,71 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { Pool } from 'pg'
-import { checkRateLimit } from '@/lib/rate-limit'
+'use client'
 
-export async function POST(req: NextRequest) {
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
-  if (!checkRateLimit(`check-account-type:${ip}`, 10, 60_000)) {
-    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
-  }
+import { useState } from 'react'
+import { forgetPassword } from '@/lib/auth-client'
 
-  let email: string
-  try {
-    const body = await req.json()
-    email = body.email
-  } catch {
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
-  }
+export type ForgotPasswordState = 'idle' | 'sent' | 'google_account'
 
-  if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return NextResponse.json({ error: 'Invalid email' }, { status: 400 })
-  }
+export function useForgotPassword() {
+  const [email, setEmail] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [state, setState] = useState<ForgotPasswordState>('idle')
+  const [error, setError] = useState<string | null>(null)
 
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-  try {
-    const googleResult = await pool.query(
-      `SELECT u.id FROM "user" u
-       INNER JOIN account a ON a."userId" = u.id
-       WHERE u.email = $1 AND a."providerId" = 'google'
-       LIMIT 1`,
-      [email],
-    )
+  const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 
-    if (googleResult.rows.length > 0) {
-      const credResult = await pool.query(
-        `SELECT u.id FROM "user" u
-         INNER JOIN account a ON a."userId" = u.id
-         WHERE u.email = $1 AND a."providerId" = 'credential'
-         LIMIT 1`,
-        [email],
-      )
-      if (credResult.rows.length === 0) {
-        return NextResponse.json({ type: 'google' })
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!isValidEmail || isLoading) return
+
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const res = await fetch('/api/auth/check-account-type', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+
+      if (res.status === 429) {
+        setError('Too many attempts. Please wait a moment and try again.')
+        return
       }
-    }
 
-    return NextResponse.json({ type: 'password' })
-  } finally {
-    await pool.end()
+      if (!res.ok) {
+        setError('Something went wrong. Please try again.')
+        return
+      }
+
+      const { type } = await res.json()
+
+      if (type === 'google') {
+        setState('google_account')
+        return
+      }
+
+      await forgetPassword(email, `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/reset-password`)
+      setState('sent')
+    } catch {
+      setError('Something went wrong. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const reset = () => {
+    setState('idle')
+    setError(null)
+  }
+
+  return {
+    email,
+    setEmail,
+    isLoading,
+    state,
+    error,
+    isValidEmail,
+    handleSubmit,
+    reset,
   }
 }
