@@ -25,7 +25,7 @@ export const SupportClient = ({ faqItems }: SupportClientProps) => {
     <>
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
 
-      <div className="mx-auto max-w-2xl mt-10 pb-16">
+      <div className="mx-auto max-w-2xl mt-10 pb-16 px-4 sm:px-6">
         <div className="mb-10">
           <div className="mb-2 flex items-center gap-2">
             <HelpCircle className="h-4 w-4 text-violet-500" />
