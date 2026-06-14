@@ -86,7 +86,7 @@ export function YearHeatmap({ initialData }: YearHeatmapProps) {
 
   const getIntensity = (cell: Cell) => {
     if (!cell || cell.total === 0 || cell.isFuture) return 0
-    return cell.count / cell.total
+    return cell.count
   }
 
   const getCellColor = (cell: Cell): string => {

@@ -87,7 +87,7 @@ export function AnalyticsClient({ initialData, initialPeriod }: AnalyticsClientP
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 lg:px-10">
+    <div className="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 lg:px-10 overflow-x-hidden">
       <div className="mb-10">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -181,7 +181,7 @@ export function AnalyticsClient({ initialData, initialPeriod }: AnalyticsClientP
                   </Button>
                   <span
                     className={cn(
-                      'text-xs font-medium text-foreground min-w-24 text-center transition-opacity',
+                      'text-xs font-medium text-foreground text-center transition-opacity truncate max-w-24',
                       isPending && 'opacity-40',
                     )}
                   >
@@ -251,7 +251,7 @@ export function AnalyticsClient({ initialData, initialPeriod }: AnalyticsClientP
                 </Button>
                 <span
                   className={cn(
-                    'text-xs font-medium text-foreground min-w-24 text-center transition-opacity',
+                    'text-xs font-medium text-foreground text-center transition-opacity truncate max-w-24',
                     isSubPending && 'opacity-40',
                   )}
                 >
