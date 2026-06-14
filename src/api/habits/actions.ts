@@ -7,6 +7,14 @@ import { ok, err } from '@/types/result'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
 
+/*
+
+Dans le code d'actions, j'aime beaucoup séparer les différentes catégories dans 
+des fichiers pour : types.ts, utils.ts, actions.ts, constants.ts puis regrouper le tout
+dans un index.ts
+
+*/
+
 const getUserId = async () => {
   const session = await getSession()
   return session?.user?.id ?? null
@@ -582,7 +590,7 @@ export const getHabitDetail = async (habitId: number): Promise<HabitDetail | nul
       if (day > new Date()) continue
       const key = getDateKey(day)
       const dayName = DAY_NAMES[day.getDay()]
-      if ((habit as any).frequency === 'daily') {
+      if (habit.frequency === 'daily') {
         target++
         if (completionDates.has(key)) count++
       } else if ((habit as any).frequency === 'days_of_week') {

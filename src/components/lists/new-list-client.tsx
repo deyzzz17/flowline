@@ -50,6 +50,25 @@ export const NewListClient = () => {
   const router = useRouter()
   const queryClient = useQueryClient()
 
+  /*
+ 
+ Au niveau du hook, je pense que tu te compliques pas mal la vie ici, 
+ on devrait avoir quelque chose comme : 
+ 
+ const { createList } = useLists()
+ 
+ Ok je pense que j'ai compris pourquoi c'est décomposé, parce que dans le code tu rentres
+ chaque élément individuellement par rapport à l'utilisateur. Alors ici je pense 
+ que la meilleure chose à faire est d'introduire tanstack form. 
+ 
+ C'est clairement la meilleure solution sur tous les formulaires que tu vas avoir 
+ dans le projet. https://tanstack.com/form/
+
+ Au niveau du composant pour le choix des couleurs, idem il pourrait être dans son propre 
+ composant 
+ 
+  */
+  
   const {
     name,
     setName,

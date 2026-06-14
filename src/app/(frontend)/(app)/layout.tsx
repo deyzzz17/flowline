@@ -18,6 +18,19 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { TimerProvider } from '@/components/timer/timer-context'
 
+/*
+
+Au niveau de tous les providers, sans rentrer dans des détails pour chacun car
+je n'ai pas encore regardé, il pourrait être plus clean de prendre le temps de 
+les extraire dans un composant comme AppProvider dans @/components/providers/app-provider
+ou alors dashboard-provider.
+
+Idem au niveau du header, pour aérer un peu le layout, tu peux l'extraire dans 
+@/components/headers/app-header. 
+
+*/
+
+
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({ headers: await headers() })
   const user = session?.user
