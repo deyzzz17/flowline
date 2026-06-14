@@ -527,7 +527,7 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
                         <DropdownMenuTrigger asChild>
                           <button
                             type="button"
-                            className="opacity-0 group-hover/cat:opacity-100 flex h-5 w-5 items-center justify-center rounded text-muted-foreground/40 hover:text-foreground hover:bg-muted transition-all"
+                            className="opacity-100 sm:opacity-0 sm:group-hover/cat:opacity-100 flex h-5 w-5 items-center justify-center rounded text-muted-foreground/40 hover:text-foreground hover:bg-muted transition-all"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <MoreHorizontal className="h-3 w-3" />
