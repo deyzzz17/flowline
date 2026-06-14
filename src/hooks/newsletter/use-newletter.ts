@@ -17,7 +17,7 @@ export const useNewsletter = () => {
     if (typeof window === 'undefined') return false
     return sessionStorage.getItem(SESSION_DISMISSED_KEY) === 'true'
   })
-
+  const [successDismissed, setSuccessDismissed] = useState(false)
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -45,6 +45,7 @@ export const useNewsletter = () => {
       sessionStorage.setItem(SESSION_DISMISSED_KEY, 'true')
     }
     setSessionDismissed(true)
+    setSuccessDismissed(true)
   }
 
   const subscribe = async (e: React.FormEvent) => {
@@ -73,7 +74,8 @@ export const useNewsletter = () => {
 
   const isSubscribed = subscribed || serverSubscribed === true
 
-  const isVisible = isSubscribed || (!sessionDismissed && serverSubscribed === false)
+  const isVisible =
+    (isSubscribed && !successDismissed) || (!sessionDismissed && serverSubscribed === false)
 
   return {
     email,
