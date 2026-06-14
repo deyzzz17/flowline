@@ -117,8 +117,11 @@ export function CalendarEventBlock({
   const top = getItemTop(item, viewDate)
   const height = displayHeight ?? getItemHeight(item, viewDate)
 
-  const color =
-    item.type === 'event' ? (item as CalendarEvent).color : (item as CalendarTask).listColor
+  const color = isHabit
+    ? '#f97316'
+    : item.type === 'event'
+      ? (item as CalendarEvent).color
+      : (item as CalendarTask).listColor
 
   const resizeBaseDate = continuesPrevDay && dayStart ? dayStart : startDate
 
@@ -266,7 +269,8 @@ export function CalendarEventBlock({
         {...(!isDragDisabled ? attributes : {})}
         style={!isDragDisabled ? { touchAction: 'none' } : undefined}
         className={cn(
-          'absolute inset-0 bottom-3 px-1.5 pt-0.5',
+          'absolute inset-0 px-1.5 pt-0.5',
+          height > 20 && 'bottom-3',
           !isDragDisabled && 'cursor-grab active:cursor-grabbing',
           (isGoogle || isHabit) && 'cursor-pointer',
           continuesPrevDay && 'cursor-default',
@@ -276,17 +280,15 @@ export function CalendarEventBlock({
           if (!isResizing.current) onClickItem(item)
         }}
       >
-        {height > 14 && (
-          <p
-            className="font-semibold truncate leading-tight"
-            style={{
-              color,
-              fontSize: height < 24 ? '9px' : height < 32 ? '10px' : '11px',
-            }}
-          >
-            {item.title}
-          </p>
-        )}
+        <p
+          className="font-semibold truncate leading-tight"
+          style={{
+            color,
+            fontSize: height < 20 ? '9px' : height < 24 ? '9px' : height < 32 ? '10px' : '11px',
+          }}
+        >
+          {item.title}
+        </p>
         {height > 32 && (
           <p className="text-[10px] leading-tight" style={{ color, opacity: 0.7 }}>
             {continuesPrevDay ? '← ' : ''}
