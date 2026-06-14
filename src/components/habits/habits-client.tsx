@@ -661,25 +661,26 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
             {todayCompleted}/{todayHabits.length} completed today
           </p>
         </div>
-        <div className="flex items-center gap-2 mt-1 flex-wrap justify-end">
+        <div className="flex items-center gap-1.5 mt-1">
           <Button
             variant="outline"
-            size="sm"
-            className="gap-1.5 h-8 text-xs"
+            size="icon"
+            className="h-8 w-8 sm:w-auto sm:px-3 sm:gap-1.5"
             onClick={handleOpenArchives}
           >
-            <Archive className="h-3.5 w-3.5" />
-            Archives
+            <Archive className="h-3.5 w-3.5 shrink-0" />
+            <span className="hidden sm:inline text-xs">Archives</span>
           </Button>
           <Link href="/habits/habits-analytics">
-            <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs">
-              <BarChart2 className="h-3.5 w-3.5" />
-              Analytics
+            <Button variant="outline" size="icon" className="h-8 w-8 sm:w-auto sm:px-3 sm:gap-1.5">
+              <BarChart2 className="h-3.5 w-3.5 shrink-0" />
+              <span className="hidden sm:inline text-xs">Analytics</span>
             </Button>
           </Link>
-          <Button size="sm" className="gap-1.5 h-8 text-xs" onClick={() => setFormOpen(true)}>
+          <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setFormOpen(true)}>
             <Plus className="h-3.5 w-3.5" />
-            New habit
+            <span className="hidden sm:inline">New habit</span>
+            <span className="sm:hidden">New</span>
           </Button>
         </div>
       </div>
