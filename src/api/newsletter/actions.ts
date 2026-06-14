@@ -53,21 +53,14 @@ export async function checkNewsletterStatus(): Promise<boolean> {
     const session = await getSession()
     if (!session?.user?.email) return false
 
-    const audienceId = process.env.RESEND_AUDIENCE_ID
-    if (!audienceId) return false
+    const resend = new Resend(process.env.RESEND_FULL_ACCESS_KEY)
+    const { data, error } = await resend.contacts.get({
+      email: session.user.email,
+    })
 
-    const res = await fetch(
-      `https://api.resend.com/audiences/${audienceId}/contacts/email:${encodeURIComponent(session.user.email)}`,
-      {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${process.env.RESEND_FULL_ACCESS_KEY}` },
-      },
-    )
+    if (error || !data) return false
 
-    if (!res.ok) return false
-
-    const data = await res.json()
-    return data?.unsubscribed === false
+    return data.unsubscribed === false
   } catch {
     return false
   }
