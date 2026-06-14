@@ -2,8 +2,6 @@ import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 
-// ── Page header ───────────────────────────────────────────────────────────────
-
 export function DocPageHeader({
   badge,
   title,
@@ -184,9 +182,7 @@ export function PropTable({
               </td>
               <td className="px-4 py-2.5 text-xs text-muted-foreground">
                 {row.description}
-                {row.note && (
-                  <span className="ml-1.5 text-muted-foreground/50">{row.note}</span>
-                )}
+                {row.note && <span className="ml-1.5 text-muted-foreground/50">{row.note}</span>}
               </td>
             </tr>
           ))}

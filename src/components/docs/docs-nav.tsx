@@ -3,13 +3,26 @@
 import Link from 'next/link'
 import { ModeToggle } from '@/components/theme/mode-toggle'
 import { FlowlineLogo } from '../header/flowline-logo'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, Menu, X } from 'lucide-react'
 
-export function DocsNav() {
+interface DocsNavProps {
+  sidebarOpen: boolean
+  onToggleSidebar: () => void
+}
+
+export function DocsNav({ sidebarOpen, onToggleSidebar }: DocsNavProps) {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-14 border-b border-border/60 bg-background/95 backdrop-blur-sm">
-      <div className="flex h-full items-center justify-between px-6">
-        <div className="flex items-center gap-6">
+      <div className="flex h-full items-center justify-between px-4 sm:px-6">
+        <div className="flex items-center gap-3 sm:gap-6">
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className="flex md:hidden items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+          >
+            {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+          </button>
+
           <Link href="/docs" className="flex items-center gap-2.5">
             <FlowlineLogo />
             <div className="flex items-center gap-1.5">

@@ -45,40 +45,61 @@ const NAV = [
   },
 ]
 
-export function DocsSidebar() {
+interface DocsSidebarProps {
+  open: boolean
+  onClose: () => void
+}
+
+export function DocsSidebar({ open, onClose }: DocsSidebarProps) {
   const pathname = usePathname()
 
   return (
-    <aside className="fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-64 border-r border-border/60 bg-background overflow-y-auto">
-      <div className="p-4 space-y-6">
-        {NAV.map((section) => (
-          <div key={section.group}>
-            <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/50">
-              {section.group}
-            </p>
-            <div className="space-y-0.5">
-              {section.items.map((item) => {
-                const isActive = pathname === item.href
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-all',
-                      isActive
-                        ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                    )}
-                  >
-                    <item.icon className="h-3.5 w-3.5 shrink-0" />
-                    {item.label}
-                  </Link>
-                )
-              })}
+    <>
+      {open && (
+        <div
+          className="fixed inset-0 z-30 bg-background/80 backdrop-blur-sm md:hidden"
+          onClick={onClose}
+        />
+      )}
+
+      <aside
+        className={cn(
+          'fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-64 border-r border-border/60 bg-background overflow-y-auto z-40 transition-transform duration-200',
+          'md:translate-x-0',
+          open ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
+        )}
+      >
+        <div className="p-4 space-y-6">
+          {NAV.map((section) => (
+            <div key={section.group}>
+              <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/50">
+                {section.group}
+              </p>
+              <div className="space-y-0.5">
+                {section.items.map((item) => {
+                  const isActive = pathname === item.href
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={onClose}
+                      className={cn(
+                        'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-all',
+                        isActive
+                          ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                      )}
+                    >
+                      <item.icon className="h-3.5 w-3.5 shrink-0" />
+                      {item.label}
+                    </Link>
+                  )
+                })}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
-    </aside>
+          ))}
+        </div>
+      </aside>
+    </>
   )
 }
