@@ -121,7 +121,7 @@ export function YearHeatmap({ initialData }: YearHeatmapProps) {
       ? `${dateLabel}`
       : cell.total === 0
         ? `${dateLabel}: no target`
-        : `${dateLabel}: ${cell.count}/${cell.total} completed`
+        : `${dateLabel}: ${cell.count} completed`
     setTooltip({ visible: true, x: rect.left + rect.width / 2, y: rect.top - 6, text })
   }
 

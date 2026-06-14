@@ -26,18 +26,27 @@ export const SidebarNewsletter = () => {
   if (subscribed) {
     return (
       <div className="mb-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5">
-        <div className="flex items-start gap-3">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/15">
-            <Check className="h-3.5 w-3.5 text-emerald-500" />
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start gap-3">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/15">
+              <Check className="h-3.5 w-3.5 text-emerald-500" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                You&apos;re subscribed, thank you! 🎉
+              </p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
+                You&apos;ll receive updates on new features and improvements.
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-              You&apos;re subscribed — thank you! 🎉
-            </p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
-              You&apos;ll receive updates on new features and improvements.
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={dismiss}
+            className="text-muted-foreground/40 hover:text-muted-foreground transition-colors shrink-0"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
     )
