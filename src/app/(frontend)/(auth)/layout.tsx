@@ -3,6 +3,7 @@ import { AuthButtons } from '@/components/header/auth-button'
 import { ModeToggle } from '@/components/theme/mode-toggle'
 import { FlowlineLogo } from '@/components/header/flowline-logo'
 import Link from 'next/link'
+import { InAppBrowserGuard } from '@/components/authentification/in-app-browser-guard'
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -11,7 +12,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <div className="mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-10">
           <Link href="/" className="group flex items-center gap-3">
             <FlowlineLogo />
-            <span translate='no' className="text-[17px] font-bold tracking-tight text-foreground transition-colors group-hover:text-foreground/80">
+            <span
+              translate="no"
+              className="text-[17px] font-bold tracking-tight text-foreground transition-colors group-hover:text-foreground/80"
+            >
               Flowline
             </span>
           </Link>
@@ -23,7 +27,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </div>
       </header>
 
-      <main className="h-[calc(100dvh-4rem)] w-full">{children}</main>
+      <main className="h-[calc(100dvh-4rem)] w-full">
+        <InAppBrowserGuard>{children}</InAppBrowserGuard>
+      </main>
     </>
   )
 }
