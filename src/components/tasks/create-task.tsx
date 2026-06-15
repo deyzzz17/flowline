@@ -150,6 +150,12 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
 
   const handleCreateTag = async () => {
     if (!newTagName.trim()) return
+    if (userTags.length >= 80) {
+      toast.error('Tag limit reached', {
+        description: 'You can have a maximum of 80 custom tags.',
+      })
+      return
+    }
     await createTagMutation.mutateAsync({ name: newTagName.trim(), color: newTagColor })
     setNewTagName('')
     setNewTagColor('#8b5cf6')
@@ -192,11 +198,28 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
     setShowNewTag(false)
     close()
 
-    await saveTask(listId)
+    const result = await saveTask(listId)
+    if (!result.ok) {
+      if (result.error === 'LIMIT_REACHED') {
+        toast.error('Task limit reached', {
+          description: 'This list already has 100 tasks. Delete some tasks to add new ones.',
+        })
+      } else if (result.error === 'SUBTASK_LIMIT_REACHED') {
+        toast.error('Subtask limit reached', {
+          description: 'A task can have a maximum of 80 subtasks.',
+        })
+      }
+    }
   }
 
   const handleAddSubtask = () => {
     if (!subtaskInput.trim()) return
+    if (subtasks.length >= 80) {
+      toast.error('Subtask limit reached', {
+        description: 'A task can have a maximum of 80 subtasks.',
+      })
+      return
+    }
     addSubtask(subtaskInput)
     setSubtaskInput('')
   }

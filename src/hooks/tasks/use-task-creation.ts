@@ -163,10 +163,10 @@ export const useTaskCreation = () => {
     },
   })
 
-  const saveTask = async (listId?: number): Promise<boolean> => {
+  const saveTask = async (listId?: number): Promise<{ ok: boolean; error?: string }> => {
     if (title.trim() === '') {
       setShowError(true)
-      return false
+      return { ok: false }
     }
 
     const input: Parameters<typeof api.tasks.create>[0] = {
@@ -196,10 +196,11 @@ export const useTaskCreation = () => {
     resetForm()
 
     try {
-      await createMutation.mutateAsync(input)
-      return true
+      const result = await api.tasks.create(input)
+      if (!result.ok) return { ok: false, error: result.error }
+      return { ok: true }
     } catch {
-      return false
+      return { ok: false, error: 'Error while creating the task' }
     }
   }
 

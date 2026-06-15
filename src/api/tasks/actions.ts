@@ -122,10 +122,26 @@ export const createTask = async (task: CreateTaskInput) => {
     }
 
     const payload = await getPayload({ config })
+
     let initialStatus: 'active' | 'inactive' = 'active'
     if (task.type === 'recurring' && task.recurrence?.frequency === 'custom') {
       const today = DAYS[new Date().getDay()]
       initialStatus = task.recurrence.days?.includes(today as never) ? 'active' : 'inactive'
+    }
+
+    if (task.listId) {
+      const { totalDocs } = await payload.find({
+        collection: 'tasks',
+        where: {
+          and: [{ list: { equals: task.listId } }, { status: { not_equals: 'deleted' } }],
+        },
+        limit: 0,
+      })
+      if (totalDocs >= 100) return err('LIMIT_REACHED')
+    }
+
+    if ((task.subtasks ?? []).length > 80) {
+      return err('SUBTASK_LIMIT_REACHED')
     }
 
     const newTask = await payload.create({
@@ -373,6 +389,10 @@ export const editTask = async (id: number, draft: EditTaskInput) => {
 
     const finalTitle =
       draft.title !== undefined && draft.title.trim() !== '' ? draft.title : originalTask.title
+
+    if (draft.subtasks != null && draft.subtasks.length > 80) {
+      return err('SUBTASK_LIMIT_REACHED')
+    }
 
     const updatedTask = await payload.update({
       collection: 'tasks',

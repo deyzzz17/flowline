@@ -268,6 +268,12 @@ export const TaskCard = ({
 
   const addEditSubtask = () => {
     if (!subtaskInput.trim()) return
+    if (editSubtasks.length >= 80) {
+      toast.error('Subtask limit reached', {
+        description: 'A task can have a maximum of 80 subtasks.',
+      })
+      return
+    }
     setEditSubtasks((prev) => [...prev, { title: subtaskInput.trim(), done: false }])
     setSubtaskInput('')
   }
@@ -281,12 +287,18 @@ export const TaskCard = ({
 
   const handleCreateTag = async () => {
     if (!newTagName.trim()) return
+    if (userTags.length >= 80) {
+      toast.error('Tag limit reached', {
+        description: 'You can have a maximum of 80 custom tags.',
+      })
+      return
+    }
     await createTagMutation.mutateAsync({ name: newTagName.trim(), color: newTagColor })
     setNewTagName('')
     setNewTagColor('#8b5cf6')
     setShowNewTag(false)
-    toast.info('New tag create', {
-      description: `Your new tag has been successfully added to your list of custom tags .`,
+    toast.info('New tag created', {
+      description: 'Your new tag has been successfully added.',
     })
   }
 

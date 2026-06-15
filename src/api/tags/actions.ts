@@ -46,6 +46,13 @@ export const createUserTag = async (data: { name: string; color: string }) => {
       },
     })
 
+    const { totalDocs } = await payload.find({
+      collection: 'user-tags',
+      where: { userId: { equals: userId } },
+      limit: 0,
+    })
+    if (totalDocs >= 80) return err('LIMIT_REACHED')
+
     revalidatePath('/')
     return ok(tag)
   } catch {
