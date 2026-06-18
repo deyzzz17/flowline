@@ -9,7 +9,7 @@ import {
   LifeBuoy,
   MessageSquare,
 } from 'lucide-react'
-import { LogoMark } from '@/components/home/logo'
+import { FlowlineLogo } from '../header/flowline-logo'
 
 const navItems = [
   { key: 'home', label: 'Home', icon: Home },
@@ -36,7 +36,7 @@ export const AppShell = ({
     >
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5 dark:border-white/6">
         <div className="flex items-center gap-2.5">
-          <LogoMark className="h-6 w-6" />
+          <FlowlineLogo />
           <span className="text-sm font-semibold text-slate-900 dark:text-white">Flowline</span>
         </div>
         <div className="flex items-center gap-2">

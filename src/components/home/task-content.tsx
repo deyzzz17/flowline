@@ -8,6 +8,25 @@ const TaskRow = ({ dot, label }: { dot: string; label: string }) => (
   </div>
 )
 
+const SubtaskGroup = ({ label, done, total }: { label: string; done: number; total: number }) => (
+  <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 dark:border-white/6 dark:bg-white/[0.02]">
+    <div className="mb-1.5 flex items-center gap-2">
+      <span className="h-3.5 w-3.5 shrink-0 rounded-full border border-slate-300 dark:border-white/20" />
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
+      <span className="text-[11px] font-medium text-slate-700 dark:text-white/80">{label}</span>
+      <span className="ml-auto text-[9px] text-slate-400 dark:text-white/25">
+        {done}/{total}
+      </span>
+    </div>
+    <div className="h-1 rounded-full bg-slate-200 dark:bg-white/5">
+      <div
+        className="h-full rounded-full bg-blue-500"
+        style={{ width: `${(done / total) * 100}%` }}
+      />
+    </div>
+  </div>
+)
+
 export const TasksContent = () => (
   <div>
     <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
@@ -18,7 +37,7 @@ export const TasksContent = () => (
       <span className="text-[9px] text-slate-400 dark:text-white/30">5 active · 9 completed</span>
     </div>
 
-    <div className="mb-3 flex gap-1.5">
+    <div className="mb-4 flex gap-1.5">
       {['To do · 5', 'Achieved', 'Inactive', 'Trash'].map((t, i) => (
         <span
           key={t}
@@ -33,20 +52,21 @@ export const TasksContent = () => (
       ))}
     </div>
 
+    <div className="mb-2 flex items-center justify-between">
+      <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 dark:text-white/30">
+        In progress
+      </span>
+      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-medium text-slate-500 dark:bg-white/5 dark:text-white/40">
+        5
+      </span>
+    </div>
+
     <div className="space-y-1.5">
       <TaskRow dot="bg-blue-500" label="Set up workspaces" />
       <TaskRow dot="bg-blue-500" label="Set up shared lists" />
-      <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 dark:border-white/6 dark:bg-white/[0.02]">
-        <div className="mb-1.5 flex items-center gap-2">
-          <span className="h-3.5 w-3.5 shrink-0 rounded-full border border-slate-300 dark:border-white/20" />
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
-          <span className="text-[11px] font-medium text-slate-700 dark:text-white/80">Stripe</span>
-          <span className="ml-auto text-[9px] text-slate-400 dark:text-white/25">0/3</span>
-        </div>
-        <div className="h-1 rounded-full bg-slate-200 dark:bg-white/5">
-          <div className="h-full w-0 rounded-full bg-blue-500" />
-        </div>
-      </div>
+      <TaskRow dot="bg-blue-500" label="Set up address book" />
+      <SubtaskGroup label="Stripe" done={0} total={3} />
+      <SubtaskGroup label="Organisation" done={0} total={2} />
     </div>
   </div>
 )

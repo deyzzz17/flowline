@@ -1,8 +1,13 @@
 export const HabitsContent = () => (
   <div>
-    <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-orange-600 dark:text-orange-400">
-      Habits
-    </p>
+    <div className="mb-1 flex items-center justify-between">
+      <p className="text-[11px] font-bold uppercase tracking-wider text-orange-600 dark:text-orange-400">
+        Habits
+      </p>
+      <span className="rounded-full bg-violet-600 px-2.5 py-1 text-[9px] font-semibold text-white">
+        + New habit
+      </span>
+    </div>
     <h3 className="mb-1 text-lg font-bold text-slate-900 dark:text-white">Daily habits</h3>
     <p className="mb-2 text-[10px] text-slate-400 dark:text-white/30">0/1 completed today</p>
     <div className="mb-3 h-1 overflow-hidden rounded-full bg-slate-200 dark:bg-white/5">
@@ -47,6 +52,30 @@ export const HabitsContent = () => (
         <p className="text-[8px] uppercase tracking-wide text-slate-400 dark:text-white/25">
           30d completion
         </p>
+      </div>
+    </div>
+
+    <div className="mt-4 rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-white/6 dark:bg-white/[0.02]">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-[8px] uppercase tracking-wide text-slate-400 dark:text-white/25">
+          Last 14 days
+        </p>
+        <span className="flex items-center gap-1 text-[8px] text-slate-300 dark:text-white/15">
+          Less
+          <span className="h-2 w-2 rounded-sm bg-slate-200 dark:bg-white/10" />
+          <span className="h-2 w-2 rounded-sm bg-violet-500" />
+          More
+        </span>
+      </div>
+      <div className="flex gap-1">
+        {Array.from({ length: 14 }).map((_, i) => (
+          <span
+            key={i}
+            className={`h-3 flex-1 rounded-sm ${
+              i === 11 ? 'bg-violet-500' : 'bg-slate-100 dark:bg-white/5'
+            }`}
+          />
+        ))}
       </div>
     </div>
   </div>

@@ -6,7 +6,14 @@ const colorMap: Record<string, string> = {
 }
 
 const days = [
-  { d: 15, ev: [{ c: 'blue', l: 'Dormir' }] },
+  { d: 14, ev: [{ c: 'blue', l: 'Dormir' }] },
+  {
+    d: 15,
+    ev: [
+      { c: 'blue', l: 'Dormir' },
+      { c: 'violet', l: 'Meditation' },
+    ],
+  },
   {
     d: 16,
     ev: [
@@ -38,6 +45,36 @@ const days = [
   },
   { d: 20, ev: [{ c: 'blue', l: 'Dormir' }] },
   { d: 21, ev: [{ c: 'blue', l: 'Dormir' }] },
+  {
+    d: 22,
+    ev: [
+      { c: 'blue', l: 'Dormir' },
+      { c: 'violet', l: 'Meditation' },
+    ],
+  },
+  {
+    d: 23,
+    ev: [
+      { c: 'blue', l: 'Dormir' },
+      { c: 'violet', l: 'Meditation' },
+    ],
+  },
+  {
+    d: 24,
+    ev: [
+      { c: 'blue', l: 'Dormir' },
+      { c: 'violet', l: 'Meditation' },
+    ],
+  },
+  {
+    d: 25,
+    ev: [
+      { c: 'blue', l: 'Dormir' },
+      { c: 'violet', l: 'Meditation' },
+    ],
+  },
+  { d: 26, ev: [{ c: 'blue', l: 'Dormir' }] },
+  { d: 27, ev: [{ c: 'blue', l: 'Dormir' }] },
 ]
 
 export const CalendarContent = () => (
@@ -63,7 +100,7 @@ export const CalendarContent = () => (
       {days.map((cell) => (
         <div
           key={cell.d}
-          className="min-h-[56px] rounded-lg border border-slate-100 bg-slate-50 p-1 dark:border-white/6 dark:bg-white/[0.02]"
+          className="min-h-[52px] rounded-lg border border-slate-100 bg-slate-50 p-1 dark:border-white/6 dark:bg-white/[0.02]"
         >
           <span
             className={`mb-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] ${
@@ -86,6 +123,18 @@ export const CalendarContent = () => (
           </div>
         </div>
       ))}
+    </div>
+
+    <div className="mt-3 flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 dark:border-white/6 dark:bg-white/[0.02]">
+      <span className="h-6 w-1 rounded-full bg-violet-500" />
+      <div>
+        <p className="text-[9px] uppercase tracking-wide text-slate-400 dark:text-white/25">
+          Today
+        </p>
+        <p className="text-[11px] font-medium text-slate-700 dark:text-white/80">
+          9:00 PM · Dormir
+        </p>
+      </div>
     </div>
   </div>
 )
