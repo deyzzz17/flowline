@@ -5,7 +5,7 @@ export const TimerRing = ({
   from = '#ec4899',
   to = '#f43f5e',
   label = '15:32',
-  labelClassName = 'text-base font-bold tabular-nums text-white',
+  labelClassName = 'text-base font-bold tabular-nums text-slate-800 dark:text-white',
   gradientId = 'timer-grad',
 }: {
   progress?: number
@@ -34,7 +34,7 @@ export const TimerRing = ({
           fill="none"
           stroke="currentColor"
           strokeWidth={stroke}
-          className="text-white/10"
+          className="text-slate-100 dark:text-white/10"
         />
         <circle
           cx={c}

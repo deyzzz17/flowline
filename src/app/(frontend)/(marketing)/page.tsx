@@ -1,3 +1,4 @@
+import { Navbar } from '@/components/home/navbar'
 import { HeroSection } from '@/components/home/hero-section'
 import { ProblemSection } from '@/components/home/problem-section'
 import { PillarsSection } from '@/components/home/pillars-section'
@@ -12,6 +13,7 @@ export default async function HomePage() {
 
   return (
     <div className="relative min-h-screen bg-background text-slate-900 selection:bg-violet-200 dark:text-white dark:selection:bg-violet-500/30">
+      <Navbar />
       <div className="relative z-10">
         <HeroSection />
         <ProblemSection />
