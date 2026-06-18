@@ -32,7 +32,7 @@ export const AppShell = ({
 }) => {
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/5 dark:border-white/10 dark:bg-[oklch(0.09_0.005_285)] dark:shadow-black/50 ${className}`}
+      className={`relative overflow-hidden rounded-2xl border border-slate-300 bg-[oklch(0.955_0.006_285)] shadow-2xl shadow-slate-900/5 dark:border-white/10 dark:bg-[oklch(0.22_0.012_265)] dark:shadow-black/50 ${className}`}
     >
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5 dark:border-white/6">
         <div className="flex items-center gap-2.5">

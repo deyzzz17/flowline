@@ -6,6 +6,7 @@ import { FinalCtaSection } from '@/components/home/final-cta-section'
 import { Footer } from '@/components/home/footer'
 import { Orb } from '@/components/home/orb'
 import { requireGuest } from '@/lib/require-auth'
+import { DemoSection } from '@/components/home/demo-section'
 
 export default async function HomePage() {
   await requireGuest()
@@ -34,8 +35,7 @@ export default async function HomePage() {
       <div className="relative z-10">
         <HeroSection />
         <PillarsSection />
-        <OnboardingSection />
-        <TestimonialsSection />
+        <DemoSection />
         <FinalCtaSection />
       </div>
       <Footer />

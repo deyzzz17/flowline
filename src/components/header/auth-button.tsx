@@ -19,7 +19,7 @@ export const AuthButtons = () => {
         href="/sign-up"
         className="group relative hidden overflow-hidden rounded-full bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-violet-500/20 transition-all duration-200 hover:bg-violet-500 hover:shadow-md hover:shadow-violet-500/30 hover:-translate-y-px active:translate-y-0 sm:inline-flex items-center gap-1.5"
       >
-        <span>Sign up</span>
+        <span>Start for Free</span>
         <svg
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
