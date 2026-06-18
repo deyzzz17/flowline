@@ -1,10 +1,18 @@
-const TaskRow = ({ dot, label }: { dot: string; label: string }) => (
+import { Clock } from 'lucide-react'
+
+const TaskRow = ({ dot, label, time }: { dot: string; label: string; time?: string }) => (
   <div className="flex items-center gap-2.5 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 dark:border-white/6 dark:bg-white/[0.02]">
     <span className="h-3.5 w-3.5 shrink-0 rounded-full border border-slate-300 dark:border-white/20" />
     <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
-    <span className="truncate text-[11px] font-medium text-slate-700 dark:text-white/80">
+    <span className="flex-1 truncate text-[11px] font-medium text-slate-700 dark:text-white/80">
       {label}
     </span>
+    {time && (
+      <span className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[9px] font-medium text-violet-600 dark:bg-violet-500/15 dark:text-violet-300">
+        <Clock className="h-2.5 w-2.5" />
+        {time}
+      </span>
+    )}
   </div>
 )
 
@@ -62,11 +70,15 @@ export const TasksContent = () => (
     </div>
 
     <div className="space-y-1.5">
-      <TaskRow dot="bg-blue-500" label="Set up workspaces" />
-      <TaskRow dot="bg-blue-500" label="Set up shared lists" />
+      <TaskRow dot="bg-blue-500" label="Design review" time="1h 20m" />
+      <TaskRow dot="bg-blue-500" label="Send weekly update email" />
       <TaskRow dot="bg-blue-500" label="Set up address book" />
       <SubtaskGroup label="Stripe" done={0} total={3} />
       <SubtaskGroup label="Organisation" done={0} total={2} />
     </div>
+
+    <p className="mt-3 text-[10px] text-slate-400 dark:text-white/25">
+      Link a timer once — the time spent shows right on the task.
+    </p>
   </div>
 )

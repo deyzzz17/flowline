@@ -12,7 +12,9 @@ const pillars = [
     nav: 'lists' as const,
     icon: ClipboardList,
     name: 'Tasks',
-    title: 'Organize projects and daily work.',
+    title: 'See exactly where your time went.',
+    description:
+      'Link a focus timer to any task once, and the hours show up right there on the task card — no separate report to dig through.',
     color: 'text-violet-600 dark:text-violet-300',
     bg: 'bg-violet-50 dark:bg-violet-500/15',
     Content: TasksContent,
@@ -21,7 +23,9 @@ const pillars = [
     nav: 'calendar' as const,
     icon: CalendarDays,
     name: 'Calendar',
-    title: 'Plan your week and never miss important events.',
+    title: 'Habits that show up on their own.',
+    description:
+      'Attach a habit to a recurring calendar event and it appears automatically, at the same time every day — turning intention into a real time-block.',
     color: 'text-blue-600 dark:text-blue-300',
     bg: 'bg-blue-50 dark:bg-blue-500/15',
     Content: CalendarContent,
@@ -30,7 +34,9 @@ const pillars = [
     nav: 'habits' as const,
     icon: Flame,
     name: 'Habits',
-    title: 'Build consistency with visual progress tracking.',
+    title: 'Consistency you can actually see.',
+    description:
+      'A full-year heatmap, streaks, and a claimed-goals tracker turn every habit into evidence of progress — not just a checkbox you tick and forget.',
     color: 'text-orange-600 dark:text-orange-300',
     bg: 'bg-orange-50 dark:bg-orange-500/15',
     Content: HabitsContent,
@@ -39,7 +45,9 @@ const pillars = [
     nav: 'timer' as const,
     icon: Timer,
     name: 'Focus Timer',
-    title: 'Stay focused and reduce distractions.',
+    title: 'Analytics that mean something.',
+    description:
+      'Total focus time, sessions, and a breakdown of where it all went — building automatically every time you hit play.',
     color: 'text-pink-600 dark:text-pink-300',
     bg: 'bg-pink-50 dark:bg-pink-500/15',
     Content: TimerContent,
@@ -76,11 +84,14 @@ export const PillarsSection = () => {
                   >
                     <p.icon className="h-5 w-5" />
                   </div>
-                  <h3 className="mb-2 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-white/30">
                     {p.name}
+                  </p>
+                  <h3 className="mb-3 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                    {p.title}
                   </h3>
                   <p className="max-w-sm text-base leading-relaxed text-slate-500 dark:text-white/50">
-                    {p.title}
+                    {p.description}
                   </p>
                 </div>
                 <AppShell active={p.nav}>
