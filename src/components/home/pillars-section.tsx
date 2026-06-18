@@ -1,98 +1,48 @@
-import { CheckCheck, CalendarDays, Flame, Timer } from 'lucide-react'
+import { ClipboardList, CalendarDays, Flame, Timer } from 'lucide-react'
 import { SectionLabel } from '@/components/home/section-label'
 import { Reveal } from '@/components/home/reveal'
-import { AppWindow } from '@/components/home/app-window'
-import { MiniTask } from '@/components/home/mini-task'
-import { MiniCalendar } from '@/components/home/mini-calendar'
-import { HabitBar } from '@/components/home/habit-bar'
-import { TimerRing } from '@/components/home/timer-ring'
-
-const TasksMockup = () => (
-  <AppWindow label="Lists — Flowline">
-    <div className="space-y-2">
-      <MiniTask done label="Set up workspaces" />
-      <MiniTask label="Set up shared lists" />
-      <MiniTask label="Integrate Stripe" />
-      <MiniTask label="Prepare sprint planning" />
-    </div>
-  </AppWindow>
-)
-
-const CalendarMockup = () => (
-  <AppWindow label="Calendar — June 2026">
-    <MiniCalendar />
-  </AppWindow>
-)
-
-const HabitsMockup = () => (
-  <AppWindow label="Habits — Daily">
-    <div className="space-y-4">
-      <HabitBar
-        label="Morning workout 🏋️"
-        pct={86}
-        color="bg-gradient-to-r from-orange-500 to-red-500"
-      />
-      <HabitBar
-        label="Meditate 🧘"
-        pct={94}
-        color="bg-gradient-to-r from-emerald-500 to-teal-500"
-      />
-      <HabitBar
-        label="Cold shower 🚿"
-        pct={60}
-        color="bg-gradient-to-r from-blue-500 to-cyan-500"
-      />
-    </div>
-    <div className="mt-4 flex items-center gap-2 rounded-xl border border-orange-100 bg-orange-50 px-3 py-2 dark:border-orange-500/20 dark:bg-orange-500/10">
-      <Flame className="h-3.5 w-3.5 text-orange-500 dark:text-orange-400" />
-      <span className="text-xs font-medium text-orange-600 dark:text-orange-300">
-        32-day streak — keep it up!
-      </span>
-    </div>
-  </AppWindow>
-)
-
-const TimerMockup = () => (
-  <AppWindow label="Focus session">
-    <div className="flex flex-col items-center justify-center gap-3 py-2">
-      <TimerRing progress={0.38} size={88} stroke={6} label="15:32" gradientId="pillar-timer" />
-      <span className="text-xs text-slate-400 dark:text-white/40">Deep work — Design</span>
-    </div>
-  </AppWindow>
-)
+import { AppShell } from '@/components/home/app-shell'
+import { TasksContent } from '@/components/home/task-content'
+import { CalendarContent } from '@/components/home/calendar-content'
+import { HabitsContent } from '@/components/home/habits-content'
+import { TimerContent } from '@/components/home/timer-content'
 
 const pillars = [
   {
-    icon: CheckCheck,
+    nav: 'lists' as const,
+    icon: ClipboardList,
     name: 'Tasks',
     title: 'Organize projects and daily work.',
     color: 'text-violet-600 dark:text-violet-300',
     bg: 'bg-violet-50 dark:bg-violet-500/15',
-    Mockup: TasksMockup,
+    Content: TasksContent,
   },
   {
+    nav: 'calendar' as const,
     icon: CalendarDays,
     name: 'Calendar',
     title: 'Plan your week and never miss important events.',
     color: 'text-blue-600 dark:text-blue-300',
     bg: 'bg-blue-50 dark:bg-blue-500/15',
-    Mockup: CalendarMockup,
+    Content: CalendarContent,
   },
   {
+    nav: 'habits' as const,
     icon: Flame,
     name: 'Habits',
     title: 'Build consistency with visual progress tracking.',
     color: 'text-orange-600 dark:text-orange-300',
     bg: 'bg-orange-50 dark:bg-orange-500/15',
-    Mockup: HabitsMockup,
+    Content: HabitsContent,
   },
   {
+    nav: 'timer' as const,
     icon: Timer,
     name: 'Focus Timer',
     title: 'Stay focused and reduce distractions.',
     color: 'text-pink-600 dark:text-pink-300',
     bg: 'bg-pink-50 dark:bg-pink-500/15',
-    Mockup: TimerMockup,
+    Content: TimerContent,
   },
 ]
 
@@ -133,7 +83,9 @@ export const PillarsSection = () => {
                     {p.title}
                   </p>
                 </div>
-                <p.Mockup />
+                <AppShell active={p.nav}>
+                  <p.Content />
+                </AppShell>
               </div>
             </Reveal>
           )

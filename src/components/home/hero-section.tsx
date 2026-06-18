@@ -3,7 +3,8 @@
 import { useMounted } from '@/hooks/home/use-mounted'
 import { ArrowRightIcon } from '@heroicons/react/24/outline'
 import Link from 'next/link'
-import { DashboardPreview } from '@/components/home/dashboard-preview'
+import { AppShell } from '@/components/home/app-shell'
+import { DashboardContent } from './dahsboard-content'
 
 export const HeroSection = () => {
   const mounted = useMounted()
@@ -15,7 +16,7 @@ export const HeroSection = () => {
     <section className="mx-auto max-w-screen-2xl px-4 pt-28 pb-20 sm:px-6 lg:px-10 lg:pt-36">
       <div className="mx-auto max-w-3xl text-center">
         <div
-          className={`mb-7 inline-flex items-center gap-2 rounded-full border px-3.5 py-1 font-mono text-[11px] uppercase tracking-widest backdrop-blur-sm border-slate-200 bg-white/70 text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/40 ${base} ${mounted ? shown : hidden}`}
+          className={`mb-7 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-medium border-violet-200 bg-violet-50 text-violet-600 dark:border-violet-500/30 dark:bg-violet-500/10 dark:text-violet-300 ${base} ${mounted ? shown : hidden}`}
         >
           <span className="h-1.5 w-1.5 rounded-full bg-violet-500 dark:bg-violet-400" />
           Introducing Flowline
@@ -55,8 +56,13 @@ export const HeroSection = () => {
         </div>
       </div>
 
-      <div className={`mx-auto mt-16 max-w-5xl ${base} delay-300 ${mounted ? shown : hidden}`}>
-        <DashboardPreview />
+      <div
+        className={`relative mx-auto mt-16 max-w-4xl ${base} delay-300 ${mounted ? shown : hidden}`}
+      >
+        <div className="pointer-events-none absolute -inset-x-10 -top-10 h-32 rounded-full bg-violet-500/15 blur-3xl dark:bg-violet-500/20" />
+        <AppShell active="home">
+          <DashboardContent />
+        </AppShell>
       </div>
     </section>
   )

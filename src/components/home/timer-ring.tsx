@@ -5,6 +5,7 @@ export const TimerRing = ({
   from = '#ec4899',
   to = '#f43f5e',
   label = '15:32',
+  labelClassName = 'text-base font-bold tabular-nums text-white',
   gradientId = 'timer-grad',
 }: {
   progress?: number
@@ -13,6 +14,7 @@ export const TimerRing = ({
   from?: string
   to?: string
   label?: string
+  labelClassName?: string
   gradientId?: string
 }) => {
   const r = (size - stroke) / 2
@@ -32,7 +34,7 @@ export const TimerRing = ({
           fill="none"
           stroke="currentColor"
           strokeWidth={stroke}
-          className="text-slate-100 dark:text-white/10"
+          className="text-white/10"
         />
         <circle
           cx={c}
@@ -52,9 +54,7 @@ export const TimerRing = ({
           </linearGradient>
         </defs>
       </svg>
-      <span className="text-base font-bold tabular-nums text-slate-800 dark:text-white">
-        {label}
-      </span>
+      <span className={labelClassName}>{label}</span>
     </div>
   )
 }

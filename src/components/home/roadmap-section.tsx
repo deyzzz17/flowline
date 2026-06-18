@@ -30,7 +30,7 @@ export const RoadmapSection = () => {
       <div className="mx-auto grid max-w-4xl grid-cols-1 gap-4 sm:grid-cols-2">
         {upcoming.map((item, i) => (
           <Reveal key={item.name} delay={100 + i * 60}>
-            <div className="relative rounded-2xl border border-dashed border-slate-200 bg-white/60 p-6 dark:border-white/10 dark:bg-white/2">
+            <div className="relative rounded-2xl border border-dashed border-slate-200 bg-white/60 p-6 dark:border-white/10 dark:bg-white/[0.02]">
               <span className="absolute right-5 top-5 rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-400 dark:bg-white/5 dark:text-white/30">
                 In development
               </span>
