@@ -9,7 +9,7 @@ import { getSession } from '@/lib/get-session'
 
 /*
 
-Dans le code d'actions, j'aime beaucoup séparer les différentes catégories dans 
+Dans le code d'actions, j'aime beaucoup séparer les différentes catégories dans
 des fichiers pour : types.ts, utils.ts, actions.ts, constants.ts puis regrouper le tout
 dans un index.ts
 
@@ -652,6 +652,10 @@ export const createHabit = async (data: HabitData) => {
       return err('LIMIT_REACHED')
     }
 
+    if ((data.trackingFields ?? []).length > 80) {
+      return err('TRACKING_FIELD_LIMIT_REACHED')
+    }
+
     const habit = await payload.create({
       collection: 'habits',
       data: {
@@ -685,6 +689,10 @@ export const createHabit = async (data: HabitData) => {
 
 export const updateHabit = async (id: number, data: Partial<HabitData>) => {
   try {
+    if (data.trackingFields !== undefined && data.trackingFields.length > 80) {
+      return err('TRACKING_FIELD_LIMIT_REACHED')
+    }
+
     const payload = await getPayload({ config })
     const updated = await payload.update({
       collection: 'habits',

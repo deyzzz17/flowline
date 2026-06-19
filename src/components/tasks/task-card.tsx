@@ -37,6 +37,7 @@ import { MentionRenderer } from './mention-renderer'
 import { toast } from 'sonner'
 import { format, startOfDay } from 'date-fns'
 import { TaskSessionsBadge } from './task-sessions-badge'
+import { useState } from 'react'
 
 function hexToRgba(hex: string, alpha: number) {
   try {
@@ -166,6 +167,8 @@ export const TaskCard = ({
   const deleteSubtask = useDeleteSubtask()
   const queryClient = useQueryClient()
 
+  const [limitDialog, setLimitDialog] = useState<'subtask' | 'tag' | null>(null)
+
   const { data: userTagsData } = useQuery({
     queryKey: ['user-tags'],
     queryFn: () => api.tags.tags(),
@@ -269,9 +272,7 @@ export const TaskCard = ({
   const addEditSubtask = () => {
     if (!subtaskInput.trim()) return
     if (editSubtasks.length >= 80) {
-      toast.error('Subtask limit reached', {
-        description: 'A task can have a maximum of 80 subtasks.',
-      })
+      setLimitDialog('subtask')
       return
     }
     setEditSubtasks((prev) => [...prev, { title: subtaskInput.trim(), done: false }])
@@ -288,9 +289,7 @@ export const TaskCard = ({
   const handleCreateTag = async () => {
     if (!newTagName.trim()) return
     if (userTags.length >= 80) {
-      toast.error('Tag limit reached', {
-        description: 'You can have a maximum of 80 custom tags.',
-      })
+      setLimitDialog('tag')
       return
     }
     await createTagMutation.mutateAsync({ name: newTagName.trim(), color: newTagColor })
@@ -1448,6 +1447,28 @@ export const TaskCard = ({
           </div>
         )}
       </div>
+      <AlertDialog
+        open={!!limitDialog}
+        onOpenChange={(v) => {
+          if (!v) setLimitDialog(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {limitDialog === 'subtask' ? 'Subtask limit reached' : 'Tag limit reached'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {limitDialog === 'subtask'
+                ? 'A task can have a maximum of 80 subtasks.'
+                : 'You can have a maximum of 80 custom tags. Delete an existing tag to create a new one.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Got it</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

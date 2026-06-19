@@ -3,6 +3,8 @@
 import { useDroppable } from '@dnd-kit/core'
 import { cn } from '@/lib/utils'
 import { CalendarEventBlock, pxToMinutes, getItemTop, getItemHeight } from './calendar-event-block'
+import { CurrentTimeLine } from './current-time-line'
+import { useScrollToCurrentTime } from '@/hooks/calendar/use-scroll-to-current-time'
 import { useTimeFormat } from '@/hooks/calendar/use-time-format'
 import { usePublicHolidays } from '@/hooks/calendar/use-public-holidays'
 import type { CalendarItem, CalendarEvent } from '@/hooks/calendar/use-calendar'
@@ -145,9 +147,10 @@ export function CalendarDayView({
   const { getHoliday } = usePublicHolidays(currentDate.getFullYear())
   const holiday = getHoliday(currentDate)
   const layouts = computeColumnsForDay(timedItems, currentDate)
+  const scrollRefCallback = useScrollToCurrentTime<HTMLDivElement>()
 
   return (
-    <div className="flex flex-1 flex-col overflow-auto">
+    <div ref={scrollRefCallback} className="flex flex-1 flex-col overflow-auto">
       <div
         className={cn(
           'flex items-center gap-3 px-6 py-4 border-b border-border/40 shrink-0',
@@ -231,6 +234,8 @@ export function CalendarDayView({
           {SLOTS.map((s) => (
             <DroppableSlot key={s} date={currentDate} slotIndex={s} />
           ))}
+
+          <CurrentTimeLine isToday={isToday} />
 
           {layouts.map(({ item, column, totalColumns }) => {
             const widthPct = 100 / totalColumns

@@ -108,6 +108,7 @@ export function AppSidebar() {
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState('#8b5cf6')
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null)
+  const [categoryLimitOpen, setCategoryLimitOpen] = useState(false)
 
   const { data: listsData } = useQuery({ queryKey: ['lists'], queryFn: () => api.lists.list() })
   const { data: tasksData } = useQuery({
@@ -144,6 +145,10 @@ export function AppSidebar() {
 
   const handleCreateCategory = async () => {
     if (!newCategoryName.trim()) return
+    if (categories.length >= 100) {
+      setCategoryLimitOpen(true)
+      return
+    }
     await createMutation.mutateAsync({ name: newCategoryName.trim(), color: newCategoryColor })
     setNewCategoryName('')
     setNewCategoryColor('#8b5cf6')
@@ -269,6 +274,21 @@ export function AppSidebar() {
             <AlertDialogAction onClick={handleConfirmDelete} variant="destructive">
               Delete category & events
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={categoryLimitOpen} onOpenChange={setCategoryLimitOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Calendar limit reached</AlertDialogTitle>
+            <AlertDialogDescription>
+              You can have a maximum of 100 calendar categories. Delete an existing one to create a
+              new one.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Got it</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

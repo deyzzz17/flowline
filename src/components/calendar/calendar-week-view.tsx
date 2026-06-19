@@ -10,6 +10,8 @@ import {
   getItemHeight,
   minutesToPx,
 } from './calendar-event-block'
+import { CurrentTimeLine } from './current-time-line'
+import { useScrollToCurrentTime } from '@/hooks/calendar/use-scroll-to-current-time'
 import { useTimeFormat } from '@/hooks/calendar/use-time-format'
 import { usePublicHolidays } from '@/hooks/calendar/use-public-holidays'
 import type { CalendarItem, CalendarEvent } from '@/hooks/calendar/use-calendar'
@@ -228,6 +230,7 @@ interface OverflowState {
 function DayColumn({
   date,
   items,
+  isToday,
   onClickSlot,
   onDoubleClickSlot,
   onClickItem,
@@ -237,6 +240,7 @@ function DayColumn({
 }: {
   date: Date
   items: CalendarItem[]
+  isToday: boolean
   onClickSlot: (date: Date) => void
   onDoubleClickSlot: (date: Date) => void
   onClickItem: (item: CalendarItem) => void
@@ -274,6 +278,7 @@ function DayColumn({
       {SLOTS.map((s) => (
         <DroppableSlot key={s} date={date} slotIndex={s} />
       ))}
+      <CurrentTimeLine isToday={isToday} />
       {ghostOverflow > 0 && <GhostBlock color="#8b5cf6" height={minutesToPx(ghostOverflow)} />}
       {layouts.map(({ item, column, totalColumns, isContinuation }) => {
         const color = item.type === 'event' ? (item as CalendarEvent).color : '#8b5cf6'
@@ -368,6 +373,7 @@ export function CalendarWeekView({
   const { formatHourLabel } = useTimeFormat()
   const { getHoliday } = usePublicHolidays(currentDate.getFullYear())
   const [overflow, setOverflow] = useState<OverflowState | null>(null)
+  const scrollRefCallback = useScrollToCurrentTime<HTMLDivElement>()
 
   const allDayByDay = days.map((date) => getItemsForDate(date).filter(isAllDay))
   const holidayByDay = days.map((date) => getHoliday(date))
@@ -384,7 +390,7 @@ export function CalendarWeekView({
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
-      <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
+      <div ref={scrollRefCallback} className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
         <div style={{ minHeight: totalGridHeight + 48 + allDayBandHeight }}>
           <div className="sticky top-0 z-20 flex border-b border-border/40 bg-background">
             <div className={cn(timeColWidth, 'shrink-0 border-r border-border/40 h-12')} />
@@ -490,11 +496,13 @@ export function CalendarWeekView({
                 const items = getItemsForDate(date)
                 const ghostMinutes =
                   overflow && overflow.dayIndex === i - 1 ? overflow.overflowMinutes : 0
+                const isToday = date.toDateString() === today.toDateString()
                 return (
                   <div key={`${date.toISOString()}-${items.length}`} className="flex-1 min-w-0">
                     <DayColumn
                       date={date}
                       items={items}
+                      isToday={isToday}
                       onClickSlot={onClickSlot}
                       onDoubleClickSlot={onDoubleClickSlot}
                       onClickItem={onClickItem}

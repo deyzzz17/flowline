@@ -31,6 +31,7 @@ import type { HabitData, HabitWithStats, TrackingField, HabitGoal } from '@/api/
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { format } from 'date-fns'
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog'
 
 const PRESET_COLORS = [
   '#f97316',
@@ -463,6 +464,7 @@ function HabitFormInner({
   const [newFieldType, setNewFieldType] = useState<TrackingFieldType>('number')
   const [showAddField, setShowAddField] = useState(false)
   const [repeatEveryDays, setRepeatEveryDays] = useState(init.repeatEveryDays)
+  const [fieldLimitOpen, setFieldLimitOpen] = useState(false)
 
   const { data: calendarEvents } = useQuery({
     queryKey: ['calendar-events-flowline-recurring', startDate, frequency],
@@ -561,6 +563,10 @@ function HabitFormInner({
 
   const addCustomField = () => {
     if (!newFieldLabel.trim()) return
+    if (trackingFields.length >= 80) {
+      setFieldLimitOpen(true)
+      return
+    }
     setTrackingFields((prev) => [
       ...prev,
       {
@@ -1251,6 +1257,21 @@ function HabitFormInner({
           </button>
         )}
       </Section>
+
+      <AlertDialog open={fieldLimitOpen} onOpenChange={setFieldLimitOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Tracking field limit reached</AlertDialogTitle>
+            <AlertDialogDescription>
+              A habit can have a maximum of 80 tracking fields. Remove an existing field to add a
+              new one.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Got it</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <DialogFooter className="pt-1">
         <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>

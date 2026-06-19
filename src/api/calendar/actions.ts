@@ -106,7 +106,16 @@ export const createCalendarCategory = async (data: CalendarCategoryData) => {
   try {
     const userId = await getUserId()
     if (!userId) return err('Not authenticated')
+
     const payload = await getPayload({ config })
+
+    const { totalDocs } = await payload.find({
+      collection: 'calendar-categories',
+      where: { userId: { equals: userId } },
+      limit: 0,
+    })
+    if (totalDocs >= 100) return err('LIMIT_REACHED')
+
     return ok(
       await payload.create({
         collection: 'calendar-categories',
