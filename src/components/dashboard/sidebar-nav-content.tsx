@@ -19,6 +19,7 @@ import {
   MoreHorizontal,
   Pencil,
   Trash2,
+  Users,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -683,6 +684,19 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
               </div>
             )}
           </div>
+
+          <Link
+            {...navLink('/contacts')}
+            className={cn(
+              'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
+              isActive('/contacts')
+                ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+            )}
+          >
+            <Users className="h-4 w-4 shrink-0" />
+            Contacts
+          </Link>
         </nav>
 
         <div className="shrink-0 p-3 space-y-1">

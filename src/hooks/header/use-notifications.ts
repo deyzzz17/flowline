@@ -4,10 +4,11 @@ import { useState, useRef, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
 import { listHabits } from '@/api/habits/actions'
+import { listPendingRequests } from '@/api/contacts/actions'
 import type { Task } from '@/payload-types'
 import type { HabitWithStats } from '@/api/habits/actions'
 
-export type NotificationLevel = 'today' | 'urgent' | 'warning' | 'goal_claim'
+export type NotificationLevel = 'today' | 'urgent' | 'warning' | 'goal_claim' | 'connection_request'
 
 export interface TaskNotification {
   id: string
@@ -21,6 +22,8 @@ export interface TaskNotification {
   dueDate: string
   habitSlug?: string
   goalDescription?: string
+  connectionId?: number
+  userImage?: string | null
 }
 
 function isSameCalendarDay(a: Date, b: Date): boolean {
@@ -44,7 +47,12 @@ function buildNotifications(tasks: Task[]): TaskNotification[] {
 
   for (const task of tasks) {
     if (task.status !== 'active' || !task.dueDate) continue
-    type ListObj = { id: number; name: string; slug: string; category?: { color?: string | null } | null }
+    type ListObj = {
+      id: number
+      name: string
+      slug: string
+      category?: { color?: string | null } | null
+    }
     const list = task.list && typeof task.list === 'object' ? (task.list as ListObj) : null
     if (!list) continue
 
@@ -52,15 +60,51 @@ function buildNotifications(tasks: Task[]): TaskNotification[] {
     const dueDayStart = startOfDay(dueDate).getTime()
 
     if (isSameCalendarDay(dueDate, now)) {
-      notifications.push({ id: `today-${task.id}`, taskId: task.id, taskTitle: task.title, listName: list.name, listSlug: list.slug, listColor: list.category?.color ?? '#8b5cf6', level: 'today', message: 'Due today', dueDate: task.dueDate })
+      notifications.push({
+        id: `today-${task.id}`,
+        taskId: task.id,
+        taskTitle: task.title,
+        listName: list.name,
+        listSlug: list.slug,
+        listColor: list.category?.color ?? '#8b5cf6',
+        level: 'today',
+        message: 'Due today',
+        dueDate: task.dueDate,
+      })
     } else if (dueDayStart === tomorrowStart) {
-      notifications.push({ id: `urgent-${task.id}`, taskId: task.id, taskTitle: task.title, listName: list.name, listSlug: list.slug, listColor: list.category?.color ?? '#8b5cf6', level: 'urgent', message: 'Due tomorrow', dueDate: task.dueDate })
+      notifications.push({
+        id: `urgent-${task.id}`,
+        taskId: task.id,
+        taskTitle: task.title,
+        listName: list.name,
+        listSlug: list.slug,
+        listColor: list.category?.color ?? '#8b5cf6',
+        level: 'urgent',
+        message: 'Due tomorrow',
+        dueDate: task.dueDate,
+      })
     } else if (dueDayStart === twoDaysStart) {
-      notifications.push({ id: `warning-${task.id}`, taskId: task.id, taskTitle: task.title, listName: list.name, listSlug: list.slug, listColor: list.category?.color ?? '#8b5cf6', level: 'warning', message: 'Due in 2 days', dueDate: task.dueDate })
+      notifications.push({
+        id: `warning-${task.id}`,
+        taskId: task.id,
+        taskTitle: task.title,
+        listName: list.name,
+        listSlug: list.slug,
+        listColor: list.category?.color ?? '#8b5cf6',
+        level: 'warning',
+        message: 'Due in 2 days',
+        dueDate: task.dueDate,
+      })
     }
   }
 
-  const order: Record<NotificationLevel, number> = { today: 0, urgent: 1, warning: 2, goal_claim: 3 }
+  const order: Record<NotificationLevel, number> = {
+    connection_request: -1,
+    today: 0,
+    urgent: 1,
+    warning: 2,
+    goal_claim: 3,
+  }
   return notifications.sort((a, b) => order[a.level] - order[b.level])
 }
 
@@ -91,6 +135,28 @@ function buildGoalClaimNotifications(habits: HabitWithStats[]): TaskNotification
   return notifications
 }
 
+function buildConnectionNotifications(
+  requests: {
+    connectionId: number
+    user: { name: string; image: string | null }
+    createdAt: string
+  }[],
+): TaskNotification[] {
+  return requests.map((r) => ({
+    id: `connection-request-${r.connectionId}`,
+    taskId: r.connectionId,
+    taskTitle: r.user.name,
+    listName: 'wants to connect with you',
+    listSlug: '',
+    listColor: '#8b5cf6',
+    level: 'connection_request' as const,
+    message: 'New connection request',
+    dueDate: r.createdAt,
+    connectionId: r.connectionId,
+    userImage: r.user.image,
+  }))
+}
+
 export const useNotifications = () => {
   const [open, setOpen] = useState(false)
   const readIdsRef = useRef<Set<string>>(new Set())
@@ -113,11 +179,20 @@ export const useNotifications = () => {
     refetchInterval: 60_000,
   })
 
+  const { data: pendingRequestsData } = useQuery({
+    queryKey: ['connections', 'pending-received'],
+    queryFn: () => listPendingRequests(),
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 30_000,
+  })
+
   const allNotifications = useMemo(() => {
     const taskNotifs = buildNotifications((data?.docs ?? []) as Task[])
     const goalNotifs = buildGoalClaimNotifications(habitsData ?? [])
-    return [...taskNotifs, ...goalNotifs]
-  }, [data, habitsData])
+    const connectionNotifs = buildConnectionNotifications(pendingRequestsData ?? [])
+    return [...connectionNotifs, ...taskNotifs, ...goalNotifs]
+  }, [data, habitsData, pendingRequestsData])
 
   const notifications = useMemo(
     () => allNotifications.filter((n) => !dismissedIds.has(n.id)),
@@ -146,5 +221,13 @@ export const useNotifications = () => {
     forceUpdate((c) => c + 1)
   }
 
-  return { open, setOpen: handleOpen, notifications, hasUnread, count: notifications.length, dismiss, dismissAll }
+  return {
+    open,
+    setOpen: handleOpen,
+    notifications,
+    hasUnread,
+    count: notifications.length,
+    dismiss,
+    dismissAll,
+  }
 }

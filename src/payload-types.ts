@@ -81,6 +81,7 @@ export interface Config {
     'google-calendar-syncs': GoogleCalendarSync;
     habits: Habit;
     'habit-completions': HabitCompletion;
+    connections: Connection;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -102,6 +103,7 @@ export interface Config {
     'google-calendar-syncs': GoogleCalendarSyncsSelect<false> | GoogleCalendarSyncsSelect<true>;
     habits: HabitsSelect<false> | HabitsSelect<true>;
     'habit-completions': HabitCompletionsSelect<false> | HabitCompletionsSelect<true>;
+    connections: ConnectionsSelect<false> | ConnectionsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -576,6 +578,28 @@ export interface HabitCompletion {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "connections".
+ */
+export interface Connection {
+  id: number;
+  /**
+   * userId of the person who sent the connection request
+   */
+  requesterId: string;
+  /**
+   * userId of the person who received the connection request
+   */
+  recipientId: string;
+  status: 'pending' | 'accepted';
+  /**
+   * Set when the request is accepted
+   */
+  respondedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -653,6 +677,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'habit-completions';
         value: number | HabitCompletion;
+      } | null)
+    | ({
+        relationTo: 'connections';
+        value: number | Connection;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -992,6 +1020,18 @@ export interface HabitCompletionsSelect<T extends boolean = true> {
   completedAt?: T;
   note?: T;
   trackingValues?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "connections_select".
+ */
+export interface ConnectionsSelect<T extends boolean = true> {
+  requesterId?: T;
+  recipientId?: T;
+  status?: T;
+  respondedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

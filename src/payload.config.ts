@@ -19,6 +19,7 @@ import { GoogleCalendarSyncs } from './collections/GoogleCalendarSyncs'
 import { Habits } from './collections/Habits'
 import { HabitCompletions } from './collections/HabitCompletions'
 import { TaskCompletions } from './collections/TaskCompletion'
+import { Connections } from './collections/Connections'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -45,6 +46,7 @@ export default buildConfig({
     GoogleCalendarSyncs,
     Habits,
     HabitCompletions,
+    Connections,
   ],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
