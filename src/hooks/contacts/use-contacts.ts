@@ -15,6 +15,7 @@ import {
 
 const PAGE_SIZE = 10
 const PAGE_DATA_KEY = ['contacts', 'page-data']
+const PENDING_RECEIVED_KEY = ['connections', 'pending-received']
 
 export const useContactSearch = () => {
   const [email, setEmail] = useState('')
@@ -31,15 +32,12 @@ export const useContactSearch = () => {
 
   const sendMutation = useMutation({
     mutationFn: (recipientUserId: string) => sendConnectionRequest(recipientUserId),
-    onSuccess: (_data, recipientUserId) => {
-      // Met à jour immédiatement le résultat de recherche affiché pour refléter
-      // "Pending" sans attendre un refetch.
+    onSuccess: (response, recipientUserId) => {
+      if (!response.ok) return
       queryClient.setQueriesData<any>({ queryKey: ['contacts', 'search'] }, (old: any) => {
         if (!old?.ok || !old.value || old.value.user.id !== recipientUserId) return old
         return { ...old, value: { ...old.value, relationship: 'pending_sent' } }
       })
-      queryClient.invalidateQueries({ queryKey: ['contacts'] })
-      queryClient.invalidateQueries({ queryKey: ['connections'] })
     },
   })
 
@@ -65,51 +63,55 @@ export const usePendingRequests = (initialData: ContactsPageData) => {
     queryKey: PAGE_DATA_KEY,
     queryFn: () => Promise.resolve(initialData),
     initialData,
-    staleTime: 30_000,
+    staleTime: Infinity,
   })
 
   const acceptMutation = useMutation({
     mutationFn: (connectionId: number) => acceptConnectionRequest(connectionId),
     onMutate: async (connectionId) => {
       await queryClient.cancelQueries({ queryKey: PAGE_DATA_KEY })
-      await queryClient.cancelQueries({ queryKey: ['connections'] })
-      const previous = queryClient.getQueryData<ContactsPageData>(PAGE_DATA_KEY)
+      await queryClient.cancelQueries({ queryKey: PENDING_RECEIVED_KEY })
 
-      if (previous) {
-        const accepted = previous.pendingReceived.find((r) => r.connectionId === connectionId)
+      const previousPageData = queryClient.getQueryData<ContactsPageData>(PAGE_DATA_KEY)
+      const previousPendingReceived =
+        queryClient.getQueryData<PendingRequest[]>(PENDING_RECEIVED_KEY)
+
+      if (previousPageData) {
+        const accepted = previousPageData.pendingReceived.find(
+          (r) => r.connectionId === connectionId,
+        )
         queryClient.setQueryData<ContactsPageData>(PAGE_DATA_KEY, {
-          ...previous,
-          pendingReceived: previous.pendingReceived.filter((r) => r.connectionId !== connectionId),
+          ...previousPageData,
+          pendingReceived: previousPageData.pendingReceived.filter(
+            (r) => r.connectionId !== connectionId,
+          ),
           contacts: accepted
             ? {
-                ...previous.contacts,
+                ...previousPageData.contacts,
                 docs: [
-                  ...previous.contacts.docs,
+                  ...previousPageData.contacts.docs,
                   { connectionId, user: accepted.user, connectedAt: new Date().toISOString() },
                 ].sort((a, b) => a.user.name.localeCompare(b.user.name)),
-                total: previous.contacts.total + 1,
+                total: previousPageData.contacts.total + 1,
               }
-            : previous.contacts,
+            : previousPageData.contacts,
         })
       }
 
-      // Synchronise aussi le cache utilisé par la cloche, pour que la notif
-      // disparaisse instantanément même si l'action vient de la page contacts.
       queryClient.setQueryData<PendingRequest[]>(
-        ['connections', 'pending-received'],
+        PENDING_RECEIVED_KEY,
         (old) => old?.filter((r) => r.connectionId !== connectionId) ?? [],
       )
 
-      return { previous }
+      return { previousPageData, previousPendingReceived }
     },
     onError: (_err, _vars, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(PAGE_DATA_KEY, context.previous)
+      if (context?.previousPageData) {
+        queryClient.setQueryData(PAGE_DATA_KEY, context.previousPageData)
       }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['contacts'] })
-      queryClient.invalidateQueries({ queryKey: ['connections'] })
+      if (context?.previousPendingReceived) {
+        queryClient.setQueryData(PENDING_RECEIVED_KEY, context.previousPendingReceived)
+      }
     },
   })
 
@@ -117,31 +119,35 @@ export const usePendingRequests = (initialData: ContactsPageData) => {
     mutationFn: (connectionId: number) => declineConnectionRequest(connectionId),
     onMutate: async (connectionId) => {
       await queryClient.cancelQueries({ queryKey: PAGE_DATA_KEY })
-      await queryClient.cancelQueries({ queryKey: ['connections'] })
-      const previous = queryClient.getQueryData<ContactsPageData>(PAGE_DATA_KEY)
+      await queryClient.cancelQueries({ queryKey: PENDING_RECEIVED_KEY })
 
-      if (previous) {
+      const previousPageData = queryClient.getQueryData<ContactsPageData>(PAGE_DATA_KEY)
+      const previousPendingReceived =
+        queryClient.getQueryData<PendingRequest[]>(PENDING_RECEIVED_KEY)
+
+      if (previousPageData) {
         queryClient.setQueryData<ContactsPageData>(PAGE_DATA_KEY, {
-          ...previous,
-          pendingReceived: previous.pendingReceived.filter((r) => r.connectionId !== connectionId),
+          ...previousPageData,
+          pendingReceived: previousPageData.pendingReceived.filter(
+            (r) => r.connectionId !== connectionId,
+          ),
         })
       }
 
       queryClient.setQueryData<PendingRequest[]>(
-        ['connections', 'pending-received'],
+        PENDING_RECEIVED_KEY,
         (old) => old?.filter((r) => r.connectionId !== connectionId) ?? [],
       )
 
-      return { previous }
+      return { previousPageData, previousPendingReceived }
     },
     onError: (_err, _vars, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(PAGE_DATA_KEY, context.previous)
+      if (context?.previousPageData) {
+        queryClient.setQueryData(PAGE_DATA_KEY, context.previousPageData)
       }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['contacts'] })
-      queryClient.invalidateQueries({ queryKey: ['connections'] })
+      if (context?.previousPendingReceived) {
+        queryClient.setQueryData(PENDING_RECEIVED_KEY, context.previousPendingReceived)
+      }
     },
   })
 
@@ -160,7 +166,7 @@ export const useRecentConnections = (initialData: ContactsPageData) => {
     queryKey: PAGE_DATA_KEY,
     queryFn: () => Promise.resolve(initialData),
     initialData,
-    staleTime: 30_000,
+    staleTime: Infinity,
   })
 
   return { recent: data?.recent ?? [] }
@@ -174,14 +180,14 @@ export const useContactsList = (initialData: ContactsPageData) => {
     queryKey: PAGE_DATA_KEY,
     queryFn: () => Promise.resolve(initialData),
     initialData,
-    staleTime: 30_000,
+    staleTime: Infinity,
   })
 
   const { data: morePages, isFetching } = useQuery({
     queryKey: ['contacts', 'list', page],
     queryFn: () => listContacts(page, PAGE_SIZE),
     enabled: page > 1,
-    staleTime: 30_000,
+    staleTime: Infinity,
   })
 
   const contacts = page > 1 && morePages ? morePages.docs : (baseData?.contacts.docs ?? [])
@@ -199,8 +205,6 @@ export const useContactsList = (initialData: ContactsPageData) => {
       const previousPageData = queryClient.getQueryData<ContactsPageData>(PAGE_DATA_KEY)
       const previousListPages = queryClient.getQueriesData({ queryKey: ['contacts', 'list'] })
 
-      // Retire le contact partout où il pourrait être affiché : la première page
-      // (incluse dans page-data) et toute page suivante déjà chargée en mémoire.
       if (previousPageData) {
         queryClient.setQueryData<ContactsPageData>(PAGE_DATA_KEY, {
           ...previousPageData,
@@ -231,9 +235,6 @@ export const useContactsList = (initialData: ContactsPageData) => {
       context?.previousListPages?.forEach(([key, value]) => {
         queryClient.setQueryData(key, value)
       })
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['contacts'] })
     },
   })
 

@@ -40,6 +40,8 @@ export interface TaskNotification {
 }
 
 const ACCEPTED_DISMISSED_KEY = 'connection_accepted_dismissed'
+const PENDING_RECEIVED_KEY = ['connections', 'pending-received']
+const PAGE_DATA_KEY = ['contacts', 'page-data']
 
 function getDismissedAcceptedIds(): Set<string> {
   if (typeof window === 'undefined') return new Set()
@@ -236,7 +238,7 @@ export const useNotifications = () => {
   })
 
   const { data: pendingRequestsData } = useQuery({
-    queryKey: ['connections', 'pending-received'],
+    queryKey: PENDING_RECEIVED_KEY,
     queryFn: () => listPendingRequests(),
     staleTime: 15_000,
     refetchOnWindowFocus: true,
@@ -303,36 +305,24 @@ export const useNotifications = () => {
     forceUpdate((c) => c + 1)
   }
 
-  /**
-   * Accepter/refuser directement depuis la cloche.
-   * Optimistic update : la notif disparaît immédiatement de la liste ET
-   * la page contacts (si ouverte ailleurs) reflète le changement instantanément,
-   * sans attendre le prochain refetchInterval. Si le serveur échoue, tout revient
-   * à l'état précédent (notif réapparaît, contact retiré).
-   */
   const acceptMutation = useMutation({
     mutationFn: (connectionId: number) => acceptConnectionRequest(connectionId),
     onMutate: async (connectionId) => {
-      await queryClient.cancelQueries({ queryKey: ['connections'] })
-      await queryClient.cancelQueries({ queryKey: ['contacts'] })
+      await queryClient.cancelQueries({ queryKey: PENDING_RECEIVED_KEY })
+      await queryClient.cancelQueries({ queryKey: PAGE_DATA_KEY })
 
-      const previousPending = queryClient.getQueryData<PendingRequest[]>([
-        'connections',
-        'pending-received',
-      ])
-      const previousContactsPage = queryClient.getQueryData(['contacts', 'page-data'])
+      const previousPending = queryClient.getQueryData<PendingRequest[]>(PENDING_RECEIVED_KEY)
+      const previousPageData = queryClient.getQueryData(PAGE_DATA_KEY)
 
       const acceptedRequest = previousPending?.find((r) => r.connectionId === connectionId)
 
-      // Retire immédiatement la demande de la liste des pending
       queryClient.setQueryData<PendingRequest[]>(
-        ['connections', 'pending-received'],
+        PENDING_RECEIVED_KEY,
         (old) => old?.filter((r) => r.connectionId !== connectionId) ?? [],
       )
 
-      // Ajoute immédiatement le contact dans le cache de la page contacts, si chargé
       if (acceptedRequest) {
-        queryClient.setQueriesData<any>({ queryKey: ['contacts', 'page-data'] }, (old: any) => {
+        queryClient.setQueriesData<any>({ queryKey: PAGE_DATA_KEY }, (old: any) => {
           if (!old) return old
           return {
             ...old,
@@ -355,44 +345,32 @@ export const useNotifications = () => {
         })
       }
 
-      return { previousPending, previousContactsPage }
+      return { previousPending, previousPageData }
     },
     onError: (_err, _connectionId, context) => {
-      // Rollback complet si le serveur a échoué
       if (context?.previousPending) {
-        queryClient.setQueryData(['connections', 'pending-received'], context.previousPending)
+        queryClient.setQueryData(PENDING_RECEIVED_KEY, context.previousPending)
       }
-      if (context?.previousContactsPage) {
-        queryClient.setQueriesData(
-          { queryKey: ['contacts', 'page-data'] },
-          context.previousContactsPage,
-        )
+      if (context?.previousPageData) {
+        queryClient.setQueriesData({ queryKey: PAGE_DATA_KEY }, context.previousPageData)
       }
-    },
-    onSettled: () => {
-      // Une fois la mutation terminée (succès ou échec), on resynchronise tout
-      // d'un coup avec le serveur pour être certain que l'état final est exact.
-      queryClient.invalidateQueries({ queryKey: ['connections'] })
-      queryClient.invalidateQueries({ queryKey: ['contacts'] })
     },
   })
 
   const declineMutation = useMutation({
     mutationFn: (connectionId: number) => declineConnectionRequest(connectionId),
     onMutate: async (connectionId) => {
-      await queryClient.cancelQueries({ queryKey: ['connections'] })
+      await queryClient.cancelQueries({ queryKey: PENDING_RECEIVED_KEY })
+      await queryClient.cancelQueries({ queryKey: PAGE_DATA_KEY })
 
-      const previousPending = queryClient.getQueryData<PendingRequest[]>([
-        'connections',
-        'pending-received',
-      ])
+      const previousPending = queryClient.getQueryData<PendingRequest[]>(PENDING_RECEIVED_KEY)
 
       queryClient.setQueryData<PendingRequest[]>(
-        ['connections', 'pending-received'],
+        PENDING_RECEIVED_KEY,
         (old) => old?.filter((r) => r.connectionId !== connectionId) ?? [],
       )
 
-      queryClient.setQueriesData<any>({ queryKey: ['contacts', 'page-data'] }, (old: any) => {
+      queryClient.setQueriesData<any>({ queryKey: PAGE_DATA_KEY }, (old: any) => {
         if (!old) return old
         return {
           ...old,
@@ -406,12 +384,8 @@ export const useNotifications = () => {
     },
     onError: (_err, _connectionId, context) => {
       if (context?.previousPending) {
-        queryClient.setQueryData(['connections', 'pending-received'], context.previousPending)
+        queryClient.setQueryData(PENDING_RECEIVED_KEY, context.previousPending)
       }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['connections'] })
-      queryClient.invalidateQueries({ queryKey: ['contacts'] })
     },
   })
 
