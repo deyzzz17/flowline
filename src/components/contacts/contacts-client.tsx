@@ -1,15 +1,23 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Send, Check, X, Users, Inbox, Clock, Loader2, UserCheck } from 'lucide-react'
+import { Search, Send, Check, X, Users, Inbox, Clock, Loader2, UserCheck, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ContactAvatar } from './contact-avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   useContactSearch,
   usePendingRequests,
   useContactsList,
   useRecentConnections,
 } from '@/hooks/contacts/use-contacts'
+import type { ContactsPageData } from '@/api/contacts/actions'
+
+function getInitials(name?: string | null): string {
+  if (!name) return '?'
+  const parts = name.trim().split(' ')
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+  return parts[0][0].toUpperCase()
+}
 
 function timeAgo(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime()
@@ -21,6 +29,43 @@ function timeAgo(iso: string): string {
   const days = Math.floor(hours / 24)
   if (days < 30) return `${days}d ago`
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function ContactAvatar({
+  name,
+  image,
+  size = 'md',
+}: {
+  name: string
+  image?: string | null
+  size?: 'sm' | 'md' | 'lg'
+}) {
+  const sizeClass = size === 'sm' ? 'h-8 w-8' : size === 'lg' ? 'h-14 w-14' : 'h-10 w-10'
+  return (
+    <Avatar className={cn(sizeClass, 'shrink-0')}>
+      <AvatarImage src={image ?? undefined} alt={name} />
+      <AvatarFallback className="bg-violet-500/10 text-xs font-semibold text-violet-600 dark:text-violet-400">
+        {name ? getInitials(name) : <User className="h-4 w-4" />}
+      </AvatarFallback>
+    </Avatar>
+  )
+}
+
+function ContactsHeader({ pendingCount }: { pendingCount: number }) {
+  return (
+    <div className="mb-6">
+      <p className="mb-1 text-xl font-semibold uppercase text-violet-600 dark:text-violet-400">
+        Contacts
+      </p>
+      <h1 className="text-2xl font-bold tracking-tight text-foreground">
+        Your network
+        {pendingCount > 0 ? `, ${pendingCount} pending` : ''}
+      </h1>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Find people by email and manage your connections.
+      </p>
+    </div>
+  )
 }
 
 function SearchSection() {
@@ -106,8 +151,8 @@ function SearchSection() {
   )
 }
 
-function RequestsSection() {
-  const { received, isLoading, accept, isAccepting, decline, isDeclining } = usePendingRequests()
+function RequestsSection({ initialData }: { initialData: ContactsPageData }) {
+  const { received, accept, isAccepting, decline, isDeclining } = usePendingRequests(initialData)
 
   return (
     <div className="rounded-2xl border border-border/60 bg-card/40 overflow-hidden">
@@ -121,11 +166,7 @@ function RequestsSection() {
         )}
       </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-        </div>
-      ) : received.length === 0 ? (
+      {received.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-8 text-center">
           <p className="text-sm text-muted-foreground">No pending requests</p>
         </div>
@@ -164,8 +205,8 @@ function RequestsSection() {
   )
 }
 
-function RecentSection() {
-  const { recent, isLoading } = useRecentConnections()
+function RecentSection({ initialData }: { initialData: ContactsPageData }) {
+  const { recent } = useRecentConnections(initialData)
 
   return (
     <div className="rounded-2xl border border-border/60 bg-card/40 overflow-hidden">
@@ -174,11 +215,7 @@ function RecentSection() {
         <p className="text-sm font-semibold text-foreground">Recent</p>
       </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-        </div>
-      ) : recent.length === 0 ? (
+      {recent.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-8 text-center">
           <p className="text-sm text-muted-foreground">Nothing recent yet</p>
         </div>
@@ -202,9 +239,9 @@ function RecentSection() {
   )
 }
 
-function ContactsSection() {
+function ContactsSection({ initialData }: { initialData: ContactsPageData }) {
   const [expanded, setExpanded] = useState(true)
-  const { contacts, total, hasMore, isLoading, showMore } = useContactsList()
+  const { contacts, total, hasMore, isLoading, showMore } = useContactsList(initialData)
 
   return (
     <div className="rounded-2xl border border-border/60 bg-card/40 overflow-hidden">
@@ -227,11 +264,7 @@ function ContactsSection() {
 
       {expanded && (
         <>
-          {isLoading && contacts.length === 0 ? (
-            <div className="flex items-center justify-center border-t border-border/50 py-8">
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            </div>
-          ) : contacts.length === 0 ? (
+          {contacts.length === 0 ? (
             <div className="flex flex-col items-center gap-2 border-t border-border/50 py-8 text-center">
               <p className="text-sm text-muted-foreground">No contacts yet</p>
             </div>
@@ -270,20 +303,17 @@ function ContactsSection() {
   )
 }
 
-export function ContactsClient() {
+export function ContactsClient({ initialData }: { initialData: ContactsPageData }) {
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Contacts</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Find people by email and manage your connections.
-        </p>
-      </div>
+    <div>
+      <ContactsHeader pendingCount={initialData.pendingReceived.length} />
 
-      <SearchSection />
-      <RequestsSection />
-      <RecentSection />
-      <ContactsSection />
+      <div className="space-y-6">
+        <SearchSection />
+        <RequestsSection initialData={initialData} />
+        <RecentSection initialData={initialData} />
+        <ContactsSection initialData={initialData} />
+      </div>
     </div>
   )
 }

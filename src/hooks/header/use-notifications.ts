@@ -1,14 +1,20 @@
 'use client'
 
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
 import { listHabits } from '@/api/habits/actions'
-import { listPendingRequests } from '@/api/contacts/actions'
+import { listPendingRequests, listRecentlyAcceptedByOthers } from '@/api/contacts/actions'
 import type { Task } from '@/payload-types'
 import type { HabitWithStats } from '@/api/habits/actions'
 
-export type NotificationLevel = 'today' | 'urgent' | 'warning' | 'goal_claim' | 'connection_request'
+export type NotificationLevel =
+  | 'today'
+  | 'urgent'
+  | 'warning'
+  | 'goal_claim'
+  | 'connection_request'
+  | 'connection_accepted'
 
 export interface TaskNotification {
   id: string
@@ -24,6 +30,27 @@ export interface TaskNotification {
   goalDescription?: string
   connectionId?: number
   userImage?: string | null
+}
+
+const ACCEPTED_DISMISSED_KEY = 'connection_accepted_dismissed'
+
+function getDismissedAcceptedIds(): Set<string> {
+  if (typeof window === 'undefined') return new Set()
+  try {
+    const raw = localStorage.getItem(ACCEPTED_DISMISSED_KEY)
+    return raw ? new Set(JSON.parse(raw)) : new Set()
+  } catch {
+    return new Set()
+  }
+}
+
+function addDismissedAcceptedId(id: string) {
+  if (typeof window === 'undefined') return
+  try {
+    const current = getDismissedAcceptedIds()
+    current.add(id)
+    localStorage.setItem(ACCEPTED_DISMISSED_KEY, JSON.stringify([...current]))
+  } catch {}
 }
 
 function isSameCalendarDay(a: Date, b: Date): boolean {
@@ -100,6 +127,7 @@ function buildNotifications(tasks: Task[]): TaskNotification[] {
 
   const order: Record<NotificationLevel, number> = {
     connection_request: -1,
+    connection_accepted: -1,
     today: 0,
     urgent: 1,
     warning: 2,
@@ -135,7 +163,7 @@ function buildGoalClaimNotifications(habits: HabitWithStats[]): TaskNotification
   return notifications
 }
 
-function buildConnectionNotifications(
+function buildConnectionRequestNotifications(
   requests: {
     connectionId: number
     user: { name: string; image: string | null }
@@ -157,11 +185,41 @@ function buildConnectionNotifications(
   }))
 }
 
+function buildConnectionAcceptedNotifications(
+  accepted: {
+    connectionId: number
+    user: { name: string; image: string | null }
+    respondedAt: string
+  }[],
+  dismissedIds: Set<string>,
+): TaskNotification[] {
+  return accepted
+    .filter((a) => !dismissedIds.has(`connection-accepted-${a.connectionId}`))
+    .map((a) => ({
+      id: `connection-accepted-${a.connectionId}`,
+      taskId: a.connectionId,
+      taskTitle: a.user.name,
+      listName: 'accepted your connection request',
+      listSlug: '',
+      listColor: '#10b981',
+      level: 'connection_accepted' as const,
+      message: 'Connection accepted',
+      dueDate: a.respondedAt,
+      connectionId: a.connectionId,
+      userImage: a.user.image,
+    }))
+}
+
 export const useNotifications = () => {
   const [open, setOpen] = useState(false)
   const readIdsRef = useRef<Set<string>>(new Set())
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
+  const [dismissedAcceptedIds, setDismissedAcceptedIds] = useState<Set<string>>(new Set())
   const [, forceUpdate] = useState(0)
+
+  useEffect(() => {
+    setDismissedAcceptedIds(getDismissedAcceptedIds())
+  }, [])
 
   const { data } = useQuery({
     queryKey: ['tasks'],
@@ -187,12 +245,24 @@ export const useNotifications = () => {
     refetchInterval: 30_000,
   })
 
+  const { data: acceptedByOthersData } = useQuery({
+    queryKey: ['connections', 'recently-accepted-by-others'],
+    queryFn: () => listRecentlyAcceptedByOthers(),
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 30_000,
+  })
+
   const allNotifications = useMemo(() => {
     const taskNotifs = buildNotifications((data?.docs ?? []) as Task[])
     const goalNotifs = buildGoalClaimNotifications(habitsData ?? [])
-    const connectionNotifs = buildConnectionNotifications(pendingRequestsData ?? [])
-    return [...connectionNotifs, ...taskNotifs, ...goalNotifs]
-  }, [data, habitsData, pendingRequestsData])
+    const requestNotifs = buildConnectionRequestNotifications(pendingRequestsData ?? [])
+    const acceptedNotifs = buildConnectionAcceptedNotifications(
+      acceptedByOthersData ?? [],
+      dismissedAcceptedIds,
+    )
+    return [...requestNotifs, ...acceptedNotifs, ...taskNotifs, ...goalNotifs]
+  }, [data, habitsData, pendingRequestsData, acceptedByOthersData, dismissedAcceptedIds])
 
   const notifications = useMemo(
     () => allNotifications.filter((n) => !dismissedIds.has(n.id)),
@@ -212,12 +282,28 @@ export const useNotifications = () => {
   const dismiss = (id: string) => {
     setDismissedIds((prev) => new Set([...prev, id]))
     readIdsRef.current.add(id)
+    if (id.startsWith('connection-accepted-')) {
+      addDismissedAcceptedId(id)
+      setDismissedAcceptedIds((prev) => new Set([...prev, id]))
+    }
   }
 
   const dismissAll = () => {
     const allIds = new Set(notifications.map((n) => n.id))
     setDismissedIds((prev) => new Set([...prev, ...allIds]))
-    notifications.forEach((n) => readIdsRef.current.add(n.id))
+    notifications.forEach((n) => {
+      readIdsRef.current.add(n.id)
+      if (n.id.startsWith('connection-accepted-')) {
+        addDismissedAcceptedId(n.id)
+      }
+    })
+    setDismissedAcceptedIds((prev) => {
+      const next = new Set(prev)
+      notifications.forEach((n) => {
+        if (n.id.startsWith('connection-accepted-')) next.add(n.id)
+      })
+      return next
+    })
     forceUpdate((c) => c + 1)
   }
 

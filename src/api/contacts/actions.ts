@@ -382,3 +382,148 @@ export const listRecentConnections = async (): Promise<RecentItem[]> => {
     })
     .filter((x): x is RecentItem => x !== null)
 }
+
+export interface ContactsPageData {
+  pendingReceived: PendingRequest[]
+  pendingSent: PendingRequest[]
+  recent: RecentItem[]
+  contacts: { docs: Contact[]; hasMore: boolean; total: number }
+}
+
+export const getContactsPageData = async (): Promise<ContactsPageData> => {
+  const userId = await getUserId()
+  if (!userId) {
+    return {
+      pendingReceived: [],
+      pendingSent: [],
+      recent: [],
+      contacts: { docs: [], hasMore: false, total: 0 },
+    }
+  }
+
+  const payload = await getPayload({ config })
+
+  const { docs: allConnections } = await payload.find({
+    collection: 'connections',
+    where: {
+      or: [{ requesterId: { equals: userId } }, { recipientId: { equals: userId } }],
+    },
+    sort: '-createdAt',
+    limit: 0,
+  })
+
+  const otherUserIds = Array.from(
+    new Set(
+      allConnections.map((c) =>
+        c.requesterId === userId ? c.recipientId : c.requesterId,
+      ) as string[],
+    ),
+  )
+  const usersMap = await findUsersByIds(otherUserIds)
+
+  const pendingReceived: PendingRequest[] = []
+  const pendingSent: PendingRequest[] = []
+  const acceptedAll: {
+    connectionId: number
+    user: ContactProfile
+    connectedAt: string
+    respondedAt: string | null
+    createdAt: string
+  }[] = []
+
+  for (const c of allConnections) {
+    const otherId = c.requesterId === userId ? c.recipientId : c.requesterId
+    const user = usersMap.get(otherId as string)
+    if (!user) continue
+
+    if (c.status === 'pending' && c.recipientId === userId) {
+      pendingReceived.push({ connectionId: c.id, user, createdAt: c.createdAt as string })
+    } else if (c.status === 'pending' && c.requesterId === userId) {
+      pendingSent.push({ connectionId: c.id, user, createdAt: c.createdAt as string })
+    } else if (c.status === 'accepted') {
+      acceptedAll.push({
+        connectionId: c.id,
+        user,
+        connectedAt: (c.respondedAt as string) ?? (c.createdAt as string),
+        respondedAt: c.respondedAt as string | null,
+        createdAt: c.createdAt as string,
+      })
+    }
+  }
+
+  const sortedContacts = [...acceptedAll].sort((a, b) => a.user.name.localeCompare(b.user.name))
+  const PAGE_SIZE = 10
+  const firstPage = sortedContacts.slice(0, PAGE_SIZE).map((c) => ({
+    connectionId: c.connectionId,
+    user: c.user,
+    connectedAt: c.connectedAt,
+  }))
+
+  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000
+  const recent: RecentItem[] = acceptedAll
+    .filter((c) => c.respondedAt && new Date(c.respondedAt).getTime() >= thirtyDaysAgo)
+    .sort((a, b) => new Date(b.connectedAt).getTime() - new Date(a.connectedAt).getTime())
+    .slice(0, 20)
+    .map((c) => ({
+      type: 'connection_accepted' as const,
+      connectionId: c.connectionId,
+      user: c.user,
+      at: c.connectedAt,
+    }))
+
+  return {
+    pendingReceived,
+    pendingSent,
+    recent,
+    contacts: {
+      docs: firstPage,
+      hasMore: sortedContacts.length > PAGE_SIZE,
+      total: sortedContacts.length,
+    },
+  }
+}
+
+export interface AcceptedNotification {
+  connectionId: number
+  user: ContactProfile
+  respondedAt: string
+}
+
+export const listRecentlyAcceptedByOthers = async (): Promise<AcceptedNotification[]> => {
+  const userId = await getUserId()
+  if (!userId) return []
+
+  const payload = await getPayload({ config })
+  const sevenDaysAgo = new Date()
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+
+  const { docs } = await payload.find({
+    collection: 'connections',
+    where: {
+      and: [
+        { requesterId: { equals: userId } },
+        { status: { equals: 'accepted' } },
+        { respondedAt: { greater_than_equal: sevenDaysAgo.toISOString() } },
+      ],
+    },
+    sort: '-respondedAt',
+    limit: 0,
+  })
+
+  if (docs.length === 0) return []
+
+  const recipientIds = docs.map((d) => d.recipientId as string)
+  const usersMap = await findUsersByIds(recipientIds)
+
+  return docs
+    .map((d) => {
+      const user = usersMap.get(d.recipientId as string)
+      if (!user) return null
+      return {
+        connectionId: d.id,
+        user,
+        respondedAt: d.respondedAt as string,
+      }
+    })
+    .filter((x): x is AcceptedNotification => x !== null)
+}

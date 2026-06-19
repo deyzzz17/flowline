@@ -7,10 +7,8 @@ import {
   sendConnectionRequest,
   acceptConnectionRequest,
   declineConnectionRequest,
-  listPendingRequests,
-  listSentPendingRequests,
   listContacts,
-  listRecentConnections,
+  type ContactsPageData,
 } from '@/api/contacts/actions'
 
 const PAGE_SIZE = 10
@@ -51,41 +49,76 @@ export const useContactSearch = () => {
   }
 }
 
-export const usePendingRequests = () => {
+export const usePendingRequests = (initialData: ContactsPageData) => {
   const queryClient = useQueryClient()
 
-  const { data: received = [], isLoading: isLoadingReceived } = useQuery({
-    queryKey: ['connections', 'pending-received'],
-    queryFn: () => listPendingRequests(),
-    staleTime: 15_000,
-  })
-
-  const { data: sent = [], isLoading: isLoadingSent } = useQuery({
-    queryKey: ['connections', 'pending-sent'],
-    queryFn: () => listSentPendingRequests(),
-    staleTime: 15_000,
+  const { data } = useQuery({
+    queryKey: ['contacts', 'page-data'],
+    queryFn: () => Promise.resolve(initialData),
+    initialData,
+    staleTime: 30_000,
   })
 
   const acceptMutation = useMutation({
     mutationFn: (connectionId: number) => acceptConnectionRequest(connectionId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['connections'] })
+    onMutate: async (connectionId) => {
+      await queryClient.cancelQueries({ queryKey: ['contacts', 'page-data'] })
+      const previous = queryClient.getQueryData<ContactsPageData>(['contacts', 'page-data'])
+      if (previous) {
+        const accepted = previous.pendingReceived.find((r) => r.connectionId === connectionId)
+        queryClient.setQueryData<ContactsPageData>(['contacts', 'page-data'], {
+          ...previous,
+          pendingReceived: previous.pendingReceived.filter((r) => r.connectionId !== connectionId),
+          contacts: accepted
+            ? {
+                ...previous.contacts,
+                docs: [
+                  ...previous.contacts.docs,
+                  { connectionId, user: accepted.user, connectedAt: new Date().toISOString() },
+                ].sort((a, b) => a.user.name.localeCompare(b.user.name)),
+                total: previous.contacts.total + 1,
+              }
+            : previous.contacts,
+        })
+      }
+      return { previous }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['contacts', 'page-data'], context.previous)
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
     },
   })
 
   const declineMutation = useMutation({
     mutationFn: (connectionId: number) => declineConnectionRequest(connectionId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['connections'] })
+    onMutate: async (connectionId) => {
+      await queryClient.cancelQueries({ queryKey: ['contacts', 'page-data'] })
+      const previous = queryClient.getQueryData<ContactsPageData>(['contacts', 'page-data'])
+      if (previous) {
+        queryClient.setQueryData<ContactsPageData>(['contacts', 'page-data'], {
+          ...previous,
+          pendingReceived: previous.pendingReceived.filter((r) => r.connectionId !== connectionId),
+        })
+      }
+      return { previous }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['contacts', 'page-data'], context.previous)
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
     },
   })
 
   return {
-    received,
-    sent,
-    isLoading: isLoadingReceived || isLoadingSent,
+    received: data?.pendingReceived ?? [],
+    sent: data?.pendingSent ?? [],
     accept: acceptMutation.mutate,
     isAccepting: acceptMutation.isPending,
     decline: declineMutation.mutate,
@@ -93,32 +126,39 @@ export const usePendingRequests = () => {
   }
 }
 
-export const useContactsList = () => {
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['contacts', 'list', visibleCount],
-    queryFn: () => listContacts(Math.ceil(visibleCount / PAGE_SIZE), PAGE_SIZE),
-    staleTime: 15_000,
-  })
-
-  const showMore = () => setVisibleCount((c) => c + PAGE_SIZE)
-
-  return {
-    contacts: data?.docs ?? [],
-    total: data?.total ?? 0,
-    hasMore: data?.hasMore ?? false,
-    isLoading,
-    showMore,
-  }
-}
-
-export const useRecentConnections = () => {
-  const { data: recent = [], isLoading } = useQuery({
-    queryKey: ['connections', 'recent'],
-    queryFn: () => listRecentConnections(),
+export const useRecentConnections = (initialData: ContactsPageData) => {
+  const { data } = useQuery({
+    queryKey: ['contacts', 'page-data'],
+    queryFn: () => Promise.resolve(initialData),
+    initialData,
     staleTime: 30_000,
   })
 
-  return { recent, isLoading }
+  return { recent: data?.recent ?? [] }
+}
+
+export const useContactsList = (initialData: ContactsPageData) => {
+  const [page, setPage] = useState(1)
+
+  const { data: baseData } = useQuery({
+    queryKey: ['contacts', 'page-data'],
+    queryFn: () => Promise.resolve(initialData),
+    initialData,
+    staleTime: 30_000,
+  })
+
+  const { data: morePages, isFetching } = useQuery({
+    queryKey: ['contacts', 'list', page],
+    queryFn: () => listContacts(page, PAGE_SIZE),
+    enabled: page > 1,
+    staleTime: 30_000,
+  })
+
+  const contacts = page > 1 && morePages ? morePages.docs : (baseData?.contacts.docs ?? [])
+  const hasMore = page > 1 && morePages ? morePages.hasMore : (baseData?.contacts.hasMore ?? false)
+  const total = baseData?.contacts.total ?? 0
+
+  const showMore = () => setPage((p) => p + 1)
+
+  return { contacts, total, hasMore, isLoading: isFetching, showMore }
 }
