@@ -1,10 +1,17 @@
 'use client'
 
 import { useState, useRef, useMemo, useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import { listHabits } from '@/api/habits/actions'
-import { listPendingRequests, listRecentlyAcceptedByOthers } from '@/api/contacts/actions'
+import {
+  listPendingRequests,
+  listRecentlyAcceptedByOthers,
+  acceptConnectionRequest,
+  declineConnectionRequest,
+  type PendingRequest,
+  type AcceptedNotification,
+} from '@/api/contacts/actions'
 import type { Task } from '@/payload-types'
 import type { HabitWithStats } from '@/api/habits/actions'
 
@@ -163,13 +170,7 @@ function buildGoalClaimNotifications(habits: HabitWithStats[]): TaskNotification
   return notifications
 }
 
-function buildConnectionRequestNotifications(
-  requests: {
-    connectionId: number
-    user: { name: string; image: string | null }
-    createdAt: string
-  }[],
-): TaskNotification[] {
+function buildConnectionRequestNotifications(requests: PendingRequest[]): TaskNotification[] {
   return requests.map((r) => ({
     id: `connection-request-${r.connectionId}`,
     taskId: r.connectionId,
@@ -186,11 +187,7 @@ function buildConnectionRequestNotifications(
 }
 
 function buildConnectionAcceptedNotifications(
-  accepted: {
-    connectionId: number
-    user: { name: string; image: string | null }
-    respondedAt: string
-  }[],
+  accepted: AcceptedNotification[],
   dismissedIds: Set<string>,
 ): TaskNotification[] {
   return accepted
@@ -211,6 +208,7 @@ function buildConnectionAcceptedNotifications(
 }
 
 export const useNotifications = () => {
+  const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const readIdsRef = useRef<Set<string>>(new Set())
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
@@ -293,9 +291,7 @@ export const useNotifications = () => {
     setDismissedIds((prev) => new Set([...prev, ...allIds]))
     notifications.forEach((n) => {
       readIdsRef.current.add(n.id)
-      if (n.id.startsWith('connection-accepted-')) {
-        addDismissedAcceptedId(n.id)
-      }
+      if (n.id.startsWith('connection-accepted-')) addDismissedAcceptedId(n.id)
     })
     setDismissedAcceptedIds((prev) => {
       const next = new Set(prev)
@@ -307,6 +303,118 @@ export const useNotifications = () => {
     forceUpdate((c) => c + 1)
   }
 
+  /**
+   * Accepter/refuser directement depuis la cloche.
+   * Optimistic update : la notif disparaît immédiatement de la liste ET
+   * la page contacts (si ouverte ailleurs) reflète le changement instantanément,
+   * sans attendre le prochain refetchInterval. Si le serveur échoue, tout revient
+   * à l'état précédent (notif réapparaît, contact retiré).
+   */
+  const acceptMutation = useMutation({
+    mutationFn: (connectionId: number) => acceptConnectionRequest(connectionId),
+    onMutate: async (connectionId) => {
+      await queryClient.cancelQueries({ queryKey: ['connections'] })
+      await queryClient.cancelQueries({ queryKey: ['contacts'] })
+
+      const previousPending = queryClient.getQueryData<PendingRequest[]>([
+        'connections',
+        'pending-received',
+      ])
+      const previousContactsPage = queryClient.getQueryData(['contacts', 'page-data'])
+
+      const acceptedRequest = previousPending?.find((r) => r.connectionId === connectionId)
+
+      // Retire immédiatement la demande de la liste des pending
+      queryClient.setQueryData<PendingRequest[]>(
+        ['connections', 'pending-received'],
+        (old) => old?.filter((r) => r.connectionId !== connectionId) ?? [],
+      )
+
+      // Ajoute immédiatement le contact dans le cache de la page contacts, si chargé
+      if (acceptedRequest) {
+        queryClient.setQueriesData<any>({ queryKey: ['contacts', 'page-data'] }, (old: any) => {
+          if (!old) return old
+          return {
+            ...old,
+            pendingReceived: old.pendingReceived.filter(
+              (r: PendingRequest) => r.connectionId !== connectionId,
+            ),
+            contacts: {
+              ...old.contacts,
+              docs: [
+                ...old.contacts.docs,
+                {
+                  connectionId,
+                  user: acceptedRequest.user,
+                  connectedAt: new Date().toISOString(),
+                },
+              ].sort((a: any, b: any) => a.user.name.localeCompare(b.user.name)),
+              total: old.contacts.total + 1,
+            },
+          }
+        })
+      }
+
+      return { previousPending, previousContactsPage }
+    },
+    onError: (_err, _connectionId, context) => {
+      // Rollback complet si le serveur a échoué
+      if (context?.previousPending) {
+        queryClient.setQueryData(['connections', 'pending-received'], context.previousPending)
+      }
+      if (context?.previousContactsPage) {
+        queryClient.setQueriesData(
+          { queryKey: ['contacts', 'page-data'] },
+          context.previousContactsPage,
+        )
+      }
+    },
+    onSettled: () => {
+      // Une fois la mutation terminée (succès ou échec), on resynchronise tout
+      // d'un coup avec le serveur pour être certain que l'état final est exact.
+      queryClient.invalidateQueries({ queryKey: ['connections'] })
+      queryClient.invalidateQueries({ queryKey: ['contacts'] })
+    },
+  })
+
+  const declineMutation = useMutation({
+    mutationFn: (connectionId: number) => declineConnectionRequest(connectionId),
+    onMutate: async (connectionId) => {
+      await queryClient.cancelQueries({ queryKey: ['connections'] })
+
+      const previousPending = queryClient.getQueryData<PendingRequest[]>([
+        'connections',
+        'pending-received',
+      ])
+
+      queryClient.setQueryData<PendingRequest[]>(
+        ['connections', 'pending-received'],
+        (old) => old?.filter((r) => r.connectionId !== connectionId) ?? [],
+      )
+
+      queryClient.setQueriesData<any>({ queryKey: ['contacts', 'page-data'] }, (old: any) => {
+        if (!old) return old
+        return {
+          ...old,
+          pendingReceived: old.pendingReceived.filter(
+            (r: PendingRequest) => r.connectionId !== connectionId,
+          ),
+        }
+      })
+
+      return { previousPending }
+    },
+    onError: (_err, _connectionId, context) => {
+      if (context?.previousPending) {
+        queryClient.setQueryData(['connections', 'pending-received'], context.previousPending)
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['connections'] })
+      queryClient.invalidateQueries({ queryKey: ['contacts'] })
+    },
+  })
+
   return {
     open,
     setOpen: handleOpen,
@@ -315,5 +423,9 @@ export const useNotifications = () => {
     count: notifications.length,
     dismiss,
     dismissAll,
+    acceptConnection: acceptMutation.mutate,
+    isAcceptingConnection: acceptMutation.isPending,
+    declineConnection: declineMutation.mutate,
+    isDecliningConnection: declineMutation.isPending,
   }
 }

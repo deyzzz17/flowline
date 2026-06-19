@@ -527,3 +527,26 @@ export const listRecentlyAcceptedByOthers = async (): Promise<AcceptedNotificati
     })
     .filter((x): x is AcceptedNotification => x !== null)
 }
+
+export const removeContact = async (connectionId: number) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const payload = await getPayload({ config })
+    const connection = await payload.findByID({ collection: 'connections', id: connectionId })
+
+    if (!connection || (connection.requesterId !== userId && connection.recipientId !== userId)) {
+      return err('Not authorized')
+    }
+    if (connection.status !== 'accepted') {
+      return err('This is not an active connection')
+    }
+
+    await payload.delete({ collection: 'connections', id: connectionId })
+
+    return ok(true)
+  } catch {
+    return err('Error removing contact')
+  }
+}

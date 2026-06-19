@@ -1,9 +1,38 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Send, Check, X, Users, Inbox, Clock, Loader2, UserCheck, User } from 'lucide-react'
+import {
+  Search,
+  Send,
+  Check,
+  X,
+  Users,
+  Inbox,
+  Clock,
+  Loader2,
+  UserCheck,
+  User,
+  MoreHorizontal,
+  UserX,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   useContactSearch,
   usePendingRequests,
@@ -241,65 +270,128 @@ function RecentSection({ initialData }: { initialData: ContactsPageData }) {
 
 function ContactsSection({ initialData }: { initialData: ContactsPageData }) {
   const [expanded, setExpanded] = useState(true)
-  const { contacts, total, hasMore, isLoading, showMore } = useContactsList(initialData)
+  const [removeTarget, setRemoveTarget] = useState<{ connectionId: number; name: string } | null>(
+    null,
+  )
+  const { contacts, total, hasMore, isLoading, showMore, removeContact, isRemoving } =
+    useContactsList(initialData)
+
+  const handleConfirmRemove = () => {
+    if (!removeTarget) return
+    removeContact(removeTarget.connectionId)
+    setRemoveTarget(null)
+  }
 
   return (
-    <div className="rounded-2xl border border-border/60 bg-card/40 overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center gap-2 px-5 py-4 transition-colors hover:bg-muted/30"
+    <>
+      <AlertDialog
+        open={!!removeTarget}
+        onOpenChange={(v) => {
+          if (!v) setRemoveTarget(null)
+        }}
       >
-        <Users className="h-4 w-4 text-muted-foreground" />
-        <p className="text-sm font-semibold text-foreground">Contacts ({total})</p>
-        <span
-          className={cn(
-            'ml-auto text-muted-foreground/60 transition-transform',
-            expanded ? 'rotate-180' : '',
-          )}
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this contact?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{removeTarget?.name}</strong> will be removed from your contacts. They will
+              also lose you as a contact. You can reconnect later if needed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmRemove} variant="destructive">
+              Remove contact
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <div className="rounded-2xl border border-border/60 bg-card/40 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="flex w-full items-center gap-2 px-5 py-4 transition-colors hover:bg-muted/30"
         >
-          ▾
-        </span>
-      </button>
+          <Users className="h-4 w-4 text-muted-foreground" />
+          <p className="text-sm font-semibold text-foreground">Contacts ({total})</p>
+          <span
+            className={cn(
+              'ml-auto text-muted-foreground/60 transition-transform',
+              expanded ? 'rotate-180' : '',
+            )}
+          >
+            ▾
+          </span>
+        </button>
 
-      {expanded && (
-        <>
-          {contacts.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 border-t border-border/50 py-8 text-center">
-              <p className="text-sm text-muted-foreground">No contacts yet</p>
-            </div>
-          ) : (
-            <div className="border-t border-border/50 divide-y divide-border/30">
-              {contacts.map((contact) => (
-                <div key={contact.connectionId} className="flex items-center gap-3 px-5 py-3.5">
-                  <ContactAvatar name={contact.user.name} image={contact.user.image} size="sm" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {contact.user.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">{contact.user.email}</p>
+        {expanded && (
+          <>
+            {contacts.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 border-t border-border/50 py-8 text-center">
+                <p className="text-sm text-muted-foreground">No contacts yet</p>
+              </div>
+            ) : (
+              <div className="border-t border-border/50 divide-y divide-border/30">
+                {contacts.map((contact) => (
+                  <div
+                    key={contact.connectionId}
+                    className="flex items-center gap-3 px-5 py-3.5 group"
+                  >
+                    <ContactAvatar name={contact.user.name} image={contact.user.image} size="sm" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {contact.user.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">{contact.user.email}</p>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          disabled={isRemoving}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-muted-foreground/40 opacity-100 transition-all hover:bg-muted hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100 disabled:opacity-50"
+                        >
+                          <MoreHorizontal className="h-3.5 w-3.5" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuItem
+                          onClick={() =>
+                            setRemoveTarget({
+                              connectionId: contact.connectionId,
+                              name: contact.user.name,
+                            })
+                          }
+                          className="gap-2 text-xs cursor-pointer text-destructive focus:text-destructive"
+                        >
+                          <UserX className="h-3.5 w-3.5" />
+                          Remove contact
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
 
-          {hasMore && (
-            <div className="border-t border-border/50 p-3">
-              <button
-                type="button"
-                onClick={showMore}
-                disabled={isLoading}
-                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border/60 py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-border hover:text-foreground disabled:opacity-50"
-              >
-                {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                View more
-              </button>
-            </div>
-          )}
-        </>
-      )}
-    </div>
+            {hasMore && (
+              <div className="border-t border-border/50 p-3">
+                <button
+                  type="button"
+                  onClick={showMore}
+                  disabled={isLoading}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border/60 py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-border hover:text-foreground disabled:opacity-50"
+                >
+                  {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  View more
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </>
   )
 }
 
