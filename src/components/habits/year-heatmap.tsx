@@ -21,6 +21,8 @@ const MONTH_LABELS = [
 ]
 const DAY_LABELS = ['Mon', 'Wed', 'Fri']
 const DAY_LABEL_ROWS = [1, 3, 5]
+const CELL_SIZE = 11
+const CELL_GAP = 2
 
 interface TooltipState {
   visible: boolean
@@ -129,17 +131,18 @@ export function YearHeatmap({ initialData }: YearHeatmapProps) {
   const totalDaysTarget = data.data.filter((d) => d.total > 0 && d.date <= todayKey).length
 
   const colCount = columns.length
+  const gridWidth = colCount * CELL_SIZE + (colCount - 1) * CELL_GAP
 
   return (
-    <div className="rounded-2xl border border-border/60 bg-card/40 p-5">
+    <div className="rounded-2xl border border-border/60 bg-card/40 p-4 sm:p-5">
       <div className="mb-4 flex items-center justify-between">
-        <div>
+        <div className="min-w-0">
           <p className="text-sm font-semibold text-foreground">Completion heatmap</p>
           <p className="text-xs text-muted-foreground mt-0.5">
             {totalDaysCompleted} days completed out of {totalDaysTarget} targets in {data.year}
           </p>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           <button
             type="button"
             onClick={() => handleYear(data.year - 1)}
@@ -172,57 +175,56 @@ export function YearHeatmap({ initialData }: YearHeatmapProps) {
         </div>
       )}
 
-      <div
-        className={cn('relative select-none w-full', isPending && 'opacity-50 transition-opacity')}
-      >
-        <div className="flex w-full mb-1" style={{ paddingLeft: 28 }}>
-          {columns.map((_, ci) => {
-            const mp = monthPositions.find((m) => m.colIndex === ci)
-            return (
-              <div
-                key={ci}
-                className="overflow-hidden text-[9px] text-muted-foreground/50"
-                style={{ width: `${100 / colCount}%`, flexShrink: 0 }}
-              >
-                {mp ? mp.label : ''}
-              </div>
-            )
-          })}
-        </div>
-
-        <div className="flex w-full">
-          <div className="flex flex-col shrink-0 mr-1" style={{ width: 24, gap: 2 }}>
-            {Array.from({ length: 7 }, (_, row) => (
-              <div
-                key={row}
-                className="flex items-center justify-end text-[9px] text-muted-foreground/40 pr-1"
-                style={{ height: 'calc((100% - 12px) / 7)' }}
-              >
-                {DAY_LABEL_ROWS.includes(row) ? DAY_LABELS[DAY_LABEL_ROWS.indexOf(row)] : ''}
-              </div>
-            ))}
-          </div>
-
-          <div className="flex flex-1 min-w-0" style={{ gap: 2 }}>
-            {columns.map((col, ci) => (
-              <div key={ci} className="flex flex-col flex-1 min-w-0" style={{ gap: 2 }}>
-                {col.map((cell, ri) => (
+      <div className={cn('relative select-none', isPending && 'opacity-50 transition-opacity')}>
+        <div className="overflow-x-auto pb-1 -mx-1 px-1 heatmap-scroll">
+          <div style={{ width: gridWidth + 28, minWidth: gridWidth + 28 }}>
+            <div className="flex mb-1" style={{ paddingLeft: 24 }}>
+              {columns.map((_, ci) => {
+                const mp = monthPositions.find((m) => m.colIndex === ci)
+                return (
                   <div
-                    key={ri}
-                    className={cn(
-                      'rounded-[2px] transition-all w-full',
-                      'aspect-square',
-                      cell ? getCellColor(cell) : 'bg-transparent',
-                      cell && !cell.isFuture && cell.total > 0
-                        ? 'cursor-default'
-                        : 'cursor-default',
-                    )}
-                    onMouseEnter={cell ? (e) => handleMouseEnter(e, cell) : undefined}
-                    onMouseLeave={() => setTooltip((t) => ({ ...t, visible: false }))}
-                  />
+                    key={ci}
+                    className="overflow-hidden text-[9px] text-muted-foreground/50 shrink-0"
+                    style={{ width: CELL_SIZE, marginRight: ci < colCount - 1 ? CELL_GAP : 0 }}
+                  >
+                    {mp ? mp.label : ''}
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="flex">
+              <div className="flex flex-col shrink-0 mr-1.5" style={{ width: 20, gap: CELL_GAP }}>
+                {Array.from({ length: 7 }, (_, row) => (
+                  <div
+                    key={row}
+                    className="flex items-center justify-end text-[9px] text-muted-foreground/40 pr-0.5"
+                    style={{ height: CELL_SIZE }}
+                  >
+                    {DAY_LABEL_ROWS.includes(row) ? DAY_LABELS[DAY_LABEL_ROWS.indexOf(row)] : ''}
+                  </div>
                 ))}
               </div>
-            ))}
+
+              <div className="flex" style={{ gap: CELL_GAP }}>
+                {columns.map((col, ci) => (
+                  <div key={ci} className="flex flex-col shrink-0" style={{ gap: CELL_GAP }}>
+                    {col.map((cell, ri) => (
+                      <div
+                        key={ri}
+                        className={cn(
+                          'rounded-[2px] transition-all shrink-0',
+                          cell ? getCellColor(cell) : 'bg-transparent',
+                        )}
+                        style={{ width: CELL_SIZE, height: CELL_SIZE }}
+                        onMouseEnter={cell ? (e) => handleMouseEnter(e, cell) : undefined}
+                        onMouseLeave={() => setTooltip((t) => ({ ...t, visible: false }))}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
