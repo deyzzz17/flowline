@@ -696,15 +696,7 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 </Collapsible>
               </SidebarMenu>
-
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive('/contacts')} tooltip="Contacts">
-                  <Link href={nav('/contacts')}>
-                    <Users className="h-4 w-4 shrink-0" />
-                    <span>Contacts</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
