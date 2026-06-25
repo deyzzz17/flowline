@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from '@/lib/auth-client'
-import { subscribeToNewsletter } from '@/api/newsletter/actions'
-import { checkNewsletterStatus } from '@/api/newsletter/actions'
+import { subscribeToNewsletter, checkNewsletterStatus } from '@/api/newsletter/actions'
 
 const SESSION_DISMISSED_KEY = 'newsletter_dismissed'
 
@@ -17,10 +16,13 @@ export const useNewsletter = () => {
     if (typeof window === 'undefined') return false
     return sessionStorage.getItem(SESSION_DISMISSED_KEY) === 'true'
   })
+
   const [successDismissed, setSuccessDismissed] = useState(false)
+
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
   const [subscribed, setSubscribed] = useState(false)
   const [serverSubscribed, setServerSubscribed] = useState<boolean | null>(null)
 
@@ -75,7 +77,7 @@ export const useNewsletter = () => {
   const isSubscribed = subscribed || serverSubscribed === true
 
   const isVisible =
-    (isSubscribed && !successDismissed) || (!sessionDismissed && serverSubscribed === false)
+    (!sessionDismissed && serverSubscribed === false) || (subscribed && !successDismissed)
 
   return {
     email,
