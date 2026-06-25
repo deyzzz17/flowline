@@ -55,6 +55,11 @@ function computeElapsed(persisted: PersistedTimer): number {
   return persisted.accumulatedSeconds + secondsSinceStart
 }
 
+export function clearTimerStorage() {
+  try {
+    localStorage.removeItem('flowline_timer')
+  } catch {}
+}
 
 function buildState(totalElapsed: number, config: SessionConfig | null) {
   if (

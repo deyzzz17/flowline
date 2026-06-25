@@ -14,6 +14,7 @@ import { signOut, useSession } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { clearTimerStorage } from '@/hooks/timer/use-timer'
 
 function getInitials(name: string | null | undefined): string {
   if (!name) return '?'
@@ -32,10 +33,11 @@ export const UserDropdown = () => {
   const queryClient = useQueryClient()
 
   const handleSignOut = async () => {
+    clearTimerStorage()
     await signOut()
     queryClient.clear()
-    toast.info('Log out successfull', {
-      description: `You have been successfully logged out. See you soon.`,
+    toast.info('Log out successful', {
+      description: 'You have been successfully logged out. See you soon.',
     })
     router.push('/sign-in')
   }

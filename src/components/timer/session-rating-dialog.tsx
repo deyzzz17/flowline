@@ -78,11 +78,6 @@ export function SessionRatingDialog({
   })
 
   const handleClose = () => {
-    if (!config) {
-      onClose()
-      return
-    }
-
     const capturedRating = rating
     const capturedTaskCompleted = taskCompleted
     const capturedConfig = config
@@ -92,7 +87,28 @@ export function SessionRatingDialog({
     setHovered(0)
     setTaskCompleted(null)
     onClose()
-    
+
+    if (!capturedConfig) {
+      if (capturedElapsed >= 5) {
+        createTimerSession({
+          duration: capturedElapsed,
+          startedAt: new Date(Date.now() - capturedElapsed * 1000).toISOString(),
+          rating: capturedRating > 0 ? capturedRating : undefined,
+          taskCompleted: false,
+          timezoneOffset: new Date().getTimezoneOffset(),
+        })
+          .then(() => {
+            queryClient.invalidateQueries({ queryKey: ['timer-analytics', 'day'] })
+          })
+          .catch(() => {
+            toast.error('Session not saved', {
+              description: 'Something went wrong while saving your session.',
+            })
+          })
+      }
+      return
+    }
+
     const processInBackground = async () => {
       let taskWasCompleted = false
 
@@ -117,6 +133,8 @@ export function SessionRatingDialog({
           startedAt,
           timezoneOffset: new Date().getTimezoneOffset(),
         })
+
+        queryClient.invalidateQueries({ queryKey: ['timer-analytics', 'day'] })
       } catch {
         if (taskWasCompleted && capturedConfig.taskId) {
           try {
