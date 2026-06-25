@@ -245,7 +245,7 @@ function HabitCard({
           <CompletionRing rate={habit.completionRate30d} color={habit.color} />
         </div>
 
-        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+        <div className="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
           <Button
             variant="ghost"
             size="icon"
@@ -375,7 +375,7 @@ function InactiveHabitCard({
         <div className="shrink-0 opacity-50">
           <CompletionRing rate={habit.completionRate30d} color={habit.color} />
         </div>
-        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+        <div className="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
           <Button
             variant="ghost"
             size="icon"
