@@ -3,11 +3,12 @@
 import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { CheckCircle2, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import { createTimerSession } from '@/api/timer/actions'
+import { toast } from 'sonner'
 import type { SessionConfig } from '@/hooks/timer/use-timer'
 
 interface SessionRatingDialogProps {
@@ -66,11 +67,9 @@ export function SessionRatingDialog({
   const [rating, setRating] = useState(0)
   const [hovered, setHovered] = useState(0)
   const [taskCompleted, setTaskCompleted] = useState<boolean | null>(null)
-  const [isSaving, setIsSaving] = useState(false)
   const queryClient = useQueryClient()
 
   const hasTask = !!config?.taskId && !!config?.taskTitle
-
   const canSubmit = !hasTask || taskCompleted !== null
 
   const completeTaskMutation = useMutation({
@@ -78,42 +77,61 @@ export function SessionRatingDialog({
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
   })
 
-  const handleClose = async () => {
+  const handleClose = () => {
     if (!config) {
       onClose()
       return
     }
-    setIsSaving(true)
 
-    try {
-      if (taskCompleted && config.taskId) {
-        await completeTaskMutation.mutateAsync(config.taskId)
-      }
-
-      const startedAt = new Date(Date.now() - totalElapsed * 1000).toISOString()
-
-      await createTimerSession({
-        duration: totalElapsed,
-        categoryName: config.categoryName,
-        categoryColor: config.categoryColor,
-        subCategory: config.subCategory,
-        subCategoryColor: config.subCategoryColor,
-        taskId: config.taskId,
-        taskTitle: config.taskTitle,
-        rating: rating > 0 ? rating : undefined,
-        taskCompleted: taskCompleted ?? false,
-        startedAt,
-        timezoneOffset: new Date().getTimezoneOffset(),
-      })
-    } catch {
-    } finally {
-      setIsSaving(false)
-    }
+    const capturedRating = rating
+    const capturedTaskCompleted = taskCompleted
+    const capturedConfig = config
+    const capturedElapsed = totalElapsed
 
     setRating(0)
     setHovered(0)
     setTaskCompleted(null)
     onClose()
+    
+    const processInBackground = async () => {
+      let taskWasCompleted = false
+
+      try {
+        if (capturedTaskCompleted && capturedConfig.taskId) {
+          await completeTaskMutation.mutateAsync(capturedConfig.taskId)
+          taskWasCompleted = true
+        }
+
+        const startedAt = new Date(Date.now() - capturedElapsed * 1000).toISOString()
+
+        await createTimerSession({
+          duration: capturedElapsed,
+          categoryName: capturedConfig.categoryName,
+          categoryColor: capturedConfig.categoryColor,
+          subCategory: capturedConfig.subCategory,
+          subCategoryColor: capturedConfig.subCategoryColor,
+          taskId: capturedConfig.taskId,
+          taskTitle: capturedConfig.taskTitle,
+          rating: capturedRating > 0 ? capturedRating : undefined,
+          taskCompleted: capturedTaskCompleted ?? false,
+          startedAt,
+          timezoneOffset: new Date().getTimezoneOffset(),
+        })
+      } catch {
+        if (taskWasCompleted && capturedConfig.taskId) {
+          try {
+            await api.tasks.toggleStatus(capturedConfig.taskId, 'completed')
+            queryClient.invalidateQueries({ queryKey: ['tasks'] })
+          } catch {}
+        }
+
+        toast.error('Session not saved', {
+          description: 'Something went wrong while saving your session. Please try again.',
+        })
+      }
+    }
+
+    processInBackground()
   }
 
   const displayValue = hovered > 0 ? hovered : rating
@@ -226,19 +244,8 @@ export function SessionRatingDialog({
             </div>
           )}
 
-          <Button
-            onClick={handleClose}
-            disabled={!canSubmit || isSaving || completeTaskMutation.isPending}
-            className="w-full"
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />
-                Saving...
-              </>
-            ) : (
-              'Done'
-            )}
+          <Button onClick={handleClose} disabled={!canSubmit} className="w-full">
+            Done
           </Button>
         </div>
       </DialogContent>
