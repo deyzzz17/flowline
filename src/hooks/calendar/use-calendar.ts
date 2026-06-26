@@ -1019,9 +1019,8 @@ export const useCalendar = () => {
           const dayStart2 = new Date(date)
           dayStart2.setHours(0, 0, 0, 0)
           if (start < dayStart2) {
-            for (const key of optimisticExceptions.keys()) {
-              if (key.startsWith(`${e.id}:`)) return false
-            }
+            const thisDayKey = getLocalDateKey(e.occurrenceDate ?? e.startDate)
+            if (optimisticExceptions.has(`${e.id}:${thisDayKey}`)) return false
           }
         }
 
