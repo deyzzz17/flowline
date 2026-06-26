@@ -90,7 +90,7 @@ function getViewRange(date: Date, view: CalendarView): { from: Date; to: Date } 
     case 'week': {
       const from = new Date(y, m, d - date.getDay() - 1)
       from.setHours(0, 0, 0)
-      const to = new Date(y, m, d - date.getDay() + 6)
+      const to = new Date(y, m, d - date.getDay() + 7)
       to.setHours(23, 59, 59)
       return { from, to }
     }
