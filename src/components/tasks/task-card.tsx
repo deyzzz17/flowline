@@ -878,10 +878,10 @@ export const TaskCard = ({
             </div>
           ) : (
             <div className="space-y-2 py-0.5">
-              <div className="flex items-center gap-2 flex-wrap min-w-0">
+              <div className="min-w-0">
                 <span
                   className={cn(
-                    'h-2 w-2 shrink-0 rounded-full',
+                    'inline-block h-2 w-2 rounded-full mr-2 align-middle',
                     isInactive
                       ? 'bg-muted-foreground/40'
                       : isRecurring
@@ -891,7 +891,7 @@ export const TaskCard = ({
                 />
                 <label
                   className={cn(
-                    'text-base font-semibold transition-colors leading-snug min-w-0 wrap-break-words max-w-full',
+                    'text-base font-semibold transition-colors leading-snug wrap-break-words align-middle',
                     isCompleted
                       ? 'line-through text-muted-foreground/60'
                       : isInactive
@@ -904,7 +904,7 @@ export const TaskCard = ({
                 {isRecurring && !isCompleted && (
                   <RefreshCw
                     className={cn(
-                      'h-3 w-3 shrink-0',
+                      'inline h-3 w-3 ml-1.5 align-middle',
                       isInactive ? 'text-muted-foreground/40' : 'text-violet-500/60',
                     )}
                   />
