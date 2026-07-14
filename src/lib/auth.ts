@@ -85,6 +85,32 @@ export const auth = betterAuth({
         required: false,
         defaultValue: 'UTC',
       },
+      stripeCustomerId: {
+        type: 'string',
+        required: false,
+        input: false,
+      },
+      plan: {
+        type: 'string',
+        required: false,
+        defaultValue: 'free',
+        input: false,
+      },
+      subscriptionStatus: {
+        type: 'string',
+        required: false,
+        input: false,
+      },
+      subscriptionId: {
+        type: 'string',
+        required: false,
+        input: false,
+      },
+      trialEndsAt: {
+        type: 'date',
+        required: false,
+        input: false,
+      },
     },
     deleteUser: {
       enabled: true,
