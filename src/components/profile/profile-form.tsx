@@ -34,6 +34,8 @@ import { useDeleteAccount } from '@/hooks/profile/use-delete-account'
 import { useUser } from '@/contexts/user-context'
 import { ChangePasswordDialog } from '@/components/profile/change-password-dialog'
 import { useVerifyEmail } from '@/hooks/profile/use-verify-email'
+import { SubscriptionSection } from './subscription-section'
+import { Plan } from '@/lib/stripe'
 
 function getInitials(name: string): string {
   if (!name) return '?'
@@ -51,6 +53,14 @@ interface ProfileFormProps {
   initialImage: string | null
   isEmailVerified: boolean
   hasPassword: boolean
+  billing?: {
+    plan: Plan
+    subscriptionStatus: string | null
+    stripeCustomerId: string | null
+    isActive: boolean
+    isTrial: boolean
+    trialEndsAt: Date | null
+  } | null
 }
 
 export const ProfileForm = ({
@@ -59,6 +69,7 @@ export const ProfileForm = ({
   initialImage,
   isEmailVerified,
   hasPassword,
+  billing,
 }: ProfileFormProps) => {
   const router = useRouter()
   const [name, setName] = useState(initialName)
@@ -329,6 +340,8 @@ export const ProfileForm = ({
               </div>
             </div>
           </div>
+
+          <SubscriptionSection billing={billing} />
 
           <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6">
             <h2 className="mb-1 text-sm font-semibold text-foreground">Danger zone</h2>

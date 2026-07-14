@@ -3,11 +3,13 @@ import { ProfileForm } from '@/components/profile/profile-form'
 import { Orb } from '@/components/home/orb'
 import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
+import { getBillingInfo } from '@/api/billing/actions'
 
 export default async function ProfilePage() {
-  const [session, accounts] = await Promise.all([
+  const [session, accounts, billing] = await Promise.all([
     requireAuth(),
     auth.api.listUserAccounts({ headers: await headers() }).catch(() => []),
+    getBillingInfo(),
   ])
 
   const user = session.user
@@ -23,6 +25,7 @@ export default async function ProfilePage() {
         initialImage={user?.image ?? null}
         isEmailVerified={user.emailVerified ?? false}
         hasPassword={hasPassword}
+        billing={billing}
       />
     </div>
   )
