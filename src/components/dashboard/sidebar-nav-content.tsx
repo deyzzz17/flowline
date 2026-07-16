@@ -19,6 +19,7 @@ import {
   MoreHorizontal,
   Pencil,
   Trash2,
+  Users,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -28,10 +29,8 @@ import { api } from '@/api'
 import { useCalendarCategories } from '@/hooks/calendar/use-calendar-categories'
 import { useCalendarFilter } from '../calendar/calendar-filter-context'
 import { useSidebarFooter } from '@/hooks/sidebar/use-sidebar-footer'
-import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
 import { cn } from '@/lib/utils'
-import type { Task, List } from '@/payload-types'
-import { LIMIT_ERRORS } from '@/lib/plan-limits'
+import type { Task } from '@/payload-types'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,7 +47,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { PlanLimitDialog } from '../ui/plan-limit-dialog'
 import { SidebarNewsletter } from './sidebar-newsletter'
 import { FeedbackDialog } from '../support/feedback-dialog'
 
@@ -64,8 +62,6 @@ const PRESET_COLORS = [
   '#f97316',
   '#14b8a6',
 ]
-
-const DEFAULT_CALENDAR_CATEGORIES_LIMIT = 20
 
 function getListUrgency(tasks: Task[]): 'red' | 'orange' | null {
   const now = Date.now()
@@ -88,7 +84,6 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
   const { feedbackOpen, setFeedbackOpen } = useSidebarFooter()
   const { categories, createMutation, updateMutation, deleteMutation } = useCalendarCategories()
   const { hiddenCategories, toggleCategory, habitsVisible, toggleHabits } = useCalendarFilter()
-  const planLimits = usePlanLimits()
 
   const [listsOpen, setListsOpen] = useState(false)
   const [habitsOpen, setHabitsOpen] = useState(false)
@@ -114,10 +109,10 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
     staleTime: 0,
   })
 
-  const lists = (listsData?.docs ?? []) as List[]
+  const lists = listsData?.docs ?? []
   const allTasks = (tasksData?.docs ?? []) as Task[]
-  const defaultList = lists.find((l: List) => l.isDefault)
-  const customLists = lists.filter((l: List) => !l.isDefault)
+  const defaultList = lists.find((l) => l.isDefault)
+  const customLists = lists.filter((l) => !l.isDefault)
 
   const tasksByList = allTasks.reduce<Record<number, Task[]>>((acc, task) => {
     const listId =
@@ -138,8 +133,7 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
 
   const handleCreateCategory = async () => {
     if (!newCategoryName.trim()) return
-    const limit = planLimits?.limits.calendarCategories ?? DEFAULT_CALENDAR_CATEGORIES_LIMIT
-    if (categories.length >= limit) {
+    if (categories.length >= 100) {
       setCategoryLimitOpen(true)
       return
     }
@@ -275,11 +269,20 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
         </AlertDialogContent>
       </AlertDialog>
 
-      <PlanLimitDialog
-        open={categoryLimitOpen}
-        onOpenChange={setCategoryLimitOpen}
-        limitError={LIMIT_ERRORS.CALENDAR_CATEGORIES_LIMIT}
-      />
+      <AlertDialog open={categoryLimitOpen} onOpenChange={setCategoryLimitOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Calendar limit reached</AlertDialogTitle>
+            <AlertDialogDescription>
+              You can have a maximum of 100 calendar categories. Delete an existing one to create a
+              new one.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Got it</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="flex flex-1 flex-col h-full overflow-hidden">
         <nav className="flex-1 overflow-y-auto min-h-0 p-3 space-y-1 sidebar-scroll">
@@ -374,7 +377,7 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
                     )}
                   </Link>
                 )}
-                {customLists.map((list: List) => (
+                {customLists.map((list) => (
                   <Link
                     key={list.id}
                     {...navLink(`/lists/${list.slug}`)}
