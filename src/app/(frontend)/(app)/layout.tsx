@@ -10,7 +10,6 @@ import { UserProvider } from '@/contexts/user-context'
 import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { syncRecurringTasksForUser } from '@/api/tasks/actions'
-import { createDefaultList } from '@/api/lists/actions'
 import { Toaster } from '@/components/ui/sonner'
 import { NotificationsMenu } from '@/components/header/notifications-menu'
 import { CalendarFilterProvider } from '@/components/calendar/calendar-filter-context'
@@ -21,15 +20,14 @@ import { TimerProvider } from '@/components/timer/timer-context'
 /*
 
 Au niveau de tous les providers, sans rentrer dans des détails pour chacun car
-je n'ai pas encore regardé, il pourrait être plus clean de prendre le temps de 
+je n'ai pas encore regardé, il pourrait être plus clean de prendre le temps de
 les extraire dans un composant comme AppProvider dans @/components/providers/app-provider
 ou alors dashboard-provider.
 
-Idem au niveau du header, pour aérer un peu le layout, tu peux l'extraire dans 
-@/components/headers/app-header. 
+Idem au niveau du header, pour aérer un peu le layout, tu peux l'extraire dans
+@/components/headers/app-header.
 
 */
-
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -37,9 +35,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   if (user?.id) {
     await syncRecurringTasksForUser()
-    try {
-      await createDefaultList()
-    } catch {}
   }
 
   return (
