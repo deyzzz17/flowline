@@ -1,13 +1,9 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Check, Zap, Crown, Loader2, ExternalLink, AlertTriangle } from 'lucide-react'
+import { Check, Zap, Crown, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import {
-  createCheckoutSession,
-  createPortalSession,
-  changeSubscriptionPlan,
-} from '@/api/billing/actions'
+import { createCheckoutSession, changeSubscriptionPlan } from '@/api/billing/actions'
 import type { Plan, BillingInterval } from '@/lib/stripe'
 
 interface BillingInfo {
@@ -15,234 +11,226 @@ interface BillingInfo {
   subscriptionStatus: string | null
   subscriptionId: string | null
   stripeCustomerId: string | null
-  trialEndsAt: Date | null
   isActive: boolean
   isTrial: boolean
+  trialEndsAt: Date | null
 }
 
 interface BillingClientProps {
   billing: BillingInfo | null
 }
 
-const PLAN_FEATURES: Record<Plan, string[]> = {
-  free: [
-    '3 lists',
-    '5 habits',
-    '100 tasks per list',
-    '80 subtasks per task',
-    '80 custom tags',
-    'Calendar & timer',
-  ],
-  plus: [
-    'Everything in Free',
-    'Unlimited lists',
-    'Unlimited habits',
-    'Unlimited tasks',
-    'Priority support',
-    '7-day free trial',
-  ],
-  pro: [
-    'Everything in Plus',
-    'Advanced analytics',
-    'Custom integrations',
-    'Team features (coming soon)',
-    'Priority support',
-    'Early access to new features',
-  ],
-}
+const PLANS_CONFIG = [
+  {
+    id: 'free' as Plan,
+    name: 'Free',
+    icon: null,
+    price: { monthly: 0, annual: 0 },
+    description: 'Get started with the essentials.',
+    features: [
+      '3 lists',
+      '5 habits',
+      '100 tasks per list',
+      '80 subtasks per task',
+      '80 custom tags',
+      'Calendar & timer',
+      'Contacts',
+    ],
+    cta: { upgrade: 'Current plan', downgrade: 'Downgrade to Free' },
+    accent: 'border-border/60',
+    badge: null,
+  },
+  {
+    id: 'plus' as Plan,
+    name: 'Plus',
+    icon: Zap,
+    price: { monthly: 7, annual: 72 },
+    description: 'For power users who want more.',
+    features: [
+      'Everything in Free',
+      'Unlimited lists',
+      'Unlimited habits',
+      'Unlimited tasks & subtasks',
+      'Unlimited custom tags',
+      'Priority support',
+    ],
+    cta: { upgrade: 'Start 7-day free trial', downgrade: 'Downgrade to Plus' },
+    accent: 'border-violet-500/30',
+    badge: '7-day trial',
+    trial: true,
+  },
+  {
+    id: 'pro' as Plan,
+    name: 'Pro',
+    icon: Crown,
+    price: { monthly: 25, annual: 250 },
+    description: 'For professionals who want it all.',
+    features: [
+      'Everything in Plus',
+      'Advanced analytics',
+      'Custom integrations',
+      'Team features (coming soon)',
+      'Early access to new features',
+    ],
+    cta: { upgrade: 'Upgrade to Pro', downgrade: 'Downgrade to Pro' },
+    accent: 'border-amber-500/30',
+    badge: 'Most powerful',
+    trial: false,
+  },
+]
 
-const PLAN_PRICES: Record<Plan, Record<BillingInterval, string>> = {
-  free: { monthly: 'Free', annual: 'Free' },
-  plus: { monthly: '$7', annual: '$72' },
-  pro: { monthly: '$25', annual: '$264' },
-}
-
-function PlanBadge({ plan }: { plan: Plan }) {
-  if (plan === 'free') return null
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold',
-        plan === 'plus'
-          ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
-          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-      )}
-    >
-      {plan === 'plus' ? <Zap className="h-2.5 w-2.5" /> : <Crown className="h-2.5 w-2.5" />}
-      {plan === 'plus' ? 'Plus' : 'Pro'}
-    </span>
-  )
-}
-
-function CurrentPlanCard({ billing }: { billing: BillingInfo | null }) {
-  const plan = billing?.plan ?? 'free'
-  const [isPending, startTransition] = useTransition()
-
-  const handlePortal = () => {
-    startTransition(async () => {
-      await createPortalSession()
-    })
-  }
-
-  const daysLeft = billing?.trialEndsAt
-    ? Math.max(0, Math.ceil((billing.trialEndsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-    : null
-
-  return (
-    <div className="rounded-2xl border border-border/60 bg-card/40 p-5 sm:p-6 space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground/60">
-            Current plan
-          </p>
-          <div className="mt-1 flex items-center gap-2">
-            <h2 className="text-2xl font-bold text-foreground capitalize">{plan}</h2>
-            <PlanBadge plan={plan} />
-          </div>
-          {billing?.isTrial && daysLeft !== null && (
-            <p className="mt-1 text-xs text-violet-600 dark:text-violet-400 font-medium">
-              Trial — {daysLeft} day{daysLeft !== 1 ? 's' : ''} remaining
-            </p>
-          )}
-          {billing?.subscriptionStatus === 'past_due' && (
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-destructive font-medium">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              Payment failed — please update your payment method
-            </div>
-          )}
-          {billing?.subscriptionStatus === 'canceled' && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              Your subscription has been canceled.
-            </p>
-          )}
-        </div>
-        {billing?.stripeCustomerId && (
-          <button
-            type="button"
-            onClick={handlePortal}
-            disabled={isPending}
-            className="flex items-center gap-1.5 rounded-xl border border-border/60 px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50 shrink-0"
-          >
-            {isPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <ExternalLink className="h-3.5 w-3.5" />
-            )}
-            Manage billing
-          </button>
-        )}
-      </div>
-
-      <div className="flex flex-wrap gap-1.5">
-        {PLAN_FEATURES[plan].map((feature) => (
-          <span
-            key={feature}
-            className="flex items-center gap-1 rounded-full bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground"
-          >
-            <Check className="h-3 w-3 text-emerald-500 shrink-0" />
-            {feature}
-          </span>
-        ))}
-      </div>
-    </div>
-  )
-}
+const PLAN_ORDER: Plan[] = ['free', 'plus', 'pro']
 
 function PlanCard({
   plan,
   interval,
   currentPlan,
   hasActiveSubscription,
+  isTrial,
+  trialEndsAt,
 }: {
-  plan: Plan
+  plan: (typeof PLANS_CONFIG)[number]
   interval: BillingInterval
   currentPlan: Plan
   hasActiveSubscription: boolean
+  isTrial: boolean
+  trialEndsAt: Date | null
 }) {
   const [isPending, startTransition] = useTransition()
-  const isCurrent = plan === currentPlan
-  const isUpgrade =
-    (currentPlan === 'free' && (plan === 'plus' || plan === 'pro')) ||
-    (currentPlan === 'plus' && plan === 'pro')
-  const isDowngrade = currentPlan === 'pro' && plan === 'plus'
+  const isCurrent = plan.id === currentPlan
+  const currentPlanOrder = PLAN_ORDER.indexOf(currentPlan)
+  const thisPlanOrder = PLAN_ORDER.indexOf(plan.id)
+  const isUpgrade = thisPlanOrder > currentPlanOrder
+  const isFree = plan.id === 'free'
 
-  if (plan === 'free') return null
+  const daysLeft = trialEndsAt
+    ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : null
 
   const handleAction = () => {
+    if (isCurrent || isFree) return
     startTransition(async () => {
-      if (hasActiveSubscription && !isCurrent) {
-        await changeSubscriptionPlan(plan, interval)
-      } else if (!isCurrent) {
-        await createCheckoutSession(plan, interval)
+      if (hasActiveSubscription) {
+        await changeSubscriptionPlan(plan.id, interval)
+      } else {
+        await createCheckoutSession(plan.id, interval)
       }
     })
   }
 
   const buttonLabel = () => {
     if (isCurrent) return 'Current plan'
-    if (isUpgrade) return plan === 'plus' ? 'Start free trial' : 'Upgrade to Pro'
-    if (isDowngrade) return 'Downgrade to Plus'
-    return 'Get started'
+    if (isFree && !hasActiveSubscription) return 'Current plan'
+    if (isFree) return 'Downgrade to Free'
+    if (isUpgrade) return plan.cta.upgrade
+    return plan.cta.downgrade
   }
+
+  const annualSaving =
+    plan.id !== 'free'
+      ? Math.round(
+          ((plan.price.monthly * 12 - plan.price.annual) / (plan.price.monthly * 12)) * 100,
+        )
+      : 0
+
+  const Icon = plan.icon
 
   return (
     <div
       className={cn(
-        'relative rounded-2xl border p-5 sm:p-6 space-y-5 transition-all',
-        plan === 'pro'
-          ? 'border-amber-500/30 bg-amber-500/5'
-          : isCurrent
-            ? 'border-violet-500/30 bg-violet-500/5'
-            : 'border-border/60 bg-card/40',
+        'relative flex flex-col rounded-2xl border bg-card/40 p-6 transition-all',
+        plan.accent,
+        isCurrent && 'ring-2',
+        isCurrent && plan.id === 'free' && 'ring-border/60',
+        isCurrent && plan.id === 'plus' && 'ring-violet-500/30 bg-violet-500/[0.03]',
+        isCurrent && plan.id === 'pro' && 'ring-amber-500/30 bg-amber-500/[0.03]',
       )}
     >
-      {plan === 'pro' && (
+      {plan.badge && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-          <span className="rounded-full bg-amber-500 px-3 py-1 text-[10px] font-bold text-white uppercase tracking-wide">
-            Most powerful
+          <span
+            className={cn(
+              'rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white',
+              plan.id === 'plus' ? 'bg-violet-600' : 'bg-amber-500',
+            )}
+          >
+            {plan.badge}
           </span>
         </div>
       )}
 
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          {plan === 'plus' ? (
-            <Zap className="h-4 w-4 text-violet-500" />
-          ) : (
-            <Crown className="h-4 w-4 text-amber-500" />
+      <div className="mb-5">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            {Icon && (
+              <Icon
+                className={cn('h-4 w-4', plan.id === 'plus' ? 'text-violet-500' : 'text-amber-500')}
+              />
+            )}
+            <span className="text-sm font-semibold text-foreground">{plan.name}</span>
+          </div>
+          {isCurrent && (
+            <span
+              className={cn(
+                'rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                plan.id === 'free'
+                  ? 'bg-muted text-muted-foreground'
+                  : plan.id === 'plus'
+                    ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                    : 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+              )}
+            >
+              {isTrial ? `Trial · ${daysLeft}d left` : 'Active'}
+            </span>
           )}
-          <p className="text-sm font-semibold text-foreground capitalize">{plan}</p>
         </div>
-        <div className="flex items-baseline gap-1">
-          <span className="text-3xl font-bold text-foreground">{PLAN_PRICES[plan][interval]}</span>
-          <span className="text-xs text-muted-foreground">
-            /{interval === 'monthly' ? 'mo' : 'yr'}
-          </span>
-        </div>
-        {plan === 'plus' && interval === 'monthly' && (
-          <p className="mt-0.5 text-[11px] text-violet-600 dark:text-violet-400 font-medium">
-            7-day free trial included
-          </p>
-        )}
-        {plan === 'plus' && interval === 'annual' && (
-          <p className="mt-0.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
-            Save ~28% vs monthly
-          </p>
-        )}
-        {plan === 'pro' && interval === 'annual' && (
-          <p className="mt-0.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
-            Save ~28% vs monthly
-          </p>
+        <p className="text-xs text-muted-foreground">{plan.description}</p>
+      </div>
+
+      <div className="mb-6">
+        {isFree ? (
+          <div className="flex items-baseline gap-1">
+            <span className="text-4xl font-bold text-foreground">€0</span>
+            <span className="text-sm text-muted-foreground">/ forever</span>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-baseline gap-1">
+              <span className="text-4xl font-bold text-foreground">
+                €{interval === 'monthly' ? plan.price.monthly : Math.round(plan.price.annual / 12)}
+              </span>
+              <span className="text-sm text-muted-foreground">/ month</span>
+            </div>
+            {interval === 'annual' && (
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                €{plan.price.annual} billed annually
+                <span
+                  className={cn(
+                    'ml-1.5 font-semibold',
+                    plan.id === 'plus'
+                      ? 'text-violet-600 dark:text-violet-400'
+                      : 'text-amber-600 dark:text-amber-400',
+                  )}
+                >
+                  Save {annualSaving}%
+                </span>
+              </p>
+            )}
+          </>
         )}
       </div>
 
-      <ul className="space-y-2">
-        {PLAN_FEATURES[plan].map((feature) => (
-          <li key={feature} className="flex items-start gap-2 text-sm text-muted-foreground">
+      <ul className="mb-6 flex-1 space-y-2.5">
+        {plan.features.map((feature) => (
+          <li key={feature} className="flex items-start gap-2.5 text-sm text-muted-foreground">
             <Check
               className={cn(
-                'h-4 w-4 shrink-0 mt-0.5',
-                plan === 'pro' ? 'text-amber-500' : 'text-violet-500',
+                'mt-0.5 h-4 w-4 shrink-0',
+                plan.id === 'free'
+                  ? 'text-muted-foreground/60'
+                  : plan.id === 'plus'
+                    ? 'text-violet-500'
+                    : 'text-amber-500',
               )}
             />
             {feature}
@@ -253,14 +241,22 @@ function PlanCard({
       <button
         type="button"
         onClick={handleAction}
-        disabled={isCurrent || isPending}
+        disabled={(isCurrent && !isTrial) || (isFree && !hasActiveSubscription) || isPending}
         className={cn(
           'flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-all',
-          isCurrent
-            ? 'bg-muted text-muted-foreground cursor-default'
-            : plan === 'pro'
-              ? 'bg-amber-500 text-white hover:bg-amber-400'
-              : 'bg-violet-600 text-white hover:bg-violet-500',
+          isCurrent && !isTrial
+            ? plan.id === 'free'
+              ? 'bg-muted/60 text-muted-foreground cursor-default'
+              : plan.id === 'plus'
+                ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400 cursor-default'
+                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 cursor-default'
+            : isFree && !hasActiveSubscription
+              ? 'bg-muted/60 text-muted-foreground cursor-default'
+              : plan.id === 'free'
+                ? 'bg-muted text-foreground hover:bg-muted/80'
+                : plan.id === 'plus'
+                  ? 'bg-violet-600 text-white hover:bg-violet-500'
+                  : 'bg-amber-500 text-white hover:bg-amber-400',
           isPending && 'opacity-70',
         )}
       >
@@ -278,63 +274,58 @@ export function BillingClient({ billing }: BillingClientProps) {
 
   return (
     <div>
-      <div className="mb-6">
+      <div className="mb-8">
         <p className="mb-1 text-xl font-semibold uppercase text-violet-600 dark:text-violet-400">
           Billing
         </p>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Plans & subscription</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Plans & pricing</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Manage your Flowline subscription and billing.
+          Choose the plan that fits your workflow.
         </p>
       </div>
 
-      <div className="space-y-6">
-        <CurrentPlanCard billing={billing} />
-
-        <div className="flex justify-center">
-          <div className="flex items-center gap-0.5 rounded-xl border border-border/60 bg-muted/30 p-1">
-            {(['monthly', 'annual'] as BillingInterval[]).map((i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => setInterval(i)}
-                className={cn(
-                  'rounded-lg px-4 py-1.5 text-xs font-medium transition-all',
-                  interval === i
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {i === 'monthly' ? 'Monthly' : 'Annual'}
-                {i === 'annual' && (
-                  <span className="ml-1.5 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                    -28%
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
+      <div className="mb-8 flex justify-center">
+        <div className="flex items-center gap-0.5 rounded-xl border border-border/60 bg-muted/30 p-1">
+          {(['monthly', 'annual'] as BillingInterval[]).map((i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setInterval(i)}
+              className={cn(
+                'flex items-center gap-1.5 rounded-lg px-5 py-2 text-sm font-medium transition-all',
+                interval === i
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {i === 'monthly' ? 'Monthly' : 'Annual'}
+              {i === 'annual' && (
+                <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                  Save up to 17%
+                </span>
+              )}
+            </button>
+          ))}
         </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <PlanCard
-            plan="plus"
-            interval={interval}
-            currentPlan={currentPlan}
-            hasActiveSubscription={hasActiveSubscription}
-          />
-          <PlanCard
-            plan="pro"
-            interval={interval}
-            currentPlan={currentPlan}
-            hasActiveSubscription={hasActiveSubscription}
-          />
-        </div>
-
-        <p className="text-center text-xs text-muted-foreground">
-          Payments secured by Stripe. Cancel anytime from the billing portal.
-        </p>
       </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {PLANS_CONFIG.map((plan) => (
+          <PlanCard
+            key={plan.id}
+            plan={plan}
+            interval={interval}
+            currentPlan={currentPlan}
+            hasActiveSubscription={hasActiveSubscription}
+            isTrial={billing?.isTrial ?? false}
+            trialEndsAt={billing?.trialEndsAt ?? null}
+          />
+        ))}
+      </div>
+
+      <p className="mt-6 text-center text-xs text-muted-foreground">
+        Payments secured by Stripe · Cancel anytime · All prices in EUR
+      </p>
     </div>
   )
 }
