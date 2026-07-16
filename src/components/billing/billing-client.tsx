@@ -33,12 +33,15 @@ const PLANS_CONFIG = [
     price: { monthly: 0, annual: 0 },
     description: 'Get started with the essentials.',
     features: [
-      '3 lists & 5 habits',
-      '100 tasks per list',
-      '80 subtasks per task',
-      '80 custom tags',
-      'Calendar & timer',
-      'Contacts',
+      'Up to 3 lists & 5 habits',
+      'Up to 50 tasks per list',
+      'Up to 20 subtasks per task',
+      'Up to 10 custom tags',
+      'Basic calendar',
+      'Basic analytics (7-day history)',
+      'Up to 10 saved timer presets',
+      'Voice capture (5 commands/month)',
+      'Limited collaboration access',
     ],
     accent: null,
     trialDays: null,
@@ -51,10 +54,14 @@ const PLANS_CONFIG = [
     description: 'For power users who want more.',
     features: [
       'Everything in Free',
-      'Unlimited lists & habits',
-      'Unlimited tasks & subtasks',
-      'Unlimited custom tags',
-      'Priority support',
+      'AI Assistant',
+      'Unlimited personal usage',
+      'Shared lists (up to 3)',
+      'Workspaces (up to 3, max 3 members)',
+      'Task assignments & admin role',
+      '6-month analytics history',
+      'Up to 10 custom habit tracking fields',
+      'Voice capture (50 commands/month)',
     ],
     accent: 'violet',
     trialDays: 14,
@@ -67,10 +74,14 @@ const PLANS_CONFIG = [
     description: 'For professionals who want it all.',
     features: [
       'Everything in Plus',
-      'Advanced analytics',
-      'Custom integrations',
-      'Team features (coming soon)',
-      'Early access to new features',
+      'AI Coach with Memory',
+      'Unlimited shared lists & workspaces',
+      'Unlimited collaborators & team management',
+      'Comments & collaboration',
+      'Unlimited custom habit tracking',
+      'Advanced tracking fields with custom lists',
+      'External AI agent integrations',
+      'Unlimited voice capture',
     ],
     accent: 'amber',
     trialDays: 7,
@@ -81,13 +92,13 @@ const PLAN_ORDER: Plan[] = ['free', 'plus', 'pro']
 
 type CardAction =
   | 'checkout'
-  | 'upgrade_plan' 
+  | 'upgrade_plan'
   | 'downgrade_plan'
-  | 'switch_to_annual' 
+  | 'switch_to_annual'
   | 'switch_to_monthly_at_renewal'
   | 'switch_to_monthly_now'
-  | 'current' 
-  | 'downgrade_to_free' 
+  | 'current'
+  | 'downgrade_to_free'
 
 function getCardAction(
   planId: Plan,
@@ -577,6 +588,19 @@ export function BillingClient({ billing }: BillingClientProps) {
         <p className="mt-6 text-center text-xs text-muted-foreground">
           Payments secured by Stripe · All prices in EUR
         </p>
+
+        <div className="mt-8 rounded-2xl border border-border/60 bg-card/40 p-6 text-center">
+          <p className="text-sm font-semibold text-foreground">Are you a business?</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Need a custom plan for your team or organization? We&apos;d love to help.
+          </p>
+          <a
+            href="mailto:contact@flowline.app"
+            className="mt-4 inline-flex items-center gap-2 rounded-xl border border-border/60 px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            Contact us for a custom quote
+          </a>
+        </div>
       </div>
     </>
   )
