@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 import { useCreateList } from '@/hooks/lists/use-create-list'
 import { toast } from 'sonner'
 import { LIMIT_ERRORS } from '@/lib/plan-limits'
-import { PlanLimitDialog } from '@/components/billing/plan-limit-dialog'
+import { PlanLimitDialog } from '@/components/ui/plan-limit-dialog'
 
 function hexToRgba(hex: string, alpha: number) {
   try {
