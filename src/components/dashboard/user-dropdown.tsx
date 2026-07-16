@@ -1,7 +1,6 @@
 'use client'
-
 import Link from 'next/link'
-import { LogOut, User } from 'lucide-react'
+import { LogOut, User, Settings } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -74,6 +73,12 @@ export const UserDropdown = () => {
           <Link href="/dashboard" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             Dashboard
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="cursor-pointer rounded-lg">
+          <Link href="/profile" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Parameters
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
