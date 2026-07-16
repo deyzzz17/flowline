@@ -37,6 +37,7 @@ const PLANS_CONFIG = [
       'Up to 50 tasks per list',
       'Up to 20 subtasks per task',
       'Up to 10 custom tags',
+      
       'Basic calendar',
       'Basic analytics (7-day history)',
       'Up to 10 saved timer presets',
