@@ -31,7 +31,7 @@ export const PLANS: Record<
       monthly: process.env.STRIPE_PRICE_PLUS_MONTHLY ?? '',
       annual: process.env.STRIPE_PRICE_PLUS_ANNUAL ?? '',
     },
-    trialDays: 7,
+    trialDays: 14,
   },
   pro: {
     name: 'Pro',
@@ -39,7 +39,7 @@ export const PLANS: Record<
       monthly: process.env.STRIPE_PRICE_PRO_MONTHLY ?? '',
       annual: process.env.STRIPE_PRICE_PRO_ANNUAL ?? '',
     },
-    trialDays: null,
+    trialDays: 7,
   },
 }
 

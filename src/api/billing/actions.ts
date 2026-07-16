@@ -1,11 +1,9 @@
 'use server'
 
 import 'server-only'
-import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { stripe, PLANS, getPlanFromPriceId, type Plan, type BillingInterval } from '@/lib/stripe'
+import { stripe, PLANS, type Plan, type BillingInterval } from '@/lib/stripe'
 import { getSession } from '@/lib/get-session'
-import { auth } from '@/lib/auth'
 import { Pool } from 'pg'
 import { ok, err } from '@/types/result'
 
@@ -14,33 +12,69 @@ const getUserId = async () => {
   return session?.user?.id ?? null
 }
 
-export const getBillingInfo = async () => {
+export interface BillingInfo {
+  plan: Plan
+  billingInterval: BillingInterval | null
+  subscriptionStatus: string | null
+  subscriptionId: string | null
+  stripeCustomerId: string | null
+  isActive: boolean
+  isTrial: boolean
+  trialEndsAt: Date | null
+  periodEnd: Date | null
+  hadPlusTrial: boolean
+  hadProTrial: boolean
+}
+
+export const getBillingInfo = async (): Promise<BillingInfo | null> => {
   const userId = await getUserId()
   if (!userId) return null
 
   const pool = new Pool({ connectionString: process.env.DATABASE_URL })
   try {
     const result = await pool.query(
-      `SELECT plan, "subscriptionStatus", "subscriptionId", "stripeCustomerId", "trialEndsAt"
+      `SELECT plan, "subscriptionStatus", "subscriptionId", "stripeCustomerId",
+              "trialEndsAt", "hadPlusTrial", "hadProTrial"
        FROM "user" WHERE id = $1 LIMIT 1`,
       [userId],
     )
     if (result.rows.length === 0) return null
     const row = result.rows[0]
+
+    let billingInterval: BillingInterval | null = null
+    let periodEnd: Date | null = null
+
+    if (row.subscriptionId) {
+      try {
+        const sub = await stripe.subscriptions.retrieve(row.subscriptionId)
+        const priceId = sub.items.data[0]?.price.id
+        if (priceId) {
+          const price = await stripe.prices.retrieve(priceId)
+          billingInterval = price.recurring?.interval === 'year' ? 'annual' : 'monthly'
+        }
+        if ('current_period_end' in sub && sub.current_period_end) {
+          periodEnd = new Date((sub.current_period_end as number) * 1000)
+        }
+      } catch {}
+    }
+
     return {
       plan: (row.plan ?? 'free') as Plan,
-      subscriptionStatus: row.subscriptionStatus as string | null,
-      subscriptionId: row.subscriptionId as string | null,
-      stripeCustomerId: row.stripeCustomerId as string | null,
-      trialEndsAt: row.trialEndsAt ? new Date(row.trialEndsAt) : null,
+      billingInterval,
+      subscriptionStatus: row.subscriptionStatus,
+      subscriptionId: row.subscriptionId,
+      stripeCustomerId: row.stripeCustomerId,
       isActive: row.subscriptionStatus === 'active' || row.subscriptionStatus === 'trialing',
       isTrial: row.subscriptionStatus === 'trialing',
+      trialEndsAt: row.trialEndsAt ? new Date(row.trialEndsAt) : null,
+      periodEnd,
+      hadPlusTrial: row.hadPlusTrial ?? false,
+      hadProTrial: row.hadProTrial ?? false,
     }
   } finally {
     await pool.end()
   }
 }
-
 
 async function getOrCreateStripeCustomer(
   userId: string,
@@ -53,7 +87,6 @@ async function getOrCreateStripeCustomer(
       userId,
     ])
     const existingId = result.rows[0]?.stripeCustomerId
-
     if (existingId) return existingId
 
     const customer = await stripe.customers.create({
@@ -73,6 +106,26 @@ async function getOrCreateStripeCustomer(
   }
 }
 
+async function hasUsedTrial(userId: string, plan: Plan): Promise<boolean> {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+  try {
+    const field = plan === 'plus' ? 'hadPlusTrial' : 'hadProTrial'
+    const result = await pool.query(`SELECT "${field}" FROM "user" WHERE id = $1 LIMIT 1`, [userId])
+    return result.rows[0]?.[field] ?? false
+  } finally {
+    await pool.end()
+  }
+}
+
+export async function markTrialUsed(userId: string, plan: Plan) {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+  try {
+    const field = plan === 'plus' ? '"hadPlusTrial"' : '"hadProTrial"'
+    await pool.query(`UPDATE "user" SET ${field} = TRUE WHERE id = $1`, [userId])
+  } finally {
+    await pool.end()
+  }
+}
 
 export const createCheckoutSession = async (plan: Plan, interval: BillingInterval) => {
   const session = await getSession()
@@ -80,27 +133,23 @@ export const createCheckoutSession = async (plan: Plan, interval: BillingInterva
 
   const { id: userId, email, name } = session.user
   const planConfig = PLANS[plan]
+  const priceId = planConfig.priceId[interval]
 
-  if (!planConfig.priceId[interval]) {
-    return err('Invalid plan or interval')
-  }
+  if (!priceId) return err('Invalid plan or interval')
 
   const customerId = await getOrCreateStripeCustomer(userId, email, name ?? '')
+  const trialAlreadyUsed = await hasUsedTrial(userId, plan)
+  const trialDays = !trialAlreadyUsed ? planConfig.trialDays : null
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
   const checkoutSession = await stripe.checkout.sessions.create({
     customer: customerId,
     payment_method_types: ['card'],
-    line_items: [
-      {
-        price: planConfig.priceId[interval]!,
-        quantity: 1,
-      },
-    ],
+    line_items: [{ price: priceId, quantity: 1 }],
     mode: 'subscription',
     subscription_data: {
-      trial_period_days: planConfig.trialDays ?? undefined,
+      trial_period_days: trialDays ?? undefined,
       metadata: { userId, plan },
     },
     success_url: `${appUrl}/billing?success=true`,
@@ -109,7 +158,6 @@ export const createCheckoutSession = async (plan: Plan, interval: BillingInterva
   })
 
   if (!checkoutSession.url) return err('Failed to create checkout session')
-
   redirect(checkoutSession.url)
 }
 
@@ -118,15 +166,13 @@ export const createPortalSession = async () => {
   if (!session?.user) redirect('/sign-in')
 
   const billing = await getBillingInfo()
-  if (!billing?.stripeCustomerId) {
-    return err('No Stripe customer found')
-  }
+  if (!billing?.stripeCustomerId) return err('No Stripe customer found')
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
   const portalSession = await stripe.billingPortal.sessions.create({
     customer: billing.stripeCustomerId,
-    return_url: `${appUrl}/billing`,
+    return_url: `${appUrl}/profile`,
   })
 
   redirect(portalSession.url)
@@ -151,7 +197,32 @@ export const changeSubscriptionPlan = async (newPlan: Plan, interval: BillingInt
 
     return ok(true)
   } catch (e) {
-    console.error('Failed to change subscription plan:', e)
+    console.error('Failed to change subscription:', e)
     return err('Failed to change plan')
+  }
+}
+
+export const switchToMonthlyAtRenewal = async (plan: Plan) => {
+  const billing = await getBillingInfo()
+  if (!billing?.subscriptionId) return err('No active subscription')
+
+  const newPriceId = PLANS[plan].priceId['monthly']
+  if (!newPriceId) return err('Invalid plan')
+
+  try {
+    const subscription = await stripe.subscriptions.retrieve(billing.subscriptionId)
+    const itemId = subscription.items.data[0]?.id
+    if (!itemId) return err('Subscription item not found')
+
+    await stripe.subscriptions.update(billing.subscriptionId, {
+      items: [{ id: itemId, price: newPriceId }],
+      proration_behavior: 'none',
+      billing_cycle_anchor: 'unchanged',
+    })
+
+    return ok(true)
+  } catch (e) {
+    console.error('Failed to schedule interval switch:', e)
+    return err('Failed to schedule switch')
   }
 }

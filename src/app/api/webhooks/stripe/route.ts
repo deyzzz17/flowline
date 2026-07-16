@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe, getPlanFromPriceId } from '@/lib/stripe'
+import { markTrialUsed } from '@/api/billing/actions'
 import { Pool } from 'pg'
 import type Stripe from 'stripe'
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 async function updateUserBilling(
   userId: string,
@@ -36,12 +40,8 @@ async function updateUserBilling(
     }
 
     if (sets.length === 0) return
-
     values.push(userId)
-    await pool.query(
-      `UPDATE "user" SET ${sets.join(', ')} WHERE id = $${idx}`,
-      values,
-    )
+    await pool.query(`UPDATE "user" SET ${sets.join(', ')} WHERE id = $${idx}`, values)
   } finally {
     await pool.end()
   }
@@ -57,25 +57,15 @@ export async function POST(req: NextRequest) {
   const body = await req.text()
   const signature = req.headers.get('stripe-signature')
 
-  if (!signature) {
-    return NextResponse.json({ error: 'No signature' }, { status: 400 })
-  }
-
-  if (!process.env.STRIPE_WEBHOOK_SECRET) {
-    console.error('STRIPE_WEBHOOK_SECRET is not set')
-    return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 })
-  }
+  if (!signature) return NextResponse.json({ error: 'No signature' }, { status: 400 })
+  if (!process.env.STRIPE_WEBHOOK_SECRET)
+    return NextResponse.json({ error: 'Not configured' }, { status: 500 })
 
   let event: Stripe.Event
-
   try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET,
-    )
+    event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET)
   } catch (err) {
-    console.error('Webhook signature verification failed:', err)
+    console.error('Webhook signature failed:', err)
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
@@ -86,20 +76,23 @@ export async function POST(req: NextRequest) {
         if (session.mode !== 'subscription') break
 
         const userId = session.metadata?.userId
+        const plan = session.metadata?.plan as string | undefined
         if (!userId) break
 
         const subscriptionId = session.subscription as string
         const subscription = await stripe.subscriptions.retrieve(subscriptionId)
         const priceId = subscription.items.data[0]?.price.id
-        const plan = priceId ? getPlanFromPriceId(priceId) : 'free'
+        const resolvedPlan = priceId ? getPlanFromPriceId(priceId) : ((plan as any) ?? 'free')
+
+        if (subscription.trial_end && (resolvedPlan === 'plus' || resolvedPlan === 'pro')) {
+          await markTrialUsed(userId, resolvedPlan)
+        }
 
         await updateUserBilling(userId, {
-          plan,
+          plan: resolvedPlan,
           subscriptionStatus: subscription.status,
           subscriptionId,
-          trialEndsAt: subscription.trial_end
-            ? new Date(subscription.trial_end * 1000)
-            : null,
+          trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
         })
         break
       }
@@ -117,9 +110,7 @@ export async function POST(req: NextRequest) {
           plan,
           subscriptionStatus: subscription.status,
           subscriptionId: subscription.id,
-          trialEndsAt: subscription.trial_end
-            ? new Date(subscription.trial_end * 1000)
-            : null,
+          trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
         })
         break
       }
@@ -145,18 +136,13 @@ export async function POST(req: NextRequest) {
         const userId = await getUserIdFromCustomer(customerId)
         if (!userId) break
 
-        await updateUserBilling(userId, {
-          subscriptionStatus: 'past_due',
-        })
+        await updateUserBilling(userId, { subscriptionStatus: 'past_due' })
         break
       }
-
-      default:
-        break
     }
   } catch (err) {
     console.error('Webhook handler error:', err)
-    return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 })
+    return NextResponse.json({ error: 'Handler failed' }, { status: 500 })
   }
 
   return NextResponse.json({ received: true })

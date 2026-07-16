@@ -111,6 +111,18 @@ export const auth = betterAuth({
         required: false,
         input: false,
       },
+      hadPlusTrial: {
+        type: 'boolean',
+        required: false,
+        defaultValue: false,
+        input: false,
+      },
+      hadProTrial: {
+        type: 'boolean',
+        required: false,
+        defaultValue: false,
+        input: false,
+      },
     },
     deleteUser: {
       enabled: true,
