@@ -37,25 +37,19 @@ export const createList = async (input: CreateListInput) => {
     const userId = await getUserId()
     if (!userId) return err('Not authenticated')
 
-    console.log('[createList] userId:', userId, typeof userId)
-
     if (!checkRateLimit(`create-list:${userId}`, 1, 1000)) {
       return err('Too many requests. Please wait a moment.')
     }
 
     const payload = await getPayload({ config })
-    const { plan, limits } = await getUserPlanLimits()
-    console.log('[createList] plan:', plan, 'limits.lists:', limits.lists)
+
+    const { limits } = await getUserPlanLimits()
 
     const { totalDocs } = await payload.find({
       collection: 'lists',
-      where: {
-        and: [{ userId: { equals: userId } }, { isDefault: { equals: false } }],
-      },
+      where: { userId: { equals: userId } },
       limit: 0,
     })
-    console.log('[createList] totalDocs (non-default lists):', totalDocs)
-    console.log('[createList] isAtLimit result:', isAtLimit(totalDocs, limits.lists))
 
     if (isAtLimit(totalDocs, limits.lists)) {
       return err(LIMIT_ERRORS.LISTS_LIMIT)
