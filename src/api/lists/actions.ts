@@ -1,143 +1,163 @@
 'use server'
 
 import 'server-only'
+
 import { getPayload } from 'payload'
 import config from '@/payload.config'
-import { getSession } from '@/lib/get-session'
-import { ok, err } from '@/types/result'
 import { revalidatePath } from 'next/cache'
+import { ok, err } from '@/types/result'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { getSession } from '@/lib/get-session'
 import { getUserPlanLimits } from '@/lib/get-user-plan'
-import { isAtLimit, LIMIT_ERRORS } from '@/lib/plan-limits' 
+import { isAtLimit, LIMIT_ERRORS } from '@/lib/plan-limits'
+
+type CreateListInput = {
+  name: string
+  category?: {
+    name?: string
+    color?: string
+  }
+}
+
+type EditListInput = {
+  name?: string
+  category?: {
+    name?: string
+    color?: string
+  }
+}
 
 const getUserId = async () => {
   const session = await getSession()
   return session?.user?.id ?? null
 }
 
-export const createList = async (data: {
-  name: string
-  category?: { name?: string; color?: string }
-}) => {
+export const createList = async (input: CreateListInput) => {
   try {
     const userId = await getUserId()
     if (!userId) return err('Not authenticated')
 
-    if (!checkRateLimit(`create-list:${userId}`, 5, 10000)) {
+    if (!checkRateLimit(`create-list:${userId}`, 1, 1000)) {
       return err('Too many requests. Please wait a moment.')
     }
 
     const payload = await getPayload({ config })
 
     const { limits } = await getUserPlanLimits()
-    const { totalDocs: listCount } = await payload.find({
+
+    const { totalDocs } = await payload.find({
       collection: 'lists',
       where: {
         and: [{ userId: { equals: userId } }, { isDefault: { equals: false } }],
       },
       limit: 0,
     })
-    if (isAtLimit(listCount, limits.lists)) return err(LIMIT_ERRORS.LISTS_LIMIT)
 
-    const name = data.name.trim()
-    const base = name
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')
-    const userSuffix = userId
-      .slice(-4)
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '')
-    const slug = userSuffix ? `${base}-${userSuffix}` : base
+    if (isAtLimit(totalDocs, limits.lists)) {
+      return err(LIMIT_ERRORS.LISTS_LIMIT)
+    }
 
-    const list = await payload.create({
-      collection: 'lists',
-      data: {
-        name,
-        slug,
-        userId,
-        isDefault: false,
-        ...(data.category && { category: data.category }),
-      },
-    })
-
-    revalidatePath('/')
-    return ok(list)
-  } catch (e) {
-    const message = e instanceof Error ? e.message : 'Error while creating the list'
-    return err(message)
-  }
-}
-
-export const getLists = async () => {
-  try {
-    const userId = await getUserId()
-    if (!userId) return err('Not authenticated')
-
-    const payload = await getPayload({ config })
-    const lists = await payload.find({
-      collection: 'lists',
-      where: { userId: { equals: userId } },
-      limit: 0,
-      sort: 'createdAt',
-    })
-
-    return ok(lists)
-  } catch {
-    return err('Error while fetching lists')
-  }
-}
-
-export const getList = async (slug: string) => {
-  try {
-    const userId = await getUserId()
-    if (!userId) return err('Not authenticated')
-
-    const payload = await getPayload({ config })
-    const lists = await payload.find({
+    const { docs: existing } = await payload.find({
       collection: 'lists',
       where: {
-        and: [{ slug: { equals: slug } }, { userId: { equals: userId } }],
+        and: [{ userId: { equals: userId } }, { name: { equals: input.name.trim() } }],
       },
       limit: 1,
     })
 
-    if (lists.docs.length === 0) return err('List not found')
-    return ok(lists.docs[0])
+    if (existing.length > 0) {
+      return err('DUPLICATE_NAME')
+    }
+
+    const newList = await payload.create({
+      collection: 'lists',
+      data: {
+        name: input.name,
+        userId,
+        ...(input.category && { category: input.category }),
+        isDefault: false,
+      },
+    })
+
+    revalidatePath('/')
+    return ok(newList)
   } catch {
-    return err('Error while fetching list')
+    return err('Error while creating the list')
   }
 }
 
-export const updateList = async (
-  id: number,
-  data: { name?: string; category?: { name?: string; color?: string } },
-) => {
+export const listLists = async () => {
+  const userId = await getUserId()
+  if (!userId) return { docs: [] }
+
+  const payload = await getPayload({ config })
+
+  return await payload.find({
+    collection: 'lists',
+    sort: 'createdAt',
+    limit: 0,
+    where: {
+      userId: { equals: userId },
+    },
+  })
+}
+
+export const getListById = async (id: number) => {
   try {
     const userId = await getUserId()
     if (!userId) return err('Not authenticated')
 
     const payload = await getPayload({ config })
+    const list = await payload.findByID({ collection: 'lists', id })
 
-    const existing = await payload.findByID({ collection: 'lists', id })
-    if (!existing || existing.userId !== userId) return err('Not authorized')
+    if (list.userId !== userId) return err('Not authorized')
 
-    const updated = await payload.update({
+    return ok(list)
+  } catch {
+    return err('List not found')
+  }
+}
+
+export const editList = async (id: number, input: EditListInput) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const payload = await getPayload({ config })
+    const list = await payload.findByID({ collection: 'lists', id })
+
+    if (list.userId !== userId) return err('Not authorized')
+
+    if (input.name !== undefined) {
+      const { docs: existing } = await payload.find({
+        collection: 'lists',
+        where: {
+          and: [
+            { userId: { equals: userId } },
+            { name: { equals: input.name.trim() } },
+            { id: { not_equals: id } },
+          ],
+        },
+        limit: 1,
+      })
+      if (existing.length > 0) {
+        return err('DUPLICATE_NAME')
+      }
+    }
+
+    const updatedList = await payload.update({
       collection: 'lists',
       id,
       data: {
-        ...(data.name && { name: data.name.trim() }),
-        ...(data.category && { category: data.category }),
+        ...(input.name !== undefined && { name: input.name }),
+        ...(input.category !== undefined && { category: input.category }),
       },
     })
 
     revalidatePath('/')
-    return ok(updated)
-  } catch (e) {
-    const message = e instanceof Error ? e.message : 'Error while updating the list'
-    return err(message)
+    return ok(updatedList)
+  } catch {
+    return err('Error while editing the list')
   }
 }
 
@@ -147,10 +167,19 @@ export const deleteList = async (id: number) => {
     if (!userId) return err('Not authenticated')
 
     const payload = await getPayload({ config })
+    const list = await payload.findByID({ collection: 'lists', id })
 
-    const existing = await payload.findByID({ collection: 'lists', id })
-    if (!existing || existing.userId !== userId) return err('Not authorized')
-    if (existing.isDefault) return err('Cannot delete the default list')
+    if (list.userId !== userId) return err('Not authorized')
+
+    const { docs: tasks } = await payload.find({
+      collection: 'tasks',
+      where: { list: { equals: id } },
+      limit: 0,
+    })
+
+    for (const task of tasks) {
+      await payload.delete({ collection: 'tasks', id: task.id })
+    }
 
     await payload.delete({ collection: 'lists', id })
 
@@ -159,4 +188,68 @@ export const deleteList = async (id: number) => {
   } catch {
     return err('Error while deleting the list')
   }
+}
+
+export const createDefaultList = async () => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const payload = await getPayload({ config })
+
+    const existing = await payload.find({
+      collection: 'lists',
+      where: {
+        and: [{ userId: { equals: userId } }, { isDefault: { equals: true } }],
+      },
+      limit: 1,
+    })
+
+    let defaultList = existing.docs[0]
+
+    if (!defaultList) {
+      defaultList = await payload.create({
+        collection: 'lists',
+        data: {
+          name: 'Todo',
+          userId,
+          isDefault: true,
+          category: { name: 'Personal', color: '#8b5cf6' },
+        },
+      })
+    }
+
+    const { docs: unassignedTasks } = await payload.find({
+      collection: 'tasks',
+      where: {
+        and: [{ userId: { equals: userId } }, { list: { exists: false } }],
+      },
+      limit: 0,
+    })
+
+    for (const task of unassignedTasks) {
+      await payload.update({
+        collection: 'tasks',
+        id: task.id,
+        data: { list: defaultList.id },
+      })
+    }
+
+    return ok(defaultList)
+  } catch {
+    return err('Error while creating default list')
+  }
+}
+
+export const getListBySlug = async (slug: string) => {
+  const userId = await getUserId()
+  if (!userId) return err('Not authenticated')
+  const payload = await getPayload({ config })
+  const { docs } = await payload.find({
+    collection: 'lists',
+    where: { and: [{ userId: { equals: userId } }, { slug: { equals: slug } }] },
+    limit: 1,
+  })
+  if (!docs[0]) return err('List not found')
+  return ok(docs[0])
 }
