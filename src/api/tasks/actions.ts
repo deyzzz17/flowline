@@ -202,9 +202,6 @@ export const listTasks = async (
   })
 }
 
-// Renvoie le décalage (en minutes) entre UTC et l'heure murale locale du
-// fuseau donné, à l'instant `date`. Permet de calculer des bornes de
-// journée correctes sans dépendance externe (date-fns-tz non installé).
 function getTimezoneOffsetMinutes(date: Date, timeZone: string): number {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone,
@@ -229,12 +226,9 @@ function getTimezoneOffsetMinutes(date: Date, timeZone: string): number {
     Number(map.second),
   )
 
-  return (asUTC - date.getTime()) / 60000
+  return Math.round((asUTC - date.getTime()) / 60000)
 }
 
-// Bornes [début, fin) de la journée "aujourd'hui" dans le fuseau de
-// l'utilisateur, exprimées en UTC — pour comparer correctement avec les
-// dueDate stockées en UTC.
 function getTodayBoundsInTimezone(timeZone: string): { start: Date; end: Date } {
   const now = new Date()
   const offsetMinutes = getTimezoneOffsetMinutes(now, timeZone)
@@ -247,7 +241,6 @@ function getTodayBoundsInTimezone(timeZone: string): { start: Date; end: Date } 
   return { start, end }
 }
 
-// Jour de la semaine ('sun'..'sat') dans le fuseau de l'utilisateur.
 function getWeekdayInTimezone(timeZone: string): (typeof DAYS)[number] {
   return new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' })
     .format(new Date())
