@@ -10,8 +10,6 @@ import { cookies } from 'next/headers'
 import { Task } from '@/payload-types'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
-import { getUserPlanLimits } from '@/lib/get-user-plan'
-import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 
 type CreateTaskInput = {
   title: string
@@ -131,8 +129,6 @@ export const createTask = async (task: CreateTaskInput) => {
       initialStatus = task.recurrence.days?.includes(today as never) ? 'active' : 'inactive'
     }
 
-    const { plan, limits } = await getUserPlanLimits()
-
     if (task.listId) {
       const { totalDocs } = await payload.find({
         collection: 'tasks',
@@ -141,21 +137,11 @@ export const createTask = async (task: CreateTaskInput) => {
         },
         limit: 0,
       })
-      if (isAtLimit(totalDocs, limits.tasksPerList)) {
-        return err(
-          isPlanUnlimited(plan, 'tasksPerList')
-            ? SAFETY_CAP_ERRORS.TASKS_CAP
-            : LIMIT_ERRORS.TASKS_LIMIT,
-        )
-      }
+      if (totalDocs >= 100) return err('LIMIT_REACHED')
     }
 
-    if ((task.subtasks ?? []).length > limits.subtasksPerTask) {
-      return err(
-        isPlanUnlimited(plan, 'subtasksPerTask')
-          ? SAFETY_CAP_ERRORS.SUBTASKS_CAP
-          : LIMIT_ERRORS.SUBTASKS_LIMIT,
-      )
+    if ((task.subtasks ?? []).length > 80) {
+      return err('SUBTASK_LIMIT_REACHED')
     }
 
     const newTask = await payload.create({
@@ -453,15 +439,8 @@ export const editTask = async (id: number, draft: EditTaskInput) => {
     const finalTitle =
       draft.title !== undefined && draft.title.trim() !== '' ? draft.title : originalTask.title
 
-    if (draft.subtasks != null) {
-      const { plan, limits } = await getUserPlanLimits()
-      if (draft.subtasks.length > limits.subtasksPerTask) {
-        return err(
-          isPlanUnlimited(plan, 'subtasksPerTask')
-            ? SAFETY_CAP_ERRORS.SUBTASKS_CAP
-            : LIMIT_ERRORS.SUBTASKS_LIMIT,
-        )
-      }
+    if (draft.subtasks != null && draft.subtasks.length > 80) {
+      return err('SUBTASK_LIMIT_REACHED')
     }
 
     const updatedTask = await payload.update({
