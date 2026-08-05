@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
@@ -10,8 +11,9 @@ import { AlertCircle, Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCreateList } from '@/hooks/lists/use-create-list'
 import { toast } from 'sonner'
-import { LIMIT_ERRORS } from '@/lib/plan-limits'
-import { PlanLimitDialog } from '@/components/ui/plan-limit-dialog'
+import { LIMIT_ERRORS, SAFETY_CAP_ERRORS, type SafetyCapError } from '@/lib/plan-limits'
+import { PlanLimitDialog } from '../ui/plan-limit-dialog'
+import { SafetyCapDialog } from '../ui/safety-cap-dialog'
 
 function hexToRgba(hex: string, alpha: number) {
   try {
@@ -56,6 +58,8 @@ export const NewListClient = () => {
     setLimitOpen,
   } = useCreateList()
 
+  const [capError, setCapError] = useState<SafetyCapError | null>(null)
+
   const mutation = useMutation({
     mutationFn: () =>
       api.lists.create({
@@ -69,6 +73,10 @@ export const NewListClient = () => {
       if (!result.ok) {
         if (result.error === LIMIT_ERRORS.LISTS_LIMIT) {
           setLimitOpen(true)
+          return
+        }
+        if (result.error === SAFETY_CAP_ERRORS.LISTS_CAP) {
+          setCapError(SAFETY_CAP_ERRORS.LISTS_CAP)
           return
         }
         setError(
@@ -236,6 +244,13 @@ export const NewListClient = () => {
         open={limitOpen}
         onOpenChange={setLimitOpen}
         limitError={LIMIT_ERRORS.LISTS_LIMIT}
+      />
+      <SafetyCapDialog
+        open={!!capError}
+        onOpenChange={(v) => {
+          if (!v) setCapError(null)
+        }}
+        capError={capError}
       />
     </div>
   )

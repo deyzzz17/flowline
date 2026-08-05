@@ -7,6 +7,7 @@ import { useDeleteTask } from '@/hooks/tasks/use-delete-task'
 import { useRestoreTask } from '@/hooks/tasks/use-restore-task'
 import { useToggleSubtask, useCompleteTaskWithSubtasks } from '@/hooks/tasks/use-toggle-subtasks'
 import { useDeleteSubtask } from '@/hooks/tasks/use-delete-subtask'
+import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
 import type { Task } from '@/payload-types'
 import { Button } from '../ui/button'
 import { Textarea } from '../ui/textarea'
@@ -38,6 +39,15 @@ import { toast } from 'sonner'
 import { format, startOfDay } from 'date-fns'
 import { TaskSessionsBadge } from './task-sessions-badge'
 import { useState } from 'react'
+import {
+  LIMIT_ERRORS,
+  SAFETY_CAP_ERRORS,
+  isPlanUnlimited,
+  type LimitError,
+  type SafetyCapError,
+} from '@/lib/plan-limits'
+import { PlanLimitDialog } from '../ui/plan-limit-dialog'
+import { SafetyCapDialog } from '../ui/safety-cap-dialog'
 
 function hexToRgba(hex: string, alpha: number) {
   try {
@@ -98,6 +108,10 @@ const DAY_FULL: Record<string, string> = {
   sat: 'Sat',
   sun: 'Sun',
 }
+
+// Valeurs de repli tant que usePlanLimits n'a pas encore résolu (plan free)
+const FALLBACK_SUBTASKS_LIMIT = 10
+const FALLBACK_TAGS_LIMIT = 10
 
 interface TaskCardProps {
   task: Task
@@ -166,8 +180,12 @@ export const TaskCard = ({
   const completeWithSubtasks = useCompleteTaskWithSubtasks()
   const deleteSubtask = useDeleteSubtask()
   const queryClient = useQueryClient()
+  const planLimits = usePlanLimits()
+  const subtasksLimit = planLimits?.limits.subtasksPerTask ?? FALLBACK_SUBTASKS_LIMIT
+  const tagsLimit = planLimits?.limits.customTags ?? FALLBACK_TAGS_LIMIT
 
-  const [limitDialog, setLimitDialog] = useState<'subtask' | 'tag' | null>(null)
+  const [limitDialog, setLimitDialog] = useState<LimitError | null>(null)
+  const [capDialog, setCapDialog] = useState<SafetyCapError | null>(null)
 
   const { data: userTagsData } = useQuery({
     queryKey: ['user-tags'],
@@ -271,8 +289,12 @@ export const TaskCard = ({
 
   const addEditSubtask = () => {
     if (!subtaskInput.trim()) return
-    if (editSubtasks.length >= 80) {
-      setLimitDialog('subtask')
+    if (editSubtasks.length >= subtasksLimit) {
+      if (planLimits && isPlanUnlimited(planLimits.plan, 'subtasksPerTask')) {
+        setCapDialog(SAFETY_CAP_ERRORS.SUBTASKS_CAP)
+      } else {
+        setLimitDialog(LIMIT_ERRORS.SUBTASKS_LIMIT)
+      }
       return
     }
     setEditSubtasks((prev) => [...prev, { title: subtaskInput.trim(), done: false }])
@@ -288,8 +310,12 @@ export const TaskCard = ({
 
   const handleCreateTag = async () => {
     if (!newTagName.trim()) return
-    if (userTags.length >= 80) {
-      setLimitDialog('tag')
+    if (userTags.length >= tagsLimit) {
+      if (planLimits && isPlanUnlimited(planLimits.plan, 'customTags')) {
+        setCapDialog(SAFETY_CAP_ERRORS.TAGS_CAP)
+      } else {
+        setLimitDialog(LIMIT_ERRORS.TAGS_LIMIT)
+      }
       return
     }
     await createTagMutation.mutateAsync({ name: newTagName.trim(), color: newTagColor })
@@ -1055,7 +1081,7 @@ export const TaskCard = ({
                             }
                           : s,
                       )
-                      await api.tasks.edit(task.id, {
+                      const result = await api.tasks.edit(task.id, {
                         subtasks: updatedSubtasks.map((s) => ({
                           title: s.title,
                           done: s.done ?? false,
@@ -1064,6 +1090,14 @@ export const TaskCard = ({
                           tags: (s.tags ?? []) as NonNullable<Task['subtasks']>[number]['tags'],
                         })),
                       })
+                      if (!result.ok) {
+                        if (result.error === LIMIT_ERRORS.SUBTASKS_LIMIT) {
+                          setLimitDialog(LIMIT_ERRORS.SUBTASKS_LIMIT)
+                        } else if (result.error === SAFETY_CAP_ERRORS.SUBTASKS_CAP) {
+                          setCapDialog(SAFETY_CAP_ERRORS.SUBTASKS_CAP)
+                        }
+                        return
+                      }
                       queryClient.invalidateQueries({ queryKey: ['tasks'] })
                       setEditingSubtaskIndex(null)
                     }
@@ -1447,28 +1481,20 @@ export const TaskCard = ({
           </div>
         )}
       </div>
-      <AlertDialog
+      <PlanLimitDialog
         open={!!limitDialog}
         onOpenChange={(v) => {
           if (!v) setLimitDialog(null)
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {limitDialog === 'subtask' ? 'Subtask limit reached' : 'Tag limit reached'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {limitDialog === 'subtask'
-                ? 'A task can have a maximum of 80 subtasks.'
-                : 'You can have a maximum of 80 custom tags. Delete an existing tag to create a new one.'}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Got it</AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        limitError={limitDialog}
+      />
+      <SafetyCapDialog
+        open={!!capDialog}
+        onOpenChange={(v) => {
+          if (!v) setCapDialog(null)
+        }}
+        capError={capDialog}
+      />
     </>
   )
 }

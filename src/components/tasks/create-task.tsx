@@ -28,6 +28,7 @@ import {
 import { Plus, RefreshCw, ChevronDown, ChevronUp, Tag, Check, Loader2, X } from 'lucide-react'
 import { useManageForm } from '@/hooks/tasks/use-manage-form'
 import { useTaskCreation } from '@/hooks/tasks/use-task-creation'
+import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import { DatePicker } from './date-picker'
@@ -35,6 +36,15 @@ import { FormField } from './form-field'
 import { MentionTextarea } from './mention-textarea'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
+import {
+  LIMIT_ERRORS,
+  SAFETY_CAP_ERRORS,
+  isPlanUnlimited,
+  type LimitError,
+  type SafetyCapError,
+} from '@/lib/plan-limits'
+import { PlanLimitDialog } from '../ui/plan-limit-dialog'
+import { SafetyCapDialog } from '../ui/safety-cap-dialog'
 
 const TAG_OPTIONS = [
   { value: 'urgent', label: 'Urgent' },
@@ -66,7 +76,8 @@ function hexToRgba(hex: string, alpha: number) {
   }
 }
 
-type LimitKind = 'task' | 'subtask' | 'tag' | null
+const FALLBACK_SUBTASKS_LIMIT = 10
+const FALLBACK_TAGS_LIMIT = 10
 
 interface CreateTaskProps {
   listId?: number
@@ -115,10 +126,14 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
   } = useTaskCreation()
 
   const queryClient = useQueryClient()
+  const planLimits = usePlanLimits()
+  const subtasksLimit = planLimits?.limits.subtasksPerTask ?? FALLBACK_SUBTASKS_LIMIT
+  const tagsLimit = planLimits?.limits.customTags ?? FALLBACK_TAGS_LIMIT
 
   const titleRef = React.useRef<HTMLInputElement>(null)
 
-  const [limitDialog, setLimitDialog] = useState<LimitKind>(null)
+  const [limitDialog, setLimitDialog] = useState<LimitError | null>(null)
+  const [capDialog, setCapDialog] = useState<SafetyCapError | null>(null)
 
   const { data: userTagsData } = useQuery({
     queryKey: ['user-tags'],
@@ -155,8 +170,12 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
 
   const handleCreateTag = async () => {
     if (!newTagName.trim()) return
-    if (userTags.length >= 80) {
-      setLimitDialog('tag')
+    if (userTags.length >= tagsLimit) {
+      if (planLimits && isPlanUnlimited(planLimits.plan, 'customTags')) {
+        setCapDialog(SAFETY_CAP_ERRORS.TAGS_CAP)
+      } else {
+        setLimitDialog(LIMIT_ERRORS.TAGS_LIMIT)
+      }
       return
     }
     await createTagMutation.mutateAsync({ name: newTagName.trim(), color: newTagColor })
@@ -203,18 +222,26 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
 
     const result = await saveTask(listId)
     if (!result.ok) {
-      if (result.error === 'LIMIT_REACHED') {
-        setLimitDialog('task')
-      } else if (result.error === 'SUBTASK_LIMIT_REACHED') {
-        setLimitDialog('subtask')
+      if (result.error === LIMIT_ERRORS.TASKS_LIMIT) {
+        setLimitDialog(LIMIT_ERRORS.TASKS_LIMIT)
+      } else if (result.error === SAFETY_CAP_ERRORS.TASKS_CAP) {
+        setCapDialog(SAFETY_CAP_ERRORS.TASKS_CAP)
+      } else if (result.error === LIMIT_ERRORS.SUBTASKS_LIMIT) {
+        setLimitDialog(LIMIT_ERRORS.SUBTASKS_LIMIT)
+      } else if (result.error === SAFETY_CAP_ERRORS.SUBTASKS_CAP) {
+        setCapDialog(SAFETY_CAP_ERRORS.SUBTASKS_CAP)
       }
     }
   }
 
   const handleAddSubtask = () => {
     if (!subtaskInput.trim()) return
-    if (subtasks.length >= 80) {
-      setLimitDialog('subtask')
+    if (subtasks.length >= subtasksLimit) {
+      if (planLimits && isPlanUnlimited(planLimits.plan, 'subtasksPerTask')) {
+        setCapDialog(SAFETY_CAP_ERRORS.SUBTASKS_CAP)
+      } else {
+        setLimitDialog(LIMIT_ERRORS.SUBTASKS_LIMIT)
+      }
       return
     }
     addSubtask(subtaskInput)
@@ -759,34 +786,20 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog
+      <PlanLimitDialog
         open={!!limitDialog}
         onOpenChange={(v) => {
           if (!v) setLimitDialog(null)
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {limitDialog === 'task'
-                ? 'Task limit reached'
-                : limitDialog === 'subtask'
-                  ? 'Subtask limit reached'
-                  : 'Tag limit reached'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {limitDialog === 'task'
-                ? 'This list already has 100 tasks. Delete some tasks to add new ones.'
-                : limitDialog === 'subtask'
-                  ? 'A task can have a maximum of 80 subtasks.'
-                  : 'You can have a maximum of 80 custom tags. Delete an existing tag to create a new one.'}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Got it</AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        limitError={limitDialog}
+      />
+      <SafetyCapDialog
+        open={!!capDialog}
+        onOpenChange={(v) => {
+          if (!v) setCapDialog(null)
+        }}
+        capError={capDialog}
+      />
     </>
   )
 }

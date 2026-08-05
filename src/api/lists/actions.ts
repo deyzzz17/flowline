@@ -9,7 +9,7 @@ import { ok, err } from '@/types/result'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
 import { getUserPlanLimits } from '@/lib/get-user-plan'
-import { isAtLimit, LIMIT_ERRORS } from '@/lib/plan-limits'
+import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 
 type CreateListInput = {
   name: string
@@ -43,7 +43,7 @@ export const createList = async (input: CreateListInput) => {
 
     const payload = await getPayload({ config })
 
-    const { limits } = await getUserPlanLimits()
+    const { plan, limits } = await getUserPlanLimits()
 
     const { totalDocs } = await payload.find({
       collection: 'lists',
@@ -52,7 +52,9 @@ export const createList = async (input: CreateListInput) => {
     })
 
     if (isAtLimit(totalDocs, limits.lists)) {
-      return err(LIMIT_ERRORS.LISTS_LIMIT)
+      return err(
+        isPlanUnlimited(plan, 'lists') ? SAFETY_CAP_ERRORS.LISTS_CAP : LIMIT_ERRORS.LISTS_LIMIT,
+      )
     }
 
     const { docs: existing } = await payload.find({
