@@ -41,6 +41,14 @@ const getUserId = async () => {
   return session?.user?.id ?? null
 }
 
+const getUserTimezone = async (): Promise<string> => {
+  const session = await getSession()
+  const timezone = (session?.user as { timezone?: string } | undefined)?.timezone
+  console.log('[DEBUG getUserTimezone] session.user:', session?.user)
+  console.log('[DEBUG getUserTimezone] resolved timezone:', timezone || 'UTC (fallback)')
+  return timezone || 'UTC'
+}
+
 const allSubtasksDone = (subtasks: Subtask[]): boolean => {
   if (subtasks.length === 0) return false
   return subtasks.every((s) => s.done)
@@ -194,9 +202,6 @@ export const listTasks = async (
   })
 }
 
-// Renvoie le décalage (en minutes) entre UTC et l'heure murale locale du
-// fuseau donné, à l'instant `date`. Permet de calculer des bornes de
-// journée correctes sans dépendance externe (date-fns-tz non installé).
 function getTimezoneOffsetMinutes(date: Date, timeZone: string): number {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone,
@@ -224,9 +229,6 @@ function getTimezoneOffsetMinutes(date: Date, timeZone: string): number {
   return (asUTC - date.getTime()) / 60000
 }
 
-// Bornes [début, fin) de la journée "aujourd'hui" dans le fuseau de
-// l'utilisateur, exprimées en UTC — pour comparer correctement avec les
-// dueDate stockées en UTC.
 function getTodayBoundsInTimezone(timeZone: string): { start: Date; end: Date } {
   const now = new Date()
   const offsetMinutes = getTimezoneOffsetMinutes(now, timeZone)
@@ -239,22 +241,26 @@ function getTodayBoundsInTimezone(timeZone: string): { start: Date; end: Date } 
   return { start, end }
 }
 
-// Jour de la semaine ('sun'..'sat') dans le fuseau de l'utilisateur.
 function getWeekdayInTimezone(timeZone: string): (typeof DAYS)[number] {
   return new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' })
     .format(new Date())
     .toLowerCase() as (typeof DAYS)[number]
 }
 
-export const listTasksToday = async (userTimezone?: string) => {
+export const listTasksToday = async () => {
   const userId = await getUserId()
   if (!userId) return { docs: [] }
 
   const payload = await getPayload({ config })
-  const timeZone = userTimezone || 'UTC'
+  const timeZone = await getUserTimezone()
 
   const { start: today, end: tomorrow } = getTodayBoundsInTimezone(timeZone)
   const todayDay = getWeekdayInTimezone(timeZone)
+
+  console.log('[DEBUG listTasksToday] timeZone:', timeZone)
+  console.log('[DEBUG listTasksToday] today (UTC bound):', today.toISOString())
+  console.log('[DEBUG listTasksToday] tomorrow (UTC bound):', tomorrow.toISOString())
+  console.log('[DEBUG listTasksToday] todayDay:', todayDay)
 
   const dueTodayTasks = await payload.find({
     collection: 'tasks',
@@ -291,6 +297,12 @@ export const listTasksToday = async (userTimezone?: string) => {
 
   const dueTodayIds = new Set(dueTodayTasks.docs.map((t) => t.id))
   const merged = [...dueTodayTasks.docs, ...recurringToday.filter((t) => !dueTodayIds.has(t.id))]
+
+  console.log(
+    '[DEBUG listTasksToday] dueTodayTasks found:',
+    dueTodayTasks.docs.map((t) => ({ id: t.id, title: t.title, dueDate: t.dueDate })),
+  )
+  console.log('[DEBUG listTasksToday] recurringToday count:', recurringToday.length)
 
   return { docs: merged }
 }
