@@ -310,6 +310,23 @@ export const listTasksToday = async () => {
 
   console.log('[DEBUG listTasksToday] queries completed successfully')
 
+  const allActiveTasksDebug = await payload.find({
+    collection: 'tasks',
+    limit: 0,
+    where: {
+      and: [{ userId: { equals: userId } }, { status: { not_equals: 'deleted' } }],
+    },
+  })
+  console.log(
+    '[DEBUG listTasksToday] ALL active tasks with dueDate:',
+    allActiveTasksDebug.docs.map((t) => ({
+      id: t.id,
+      title: t.title,
+      dueDate: t.dueDate,
+      dueDateType: typeof t.dueDate,
+    })),
+  )
+
   const recurringToday = recurringTasks.docs.filter((task) => {
     const recurrence = task.recurrence as { frequency: 'daily' | 'custom'; days?: string[] } | null
     if (!recurrence) return false
