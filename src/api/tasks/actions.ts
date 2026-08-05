@@ -10,6 +10,8 @@ import { cookies } from 'next/headers'
 import { Task } from '@/payload-types'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
+import { getUserPlanLimits } from '@/lib/get-user-plan'
+import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 
 type CreateTaskInput = {
   title: string
@@ -129,6 +131,8 @@ export const createTask = async (task: CreateTaskInput) => {
       initialStatus = task.recurrence.days?.includes(today as never) ? 'active' : 'inactive'
     }
 
+    const { plan, limits } = await getUserPlanLimits()
+
     if (task.listId) {
       const { totalDocs } = await payload.find({
         collection: 'tasks',
@@ -137,11 +141,21 @@ export const createTask = async (task: CreateTaskInput) => {
         },
         limit: 0,
       })
-      if (totalDocs >= 100) return err('LIMIT_REACHED')
+      if (isAtLimit(totalDocs, limits.tasksPerList)) {
+        return err(
+          isPlanUnlimited(plan, 'tasksPerList')
+            ? SAFETY_CAP_ERRORS.TASKS_CAP
+            : LIMIT_ERRORS.TASKS_LIMIT,
+        )
+      }
     }
 
-    if ((task.subtasks ?? []).length > 80) {
-      return err('SUBTASK_LIMIT_REACHED')
+    if ((task.subtasks ?? []).length > limits.subtasksPerTask) {
+      return err(
+        isPlanUnlimited(plan, 'subtasksPerTask')
+          ? SAFETY_CAP_ERRORS.SUBTASKS_CAP
+          : LIMIT_ERRORS.SUBTASKS_LIMIT,
+      )
     }
 
     const newTask = await payload.create({
@@ -194,18 +208,63 @@ export const listTasks = async (
   })
 }
 
-export const listTasksToday = async () => {
+function getTimezoneOffsetMinutes(date: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(date)
+
+  const map: Record<string, string> = {}
+  for (const p of parts) map[p.type] = p.value
+
+  const asUTC = Date.UTC(
+    Number(map.year),
+    Number(map.month) - 1,
+    Number(map.day),
+    Number(map.hour) === 24 ? 0 : Number(map.hour),
+    Number(map.minute),
+    Number(map.second),
+  )
+
+  return (asUTC - date.getTime()) / 60000
+}
+
+// Bornes [début, fin) de la journée "aujourd'hui" dans le fuseau de
+// l'utilisateur, exprimées en UTC — pour comparer correctement avec les
+// dueDate stockées en UTC.
+function getTodayBoundsInTimezone(timeZone: string): { start: Date; end: Date } {
+  const now = new Date()
+  const offsetMinutes = getTimezoneOffsetMinutes(now, timeZone)
+  const localNow = new Date(now.getTime() + offsetMinutes * 60000)
+  const localMidnightUTC = new Date(
+    Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), localNow.getUTCDate(), 0, 0, 0),
+  )
+  const start = new Date(localMidnightUTC.getTime() - offsetMinutes * 60000)
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000)
+  return { start, end }
+}
+
+function getWeekdayInTimezone(timeZone: string): (typeof DAYS)[number] {
+  return new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' })
+    .format(new Date())
+    .toLowerCase() as (typeof DAYS)[number]
+}
+
+export const listTasksToday = async (userTimezone?: string) => {
   const userId = await getUserId()
   if (!userId) return { docs: [] }
 
   const payload = await getPayload({ config })
+  const timeZone = userTimezone || 'UTC'
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-
-  const todayDay = DAYS[new Date().getDay()]
+  const { start: today, end: tomorrow } = getTodayBoundsInTimezone(timeZone)
+  const todayDay = getWeekdayInTimezone(timeZone)
 
   const dueTodayTasks = await payload.find({
     collection: 'tasks',
@@ -390,8 +449,15 @@ export const editTask = async (id: number, draft: EditTaskInput) => {
     const finalTitle =
       draft.title !== undefined && draft.title.trim() !== '' ? draft.title : originalTask.title
 
-    if (draft.subtasks != null && draft.subtasks.length > 80) {
-      return err('SUBTASK_LIMIT_REACHED')
+    if (draft.subtasks != null) {
+      const { plan, limits } = await getUserPlanLimits()
+      if (draft.subtasks.length > limits.subtasksPerTask) {
+        return err(
+          isPlanUnlimited(plan, 'subtasksPerTask')
+            ? SAFETY_CAP_ERRORS.SUBTASKS_CAP
+            : LIMIT_ERRORS.SUBTASKS_LIMIT,
+        )
+      }
     }
 
     const updatedTask = await payload.update({

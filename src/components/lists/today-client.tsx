@@ -10,7 +10,10 @@ import { CheckCircle2, ClipboardList, ListTodo, Sun } from 'lucide-react'
 export const TodayClient = () => {
   const { data } = useQuery({
     queryKey: ['tasks', 'today'],
-    queryFn: () => api.tasks.listToday(),
+    queryFn: () => {
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+      return api.tasks.listToday(userTimezone)
+    },
   })
 
   const allTasks = data?.docs ?? []
@@ -22,13 +25,6 @@ export const TodayClient = () => {
 
   return (
     <>
-     {/* Cette section de sorte de header pour les listes est très similaire
-       entre les pages de listes, je pense que tu pourrais l'extraire dans son 
-       propre groupe de composants 
-       
-       <ListHeader.Title> mon titre </ListHeader.Title>
-       
-       */}
       <section className="mb-8 mt-10">
         <div className="flex items-end justify-between gap-4">
           <div className="flex-1 min-w-0">
