@@ -202,6 +202,9 @@ export const listTasks = async (
   })
 }
 
+// Renvoie le décalage (en minutes) entre UTC et l'heure murale locale du
+// fuseau donné, à l'instant `date`. Permet de calculer des bornes de
+// journée correctes sans dépendance externe (date-fns-tz non installé).
 function getTimezoneOffsetMinutes(date: Date, timeZone: string): number {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone,
@@ -229,6 +232,9 @@ function getTimezoneOffsetMinutes(date: Date, timeZone: string): number {
   return (asUTC - date.getTime()) / 60000
 }
 
+// Bornes [début, fin) de la journée "aujourd'hui" dans le fuseau de
+// l'utilisateur, exprimées en UTC — pour comparer correctement avec les
+// dueDate stockées en UTC.
 function getTodayBoundsInTimezone(timeZone: string): { start: Date; end: Date } {
   const now = new Date()
   const offsetMinutes = getTimezoneOffsetMinutes(now, timeZone)
@@ -241,6 +247,7 @@ function getTodayBoundsInTimezone(timeZone: string): { start: Date; end: Date } 
   return { start, end }
 }
 
+// Jour de la semaine ('sun'..'sat') dans le fuseau de l'utilisateur.
 function getWeekdayInTimezone(timeZone: string): (typeof DAYS)[number] {
   return new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' })
     .format(new Date())
@@ -262,32 +269,46 @@ export const listTasksToday = async () => {
   console.log('[DEBUG listTasksToday] tomorrow (UTC bound):', tomorrow.toISOString())
   console.log('[DEBUG listTasksToday] todayDay:', todayDay)
 
-  const dueTodayTasks = await payload.find({
-    collection: 'tasks',
-    sort: '-createdAt',
-    limit: 0,
-    where: {
-      and: [
-        { userId: { equals: userId } },
-        { status: { not_equals: 'deleted' } },
-        { dueDate: { greater_than_equal: today.toISOString() } },
-        { dueDate: { less_than: tomorrow.toISOString() } },
-      ],
-    },
-  })
+  let dueTodayTasks
+  try {
+    dueTodayTasks = await payload.find({
+      collection: 'tasks',
+      sort: '-createdAt',
+      limit: 0,
+      where: {
+        and: [
+          { userId: { equals: userId } },
+          { status: { not_equals: 'deleted' } },
+          { dueDate: { greater_than_equal: today.toISOString() } },
+          { dueDate: { less_than: tomorrow.toISOString() } },
+        ],
+      },
+    })
+  } catch (e) {
+    console.log('[DEBUG listTasksToday] ERROR in dueTodayTasks query:', e)
+    throw e
+  }
 
-  const recurringTasks = await payload.find({
-    collection: 'tasks',
-    sort: '-createdAt',
-    limit: 0,
-    where: {
-      and: [
-        { userId: { equals: userId } },
-        { type: { equals: 'recurring' } },
-        { status: { in: ['active', 'completed'] } },
-      ],
-    },
-  })
+  let recurringTasks
+  try {
+    recurringTasks = await payload.find({
+      collection: 'tasks',
+      sort: '-createdAt',
+      limit: 0,
+      where: {
+        and: [
+          { userId: { equals: userId } },
+          { type: { equals: 'recurring' } },
+          { status: { in: ['active', 'completed'] } },
+        ],
+      },
+    })
+  } catch (e) {
+    console.log('[DEBUG listTasksToday] ERROR in recurringTasks query:', e)
+    throw e
+  }
+
+  console.log('[DEBUG listTasksToday] queries completed successfully')
 
   const recurringToday = recurringTasks.docs.filter((task) => {
     const recurrence = task.recurrence as { frequency: 'daily' | 'custom'; days?: string[] } | null
