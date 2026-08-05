@@ -10,10 +10,7 @@ import { CheckCircle2, ClipboardList, ListTodo, Sun } from 'lucide-react'
 export const TodayClient = () => {
   const { data } = useQuery({
     queryKey: ['tasks', 'today'],
-    queryFn: () => {
-      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
-      return api.tasks.listToday(userTimezone)
-    },
+    queryFn: () => api.tasks.listToday(),
   })
 
   const allTasks = data?.docs ?? []
