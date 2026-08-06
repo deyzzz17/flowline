@@ -5,6 +5,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import type { SessionConfig } from '@/hooks/timer/use-timer'
 import { toast } from 'sonner'
+import {
+  LIMIT_ERRORS,
+  SAFETY_CAP_ERRORS,
+  type LimitError,
+  type SafetyCapError,
+} from '@/lib/plan-limits'
 
 export interface TimerConfigItem {
   id: number
@@ -63,6 +69,8 @@ function isDuplicate(
 
 export const useTimerConfigs = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [limitError, setLimitError] = useState<LimitError | null>(null)
+  const [capError, setCapError] = useState<SafetyCapError | null>(null)
   const queryClient = useQueryClient()
 
   const { data, isLoading } = useQuery({
@@ -93,12 +101,22 @@ export const useTimerConfigs = () => {
       }))
       return { previous }
     },
+    onSuccess: (response, _vars, context) => {
+      if (!response.ok) {
+        queryClient.setQueryData(['timer-configs'], context?.previous)
+
+        if (response.error === LIMIT_ERRORS.TIMER_PRESETS_LIMIT) {
+          setLimitError(LIMIT_ERRORS.TIMER_PRESETS_LIMIT)
+        } else if (response.error === SAFETY_CAP_ERRORS.TIMER_PRESETS_CAP) {
+          setCapError(SAFETY_CAP_ERRORS.TIMER_PRESETS_CAP)
+        }
+        return
+      }
+      queryClient.invalidateQueries({ queryKey: ['timer-configs'] })
+    },
     onError: (_, __, context) => {
       queryClient.setQueryData(['timer-configs'], context?.previous)
       toast.error('Failed to save config')
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['timer-configs'] })
     },
   })
 
@@ -154,5 +172,9 @@ export const useTimerConfigs = () => {
     isLoading,
     saveConfig,
     deleteMutation,
+    limitError,
+    clearLimitError: () => setLimitError(null),
+    capError,
+    clearCapError: () => setCapError(null),
   }
 }

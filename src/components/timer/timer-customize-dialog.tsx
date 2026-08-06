@@ -28,6 +28,8 @@ import { api } from '@/api'
 import { DurationPicker, durationToSeconds } from './duration-picker'
 import { TaskSelect } from './task-select'
 import type { SessionConfig } from '@/hooks/timer/use-timer'
+import { PlanLimitDialog } from '../ui/plan-limit-dialog'
+import { SafetyCapDialog } from '../ui/safety-cap-dialog'
 
 function hexToRgba(hex: string, alpha: number) {
   try {
@@ -88,6 +90,10 @@ export const TimerCustomizeDialog = ({
     breakExceedsSession,
     createCategoryMutation,
     reset,
+    limitError,
+    clearLimitError,
+    capError,
+    clearCapError,
   } = useTimerCustomize()
 
   const { data: tasksData } = useQuery({
@@ -155,7 +161,7 @@ export const TimerCustomizeDialog = ({
                 Session
               </p>
             </div>
-            
+
             <div className="space-y-2">
               <Label className="text-sm">
                 Session duration
@@ -494,6 +500,21 @@ export const TimerCustomizeDialog = ({
           </DialogFooter>
         </form>
       </DialogContent>
+
+      <PlanLimitDialog
+        open={!!limitError}
+        onOpenChange={(v) => {
+          if (!v) clearLimitError()
+        }}
+        limitError={limitError}
+      />
+      <SafetyCapDialog
+        open={!!capError}
+        onOpenChange={(v) => {
+          if (!v) clearCapError()
+        }}
+        capError={capError}
+      />
     </Dialog>
   )
 }

@@ -4,6 +4,12 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { timerAPI } from '@/api/timer'
 import { toast } from 'sonner'
+import {
+  LIMIT_ERRORS,
+  SAFETY_CAP_ERRORS,
+  type LimitError,
+  type SafetyCapError,
+} from '@/lib/plan-limits'
 
 export interface TimerSession {
   sessionDuration: number | ''
@@ -24,6 +30,8 @@ export const useTimerCustomize = () => {
   const [showNewCategory, setShowNewCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [newCategoryColor, setNewCategoryColor] = useState('#8b5cf6')
+  const [limitError, setLimitError] = useState<LimitError | null>(null)
+  const [capError, setCapError] = useState<SafetyCapError | null>(null)
 
   const [session, setSession] = useState<TimerSession>({
     sessionDuration: '',
@@ -46,7 +54,17 @@ export const useTimerCustomize = () => {
 
   const createCategoryMutation = useMutation({
     mutationFn: (data: { name: string; color: string }) => timerAPI.categories.create(data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['timer-categories'] }),
+    onSuccess: (response) => {
+      if (!response.ok) {
+        if (response.error === LIMIT_ERRORS.TIMER_CATEGORIES_LIMIT) {
+          setLimitError(LIMIT_ERRORS.TIMER_CATEGORIES_LIMIT)
+        } else if (response.error === SAFETY_CAP_ERRORS.TIMER_CATEGORIES_CAP) {
+          setCapError(SAFETY_CAP_ERRORS.TIMER_CATEGORIES_CAP)
+        }
+        return
+      }
+      queryClient.invalidateQueries({ queryKey: ['timer-categories'] })
+    },
   })
 
   const deleteCategoryMutation = useMutation({
@@ -109,10 +127,11 @@ export const useTimerCustomize = () => {
 
   const handleCreateCategory = async () => {
     if (!newCategoryName.trim()) return
-    await createCategoryMutation.mutateAsync({
+    const result = await createCategoryMutation.mutateAsync({
       name: newCategoryName.trim(),
       color: newCategoryColor,
     })
+    if (!result.ok) return
     setNewCategoryName('')
     setNewCategoryColor('#8b5cf6')
     setShowNewCategory(false)
@@ -157,5 +176,9 @@ export const useTimerCustomize = () => {
     breakExceedsSession,
     createCategoryMutation,
     reset,
+    limitError,
+    clearLimitError: () => setLimitError(null),
+    capError,
+    clearCapError: () => setCapError(null),
   }
 }

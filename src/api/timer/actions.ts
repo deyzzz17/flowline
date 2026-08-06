@@ -5,6 +5,8 @@ import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { ok, err } from '@/types/result'
 import { getSession } from '@/lib/get-session'
+import { getUserPlanLimits } from '@/lib/get-user-plan'
+import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 
 const DEFAULT_CATEGORIES = [
   { name: 'Work', color: '#6366f1' },
@@ -53,6 +55,23 @@ export const createTimerCategory = async (data: { name: string; color: string })
     if (!userId) return err('Not authenticated')
 
     const payload = await getPayload({ config })
+
+    const { plan, limits } = await getUserPlanLimits()
+    const { totalDocs } = await payload.find({
+      collection: 'timer-categories',
+      where: {
+        and: [{ userId: { equals: userId } }, { isDefault: { equals: false } }],
+      },
+      limit: 0,
+    })
+    if (isAtLimit(totalDocs, limits.timerCategories)) {
+      return err(
+        isPlanUnlimited(plan, 'timerCategories')
+          ? SAFETY_CAP_ERRORS.TIMER_CATEGORIES_CAP
+          : LIMIT_ERRORS.TIMER_CATEGORIES_LIMIT,
+      )
+    }
+
     const category = await payload.create({
       collection: 'timer-categories',
       data: { ...data, userId, isDefault: false },
@@ -65,7 +84,13 @@ export const createTimerCategory = async (data: { name: string; color: string })
 
 export const deleteTimerCategory = async (id: number) => {
   try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
     const payload = await getPayload({ config })
+    const category = await payload.findByID({ collection: 'timer-categories', id })
+    if ((category as any).userId !== userId) return err('Not authorized')
+
     await payload.delete({ collection: 'timer-categories', id })
     return ok(true)
   } catch {
@@ -165,6 +190,21 @@ export const saveTimerConfig = async (data: Omit<SavedTimerConfig, 'id'>) => {
     if (!userId) return err('Not authenticated')
 
     const payload = await getPayload({ config })
+
+    const { plan, limits } = await getUserPlanLimits()
+    const { totalDocs } = await payload.find({
+      collection: 'timer-configs',
+      where: { userId: { equals: userId } },
+      limit: 0,
+    })
+    if (isAtLimit(totalDocs, limits.timerPresets)) {
+      return err(
+        isPlanUnlimited(plan, 'timerPresets')
+          ? SAFETY_CAP_ERRORS.TIMER_PRESETS_CAP
+          : LIMIT_ERRORS.TIMER_PRESETS_LIMIT,
+      )
+    }
+
     const saved = await payload.create({
       collection: 'timer-configs',
       data: { ...data, userId },
@@ -177,7 +217,13 @@ export const saveTimerConfig = async (data: Omit<SavedTimerConfig, 'id'>) => {
 
 export const deleteTimerConfig = async (id: number) => {
   try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
     const payload = await getPayload({ config })
+    const timerConfig = await payload.findByID({ collection: 'timer-configs', id })
+    if ((timerConfig as any).userId !== userId) return err('Not authorized')
+
     await payload.delete({ collection: 'timer-configs', id })
     return ok(true)
   } catch {
