@@ -14,6 +14,8 @@ import { useTodayStats } from '@/hooks/timer/use-today-stats'
 import { useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import type { SessionConfig } from '@/hooks/timer/use-timer'
+import { PlanLimitDialog } from '../ui/plan-limit-dialog'
+import { SafetyCapDialog } from '../ui/safety-cap-dialog'
 
 export function TimerPageClient() {
   const queryClient = useQueryClient()
@@ -47,6 +49,10 @@ export function TimerPageClient() {
     isLoading: configsLoading,
     saveConfig,
     deleteMutation,
+    limitError,
+    clearLimitError,
+    capError,
+    clearCapError,
   } = useTimerConfigs()
 
   const { stats, isLoading: statsLoading } = useTodayStats()
@@ -88,6 +94,21 @@ export function TimerPageClient() {
           onClose={handleRatingClose}
           config={config}
           totalElapsed={totalElapsed}
+        />
+
+        <PlanLimitDialog
+          open={!!limitError}
+          onOpenChange={(v) => {
+            if (!v) clearLimitError()
+          }}
+          limitError={limitError}
+        />
+        <SafetyCapDialog
+          open={!!capError}
+          onOpenChange={(v) => {
+            if (!v) clearCapError()
+          }}
+          capError={capError}
         />
 
         <div className="pointer-events-none absolute inset-0">
