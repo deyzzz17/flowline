@@ -43,6 +43,14 @@ const getUserId = async () => {
   return session?.user?.id ?? null
 }
 
+const getUserTimezone = async (): Promise<string> => {
+  const session = await getSession()
+  const timezone = (session?.user as { timezone?: string } | undefined)?.timezone
+  console.log('[DEBUG getUserTimezone] session.user:', session?.user)
+  console.log('[DEBUG getUserTimezone] resolved timezone:', timezone || 'UTC (fallback)')
+  return timezone || 'UTC'
+}
+
 const allSubtasksDone = (subtasks: Subtask[]): boolean => {
   if (subtasks.length === 0) return false
   return subtasks.every((s) => s.done)
@@ -208,45 +216,123 @@ export const listTasks = async (
   })
 }
 
+function getTimezoneOffsetMinutes(date: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(date)
+
+  const map: Record<string, string> = {}
+  for (const p of parts) map[p.type] = p.value
+
+  const asUTC = Date.UTC(
+    Number(map.year),
+    Number(map.month) - 1,
+    Number(map.day),
+    Number(map.hour) === 24 ? 0 : Number(map.hour),
+    Number(map.minute),
+    Number(map.second),
+  )
+
+  return Math.round((asUTC - date.getTime()) / 60000)
+}
+
+function getTodayBoundsInTimezone(timeZone: string): { start: Date; end: Date } {
+  const now = new Date()
+  const offsetMinutes = getTimezoneOffsetMinutes(now, timeZone)
+  const localNow = new Date(now.getTime() + offsetMinutes * 60000)
+  const localMidnightUTC = new Date(
+    Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), localNow.getUTCDate(), 0, 0, 0),
+  )
+  const start = new Date(localMidnightUTC.getTime() - offsetMinutes * 60000)
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000)
+  return { start, end }
+}
+
+function getWeekdayInTimezone(timeZone: string): (typeof DAYS)[number] {
+  return new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' })
+    .format(new Date())
+    .toLowerCase() as (typeof DAYS)[number]
+}
+
 export const listTasksToday = async () => {
   const userId = await getUserId()
   if (!userId) return { docs: [] }
 
   const payload = await getPayload({ config })
+  const timeZone = await getUserTimezone()
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
+  const { start: today, end: tomorrow } = getTodayBoundsInTimezone(timeZone)
+  const todayDay = getWeekdayInTimezone(timeZone)
 
-  const todayDay = DAYS[new Date().getDay()]
+  console.log('[DEBUG listTasksToday] timeZone:', timeZone)
+  console.log('[DEBUG listTasksToday] today (UTC bound):', today.toISOString())
+  console.log('[DEBUG listTasksToday] tomorrow (UTC bound):', tomorrow.toISOString())
+  console.log('[DEBUG listTasksToday] todayDay:', todayDay)
 
-  const dueTodayTasks = await payload.find({
+  let dueTodayTasks
+  try {
+    dueTodayTasks = await payload.find({
+      collection: 'tasks',
+      sort: '-createdAt',
+      limit: 0,
+      where: {
+        and: [
+          { userId: { equals: userId } },
+          { status: { not_equals: 'deleted' } },
+          { dueDate: { greater_than_equal: today.toISOString() } },
+          { dueDate: { less_than: tomorrow.toISOString() } },
+        ],
+      },
+    })
+  } catch (e) {
+    console.log('[DEBUG listTasksToday] ERROR in dueTodayTasks query:', e)
+    throw e
+  }
+
+  let recurringTasks
+  try {
+    recurringTasks = await payload.find({
+      collection: 'tasks',
+      sort: '-createdAt',
+      limit: 0,
+      where: {
+        and: [
+          { userId: { equals: userId } },
+          { type: { equals: 'recurring' } },
+          { status: { in: ['active', 'completed'] } },
+        ],
+      },
+    })
+  } catch (e) {
+    console.log('[DEBUG listTasksToday] ERROR in recurringTasks query:', e)
+    throw e
+  }
+
+  console.log('[DEBUG listTasksToday] queries completed successfully')
+
+  const allActiveTasksDebug = await payload.find({
     collection: 'tasks',
-    sort: '-createdAt',
     limit: 0,
     where: {
-      and: [
-        { userId: { equals: userId } },
-        { status: { not_equals: 'deleted' } },
-        { dueDate: { greater_than_equal: today.toISOString() } },
-        { dueDate: { less_than: tomorrow.toISOString() } },
-      ],
+      and: [{ userId: { equals: userId } }, { status: { not_equals: 'deleted' } }],
     },
   })
-
-  const recurringTasks = await payload.find({
-    collection: 'tasks',
-    sort: '-createdAt',
-    limit: 0,
-    where: {
-      and: [
-        { userId: { equals: userId } },
-        { type: { equals: 'recurring' } },
-        { status: { in: ['active', 'completed'] } },
-      ],
-    },
-  })
+  console.log(
+    '[DEBUG listTasksToday] ALL active tasks with dueDate:',
+    allActiveTasksDebug.docs.map((t) => ({
+      id: t.id,
+      title: t.title,
+      dueDate: t.dueDate,
+      dueDateType: typeof t.dueDate,
+    })),
+  )
 
   const recurringToday = recurringTasks.docs.filter((task) => {
     const recurrence = task.recurrence as { frequency: 'daily' | 'custom'; days?: string[] } | null
@@ -256,6 +342,12 @@ export const listTasksToday = async () => {
 
   const dueTodayIds = new Set(dueTodayTasks.docs.map((t) => t.id))
   const merged = [...dueTodayTasks.docs, ...recurringToday.filter((t) => !dueTodayIds.has(t.id))]
+
+  console.log(
+    '[DEBUG listTasksToday] dueTodayTasks found:',
+    dueTodayTasks.docs.map((t) => ({ id: t.id, title: t.title, dueDate: t.dueDate })),
+  )
+  console.log('[DEBUG listTasksToday] recurringToday count:', recurringToday.length)
 
   return { docs: merged }
 }
