@@ -7,6 +7,8 @@ import { ok, err } from '@/types/result'
 import { Pool } from 'pg'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
+import { getUserPlanLimits } from '@/lib/get-user-plan'
+import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 
 const getUserId = async () => {
   const session = await getSession()
@@ -85,6 +87,23 @@ async function findUsersByIds(ids: string[]): Promise<Map<string, ContactProfile
   }
 }
 
+async function countAcceptedConnections(
+  payload: Awaited<ReturnType<typeof getPayload>>,
+  userId: string,
+): Promise<number> {
+  const { totalDocs } = await payload.find({
+    collection: 'connections',
+    where: {
+      and: [
+        { status: { equals: 'accepted' } },
+        { or: [{ requesterId: { equals: userId } }, { recipientId: { equals: userId } }] },
+      ],
+    },
+    limit: 0,
+  })
+  return totalDocs
+}
+
 export const searchContactByEmail = async (
   email: string,
 ): Promise<{ ok: true; value: ContactSearchResult | null } | { ok: false; error: string }> => {
@@ -101,8 +120,6 @@ export const searchContactByEmail = async (
 
     const currentUser = await getCurrentUser()
     if (currentUser?.email?.toLowerCase() === normalizedEmail) {
-      // On ne révèle rien de spécial, on traite simplement comme "introuvable"
-      // pour ne pas permettre de s'auto-inviter.
       return ok(null)
     }
 
@@ -158,6 +175,17 @@ export const sendConnectionRequest = async (recipientUserId: string) => {
     if (userId === recipientUserId) return err('You cannot connect with yourself.')
 
     const payload = await getPayload({ config })
+
+    const { plan, limits } = await getUserPlanLimits()
+    const currentCount = await countAcceptedConnections(payload, userId)
+    if (isAtLimit(currentCount, limits.contacts)) {
+      return err(
+        isPlanUnlimited(plan, 'contacts')
+          ? SAFETY_CAP_ERRORS.CONTACTS_CAP
+          : LIMIT_ERRORS.CONTACTS_LIMIT,
+      )
+    }
+
     const created = await payload.create({
       collection: 'connections',
       data: {
@@ -187,6 +215,16 @@ export const acceptConnectionRequest = async (connectionId: number) => {
     }
     if (connection.status !== 'pending') {
       return err('This request is no longer pending')
+    }
+
+    const { plan, limits } = await getUserPlanLimits()
+    const currentCount = await countAcceptedConnections(payload, userId)
+    if (isAtLimit(currentCount, limits.contacts)) {
+      return err(
+        isPlanUnlimited(plan, 'contacts')
+          ? SAFETY_CAP_ERRORS.CONTACTS_CAP
+          : LIMIT_ERRORS.CONTACTS_LIMIT,
+      )
     }
 
     const updated = await payload.update({
@@ -219,8 +257,6 @@ export const declineConnectionRequest = async (connectionId: number) => {
       return err('This request is no longer pending')
     }
 
-    // Suppression complète (pas de soft-delete) — permet à l'autre personne
-    // de renvoyer une demande plus tard sans contrainte d'unicité bloquante.
     await payload.delete({ collection: 'connections', id: connectionId })
 
     return ok(true)

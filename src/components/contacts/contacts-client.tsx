@@ -33,6 +33,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { PlanLimitDialog } from '../ui/plan-limit-dialog'
+import { SafetyCapDialog } from '../ui/safety-cap-dialog'
 import {
   useContactSearch,
   usePendingRequests,
@@ -98,8 +100,19 @@ function ContactsHeader({ pendingCount }: { pendingCount: number }) {
 }
 
 function SearchSection() {
-  const { email, setEmail, isValidEmail, isSearching, searchResult, sendRequest, isSending } =
-    useContactSearch()
+  const {
+    email,
+    setEmail,
+    isValidEmail,
+    isSearching,
+    searchResult,
+    sendRequest,
+    isSending,
+    limitError,
+    clearLimitError,
+    capError,
+    clearCapError,
+  } = useContactSearch()
 
   const showResultArea = isValidEmail
 
@@ -176,12 +189,37 @@ function SearchSection() {
           )}
         </div>
       )}
+
+      <PlanLimitDialog
+        open={!!limitError}
+        onOpenChange={(v) => {
+          if (!v) clearLimitError()
+        }}
+        limitError={limitError}
+      />
+      <SafetyCapDialog
+        open={!!capError}
+        onOpenChange={(v) => {
+          if (!v) clearCapError()
+        }}
+        capError={capError}
+      />
     </div>
   )
 }
 
 function RequestsSection({ initialData }: { initialData: ContactsPageData }) {
-  const { received, accept, isAccepting, decline, isDeclining } = usePendingRequests(initialData)
+  const {
+    received,
+    accept,
+    isAccepting,
+    decline,
+    isDeclining,
+    limitError,
+    clearLimitError,
+    capError,
+    clearCapError,
+  } = usePendingRequests(initialData)
 
   return (
     <div className="rounded-2xl border border-border/60 bg-card/40 overflow-hidden">
@@ -230,6 +268,21 @@ function RequestsSection({ initialData }: { initialData: ContactsPageData }) {
           ))}
         </div>
       )}
+
+      <PlanLimitDialog
+        open={!!limitError}
+        onOpenChange={(v) => {
+          if (!v) clearLimitError()
+        }}
+        limitError={limitError}
+      />
+      <SafetyCapDialog
+        open={!!capError}
+        onOpenChange={(v) => {
+          if (!v) clearCapError()
+        }}
+        capError={capError}
+      />
     </div>
   )
 }

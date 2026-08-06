@@ -12,6 +12,12 @@ import {
   type ContactsPageData,
   type PendingRequest,
 } from '@/api/contacts/actions'
+import {
+  LIMIT_ERRORS,
+  SAFETY_CAP_ERRORS,
+  type LimitError,
+  type SafetyCapError,
+} from '@/lib/plan-limits'
 
 const PAGE_SIZE = 10
 const PAGE_DATA_KEY = ['contacts', 'page-data']
@@ -19,6 +25,8 @@ const PENDING_RECEIVED_KEY = ['connections', 'pending-received']
 
 export const useContactSearch = () => {
   const [email, setEmail] = useState('')
+  const [limitError, setLimitError] = useState<LimitError | null>(null)
+  const [capError, setCapError] = useState<SafetyCapError | null>(null)
   const queryClient = useQueryClient()
 
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
@@ -33,7 +41,14 @@ export const useContactSearch = () => {
   const sendMutation = useMutation({
     mutationFn: (recipientUserId: string) => sendConnectionRequest(recipientUserId),
     onSuccess: (response, recipientUserId) => {
-      if (!response.ok) return
+      if (!response.ok) {
+        if (response.error === LIMIT_ERRORS.CONTACTS_LIMIT) {
+          setLimitError(LIMIT_ERRORS.CONTACTS_LIMIT)
+        } else if (response.error === SAFETY_CAP_ERRORS.CONTACTS_CAP) {
+          setCapError(SAFETY_CAP_ERRORS.CONTACTS_CAP)
+        }
+        return
+      }
       queryClient.setQueriesData<any>({ queryKey: ['contacts', 'search'] }, (old: any) => {
         if (!old?.ok || !old.value || old.value.user.id !== recipientUserId) return old
         return { ...old, value: { ...old.value, relationship: 'pending_sent' } }
@@ -53,11 +68,17 @@ export const useContactSearch = () => {
     searchError,
     sendRequest: sendMutation.mutate,
     isSending: sendMutation.isPending,
+    limitError,
+    clearLimitError: () => setLimitError(null),
+    capError,
+    clearCapError: () => setCapError(null),
   }
 }
 
 export const usePendingRequests = (initialData: ContactsPageData) => {
   const queryClient = useQueryClient()
+  const [limitError, setLimitError] = useState<LimitError | null>(null)
+  const [capError, setCapError] = useState<SafetyCapError | null>(null)
 
   const { data } = useQuery({
     queryKey: PAGE_DATA_KEY,
@@ -104,6 +125,22 @@ export const usePendingRequests = (initialData: ContactsPageData) => {
       )
 
       return { previousPageData, previousPendingReceived }
+    },
+    onSuccess: (response, _connectionId, context) => {
+      if (!response.ok) {
+        if (context?.previousPageData) {
+          queryClient.setQueryData(PAGE_DATA_KEY, context.previousPageData)
+        }
+        if (context?.previousPendingReceived) {
+          queryClient.setQueryData(PENDING_RECEIVED_KEY, context.previousPendingReceived)
+        }
+
+        if (response.error === LIMIT_ERRORS.CONTACTS_LIMIT) {
+          setLimitError(LIMIT_ERRORS.CONTACTS_LIMIT)
+        } else if (response.error === SAFETY_CAP_ERRORS.CONTACTS_CAP) {
+          setCapError(SAFETY_CAP_ERRORS.CONTACTS_CAP)
+        }
+      }
     },
     onError: (_err, _vars, context) => {
       if (context?.previousPageData) {
@@ -158,6 +195,10 @@ export const usePendingRequests = (initialData: ContactsPageData) => {
     isAccepting: acceptMutation.isPending,
     decline: declineMutation.mutate,
     isDeclining: declineMutation.isPending,
+    limitError,
+    clearLimitError: () => setLimitError(null),
+    capError,
+    clearCapError: () => setCapError(null),
   }
 }
 
