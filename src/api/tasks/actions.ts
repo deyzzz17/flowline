@@ -46,8 +46,6 @@ const getUserId = async () => {
 const getUserTimezone = async (): Promise<string> => {
   const session = await getSession()
   const timezone = (session?.user as { timezone?: string } | undefined)?.timezone
-  console.log('[DEBUG getUserTimezone] session.user:', session?.user)
-  console.log('[DEBUG getUserTimezone] resolved timezone:', timezone || 'UTC (fallback)')
   return timezone || 'UTC'
 }
 
@@ -271,68 +269,32 @@ export const listTasksToday = async () => {
   const { start: today, end: tomorrow } = getTodayBoundsInTimezone(timeZone)
   const todayDay = getWeekdayInTimezone(timeZone)
 
-  console.log('[DEBUG listTasksToday] timeZone:', timeZone)
-  console.log('[DEBUG listTasksToday] today (UTC bound):', today.toISOString())
-  console.log('[DEBUG listTasksToday] tomorrow (UTC bound):', tomorrow.toISOString())
-  console.log('[DEBUG listTasksToday] todayDay:', todayDay)
-
-  let dueTodayTasks
-  try {
-    dueTodayTasks = await payload.find({
-      collection: 'tasks',
-      sort: '-createdAt',
-      limit: 0,
-      where: {
-        and: [
-          { userId: { equals: userId } },
-          { status: { not_equals: 'deleted' } },
-          { dueDate: { greater_than_equal: today.toISOString() } },
-          { dueDate: { less_than: tomorrow.toISOString() } },
-        ],
-      },
-    })
-  } catch (e) {
-    console.log('[DEBUG listTasksToday] ERROR in dueTodayTasks query:', e)
-    throw e
-  }
-
-  let recurringTasks
-  try {
-    recurringTasks = await payload.find({
-      collection: 'tasks',
-      sort: '-createdAt',
-      limit: 0,
-      where: {
-        and: [
-          { userId: { equals: userId } },
-          { type: { equals: 'recurring' } },
-          { status: { in: ['active', 'completed'] } },
-        ],
-      },
-    })
-  } catch (e) {
-    console.log('[DEBUG listTasksToday] ERROR in recurringTasks query:', e)
-    throw e
-  }
-
-  console.log('[DEBUG listTasksToday] queries completed successfully')
-
-  const allActiveTasksDebug = await payload.find({
+  const dueTodayTasks = await payload.find({
     collection: 'tasks',
+    sort: '-createdAt',
     limit: 0,
     where: {
-      and: [{ userId: { equals: userId } }, { status: { not_equals: 'deleted' } }],
+      and: [
+        { userId: { equals: userId } },
+        { status: { not_equals: 'deleted' } },
+        { dueDate: { greater_than_equal: today.toISOString() } },
+        { dueDate: { less_than: tomorrow.toISOString() } },
+      ],
     },
   })
-  console.log(
-    '[DEBUG listTasksToday] ALL active tasks with dueDate:',
-    allActiveTasksDebug.docs.map((t) => ({
-      id: t.id,
-      title: t.title,
-      dueDate: t.dueDate,
-      dueDateType: typeof t.dueDate,
-    })),
-  )
+
+  const recurringTasks = await payload.find({
+    collection: 'tasks',
+    sort: '-createdAt',
+    limit: 0,
+    where: {
+      and: [
+        { userId: { equals: userId } },
+        { type: { equals: 'recurring' } },
+        { status: { in: ['active', 'completed'] } },
+      ],
+    },
+  })
 
   const recurringToday = recurringTasks.docs.filter((task) => {
     const recurrence = task.recurrence as { frequency: 'daily' | 'custom'; days?: string[] } | null
@@ -342,12 +304,6 @@ export const listTasksToday = async () => {
 
   const dueTodayIds = new Set(dueTodayTasks.docs.map((t) => t.id))
   const merged = [...dueTodayTasks.docs, ...recurringToday.filter((t) => !dueTodayIds.has(t.id))]
-
-  console.log(
-    '[DEBUG listTasksToday] dueTodayTasks found:',
-    dueTodayTasks.docs.map((t) => ({ id: t.id, title: t.title, dueDate: t.dueDate })),
-  )
-  console.log('[DEBUG listTasksToday] recurringToday count:', recurringToday.length)
 
   return { docs: merged }
 }
@@ -490,8 +446,13 @@ export const restoreTask = async (id: number) => {
 
 export const editTask = async (id: number, draft: EditTaskInput) => {
   try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
     const payload = await getPayload({ config })
     const originalTask = await payload.findByID({ collection: 'tasks', id })
+
+    if (originalTask.userId !== userId) return err('Not authorized')
 
     const finalTitle =
       draft.title !== undefined && draft.title.trim() !== '' ? draft.title : originalTask.title
