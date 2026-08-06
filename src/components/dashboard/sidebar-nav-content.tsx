@@ -29,8 +29,16 @@ import { api } from '@/api'
 import { useCalendarCategories } from '@/hooks/calendar/use-calendar-categories'
 import { useCalendarFilter } from '../calendar/calendar-filter-context'
 import { useSidebarFooter } from '@/hooks/sidebar/use-sidebar-footer'
+import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
 import { cn } from '@/lib/utils'
-import type { Task } from '@/payload-types'
+import type { Task, List } from '@/payload-types'
+import {
+  LIMIT_ERRORS,
+  SAFETY_CAP_ERRORS,
+  isPlanUnlimited,
+  type LimitError,
+  type SafetyCapError,
+} from '@/lib/plan-limits'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,6 +55,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { PlanLimitDialog } from '../ui/plan-limit-dialog'
+import { SafetyCapDialog } from '../ui/safety-cap-dialog'
 import { SidebarNewsletter } from './sidebar-newsletter'
 import { FeedbackDialog } from '../support/feedback-dialog'
 
@@ -62,6 +72,8 @@ const PRESET_COLORS = [
   '#f97316',
   '#14b8a6',
 ]
+
+const FALLBACK_CALENDAR_CATEGORIES_LIMIT = 20
 
 function getListUrgency(tasks: Task[]): 'red' | 'orange' | null {
   const now = Date.now()
@@ -84,6 +96,9 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
   const { feedbackOpen, setFeedbackOpen } = useSidebarFooter()
   const { categories, createMutation, updateMutation, deleteMutation } = useCalendarCategories()
   const { hiddenCategories, toggleCategory, habitsVisible, toggleHabits } = useCalendarFilter()
+  const planLimits = usePlanLimits()
+  const categoriesLimit =
+    planLimits?.limits.calendarCategories ?? FALLBACK_CALENDAR_CATEGORIES_LIMIT
 
   const [listsOpen, setListsOpen] = useState(false)
   const [habitsOpen, setHabitsOpen] = useState(false)
@@ -100,7 +115,8 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState('#8b5cf6')
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null)
-  const [categoryLimitOpen, setCategoryLimitOpen] = useState(false)
+  const [limitDialog, setLimitDialog] = useState<LimitError | null>(null)
+  const [capDialog, setCapDialog] = useState<SafetyCapError | null>(null)
 
   const { data: listsData } = useQuery({ queryKey: ['lists'], queryFn: () => api.lists.list() })
   const { data: tasksData } = useQuery({
@@ -109,10 +125,10 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
     staleTime: 0,
   })
 
-  const lists = listsData?.docs ?? []
+  const lists = (listsData?.docs ?? []) as List[]
   const allTasks = (tasksData?.docs ?? []) as Task[]
-  const defaultList = lists.find((l) => l.isDefault)
-  const customLists = lists.filter((l) => !l.isDefault)
+  const defaultList = lists.find((l: List) => l.isDefault)
+  const customLists = lists.filter((l: List) => !l.isDefault)
 
   const tasksByList = allTasks.reduce<Record<number, Task[]>>((acc, task) => {
     const listId =
@@ -133,11 +149,32 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
 
   const handleCreateCategory = async () => {
     if (!newCategoryName.trim()) return
-    if (categories.length >= 100) {
-      setCategoryLimitOpen(true)
+
+    if (categories.length >= categoriesLimit) {
+      if (planLimits && isPlanUnlimited(planLimits.plan, 'calendarCategories')) {
+        setCapDialog(SAFETY_CAP_ERRORS.CALENDAR_CATEGORIES_CAP)
+      } else {
+        setLimitDialog(LIMIT_ERRORS.CALENDAR_CATEGORIES_LIMIT)
+      }
       return
     }
-    await createMutation.mutateAsync({ name: newCategoryName.trim(), color: newCategoryColor })
+
+    const result = await createMutation.mutateAsync({
+      name: newCategoryName.trim(),
+      color: newCategoryColor,
+    })
+
+    if (result && typeof result === 'object' && 'ok' in result && !result.ok) {
+      if (result.error === LIMIT_ERRORS.CALENDAR_CATEGORIES_LIMIT) {
+        setLimitDialog(LIMIT_ERRORS.CALENDAR_CATEGORIES_LIMIT)
+        return
+      }
+      if (result.error === SAFETY_CAP_ERRORS.CALENDAR_CATEGORIES_CAP) {
+        setCapDialog(SAFETY_CAP_ERRORS.CALENDAR_CATEGORIES_CAP)
+        return
+      }
+    }
+
     setNewCategoryName('')
     setNewCategoryColor('#8b5cf6')
     setShowNewCategory(false)
@@ -269,20 +306,20 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={categoryLimitOpen} onOpenChange={setCategoryLimitOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Calendar limit reached</AlertDialogTitle>
-            <AlertDialogDescription>
-              You can have a maximum of 100 calendar categories. Delete an existing one to create a
-              new one.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Got it</AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <PlanLimitDialog
+        open={!!limitDialog}
+        onOpenChange={(v) => {
+          if (!v) setLimitDialog(null)
+        }}
+        limitError={limitDialog}
+      />
+      <SafetyCapDialog
+        open={!!capDialog}
+        onOpenChange={(v) => {
+          if (!v) setCapDialog(null)
+        }}
+        capError={capDialog}
+      />
 
       <div className="flex flex-1 flex-col h-full overflow-hidden">
         <nav className="flex-1 overflow-y-auto min-h-0 p-3 space-y-1 sidebar-scroll">
@@ -377,7 +414,7 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
                     )}
                   </Link>
                 )}
-                {customLists.map((list) => (
+                {customLists.map((list: List) => (
                   <Link
                     key={list.id}
                     {...navLink(`/lists/${list.slug}`)}

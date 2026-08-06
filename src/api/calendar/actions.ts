@@ -7,6 +7,8 @@ import { ok, err } from '@/types/result'
 import { Pool } from 'pg'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
+import { getUserPlanLimits } from '@/lib/get-user-plan'
+import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 
 const getUserId = async () => {
   const session = await getSession()
@@ -109,12 +111,19 @@ export const createCalendarCategory = async (data: CalendarCategoryData) => {
 
     const payload = await getPayload({ config })
 
+    const { plan, limits } = await getUserPlanLimits()
     const { totalDocs } = await payload.find({
       collection: 'calendar-categories',
       where: { userId: { equals: userId } },
       limit: 0,
     })
-    if (totalDocs >= 100) return err('LIMIT_REACHED')
+    if (isAtLimit(totalDocs, limits.calendarCategories)) {
+      return err(
+        isPlanUnlimited(plan, 'calendarCategories')
+          ? SAFETY_CAP_ERRORS.CALENDAR_CATEGORIES_CAP
+          : LIMIT_ERRORS.CALENDAR_CATEGORIES_LIMIT,
+      )
+    }
 
     return ok(
       await payload.create({
@@ -129,7 +138,13 @@ export const createCalendarCategory = async (data: CalendarCategoryData) => {
 
 export const updateCalendarCategory = async (id: number, data: Partial<CalendarCategoryData>) => {
   try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
     const payload = await getPayload({ config })
+    const category = await payload.findByID({ collection: 'calendar-categories', id })
+    if ((category as any).userId !== userId) return err('Not authorized')
+
     return ok(await payload.update({ collection: 'calendar-categories', id, data }))
   } catch {
     return err('Error updating category')
@@ -142,6 +157,9 @@ export const deleteCalendarCategory = async (id: number) => {
     if (!userId) return err('Not authenticated')
 
     const payload = await getPayload({ config })
+
+    const category = await payload.findByID({ collection: 'calendar-categories', id })
+    if ((category as any).userId !== userId) return err('Not authorized')
 
     const { docs: relatedEvents } = await payload.find({
       collection: 'calendar-events',
