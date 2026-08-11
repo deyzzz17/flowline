@@ -31,7 +31,16 @@ import type { HabitData, HabitWithStats, TrackingField, HabitGoal } from '@/api/
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { format } from 'date-fns'
-import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog'
+import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
+import {
+  LIMIT_ERRORS,
+  SAFETY_CAP_ERRORS,
+  isPlanUnlimited,
+  type LimitError,
+  type SafetyCapError,
+} from '@/lib/plan-limits'
+import { PlanLimitDialog } from '../ui/plan-limit-dialog'
+import { SafetyCapDialog } from '../ui/safety-cap-dialog'
 
 const PRESET_COLORS = [
   '#f97316',
@@ -66,6 +75,10 @@ const DEFAULT_TRACKING_FIELDS: Omit<TrackingField, 'enabled'>[] = [
   { key: 'difficulty', label: 'Difficulty', type: 'number', isDefault: true },
   { key: 'note', label: 'Note', type: 'text', isDefault: true },
 ]
+
+// Valeurs de repli tant que usePlanLimits n'a pas encore résolu (plan free)
+const FALLBACK_TRACKING_FIELDS_LIMIT = 10
+const FALLBACK_GOALS_LIMIT = 5
 
 type TrackingFieldType = 'number' | 'text' | 'boolean'
 type FieldTarget = { fieldKey: string; targetValue: number }
@@ -439,6 +452,10 @@ function HabitFormInner({
   onSubmit: (data: HabitData) => Promise<void>
 }) {
   const init = getInitialState(initialData)
+  const planLimits = usePlanLimits()
+  const trackingFieldsLimit =
+    planLimits?.limits.trackingFieldsPerHabit ?? FALLBACK_TRACKING_FIELDS_LIMIT
+  const goalsLimit = planLimits?.limits.goalsPerHabit ?? FALLBACK_GOALS_LIMIT
 
   const [name, setName] = useState(init.name)
   const [description, setDescription] = useState(init.description)
@@ -464,7 +481,8 @@ function HabitFormInner({
   const [newFieldType, setNewFieldType] = useState<TrackingFieldType>('number')
   const [showAddField, setShowAddField] = useState(false)
   const [repeatEveryDays, setRepeatEveryDays] = useState(init.repeatEveryDays)
-  const [fieldLimitOpen, setFieldLimitOpen] = useState(false)
+  const [limitError, setLimitError] = useState<LimitError | null>(null)
+  const [capError, setCapError] = useState<SafetyCapError | null>(null)
 
   const { data: calendarEvents } = useQuery({
     queryKey: ['calendar-events-flowline-recurring', startDate, frequency],
@@ -563,8 +581,12 @@ function HabitFormInner({
 
   const addCustomField = () => {
     if (!newFieldLabel.trim()) return
-    if (trackingFields.length >= 80) {
-      setFieldLimitOpen(true)
+    if (trackingFields.length >= trackingFieldsLimit) {
+      if (planLimits && isPlanUnlimited(planLimits.plan, 'trackingFieldsPerHabit')) {
+        setCapError(SAFETY_CAP_ERRORS.TRACKING_FIELDS_CAP)
+      } else {
+        setLimitError(LIMIT_ERRORS.TRACKING_FIELDS_LIMIT)
+      }
       return
     }
     setTrackingFields((prev) => [
@@ -589,9 +611,30 @@ function HabitFormInner({
     )
   }
 
+  const handleAddGoalClick = () => {
+    if (goals.length >= goalsLimit) {
+      if (planLimits && isPlanUnlimited(planLimits.plan, 'goalsPerHabit')) {
+        setCapError(SAFETY_CAP_ERRORS.GOALS_CAP)
+      } else {
+        setLimitError(LIMIT_ERRORS.GOALS_LIMIT)
+      }
+      return
+    }
+    setEditingGoal(emptyGoalDraft())
+  }
+
   const saveGoal = () => {
     if (!editingGoal || !editingGoal.description.trim()) return
     const goal = draftToGoal(editingGoal)
+    const isNew = !goals.some((g) => g.id === goal.id)
+    if (isNew && goals.length >= goalsLimit) {
+      if (planLimits && isPlanUnlimited(planLimits.plan, 'goalsPerHabit')) {
+        setCapError(SAFETY_CAP_ERRORS.GOALS_CAP)
+      } else {
+        setLimitError(LIMIT_ERRORS.GOALS_LIMIT)
+      }
+      return
+    }
     setGoals((prev) => {
       const idx = prev.findIndex((g) => g.id === goal.id)
       if (idx >= 0) return prev.map((g, i) => (i === idx ? goal : g))
@@ -1249,7 +1292,7 @@ function HabitFormInner({
         {!editingGoal && (
           <button
             type="button"
-            onClick={() => setEditingGoal(emptyGoalDraft())}
+            onClick={handleAddGoalClick}
             className="flex items-center gap-1.5 rounded-full border border-dashed border-border/60 px-3 py-1 text-xs text-muted-foreground hover:border-border hover:text-foreground transition-all"
           >
             <Plus className="h-3 w-3" />
@@ -1258,20 +1301,20 @@ function HabitFormInner({
         )}
       </Section>
 
-      <AlertDialog open={fieldLimitOpen} onOpenChange={setFieldLimitOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Tracking field limit reached</AlertDialogTitle>
-            <AlertDialogDescription>
-              A habit can have a maximum of 80 tracking fields. Remove an existing field to add a
-              new one.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Got it</AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <PlanLimitDialog
+        open={!!limitError}
+        onOpenChange={(v) => {
+          if (!v) setLimitError(null)
+        }}
+        limitError={limitError}
+      />
+      <SafetyCapDialog
+        open={!!capError}
+        onOpenChange={(v) => {
+          if (!v) setCapError(null)
+        }}
+        capError={capError}
+      />
 
       <DialogFooter className="pt-1">
         <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>

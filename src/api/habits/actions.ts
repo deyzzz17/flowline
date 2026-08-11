@@ -6,14 +6,8 @@ import config from '@/payload.config'
 import { ok, err } from '@/types/result'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
-
-/*
-
-Dans le code d'actions, j'aime beaucoup séparer les différentes catégories dans
-des fichiers pour : types.ts, utils.ts, actions.ts, constants.ts puis regrouper le tout
-dans un index.ts
-
-*/
+import { getUserPlanLimits } from '@/lib/get-user-plan'
+import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 
 const getUserId = async () => {
   const session = await getSession()
@@ -291,7 +285,6 @@ function computeStreaks(
       if (count >= target) {
         current++
       } else if (wk === getDateKey(currentMonday)) {
-        // semaine courante pas encore terminée — ne casse pas
       } else {
         break
       }
@@ -640,6 +633,8 @@ export const createHabit = async (data: HabitData) => {
 
     const payload = await getPayload({ config })
 
+    const { plan, limits } = await getUserPlanLimits()
+
     const { totalDocs } = await payload.find({
       collection: 'habits',
       where: {
@@ -648,12 +643,26 @@ export const createHabit = async (data: HabitData) => {
       limit: 0,
     })
 
-    if (totalDocs >= 5) {
-      return err('LIMIT_REACHED')
+    if (isAtLimit(totalDocs, limits.habits)) {
+      return err(
+        isPlanUnlimited(plan, 'habits') ? SAFETY_CAP_ERRORS.HABITS_CAP : LIMIT_ERRORS.HABITS_LIMIT,
+      )
     }
 
-    if ((data.trackingFields ?? []).length > 80) {
-      return err('TRACKING_FIELD_LIMIT_REACHED')
+    if ((data.trackingFields ?? []).length > limits.trackingFieldsPerHabit) {
+      return err(
+        isPlanUnlimited(plan, 'trackingFieldsPerHabit')
+          ? SAFETY_CAP_ERRORS.TRACKING_FIELDS_CAP
+          : LIMIT_ERRORS.TRACKING_FIELDS_LIMIT,
+      )
+    }
+
+    if ((data.goals ?? []).length > limits.goalsPerHabit) {
+      return err(
+        isPlanUnlimited(plan, 'goalsPerHabit')
+          ? SAFETY_CAP_ERRORS.GOALS_CAP
+          : LIMIT_ERRORS.GOALS_LIMIT,
+      )
     }
 
     const habit = await payload.create({
@@ -689,11 +698,36 @@ export const createHabit = async (data: HabitData) => {
 
 export const updateHabit = async (id: number, data: Partial<HabitData>) => {
   try {
-    if (data.trackingFields !== undefined && data.trackingFields.length > 80) {
-      return err('TRACKING_FIELD_LIMIT_REACHED')
-    }
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
 
     const payload = await getPayload({ config })
+    const existing = await payload.findByID({ collection: 'habits', id })
+    if (!existing || (existing as any).userId !== userId) return err('Not authorized')
+
+    if (data.trackingFields !== undefined || data.goals !== undefined) {
+      const { plan, limits } = await getUserPlanLimits()
+
+      if (
+        data.trackingFields !== undefined &&
+        data.trackingFields.length > limits.trackingFieldsPerHabit
+      ) {
+        return err(
+          isPlanUnlimited(plan, 'trackingFieldsPerHabit')
+            ? SAFETY_CAP_ERRORS.TRACKING_FIELDS_CAP
+            : LIMIT_ERRORS.TRACKING_FIELDS_LIMIT,
+        )
+      }
+
+      if (data.goals !== undefined && data.goals.length > limits.goalsPerHabit) {
+        return err(
+          isPlanUnlimited(plan, 'goalsPerHabit')
+            ? SAFETY_CAP_ERRORS.GOALS_CAP
+            : LIMIT_ERRORS.GOALS_LIMIT,
+        )
+      }
+    }
+
     const updated = await payload.update({
       collection: 'habits',
       id,
@@ -763,7 +797,13 @@ export const archiveHabit = async (id: number) => {
 
 export const deleteHabit = async (id: number) => {
   try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
     const payload = await getPayload({ config })
+    const existing = await payload.findByID({ collection: 'habits', id })
+    if (!existing || (existing as any).userId !== userId) return err('Not authorized')
+
     await payload.delete({ collection: 'habits', id })
     const { docs } = await payload.find({
       collection: 'habit-completions',

@@ -44,6 +44,14 @@ import {
 } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
 import { useToggleHabit } from '@/hooks/habits/use-toggle-habits'
+import {
+  LIMIT_ERRORS,
+  SAFETY_CAP_ERRORS,
+  type LimitError,
+  type SafetyCapError,
+} from '@/lib/plan-limits'
+import { PlanLimitDialog } from '../ui/plan-limit-dialog'
+import { SafetyCapDialog } from '../ui/safety-cap-dialog'
 
 const DAY_NAMES = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
 const DAY_LABELS: Record<string, string> = {
@@ -480,7 +488,8 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
   const [archives, setArchives] = useState<ArchivedHabit[] | null>(null)
   const [archivesLoading, setArchivesLoading] = useState(false)
   const [inactiveExpanded, setInactiveExpanded] = useState(false)
-  const [habitLimitOpen, setHabitLimitOpen] = useState(false)
+  const [limitError, setLimitError] = useState<LimitError | null>(null)
+  const [capError, setCapError] = useState<SafetyCapError | null>(null)
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['habits'] })
 
@@ -562,10 +571,32 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
     const result = await createHabit(data)
     if (!result.ok) {
       if (snapshot) queryClient.setQueryData(['habits'], snapshot)
-      if (result.error === 'LIMIT_REACHED') {
-        setHabitLimitOpen(true)
+
+      if (result.error === LIMIT_ERRORS.HABITS_LIMIT) {
+        setLimitError(LIMIT_ERRORS.HABITS_LIMIT)
         return
       }
+      if (result.error === SAFETY_CAP_ERRORS.HABITS_CAP) {
+        setCapError(SAFETY_CAP_ERRORS.HABITS_CAP)
+        return
+      }
+      if (result.error === LIMIT_ERRORS.TRACKING_FIELDS_LIMIT) {
+        setLimitError(LIMIT_ERRORS.TRACKING_FIELDS_LIMIT)
+        return
+      }
+      if (result.error === SAFETY_CAP_ERRORS.TRACKING_FIELDS_CAP) {
+        setCapError(SAFETY_CAP_ERRORS.TRACKING_FIELDS_CAP)
+        return
+      }
+      if (result.error === LIMIT_ERRORS.GOALS_LIMIT) {
+        setLimitError(LIMIT_ERRORS.GOALS_LIMIT)
+        return
+      }
+      if (result.error === SAFETY_CAP_ERRORS.GOALS_CAP) {
+        setCapError(SAFETY_CAP_ERRORS.GOALS_CAP)
+        return
+      }
+
       toast.error('Failed to create habit')
       return
     }
@@ -603,9 +634,27 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
     setEditingHabit(null)
 
     const result = await updateHabit(editingHabit.id, data)
-    if ('error' in result) {
-      toast.error('Failed to update habit')
+    if (!result.ok) {
       if (snapshot) queryClient.setQueryData(['habits'], snapshot)
+
+      if (result.error === LIMIT_ERRORS.TRACKING_FIELDS_LIMIT) {
+        setLimitError(LIMIT_ERRORS.TRACKING_FIELDS_LIMIT)
+        return
+      }
+      if (result.error === SAFETY_CAP_ERRORS.TRACKING_FIELDS_CAP) {
+        setCapError(SAFETY_CAP_ERRORS.TRACKING_FIELDS_CAP)
+        return
+      }
+      if (result.error === LIMIT_ERRORS.GOALS_LIMIT) {
+        setLimitError(LIMIT_ERRORS.GOALS_LIMIT)
+        return
+      }
+      if (result.error === SAFETY_CAP_ERRORS.GOALS_CAP) {
+        setCapError(SAFETY_CAP_ERRORS.GOALS_CAP)
+        return
+      }
+
+      toast.error('Failed to update habit')
       return
     }
     toast.success('Habit updated')
@@ -809,20 +858,20 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={habitLimitOpen} onOpenChange={setHabitLimitOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Habit limit reached</AlertDialogTitle>
-            <AlertDialogDescription>
-              You&apos;ve reached the limit of <strong>5 active habits</strong>. Archive or delete
-              an existing habit to create a new one.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Got it</AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <PlanLimitDialog
+        open={!!limitError}
+        onOpenChange={(v) => {
+          if (!v) setLimitError(null)
+        }}
+        limitError={limitError}
+      />
+      <SafetyCapDialog
+        open={!!capError}
+        onOpenChange={(v) => {
+          if (!v) setCapError(null)
+        }}
+        capError={capError}
+      />
 
       <HabitArchivesDrawer
         open={archivesOpen}
