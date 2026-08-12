@@ -207,6 +207,7 @@ export const listTasks = async (
     where: {
       and: [
         { userId: { equals: userId } },
+        { planArchivedAt: { exists: false } },
         ...(status ? [{ status: { equals: status } }] : []),
         ...(listId !== undefined ? [{ list: { equals: listId } }] : []),
       ],
@@ -277,6 +278,7 @@ export const listTasksToday = async () => {
       and: [
         { userId: { equals: userId } },
         { status: { not_equals: 'deleted' } },
+        { planArchivedAt: { exists: false } },
         { dueDate: { greater_than_equal: today.toISOString() } },
         { dueDate: { less_than: tomorrow.toISOString() } },
       ],
@@ -292,6 +294,7 @@ export const listTasksToday = async () => {
         { userId: { equals: userId } },
         { type: { equals: 'recurring' } },
         { status: { in: ['active', 'completed'] } },
+        { planArchivedAt: { exists: false } },
       ],
     },
   })
@@ -319,7 +322,11 @@ export const listTasksRecurring = async () => {
     sort: '-createdAt',
     limit: 0,
     where: {
-      and: [{ userId: { equals: userId } }, { type: { equals: 'recurring' } }],
+      and: [
+        { userId: { equals: userId } },
+        { type: { equals: 'recurring' } },
+        { planArchivedAt: { exists: false } },
+      ],
     },
   })
 }

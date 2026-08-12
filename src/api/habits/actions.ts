@@ -8,6 +8,7 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
 import { getUserPlanLimits } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
+import { revalidatePath } from 'next/cache'
 
 const getUserId = async () => {
   const session = await getSession()
@@ -285,6 +286,7 @@ function computeStreaks(
       if (count >= target) {
         current++
       } else if (wk === getDateKey(currentMonday)) {
+        // semaine courante pas encore terminée — ne casse pas
       } else {
         break
       }
@@ -491,7 +493,13 @@ export const listHabits = async (timezone = 'UTC'): Promise<HabitWithStats[]> =>
   const payload = await getPayload({ config })
   const { docs: habits } = await payload.find({
     collection: 'habits',
-    where: { and: [{ userId: { equals: userId } }, { archivedAt: { exists: false } }] },
+    where: {
+      and: [
+        { userId: { equals: userId } },
+        { archivedAt: { exists: false } },
+        { planArchivedAt: { exists: false } },
+      ],
+    },
     sort: 'order',
     limit: 0,
   })
@@ -638,7 +646,11 @@ export const createHabit = async (data: HabitData) => {
     const { totalDocs } = await payload.find({
       collection: 'habits',
       where: {
-        and: [{ userId: { equals: userId } }, { archivedAt: { exists: false } }],
+        and: [
+          { userId: { equals: userId } },
+          { archivedAt: { exists: false } },
+          { planArchivedAt: { exists: false } },
+        ],
       },
       limit: 0,
     })
@@ -694,6 +706,147 @@ export const createHabit = async (data: HabitData) => {
     console.error(e)
     return err('Error creating habit')
   }
+}
+
+async function countActiveHabits(
+  payload: Awaited<ReturnType<typeof getPayload>>,
+  userId: string,
+): Promise<number> {
+  const { totalDocs } = await payload.find({
+    collection: 'habits',
+    where: {
+      and: [
+        { userId: { equals: userId } },
+        { archivedAt: { exists: false } },
+        { planArchivedAt: { exists: false } },
+      ],
+    },
+    limit: 0,
+  })
+  return totalDocs
+}
+
+export const checkHabitsCompliance = async () => {
+  const userId = await getUserId()
+  if (!userId) return null
+
+  const payload = await getPayload({ config })
+  const { limits } = await getUserPlanLimits()
+
+  const { docs: activeHabits, totalDocs } = await payload.find({
+    collection: 'habits',
+    sort: 'order',
+    limit: 0,
+    where: {
+      and: [
+        { userId: { equals: userId } },
+        { archivedAt: { exists: false } },
+        { planArchivedAt: { exists: false } },
+      ],
+    },
+  })
+
+  if (totalDocs <= limits.habits) return null
+
+  return { overBy: totalDocs - limits.habits, limit: limits.habits, habits: activeHabits }
+}
+
+export const chooseHabitsToKeep = async (keepIds: number[]) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const payload = await getPayload({ config })
+    const { limits } = await getUserPlanLimits()
+
+    if (keepIds.length > limits.habits) {
+      return err('TOO_MANY_SELECTED')
+    }
+
+    const { docs: activeHabits } = await payload.find({
+      collection: 'habits',
+      where: {
+        and: [
+          { userId: { equals: userId } },
+          { archivedAt: { exists: false } },
+          { planArchivedAt: { exists: false } },
+        ],
+      },
+      limit: 0,
+    })
+
+    const keepSet = new Set(keepIds)
+    const toArchive = activeHabits.filter((h) => !keepSet.has(h.id))
+
+    const now = new Date().toISOString()
+    for (const habit of toArchive) {
+      if ((habit as any).userId !== userId) continue
+      await payload.update({
+        collection: 'habits',
+        id: habit.id,
+        data: { planArchivedAt: now } as any,
+      })
+    }
+
+    revalidatePath('/')
+    return ok(true)
+  } catch {
+    return err('Error while archiving habits')
+  }
+}
+
+export const restoreArchivedHabit = async (id: number) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const payload = await getPayload({ config })
+    const habit = await payload.findByID({ collection: 'habits', id })
+    if (!habit || (habit as any).userId !== userId) return err('Not authorized')
+    if (!(habit as any).planArchivedAt) return err('Habit is not archived')
+
+    const { limits } = await getUserPlanLimits()
+    const currentCount = await countActiveHabits(payload, userId)
+
+    if (isAtLimit(currentCount, limits.habits)) {
+      return err('LIMIT_FULL')
+    }
+
+    await payload.update({
+      collection: 'habits',
+      id,
+      data: { planArchivedAt: null } as any,
+    })
+
+    revalidatePath('/')
+    return ok(true)
+  } catch {
+    return err('Error while restoring the habit')
+  }
+}
+
+export const listPlanArchivedHabits = async () => {
+  const userId = await getUserId()
+  if (!userId) return []
+
+  const payload = await getPayload({ config })
+  const { docs } = await payload.find({
+    collection: 'habits',
+    sort: '-planArchivedAt',
+    limit: 0,
+    where: {
+      and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: true } }],
+    },
+  })
+
+  return docs.map((habit) => ({
+    id: habit.id,
+    slug: (habit as any).slug ?? '',
+    name: habit.name,
+    color: (habit as any).color ?? '#8b5cf6',
+    categoryTag: (habit as any).categoryTag ?? null,
+    planArchivedAt: (habit as any).planArchivedAt as string,
+  }))
 }
 
 export const updateHabit = async (id: number, data: Partial<HabitData>) => {
@@ -768,17 +921,26 @@ export const archiveHabit = async (id: number) => {
     if (!userId) return err('Not authenticated')
     const payload = await getPayload({ config })
 
+    const existing = await payload.findByID({ collection: 'habits', id })
+    if (!existing || (existing as any).userId !== userId) return err('Not authorized')
+    if ((existing as any).planArchivedAt) {
+      // Une habitude déjà mise de côté par downgrade ne doit jamais aussi
+      // recevoir l'archivage manuel classique : les deux états mélangés
+      // la rendraient invisible partout, y compris dans les deux écrans
+      // de gestion dédiés.
+      return err('Cannot archive a habit that is hidden due to a plan downgrade')
+    }
+
     const { docs: completions } = await payload.find({
       collection: 'habit-completions',
       where: { and: [{ userId: { equals: userId } }, { habitId: { equals: id } }] },
       limit: 0,
     })
 
-    const habit = await payload.findByID({ collection: 'habits', id })
     const completionDates = new Set(
       completions.map((c) => getDateKey(new Date(c.completedAt as string))),
     )
-    const { longest } = computeStreaks(completionDates, habit as any)
+    const { longest } = computeStreaks(completionDates, existing as any)
 
     await payload.update({
       collection: 'habits',
@@ -882,7 +1044,13 @@ export const getHabitAnalytics = async (): Promise<HabitAnalytics> => {
   const payload = await getPayload({ config })
   const { docs: habits } = await payload.find({
     collection: 'habits',
-    where: { and: [{ userId: { equals: userId } }, { archivedAt: { exists: false } }] },
+    where: {
+      and: [
+        { userId: { equals: userId } },
+        { archivedAt: { exists: false } },
+        { planArchivedAt: { exists: false } },
+      ],
+    },
     limit: 0,
   })
 
@@ -987,6 +1155,7 @@ export const getHabitBySlug = async (slug: string): Promise<HabitDetail | null> 
         { userId: { equals: userId } },
         { slug: { equals: slug } },
         { archivedAt: { exists: false } },
+        { planArchivedAt: { exists: false } },
       ],
     },
     limit: 1,
@@ -1028,7 +1197,11 @@ export const listArchivedHabits = async (): Promise<ArchivedHabit[]> => {
   const { docs: habits } = await payload.find({
     collection: 'habits',
     where: {
-      and: [{ userId: { equals: userId } }, { archivedAt: { exists: true } }],
+      and: [
+        { userId: { equals: userId } },
+        { archivedAt: { exists: true } },
+        { planArchivedAt: { exists: false } },
+      ],
     },
     sort: '-archivedAt',
     limit: 0,
@@ -1076,7 +1249,13 @@ export const getHeatmapAnalytics = async (year: number): Promise<HeatmapAnalytic
 
   const { docs: habits } = await payload.find({
     collection: 'habits',
-    where: { and: [{ userId: { equals: userId } }, { archivedAt: { exists: false } }] },
+    where: {
+      and: [
+        { userId: { equals: userId } },
+        { archivedAt: { exists: false } },
+        { planArchivedAt: { exists: false } },
+      ],
+    },
     limit: 0,
   })
 

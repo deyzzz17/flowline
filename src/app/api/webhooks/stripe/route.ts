@@ -53,6 +53,14 @@ async function getUserIdFromCustomer(customerId: string): Promise<string | null>
   return (customer as Stripe.Customer).metadata?.userId ?? null
 }
 
+const INACTIVE_STATUSES = new Set([
+  'canceled',
+  'incomplete_expired',
+  'unpaid',
+  'incomplete',
+  'paused',
+])
+
 export async function POST(req: NextRequest) {
   const body = await req.text()
   const signature = req.headers.get('stripe-signature')
@@ -102,6 +110,16 @@ export async function POST(req: NextRequest) {
         const customerId = subscription.customer as string
         const userId = await getUserIdFromCustomer(customerId)
         if (!userId) break
+
+        if (INACTIVE_STATUSES.has(subscription.status)) {
+          await updateUserBilling(userId, {
+            plan: 'free',
+            subscriptionStatus: subscription.status,
+            subscriptionId: null,
+            trialEndsAt: null,
+          })
+          break
+        }
 
         const priceId = subscription.items.data[0]?.price.id
         const plan = priceId ? getPlanFromPriceId(priceId) : 'free'

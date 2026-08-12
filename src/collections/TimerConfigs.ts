@@ -50,5 +50,17 @@ export const TimerConfigs: CollectionConfig = {
       type: 'text',
       required: false,
     },
+    {
+      name: 'planArchivedAt',
+      type: 'date',
+      required: false,
+      index: true,
+      admin: {
+        description:
+          'Renseigné quand ce preset a été mis de côté suite à un downgrade de plan ' +
+          '(dépassement de quota). Masqué de la liste des presets tant que ce champ est ' +
+          'renseigné. Autonome — rien en dessous à cacher.',
+      },
+    },
   ],
 }

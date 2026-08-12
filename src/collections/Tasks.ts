@@ -138,5 +138,18 @@ export const Tasks: CollectionConfig = {
       index: true,
       admin: { description: 'Date when the task was soft deleted.', readOnly: true },
     },
+    {
+      name: 'planArchivedAt',
+      type: 'date',
+      required: false,
+      index: true,
+      admin: {
+        description:
+          'Unlinked from the parent list: set when this task s list was ' +
+          'set aside following a plan downgrade. Updated in bulk each time the list is archived/' +
+          'restored — do not modify directly.',
+        readOnly: true,
+      },
+    },
   ],
 }

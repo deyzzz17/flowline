@@ -232,6 +232,10 @@ export interface Task {
    * Date when the task was soft deleted.
    */
   trashedAt?: string | null;
+  /**
+   * Unlinked from the parent list: set when this task s list was set aside following a plan downgrade. Updated in bulk each time the list is archived/restored — do not modify directly.
+   */
+  planArchivedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -252,9 +256,13 @@ export interface List {
     color?: string | null;
   };
   /**
-   * La liste Todo par défaut créée automatiquement à l'inscription
+   * The default “To-Do” list created automatically upon registration
    */
   isDefault?: boolean | null;
+  /**
+   * Indicates when the list was set aside following a plan downgrade (quota exceeded). As long as this field is filled in, the list and its tasks are hidden throughout the app, except in The screen for managing lists archived via downgrade. This is distinct from any other archiving concept.
+   */
+  planArchivedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -267,6 +275,10 @@ export interface UserTag {
   name: string;
   color: string;
   userId: string;
+  /**
+   * Renseigné quand le tag a été mis de côté suite à un downgrade de plan (dépassement de quota). Tant que ce champ est renseigné, le tag est masqué de la création/sélection, sauf dans l'écran de gestion des tags archivés par downgrade. Les tâches qui utilisaient déjà ce tag conservent leur association (pas de cascade).
+   */
+  planArchivedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -311,6 +323,10 @@ export interface TimerCategory {
    * Default categories provided by the app
    */
   isDefault?: boolean | null;
+  /**
+   * Renseigné quand la catégorie a été mise de côté suite à un downgrade de plan (dépassement de quota). Masquée de la création/sélection tant que ce champ est renseigné. Les sessions timer déjà enregistrées ne sont pas affectées (elles stockent leur nom/couleur en dur, pas de relation vivante).
+   */
+  planArchivedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -361,6 +377,10 @@ export interface TimerConfig {
   categoryName?: string | null;
   categoryColor?: string | null;
   subCategory?: string | null;
+  /**
+   * Renseigné quand ce preset a été mis de côté suite à un downgrade de plan (dépassement de quota). Masqué de la liste des presets tant que ce champ est renseigné. Autonome — rien en dessous à cacher.
+   */
+  planArchivedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -445,6 +465,10 @@ export interface CalendarCategory {
   name: string;
   color: string;
   isDefault?: boolean | null;
+  /**
+   * Renseigné quand la catégorie a été mise de côté suite à un downgrade de plan (dépassement de quota). Masquée de la création/sélection tant que ce champ est renseigné. Les événements calendrier déjà créés avec cette catégorie restent visibles normalement (pas de cascade — décision produit).
+   */
+  planArchivedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -495,7 +519,14 @@ export interface Habit {
    * Optional start date for the habit
    */
   startDate?: string | null;
+  /**
+   * Archivage manuel classique par l'utilisateur — l'habitude reste consultable dans l'écran des archives.
+   */
   archivedAt?: string | null;
+  /**
+   * Distinct de 'archivedAt' : renseigné quand l'habitude a été mise de côté suite à un downgrade de plan (dépassement de quota). Tant que ce champ est renseigné, l'habitude est invisible partout (y compris dans l'écran des archives classiques), sauf dans l'écran de gestion des habitudes archivées par downgrade.
+   */
+  planArchivedAt?: string | null;
   order?: number | null;
   showInCalendar?: boolean | null;
   calendarMode?: ('time' | 'relative') | null;
@@ -798,6 +829,7 @@ export interface TasksSelect<T extends boolean = true> {
   estimatedDuration?: T;
   autoDeleteOnDueDate?: T;
   trashedAt?: T;
+  planArchivedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -825,6 +857,7 @@ export interface UserTagsSelect<T extends boolean = true> {
   name?: T;
   color?: T;
   userId?: T;
+  planArchivedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -843,6 +876,7 @@ export interface ListsSelect<T extends boolean = true> {
         color?: T;
       };
   isDefault?: T;
+  planArchivedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -855,6 +889,7 @@ export interface TimerCategoriesSelect<T extends boolean = true> {
   color?: T;
   userId?: T;
   isDefault?: T;
+  planArchivedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -891,6 +926,7 @@ export interface TimerConfigsSelect<T extends boolean = true> {
   categoryName?: T;
   categoryColor?: T;
   subCategory?: T;
+  planArchivedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -951,6 +987,7 @@ export interface CalendarCategoriesSelect<T extends boolean = true> {
   name?: T;
   color?: T;
   isDefault?: T;
+  planArchivedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -994,6 +1031,7 @@ export interface HabitsSelect<T extends boolean = true> {
   timesPerWeek?: T;
   startDate?: T;
   archivedAt?: T;
+  planArchivedAt?: T;
   order?: T;
   showInCalendar?: T;
   calendarMode?: T;

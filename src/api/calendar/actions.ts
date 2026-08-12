@@ -86,7 +86,9 @@ export const listCalendarCategories = async () => {
   const payload = await getPayload({ config })
   const existing = await payload.find({
     collection: 'calendar-categories',
-    where: { userId: { equals: userId } },
+    where: {
+      and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: false } }],
+    },
     limit: 0,
     sort: 'createdAt',
   })
@@ -96,12 +98,28 @@ export const listCalendarCategories = async () => {
     }
     return payload.find({
       collection: 'calendar-categories',
-      where: { userId: { equals: userId } },
+      where: {
+        and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: false } }],
+      },
       limit: 0,
       sort: 'createdAt',
     })
   }
   return existing
+}
+
+async function countActiveCalendarCategories(
+  payload: Awaited<ReturnType<typeof getPayload>>,
+  userId: string,
+): Promise<number> {
+  const { totalDocs } = await payload.find({
+    collection: 'calendar-categories',
+    where: {
+      and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: false } }],
+    },
+    limit: 0,
+  })
+  return totalDocs
 }
 
 export const createCalendarCategory = async (data: CalendarCategoryData) => {
@@ -112,11 +130,7 @@ export const createCalendarCategory = async (data: CalendarCategoryData) => {
     const payload = await getPayload({ config })
 
     const { plan, limits } = await getUserPlanLimits()
-    const { totalDocs } = await payload.find({
-      collection: 'calendar-categories',
-      where: { userId: { equals: userId } },
-      limit: 0,
-    })
+    const totalDocs = await countActiveCalendarCategories(payload, userId)
     if (isAtLimit(totalDocs, limits.calendarCategories)) {
       return err(
         isPlanUnlimited(plan, 'calendarCategories')
@@ -134,6 +148,114 @@ export const createCalendarCategory = async (data: CalendarCategoryData) => {
   } catch {
     return err('Error creating category')
   }
+}
+
+export const checkCalendarCategoriesCompliance = async () => {
+  const userId = await getUserId()
+  if (!userId) return null
+
+  const payload = await getPayload({ config })
+  const { limits } = await getUserPlanLimits()
+
+  const { docs: activeCategories, totalDocs } = await payload.find({
+    collection: 'calendar-categories',
+    sort: 'createdAt',
+    limit: 0,
+    where: {
+      and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: false } }],
+    },
+  })
+
+  if (totalDocs <= limits.calendarCategories) return null
+
+  return {
+    overBy: totalDocs - limits.calendarCategories,
+    limit: limits.calendarCategories,
+    categories: activeCategories,
+  }
+}
+
+export const chooseCalendarCategoriesToKeep = async (keepIds: number[]) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const payload = await getPayload({ config })
+    const { limits } = await getUserPlanLimits()
+
+    if (keepIds.length > limits.calendarCategories) {
+      return err('TOO_MANY_SELECTED')
+    }
+
+    const { docs: activeCategories } = await payload.find({
+      collection: 'calendar-categories',
+      where: {
+        and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: false } }],
+      },
+      limit: 0,
+    })
+
+    const keepSet = new Set(keepIds)
+    const toArchive = activeCategories.filter((c) => !keepSet.has(c.id))
+
+    const now = new Date().toISOString()
+    for (const category of toArchive) {
+      if ((category as any).userId !== userId) continue
+      await payload.update({
+        collection: 'calendar-categories',
+        id: category.id,
+        data: { planArchivedAt: now } as any,
+      })
+    }
+
+    return ok(true)
+  } catch {
+    return err('Error while archiving categories')
+  }
+}
+
+export const restoreArchivedCalendarCategory = async (id: number) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const payload = await getPayload({ config })
+    const category = await payload.findByID({ collection: 'calendar-categories', id })
+    if (!category || (category as any).userId !== userId) return err('Not authorized')
+    if (!(category as any).planArchivedAt) return err('Category is not archived')
+
+    const { limits } = await getUserPlanLimits()
+    const currentCount = await countActiveCalendarCategories(payload, userId)
+
+    if (isAtLimit(currentCount, limits.calendarCategories)) {
+      return err('LIMIT_FULL')
+    }
+
+    await payload.update({
+      collection: 'calendar-categories',
+      id,
+      data: { planArchivedAt: null } as any,
+    })
+
+    return ok(true)
+  } catch {
+    return err('Error while restoring the category')
+  }
+}
+
+export const listPlanArchivedCalendarCategories = async () => {
+  const userId = await getUserId()
+  if (!userId) return { docs: [] }
+
+  const payload = await getPayload({ config })
+  return await payload.find({
+    collection: 'calendar-categories',
+    sort: '-planArchivedAt',
+    limit: 0,
+    where: {
+      and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: true } }],
+    },
+  })
 }
 
 export const updateCalendarCategory = async (id: number, data: Partial<CalendarCategoryData>) => {

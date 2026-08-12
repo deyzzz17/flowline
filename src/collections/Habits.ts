@@ -66,7 +66,29 @@ export const Habits: CollectionConfig = {
       required: false,
       admin: { description: 'Optional start date for the habit' },
     },
-    { name: 'archivedAt', type: 'date', required: false },
+    {
+      name: 'archivedAt',
+      type: 'date',
+      required: false,
+      admin: {
+        description:
+          "Archivage manuel classique par l'utilisateur — l'habitude reste consultable dans " +
+          "l'écran des archives.",
+      },
+    },
+    {
+      name: 'planArchivedAt',
+      type: 'date',
+      required: false,
+      index: true,
+      admin: {
+        description:
+          "Distinct de 'archivedAt' : renseigné quand l'habitude a été mise de côté suite à un " +
+          "downgrade de plan (dépassement de quota). Tant que ce champ est renseigné, l'habitude " +
+          "est invisible partout (y compris dans l'écran des archives classiques), sauf dans " +
+          "l'écran de gestion des habitudes archivées par downgrade.",
+      },
+    },
     { name: 'order', type: 'number', required: false, defaultValue: 0 },
 
     { name: 'showInCalendar', type: 'checkbox', defaultValue: false },

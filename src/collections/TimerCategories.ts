@@ -31,5 +31,18 @@ export const TimerCategories: CollectionConfig = {
         description: 'Default categories provided by the app',
       },
     },
+    {
+      name: 'planArchivedAt',
+      type: 'date',
+      required: false,
+      index: true,
+      admin: {
+        description:
+          'Renseigné quand la catégorie a été mise de côté suite à un downgrade de plan ' +
+          '(dépassement de quota). Masquée de la création/sélection tant que ce champ est ' +
+          'renseigné. Les sessions timer déjà enregistrées ne sont pas affectées (elles stockent ' +
+          'leur nom/couleur en dur, pas de relation vivante).',
+      },
+    },
   ],
 }

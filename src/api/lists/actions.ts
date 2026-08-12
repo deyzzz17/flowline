@@ -32,6 +32,20 @@ const getUserId = async () => {
   return session?.user?.id ?? null
 }
 
+async function countActiveLists(
+  payload: Awaited<ReturnType<typeof getPayload>>,
+  userId: string,
+): Promise<number> {
+  const { totalDocs } = await payload.find({
+    collection: 'lists',
+    where: {
+      and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: false } }],
+    },
+    limit: 0,
+  })
+  return totalDocs
+}
+
 export const createList = async (input: CreateListInput) => {
   try {
     const userId = await getUserId()
@@ -45,11 +59,7 @@ export const createList = async (input: CreateListInput) => {
 
     const { plan, limits } = await getUserPlanLimits()
 
-    const { totalDocs } = await payload.find({
-      collection: 'lists',
-      where: { userId: { equals: userId } },
-      limit: 0,
-    })
+    const totalDocs = await countActiveLists(payload, userId)
 
     if (isAtLimit(totalDocs, limits.lists)) {
       return err(
@@ -97,9 +107,143 @@ export const listLists = async () => {
     sort: 'createdAt',
     limit: 0,
     where: {
-      userId: { equals: userId },
+      and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: false } }],
     },
   })
+}
+
+export const listPlanArchivedLists = async () => {
+  const userId = await getUserId()
+  if (!userId) return { docs: [] }
+
+  const payload = await getPayload({ config })
+
+  return await payload.find({
+    collection: 'lists',
+    sort: '-planArchivedAt',
+    limit: 0,
+    where: {
+      and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: true } }],
+    },
+  })
+}
+
+export const checkListsCompliance = async () => {
+  const userId = await getUserId()
+  if (!userId) return null
+
+  const payload = await getPayload({ config })
+  const { limits } = await getUserPlanLimits()
+
+  const { docs: activeLists, totalDocs } = await payload.find({
+    collection: 'lists',
+    sort: 'createdAt',
+    limit: 0,
+    where: {
+      and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: false } }],
+    },
+  })
+
+  if (totalDocs <= limits.lists) return null
+
+  return { overBy: totalDocs - limits.lists, limit: limits.lists, lists: activeLists }
+}
+
+export const chooseListsToKeep = async (keepIds: number[]) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const payload = await getPayload({ config })
+    const { limits } = await getUserPlanLimits()
+
+    if (keepIds.length > limits.lists) {
+      return err('TOO_MANY_SELECTED')
+    }
+
+    const { docs: activeLists } = await payload.find({
+      collection: 'lists',
+      where: {
+        and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: false } }],
+      },
+      limit: 0,
+    })
+
+    const keepSet = new Set(keepIds)
+    const toArchive = activeLists.filter((l) => !keepSet.has(l.id))
+
+    const now = new Date().toISOString()
+    for (const list of toArchive) {
+      if (list.userId !== userId) continue
+
+      await payload.update({
+        collection: 'lists',
+        id: list.id,
+        data: { planArchivedAt: now },
+      })
+
+      const { docs: tasks } = await payload.find({
+        collection: 'tasks',
+        where: { list: { equals: list.id } },
+        limit: 0,
+      })
+      for (const task of tasks) {
+        await payload.update({
+          collection: 'tasks',
+          id: task.id,
+          data: { planArchivedAt: now } as any,
+        })
+      }
+    }
+
+    revalidatePath('/')
+    return ok(true)
+  } catch {
+    return err('Error while archiving lists')
+  }
+}
+
+export const restoreArchivedList = async (id: number) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const payload = await getPayload({ config })
+    const list = await payload.findByID({ collection: 'lists', id })
+    if (!list || list.userId !== userId) return err('Not authorized')
+    if (!list.planArchivedAt) return err('List is not archived')
+
+    const { limits } = await getUserPlanLimits()
+    const currentCount = await countActiveLists(payload, userId)
+
+    if (isAtLimit(currentCount, limits.lists)) {
+      return err('LIMIT_FULL')
+    }
+
+    await payload.update({
+      collection: 'lists',
+      id,
+      data: { planArchivedAt: null },
+    })
+
+    const { docs: tasks } = await payload.find({
+      collection: 'tasks',
+      where: { list: { equals: id } },
+      limit: 0,
+    })
+    for (const task of tasks) {
+      await payload.update({
+        collection: 'tasks',
+        id: task.id,
+        data: { planArchivedAt: null } as any,
+      })
+    }
+
+    revalidatePath('/')
+    return ok(true)
+  } catch {
+    return err('Error while restoring the list')
+  }
 }
 
 export const getListById = async (id: number) => {
@@ -247,7 +391,13 @@ export const getListBySlug = async (slug: string) => {
   const payload = await getPayload({ config })
   const { docs } = await payload.find({
     collection: 'lists',
-    where: { and: [{ userId: { equals: userId } }, { slug: { equals: slug } }] },
+    where: {
+      and: [
+        { userId: { equals: userId } },
+        { slug: { equals: slug } },
+        { planArchivedAt: { exists: false } },
+      ],
+    },
     limit: 1,
   })
   if (!docs[0]) return err('List not found')
