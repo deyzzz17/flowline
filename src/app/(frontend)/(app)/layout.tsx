@@ -19,18 +19,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { TimerProvider } from '@/components/timer/timer-context'
 import { AccountComplianceGate } from '@/components/lists/account-compliance-gate'
-
-/*
-
-Au niveau de tous les providers, sans rentrer dans des détails pour chacun car
-je n'ai pas encore regardé, il pourrait être plus clean de prendre le temps de
-les extraire dans un composant comme AppProvider dans @/components/providers/app-provider
-ou alors dashboard-provider.
-
-Idem au niveau du header, pour aérer un peu le layout, tu peux l'extraire dans
-@/components/headers/app-header.
-
-*/
+import { RestorePromptProvider } from '@/components/ui/restore-prompt-context'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -59,53 +48,55 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       >
         <CalendarFilterProvider>
           <TimerProvider>
-            <Toaster position="bottom-right" />
-            <AccountComplianceGate
-              initialListsCompliance={listsCompliance}
-              initialTagsCompliance={tagsCompliance}
-            />
-            <div
-              className="h-screen flex flex-col overflow-hidden"
-              style={{ '--header-height': '4rem' } as React.CSSProperties}
-            >
-              <TooltipProvider>
-                <SidebarProvider
-                  className="flex-1 flex flex-col min-h-0"
-                  style={{ '--sidebar-width': '16rem' } as React.CSSProperties}
-                >
-                  <header className="h-16 shrink-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/60">
-                    <div className="flex h-full items-center justify-between px-4 sm:px-6">
-                      <div className="flex items-center gap-3">
-                        <MobileSidebarTrigger />
-                        <Link href="/dashboard" className="group flex items-center gap-3">
-                          <FlowlineLogo />
-                          <span
-                            translate="no"
-                            className="text-[17px] font-bold tracking-tight text-foreground transition-colors group-hover:text-foreground/80"
-                          >
-                            Flowline
-                          </span>
-                        </Link>
+            <RestorePromptProvider>
+              <Toaster position="bottom-right" />
+              <AccountComplianceGate
+                initialListsCompliance={listsCompliance}
+                initialTagsCompliance={tagsCompliance}
+              />
+              <div
+                className="h-screen flex flex-col overflow-hidden"
+                style={{ '--header-height': '4rem' } as React.CSSProperties}
+              >
+                <TooltipProvider>
+                  <SidebarProvider
+                    className="flex-1 flex flex-col min-h-0"
+                    style={{ '--sidebar-width': '16rem' } as React.CSSProperties}
+                  >
+                    <header className="h-16 shrink-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/60">
+                      <div className="flex h-full items-center justify-between px-4 sm:px-6">
+                        <div className="flex items-center gap-3">
+                          <MobileSidebarTrigger />
+                          <Link href="/dashboard" className="group flex items-center gap-3">
+                            <FlowlineLogo />
+                            <span
+                              translate="no"
+                              className="text-[17px] font-bold tracking-tight text-foreground transition-colors group-hover:text-foreground/80"
+                            >
+                              Flowline
+                            </span>
+                          </Link>
+                        </div>
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <NotificationsMenu />
+                          <ModeToggle />
+                          <div className="mx-1 hidden h-5 w-px bg-border sm:block" />
+                          <UserDropdown />
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <NotificationsMenu />
-                        <ModeToggle />
-                        <div className="mx-1 hidden h-5 w-px bg-border sm:block" />
-                        <UserDropdown />
+                    </header>
+                    <div className="flex flex-1 min-h-0">
+                      <div className="hidden md:flex">
+                        <AppSidebar />
                       </div>
+                      <SidebarInset className="flex-1 min-h-0 overflow-y-auto">
+                        {children}
+                      </SidebarInset>
                     </div>
-                  </header>
-                  <div className="flex flex-1 min-h-0">
-                    <div className="hidden md:flex">
-                      <AppSidebar />
-                    </div>
-                    <SidebarInset className="flex-1 min-h-0 overflow-y-auto">
-                      {children}
-                    </SidebarInset>
-                  </div>
-                </SidebarProvider>
-              </TooltipProvider>
-            </div>
+                  </SidebarProvider>
+                </TooltipProvider>
+              </div>
+            </RestorePromptProvider>
           </TimerProvider>
         </CalendarFilterProvider>
       </UserProvider>

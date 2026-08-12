@@ -1,18 +1,17 @@
 'use client'
 
-import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import { listPlanArchivedLists, restoreArchivedList } from '@/api/lists/actions'
 import { type List } from '@/payload-types'
 import { toast } from 'sonner'
+import { useRestorePrompt } from '@/components/ui/restore-prompt-context'
 
 export const useDeleteList = (list: List) => {
   const router = useRouter()
   const queryClient = useQueryClient()
-  const [restorePromptOpen, setRestorePromptOpen] = useState(false)
-  const [archivedLists, setArchivedLists] = useState<List[]>([])
+  const { openPrompt } = useRestorePrompt()
 
   const mutation = useMutation({
     mutationFn: () => api.lists.delete(list.id),
@@ -42,8 +41,25 @@ export const useDeleteList = (list: List) => {
 
       const { docs: archived } = await listPlanArchivedLists()
       if (archived.length > 0) {
-        setArchivedLists(archived)
-        setRestorePromptOpen(true)
+        openPrompt({
+          title: 'Restore an archived list?',
+          description:
+            'You have lists that were archived when your plan changed. Restore one now that you have room.',
+          items: archived.map((l) => ({
+            id: l.id,
+            label: l.name,
+            color: l.category?.color ?? '#8b5cf6',
+          })),
+          onRestore: async (id) => {
+            const restoreResult = await restoreArchivedList(id)
+            if (restoreResult.ok) {
+              queryClient.invalidateQueries({ queryKey: ['lists'] })
+              queryClient.invalidateQueries({ queryKey: ['tasks'] })
+              toast.info('List restored')
+            }
+            return restoreResult
+          },
+        })
       }
     },
     onError: (_err, _vars, context) => {
@@ -57,22 +73,8 @@ export const useDeleteList = (list: List) => {
     },
   })
 
-  const handleRestore = async (id: number) => {
-    const result = await restoreArchivedList(id)
-    if (result.ok) {
-      queryClient.invalidateQueries({ queryKey: ['lists'] })
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
-      toast.info('List restored')
-    }
-    return result
-  }
-
   return {
     handleDelete: () => mutation.mutate(),
     isPending: mutation.isPending,
-    restorePromptOpen,
-    setRestorePromptOpen,
-    archivedLists,
-    handleRestore,
   }
 }

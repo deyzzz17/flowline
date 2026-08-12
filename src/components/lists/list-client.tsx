@@ -45,7 +45,6 @@ import { useEditList } from '@/hooks/lists/use-edit-list'
 import { useDeleteList } from '@/hooks/lists/use-delete-list'
 import { cn } from '@/lib/utils'
 import type { List } from '@/payload-types'
-import { RestoreArchivedPrompt } from '@/components/ui/restore-archived-prompt'
 
 function hexToRgba(hex: string, alpha: number) {
   try {
@@ -108,14 +107,7 @@ export const ListClient = ({ list }: ListClientProps) => {
     optimisticColor,
   } = useEditList(list)
 
-  const {
-    handleDelete,
-    isPending: isDeleting,
-    restorePromptOpen,
-    setRestorePromptOpen,
-    archivedLists,
-    handleRestore,
-  } = useDeleteList(list)
+  const { handleDelete, isPending: isDeleting } = useDeleteList(list)
 
   const displayColor = optimisticColor
   const displayName = optimisticName
@@ -191,20 +183,6 @@ export const ListClient = ({ list }: ListClientProps) => {
             </div>
           </div>
         </div>
-        {archivedLists.length > 0 && (
-          <RestoreArchivedPrompt
-            open={restorePromptOpen}
-            onOpenChange={setRestorePromptOpen}
-            title="Restore an archived list?"
-            description="You have lists that were archived when your plan changed. Restore one now that you have room."
-            items={archivedLists.map((l) => ({
-              id: l.id,
-              label: l.name,
-              color: l.category?.color ?? '#8b5cf6',
-            }))}
-            onRestore={handleRestore}
-          />
-        )}
       </section>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
