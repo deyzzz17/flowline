@@ -8,7 +8,7 @@ import { revalidatePath } from 'next/cache'
 import { ok, err } from '@/types/result'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
-import { getUserPlanLimits } from '@/lib/get-user-plan'
+import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 
 type CreateListInput = {
@@ -243,6 +243,49 @@ export const restoreArchivedList = async (id: number) => {
     return ok(true)
   } catch {
     return err('Error while restoring the list')
+  }
+}
+
+export async function restoreAllArchivedListsForUserId(userId: string): Promise<void> {
+  try {
+    const payload = await getPayload({ config })
+    const { limits } = await getPlanLimitsForUserId(userId)
+
+    const activeCount = await countActiveLists(payload, userId)
+    const room = limits.lists === Infinity ? Infinity : Math.max(0, limits.lists - activeCount)
+    if (room <= 0) return
+
+    const { docs: archived } = await payload.find({
+      collection: 'lists',
+      where: {
+        and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: true } }],
+      },
+      sort: 'planArchivedAt',
+      limit: room === Infinity ? 0 : room,
+    })
+
+    for (const list of archived) {
+      await payload.update({
+        collection: 'lists',
+        id: list.id,
+        data: { planArchivedAt: null },
+      })
+
+      const { docs: tasks } = await payload.find({
+        collection: 'tasks',
+        where: { list: { equals: list.id } },
+        limit: 0,
+      })
+      for (const task of tasks) {
+        await payload.update({
+          collection: 'tasks',
+          id: task.id,
+          data: { planArchivedAt: null } as any,
+        })
+      }
+    }
+  } catch (e) {
+    console.error('restoreAllArchivedListsForUserId error:', e)
   }
 }
 

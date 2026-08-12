@@ -45,6 +45,8 @@ import {
 } from '@/lib/plan-limits'
 import { PlanLimitDialog } from '../ui/plan-limit-dialog'
 import { SafetyCapDialog } from '../ui/safety-cap-dialog'
+import { RestoreArchivedPrompt } from '../ui/restore-archived-prompt'
+import { listPlanArchivedTags, restoreArchivedTag } from '@/api/tags/actions'
 
 const TAG_OPTIONS = [
   { value: 'urgent', label: 'Urgent' },
@@ -134,6 +136,9 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
 
   const [limitDialog, setLimitDialog] = useState<LimitError | null>(null)
   const [capDialog, setCapDialog] = useState<SafetyCapError | null>(null)
+  const [archivedTagsPrompt, setArchivedTagsPrompt] = useState<
+    { id: number; name: string; color: string }[] | null
+  >(null)
 
   const { data: userTagsData } = useQuery({
     queryKey: ['user-tags'],
@@ -163,7 +168,14 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
     onError: (_err, _vars, context) => {
       queryClient.setQueryData(['user-tags'], context?.previous)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['user-tags'] }),
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ['user-tags'] })
+
+      const { docs: archived } = await listPlanArchivedTags()
+      if (archived.length > 0) {
+        setArchivedTagsPrompt(archived)
+      }
+    },
   })
 
   const isRecurring = type === 'recurring'
@@ -800,6 +812,25 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
         }}
         capError={capDialog}
       />
+      {archivedTagsPrompt && (
+        <RestoreArchivedPrompt
+          open={!!archivedTagsPrompt}
+          onOpenChange={(v) => {
+            if (!v) setArchivedTagsPrompt(null)
+          }}
+          title="Restore an archived tag?"
+          description="You have tags that were archived when your plan changed. Restore one now that you have room."
+          items={archivedTagsPrompt.map((t) => ({ id: t.id, label: t.name, color: t.color }))}
+          onRestore={async (id) => {
+            const result = await restoreArchivedTag(id)
+            if (result.ok) {
+              queryClient.invalidateQueries({ queryKey: ['user-tags'] })
+              toast.info('Tag restored')
+            }
+            return result
+          }}
+        />
+      )}
     </>
   )
 }

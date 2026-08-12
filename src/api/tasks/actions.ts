@@ -189,6 +189,159 @@ export const createTask = async (task: CreateTaskInput) => {
   }
 }
 
+export const checkTasksCompliance = async (listId: number) => {
+  const userId = await getUserId()
+  if (!userId) return null
+
+  const payload = await getPayload({ config })
+  const list = await payload.findByID({ collection: 'lists', id: listId })
+  if (!list || (list as any).userId !== userId) return null
+
+  const { limits } = await getUserPlanLimits()
+
+  const { docs: activeTasks, totalDocs } = await payload.find({
+    collection: 'tasks',
+    sort: 'createdAt',
+    limit: 0,
+    where: {
+      and: [
+        { list: { equals: listId } },
+        { userId: { equals: userId } },
+        { status: { not_equals: 'deleted' } },
+      ],
+    },
+  })
+
+  if (totalDocs <= limits.tasksPerList) return null
+
+  return {
+    overBy: totalDocs - limits.tasksPerList,
+    limit: limits.tasksPerList,
+    tasks: activeTasks,
+  }
+}
+
+export const chooseTasksToKeep = async (listId: number, keepIds: number[]) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const payload = await getPayload({ config })
+    const list = await payload.findByID({ collection: 'lists', id: listId })
+    if (!list || (list as any).userId !== userId) return err('Not authorized')
+
+    const { limits } = await getUserPlanLimits()
+    if (keepIds.length > limits.tasksPerList) {
+      return err('TOO_MANY_SELECTED')
+    }
+
+    const { docs: activeTasks } = await payload.find({
+      collection: 'tasks',
+      where: {
+        and: [
+          { list: { equals: listId } },
+          { userId: { equals: userId } },
+          { status: { not_equals: 'deleted' } },
+        ],
+      },
+      limit: 0,
+    })
+
+    const keepSet = new Set(keepIds)
+    const toDelete = activeTasks.filter((t) => !keepSet.has(t.id))
+
+    for (const task of toDelete) {
+      if (task.userId !== userId) continue
+      await payload.delete({ collection: 'tasks', id: task.id })
+    }
+
+    revalidatePath('/')
+    return ok({ deletedCount: toDelete.length })
+  } catch {
+    return err('Error while updating tasks')
+  }
+}
+
+export interface SubtasksOverLimitTask {
+  taskId: number
+  title: string
+  subtasks: { id: string; title: string; done: boolean }[]
+}
+
+export const checkSubtasksComplianceForList = async (
+  listId: number,
+): Promise<{ limit: number; tasks: SubtasksOverLimitTask[] } | null> => {
+  const userId = await getUserId()
+  if (!userId) return null
+
+  const payload = await getPayload({ config })
+  const list = await payload.findByID({ collection: 'lists', id: listId })
+  if (!list || (list as any).userId !== userId) return null
+
+  const { limits } = await getUserPlanLimits()
+
+  const { docs: tasks } = await payload.find({
+    collection: 'tasks',
+    where: {
+      and: [
+        { list: { equals: listId } },
+        { userId: { equals: userId } },
+        { status: { not_equals: 'deleted' } },
+      ],
+    },
+    limit: 0,
+  })
+
+  const overLimit: SubtasksOverLimitTask[] = tasks
+    .filter((t) => (t.subtasks ?? []).length > limits.subtasksPerTask)
+    .map((t) => ({
+      taskId: t.id,
+      title: t.title,
+      subtasks: ((t.subtasks ?? []) as { id?: string; title: string; done?: boolean }[]).map(
+        (s, i) => ({
+          id: s.id ?? String(i),
+          title: s.title,
+          done: s.done ?? false,
+        }),
+      ),
+    }))
+
+  if (overLimit.length === 0) return null
+
+  return { limit: limits.subtasksPerTask, tasks: overLimit }
+}
+
+export const chooseSubtasksToKeep = async (taskId: number, keepSubtaskIds: string[]) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const payload = await getPayload({ config })
+    const task = await payload.findByID({ collection: 'tasks', id: taskId })
+    if (!task || task.userId !== userId) return err('Not authorized')
+
+    const { limits } = await getUserPlanLimits()
+    if (keepSubtaskIds.length > limits.subtasksPerTask) {
+      return err('TOO_MANY_SELECTED')
+    }
+
+    const keepSet = new Set(keepSubtaskIds)
+    const subtasks = (task.subtasks ?? []) as { id?: string; title: string }[]
+    const filtered = subtasks.filter((s, i) => keepSet.has(s.id ?? String(i)))
+
+    await payload.update({
+      collection: 'tasks',
+      id: taskId,
+      data: { subtasks: filtered } as any,
+    })
+
+    revalidatePath('/')
+    return ok({ remaining: filtered.length })
+  } catch {
+    return err('Error while updating subtasks')
+  }
+}
+
 export const listTasks = async (
   page = 1,
   status?: 'active' | 'completed' | 'deleted' | 'inactive',

@@ -11,13 +11,14 @@ import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { syncRecurringTasksForUser } from '@/api/tasks/actions'
 import { checkListsCompliance } from '@/api/lists/actions'
+import { checkTagsCompliance } from '@/api/tags/actions'
 import { Toaster } from '@/components/ui/sonner'
 import { NotificationsMenu } from '@/components/header/notifications-menu'
 import { CalendarFilterProvider } from '@/components/calendar/calendar-filter-context'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { TimerProvider } from '@/components/timer/timer-context'
-import { ListsComplianceDialog } from '@/components/lists/lists-compliance-dialog'
+import { AccountComplianceGate } from '@/components/lists/account-compliance-gate'
 
 /*
 
@@ -36,10 +37,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = session?.user
 
   let listsCompliance = null
+  let tagsCompliance = null
 
   if (user?.id) {
     await syncRecurringTasksForUser()
-    listsCompliance = await checkListsCompliance()
+    ;[listsCompliance, tagsCompliance] = await Promise.all([
+      checkListsCompliance(),
+      checkTagsCompliance(),
+    ])
   }
 
   return (
@@ -55,7 +60,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <CalendarFilterProvider>
           <TimerProvider>
             <Toaster position="bottom-right" />
-            <ListsComplianceDialog initialCompliance={listsCompliance} />
+            <AccountComplianceGate
+              initialListsCompliance={listsCompliance}
+              initialTagsCompliance={tagsCompliance}
+            />
             <div
               className="h-screen flex flex-col overflow-hidden"
               style={{ '--header-height': '4rem' } as React.CSSProperties}

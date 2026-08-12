@@ -5,7 +5,7 @@ import config from '@/payload.config'
 import { ok, err } from '@/types/result'
 import { revalidatePath } from 'next/cache'
 import { getSession } from '@/lib/get-session'
-import { getUserPlanLimits } from '@/lib/get-user-plan'
+import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 
 const getUserId = async () => {
@@ -162,6 +162,37 @@ export const restoreArchivedTag = async (id: number) => {
     return ok(true)
   } catch {
     return err('Error while restoring the tag')
+  }
+}
+
+export async function restoreAllArchivedTagsForUserId(userId: string): Promise<void> {
+  try {
+    const payload = await getPayload({ config })
+    const { limits } = await getPlanLimitsForUserId(userId)
+
+    const activeCount = await countActiveTags(payload, userId)
+    const room =
+      limits.customTags === Infinity ? Infinity : Math.max(0, limits.customTags - activeCount)
+    if (room <= 0) return
+
+    const { docs: archived } = await payload.find({
+      collection: 'user-tags',
+      where: {
+        and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: true } }],
+      },
+      sort: 'planArchivedAt',
+      limit: room === Infinity ? 0 : room,
+    })
+
+    for (const tag of archived) {
+      await payload.update({
+        collection: 'user-tags',
+        id: tag.id,
+        data: { planArchivedAt: null },
+      })
+    }
+  } catch (e) {
+    console.error('restoreAllArchivedTagsForUserId error:', e)
   }
 }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe, getPlanFromPriceId } from '@/lib/stripe'
 import { markTrialUsed } from '@/api/billing/actions'
+import { reconcilePlanArchivedEntities } from '@/lib/plan-reconcile'
 import { Pool } from 'pg'
 import type Stripe from 'stripe'
 
@@ -102,6 +103,8 @@ export async function POST(req: NextRequest) {
           subscriptionId,
           trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
         })
+        
+        await reconcilePlanArchivedEntities(userId)
         break
       }
 
@@ -130,6 +133,8 @@ export async function POST(req: NextRequest) {
           subscriptionId: subscription.id,
           trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
         })
+
+        await reconcilePlanArchivedEntities(userId)
         break
       }
 
