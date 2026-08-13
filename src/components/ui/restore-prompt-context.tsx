@@ -7,7 +7,8 @@ interface RestorePromptConfig {
   title: string
   description: string
   items: RestorableItem[]
-  onRestore: (id: number) => Promise<{ ok: boolean; error?: string }>
+  maxSelectable: number
+  onConfirm: (ids: number[]) => Promise<{ ok: boolean; error?: string }>
 }
 
 interface RestorePromptContextValue {
@@ -35,7 +36,8 @@ export function RestorePromptProvider({ children }: { children: ReactNode }) {
           title={config.title}
           description={config.description}
           items={config.items}
-          onRestore={config.onRestore}
+          maxSelectable={config.maxSelectable}
+          onConfirm={config.onConfirm}
         />
       )}
     </RestorePromptContext.Provider>
