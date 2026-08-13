@@ -5,12 +5,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import type { SessionConfig } from '@/hooks/timer/use-timer'
 import { toast } from 'sonner'
+import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
+import { useRestorePrompt } from '@/components/ui/restore-prompt-context'
+import { listPlanArchivedTimerConfigs, restoreArchivedTimerConfig } from '@/api/timer/actions'
 import {
   LIMIT_ERRORS,
   SAFETY_CAP_ERRORS,
+  isPlanUnlimited,
   type LimitError,
   type SafetyCapError,
 } from '@/lib/plan-limits'
+
+const FALLBACK_TIMER_PRESETS_LIMIT = 10
 
 export interface TimerConfigItem {
   id: number
@@ -72,6 +78,8 @@ export const useTimerConfigs = () => {
   const [limitError, setLimitError] = useState<LimitError | null>(null)
   const [capError, setCapError] = useState<SafetyCapError | null>(null)
   const queryClient = useQueryClient()
+  const planLimits = usePlanLimits()
+  const { openPrompt } = useRestorePrompt()
 
   const { data, isLoading } = useQuery({
     queryKey: ['timer-configs'],
@@ -130,6 +138,44 @@ export const useTimerConfigs = () => {
         docs: (old?.docs ?? []).filter((c: any) => c.id !== id),
       }))
       return { previous }
+    },
+    onSuccess: async (response) => {
+      if (!response.ok) return
+
+      const archived = (await listPlanArchivedTimerConfigs()).docs
+      if (archived.length === 0) return
+
+      const presetsLimit = planLimits?.limits.timerPresets ?? FALLBACK_TIMER_PRESETS_LIMIT
+      const activeCount =
+        queryClient.getQueryData<{ docs: unknown[] }>(['timer-configs'])?.docs.length ?? 0
+      const room =
+        planLimits && isPlanUnlimited(planLimits.plan, 'timerPresets')
+          ? archived.length
+          : Math.max(0, presetsLimit - activeCount)
+
+      if (room <= 0) return
+
+      openPrompt({
+        title: 'Restore an archived preset?',
+        description:
+          'You have timer presets that were archived when your plan changed. Restore some now that you have room.',
+        items: archived.map((c) => ({ id: c.id, label: c.name, color: c.categoryColor ?? '#8b5cf6' })),
+        maxSelectable: room,
+        onConfirm: async (ids) => {
+          const results = await Promise.all(ids.map((id) => restoreArchivedTimerConfig(id)))
+          const allOk = results.every((r) => r.ok)
+
+          queryClient.invalidateQueries({ queryKey: ['timer-configs'] })
+
+          if (allOk) {
+            toast.info(ids.length > 1 ? 'Presets restored' : 'Preset restored')
+          } else {
+            toast.error('Some presets could not be restored', { description: 'Please try again.' })
+          }
+
+          return { ok: allOk }
+        },
+      })
     },
     onError: (_, __, context) => {
       queryClient.setQueryData(['timer-configs'], context?.previous)

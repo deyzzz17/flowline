@@ -3,6 +3,10 @@ import { restoreAllArchivedListsForUserId } from '@/api/lists/actions'
 import { restoreAllArchivedTagsForUserId } from '@/api/tags/actions'
 import { restoreAllArchivedCalendarCategoriesForUserId } from '@/api/calendar/actions'
 import { restoreAllArchivedHabitsForUserId } from '@/api/habits/actions'
+import {
+  restoreAllArchivedTimerCategoriesForUserId,
+  restoreAllArchivedTimerConfigsForUserId,
+} from '@/api/timer/actions'
 
 export async function reconcilePlanArchivedEntities(userId: string): Promise<void> {
   await Promise.all([
@@ -10,5 +14,7 @@ export async function reconcilePlanArchivedEntities(userId: string): Promise<voi
     restoreAllArchivedTagsForUserId(userId),
     restoreAllArchivedCalendarCategoriesForUserId(userId),
     restoreAllArchivedHabitsForUserId(userId),
+    restoreAllArchivedTimerCategoriesForUserId(userId),
+    restoreAllArchivedTimerConfigsForUserId(userId),
   ])
 }

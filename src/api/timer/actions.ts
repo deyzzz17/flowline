@@ -5,7 +5,7 @@ import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { ok, err } from '@/types/result'
 import { getSession } from '@/lib/get-session'
-import { getUserPlanLimits } from '@/lib/get-user-plan'
+import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 
 const DEFAULT_CATEGORIES = [
@@ -212,6 +212,39 @@ export const listPlanArchivedTimerCategories = async () => {
       and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: true } }],
     },
   })
+}
+
+export async function restoreAllArchivedTimerCategoriesForUserId(userId: string): Promise<void> {
+  try {
+    const payload = await getPayload({ config })
+    const { limits } = await getPlanLimitsForUserId(userId)
+
+    const activeCount = await countActiveTimerCategories(payload, userId)
+    const room =
+      limits.timerCategories === Infinity
+        ? Infinity
+        : Math.max(0, limits.timerCategories - activeCount)
+    if (room <= 0) return
+
+    const { docs: archived } = await payload.find({
+      collection: 'timer-categories',
+      where: {
+        and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: true } }],
+      },
+      sort: 'planArchivedAt',
+      limit: room === Infinity ? 0 : room,
+    })
+
+    for (const category of archived) {
+      await payload.update({
+        collection: 'timer-categories',
+        id: category.id,
+        data: { planArchivedAt: null } as any,
+      })
+    }
+  } catch (e) {
+    console.error('restoreAllArchivedTimerCategoriesForUserId error:', e)
+  }
 }
 
 export const deleteTimerCategory = async (id: number) => {
@@ -465,6 +498,37 @@ export const listPlanArchivedTimerConfigs = async () => {
       and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: true } }],
     },
   })
+}
+
+export async function restoreAllArchivedTimerConfigsForUserId(userId: string): Promise<void> {
+  try {
+    const payload = await getPayload({ config })
+    const { limits } = await getPlanLimitsForUserId(userId)
+
+    const activeCount = await countActiveTimerConfigs(payload, userId)
+    const room =
+      limits.timerPresets === Infinity ? Infinity : Math.max(0, limits.timerPresets - activeCount)
+    if (room <= 0) return
+
+    const { docs: archived } = await payload.find({
+      collection: 'timer-configs',
+      where: {
+        and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: true } }],
+      },
+      sort: 'planArchivedAt',
+      limit: room === Infinity ? 0 : room,
+    })
+
+    for (const timerConfig of archived) {
+      await payload.update({
+        collection: 'timer-configs',
+        id: timerConfig.id,
+        data: { planArchivedAt: null } as any,
+      })
+    }
+  } catch (e) {
+    console.error('restoreAllArchivedTimerConfigsForUserId error:', e)
+  }
 }
 
 export const deleteTimerConfig = async (id: number) => {

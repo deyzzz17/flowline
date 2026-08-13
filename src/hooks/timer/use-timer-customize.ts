@@ -4,12 +4,21 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { timerAPI } from '@/api/timer'
 import { toast } from 'sonner'
+import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
+import { useRestorePrompt } from '@/components/ui/restore-prompt-context'
+import {
+  listPlanArchivedTimerCategories,
+  restoreArchivedTimerCategory,
+} from '@/api/timer/actions'
 import {
   LIMIT_ERRORS,
   SAFETY_CAP_ERRORS,
+  isPlanUnlimited,
   type LimitError,
   type SafetyCapError,
 } from '@/lib/plan-limits'
+
+const FALLBACK_TIMER_CATEGORIES_LIMIT = 10
 
 export interface TimerSession {
   sessionDuration: number | ''
@@ -44,6 +53,8 @@ export const useTimerCustomize = () => {
   })
 
   const queryClient = useQueryClient()
+  const planLimits = usePlanLimits()
+  const { openPrompt } = useRestorePrompt()
 
   const { data: categoriesData } = useQuery({
     queryKey: ['timer-categories'],
@@ -69,7 +80,46 @@ export const useTimerCustomize = () => {
 
   const deleteCategoryMutation = useMutation({
     mutationFn: (id: number) => timerAPI.categories.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['timer-categories'] }),
+    onSuccess: async (response) => {
+      queryClient.invalidateQueries({ queryKey: ['timer-categories'] })
+      if (!response.ok) return
+
+      const archived = (await listPlanArchivedTimerCategories()).docs
+      if (archived.length === 0) return
+
+      const categoriesLimit = planLimits?.limits.timerCategories ?? FALLBACK_TIMER_CATEGORIES_LIMIT
+      const activeCount = Math.max(0, categories.length - 1)
+      const room =
+        planLimits && isPlanUnlimited(planLimits.plan, 'timerCategories')
+          ? archived.length
+          : Math.max(0, categoriesLimit - activeCount)
+
+      if (room <= 0) return
+
+      openPrompt({
+        title: 'Restore an archived timer category?',
+        description:
+          'You have timer categories that were archived when your plan changed. Restore some now that you have room.',
+        items: archived.map((c) => ({ id: c.id, label: c.name, color: c.color })),
+        maxSelectable: room,
+        onConfirm: async (ids) => {
+          const results = await Promise.all(ids.map((id) => restoreArchivedTimerCategory(id)))
+          const allOk = results.every((r) => r.ok)
+
+          queryClient.invalidateQueries({ queryKey: ['timer-categories'] })
+
+          if (allOk) {
+            toast.info(ids.length > 1 ? 'Timer categories restored' : 'Timer category restored')
+          } else {
+            toast.error('Some timer categories could not be restored', {
+              description: 'Please try again.',
+            })
+          }
+
+          return { ok: allOk }
+        },
+      })
+    },
   })
 
   const update = (field: keyof TimerSession, value: TimerSession[keyof TimerSession]) => {
