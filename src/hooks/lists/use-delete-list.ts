@@ -21,6 +21,8 @@ export const useDeleteList = (list: List) => {
   const mutation = useMutation({
     mutationFn: () => api.lists.delete(list.id),
     onMutate: async () => {
+      const archivedPromise = listPlanArchivedLists()
+
       await queryClient.cancelQueries({ queryKey: ['lists'] })
       const previousLists = queryClient.getQueryData(['lists'])
       queryClient.setQueryData<{ docs: List[] }>(['lists'], (old) => {
@@ -28,7 +30,7 @@ export const useDeleteList = (list: List) => {
         return { ...old, docs: old.docs.filter((l) => l.id !== list.id) }
       })
       router.push('/lists/today')
-      return { previousLists }
+      return { previousLists, archivedPromise }
     },
     onSuccess: async (result, _vars, context) => {
       if (!result.ok) {
@@ -44,7 +46,7 @@ export const useDeleteList = (list: List) => {
       queryClient.invalidateQueries({ queryKey: ['lists'] })
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
 
-      const { docs: archived } = await listPlanArchivedLists()
+      const { docs: archived } = await context!.archivedPromise
       if (archived.length === 0) return
 
       const listsLimit = planLimits?.limits.lists ?? FALLBACK_LISTS_LIMIT
