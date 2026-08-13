@@ -16,6 +16,7 @@ interface BillingInfo {
   trialEndsAt: Date | null
   billingInterval?: 'monthly' | 'annual' | null
   periodEnd?: Date | null
+  cancelAtPeriodEnd?: boolean
 }
 
 const PLAN_META: Record<Plan, { label: string; description: string; color: string }> = {
@@ -83,7 +84,18 @@ export function SubscriptionSection({ billing }: { billing?: BillingInfo | null 
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed">{meta.description}</p>
           {periodEndFormatted && !billing?.isTrial && (
-            <p className="mt-1 text-xs text-muted-foreground/60">Renews {periodEndFormatted}</p>
+            <p
+              className={cn(
+                'mt-1 text-xs',
+                billing?.cancelAtPeriodEnd
+                  ? 'font-medium text-amber-600 dark:text-amber-400'
+                  : 'text-muted-foreground/60',
+              )}
+            >
+              {billing?.cancelAtPeriodEnd
+                ? `Cancels on ${periodEndFormatted} — you'll switch to Free`
+                : `Renews ${periodEndFormatted}`}
+            </p>
           )}
           {billing?.subscriptionStatus === 'past_due' && (
             <div className="mt-2 flex items-center gap-1.5 text-xs text-destructive font-medium">

@@ -22,6 +22,7 @@ export interface BillingInfo {
   isTrial: boolean
   trialEndsAt: Date | null
   periodEnd: Date | null
+  cancelAtPeriodEnd: boolean
   hadPlusTrial: boolean
   hadProTrial: boolean
 }
@@ -43,6 +44,7 @@ export const getBillingInfo = async (): Promise<BillingInfo | null> => {
 
     let billingInterval: BillingInterval | null = null
     let periodEnd: Date | null = null
+    let cancelAtPeriodEnd = false
 
     if (row.subscriptionId) {
       try {
@@ -52,9 +54,11 @@ export const getBillingInfo = async (): Promise<BillingInfo | null> => {
           const price = await stripe.prices.retrieve(priceId)
           billingInterval = price.recurring?.interval === 'year' ? 'annual' : 'monthly'
         }
-        if ('current_period_end' in sub && sub.current_period_end) {
-          periodEnd = new Date((sub.current_period_end as number) * 1000)
+        const itemPeriodEnd = sub.items.data[0]?.current_period_end
+        if (itemPeriodEnd) {
+          periodEnd = new Date(itemPeriodEnd * 1000)
         }
+        cancelAtPeriodEnd = sub.cancel_at_period_end ?? false
       } catch {}
     }
 
@@ -68,6 +72,7 @@ export const getBillingInfo = async (): Promise<BillingInfo | null> => {
       isTrial: row.subscriptionStatus === 'trialing',
       trialEndsAt: row.trialEndsAt ? new Date(row.trialEndsAt) : null,
       periodEnd,
+      cancelAtPeriodEnd,
       hadPlusTrial: row.hadPlusTrial ?? false,
       hadProTrial: row.hadProTrial ?? false,
     }
@@ -211,13 +216,30 @@ export const switchToMonthlyAtRenewal = async (plan: Plan) => {
 
   try {
     const subscription = await stripe.subscriptions.retrieve(billing.subscriptionId)
-    const itemId = subscription.items.data[0]?.id
-    if (!itemId) return err('Subscription item not found')
+    const currentItem = subscription.items.data[0]
+    if (!currentItem) return err('Subscription item not found')
 
-    await stripe.subscriptions.update(billing.subscriptionId, {
-      items: [{ id: itemId, price: newPriceId }],
-      proration_behavior: 'none',
-      billing_cycle_anchor: 'unchanged',
+    // Stripe refuses to change a subscription's billing interval in place
+    // ("no way to leave billing cycle unchanged"). Deferring the switch to the
+    // renewal date requires a Subscription Schedule with two phases: keep the
+    // current (annual) price until the current period ends, then switch to
+    // the new (monthly) price going forward.
+    const schedule = subscription.schedule
+      ? await stripe.subscriptionSchedules.retrieve(subscription.schedule as string)
+      : await stripe.subscriptionSchedules.create({ from_subscription: subscription.id })
+
+    await stripe.subscriptionSchedules.update(schedule.id, {
+      end_behavior: 'release',
+      phases: [
+        {
+          items: [{ price: currentItem.price.id, quantity: currentItem.quantity ?? 1 }],
+          start_date: schedule.phases[0].start_date,
+          end_date: currentItem.current_period_end,
+        },
+        {
+          items: [{ price: newPriceId, quantity: 1 }],
+        },
+      ],
     })
 
     return ok(true)

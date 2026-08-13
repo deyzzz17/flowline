@@ -1,7 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { stripe, getPlanFromPriceId } from '@/lib/stripe'
+import { stripe, getPlanFromPriceId, type Plan } from '@/lib/stripe'
 import { markTrialUsed } from '@/api/billing/actions'
 import { reconcilePlanArchivedEntities } from '@/lib/plan-reconcile'
+import {
+  sendSubscriptionStartedEmail,
+  sendPlanChangedEmail,
+  sendCancellationScheduledEmail,
+  sendSubscriptionResumedEmail,
+  sendSubscriptionEndedEmail,
+  sendPaymentFailedEmail,
+  sendPaymentMethodUpdatedEmail,
+  sendTrialEndingSoonEmail,
+  sendPaymentReceiptEmail,
+} from '@/lib/billing-emails'
 import { Pool } from 'pg'
 import type Stripe from 'stripe'
 
@@ -54,6 +65,22 @@ async function getUserIdFromCustomer(customerId: string): Promise<string | null>
   return (customer as Stripe.Customer).metadata?.userId ?? null
 }
 
+async function getUserBillingSnapshot(
+  userId: string,
+): Promise<{ email: string; name: string; plan: Plan } | null> {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+  try {
+    const result = await pool.query(`SELECT email, name, plan FROM "user" WHERE id = $1 LIMIT 1`, [
+      userId,
+    ])
+    const row = result.rows[0]
+    if (!row) return null
+    return { email: row.email, name: row.name, plan: (row.plan ?? 'free') as Plan }
+  } finally {
+    await pool.end()
+  }
+}
+
 const INACTIVE_STATUSES = new Set([
   'canceled',
   'incomplete_expired',
@@ -103,8 +130,13 @@ export async function POST(req: NextRequest) {
           subscriptionId,
           trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
         })
-        
+
         await reconcilePlanArchivedEntities(userId)
+
+        const startedUser = await getUserBillingSnapshot(userId)
+        if (startedUser?.email) {
+          await sendSubscriptionStartedEmail(startedUser.email, resolvedPlan as Plan)
+        }
         break
       }
 
@@ -113,6 +145,9 @@ export async function POST(req: NextRequest) {
         const customerId = subscription.customer as string
         const userId = await getUserIdFromCustomer(customerId)
         if (!userId) break
+
+        const beforeUser = await getUserBillingSnapshot(userId)
+        const previousAttrs = (event.data.previous_attributes ?? {}) as Partial<Stripe.Subscription>
 
         if (INACTIVE_STATUSES.has(subscription.status)) {
           await updateUserBilling(userId, {
@@ -135,6 +170,23 @@ export async function POST(req: NextRequest) {
         })
 
         await reconcilePlanArchivedEntities(userId)
+
+        if (beforeUser?.email) {
+          if ('cancel_at_period_end' in previousAttrs) {
+            if (subscription.cancel_at_period_end) {
+              const itemPeriodEnd = subscription.items.data[0]?.current_period_end
+              await sendCancellationScheduledEmail(
+                beforeUser.email,
+                plan as Plan,
+                itemPeriodEnd ? new Date(itemPeriodEnd * 1000) : null,
+              )
+            } else {
+              await sendSubscriptionResumedEmail(beforeUser.email, plan as Plan)
+            }
+          } else if (beforeUser.plan !== plan) {
+            await sendPlanChangedEmail(beforeUser.email, beforeUser.plan, plan as Plan)
+          }
+        }
         break
       }
 
@@ -144,12 +196,18 @@ export async function POST(req: NextRequest) {
         const userId = await getUserIdFromCustomer(customerId)
         if (!userId) break
 
+        const beforeUser = await getUserBillingSnapshot(userId)
+
         await updateUserBilling(userId, {
           plan: 'free',
           subscriptionStatus: 'canceled',
           subscriptionId: null,
           trialEndsAt: null,
         })
+
+        if (beforeUser?.email && beforeUser.plan !== 'free') {
+          await sendSubscriptionEndedEmail(beforeUser.email, beforeUser.plan)
+        }
         break
       }
 
@@ -160,6 +218,76 @@ export async function POST(req: NextRequest) {
         if (!userId) break
 
         await updateUserBilling(userId, { subscriptionStatus: 'past_due' })
+
+        const failedUser = await getUserBillingSnapshot(userId)
+        if (failedUser?.email) {
+          await sendPaymentFailedEmail(failedUser.email, failedUser.plan)
+        }
+        break
+      }
+
+      case 'invoice.paid': {
+        const invoice = event.data.object as Stripe.Invoice
+        const customerId = invoice.customer as string
+        const userId = await getUserIdFromCustomer(customerId)
+        if (!userId) break
+        if (!invoice.amount_paid || invoice.amount_paid <= 0) break // skip $0 trial invoices
+
+        const paidUser = await getUserBillingSnapshot(userId)
+        if (paidUser?.email) {
+          await sendPaymentReceiptEmail(
+            paidUser.email,
+            paidUser.plan,
+            { value: invoice.amount_paid / 100, currency: invoice.currency },
+            invoice.hosted_invoice_url ?? null,
+          )
+        }
+        break
+      }
+
+      case 'payment_method.attached': {
+        const paymentMethod = event.data.object as Stripe.PaymentMethod
+        const customerId = paymentMethod.customer as string | null
+        if (!customerId) break
+        const userId = await getUserIdFromCustomer(customerId)
+        if (!userId) break
+
+        const attachedUser = await getUserBillingSnapshot(userId)
+        if (attachedUser?.email) {
+          await sendPaymentMethodUpdatedEmail(
+            attachedUser.email,
+            paymentMethod.card?.brand ?? null,
+            paymentMethod.card?.last4 ?? null,
+          )
+        }
+        break
+      }
+
+      case 'customer.subscription.trial_will_end': {
+        const subscription = event.data.object as Stripe.Subscription
+        const customerId = subscription.customer as string
+        const userId = await getUserIdFromCustomer(customerId)
+        if (!userId) break
+
+        const trialUser = await getUserBillingSnapshot(userId)
+        if (!trialUser?.email) break
+
+        const price = subscription.items.data[0]?.price
+        const amount =
+          price?.unit_amount != null
+            ? {
+                value: price.unit_amount / 100,
+                currency: price.currency,
+                interval: (price.recurring?.interval ?? 'month') as 'month' | 'year',
+              }
+            : null
+
+        await sendTrialEndingSoonEmail(
+          trialUser.email,
+          trialUser.plan,
+          subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
+          amount,
+        )
         break
       }
     }
