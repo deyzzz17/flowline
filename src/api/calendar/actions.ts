@@ -7,7 +7,7 @@ import { ok, err } from '@/types/result'
 import { Pool } from 'pg'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
-import { getUserPlanLimits } from '@/lib/get-user-plan'
+import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 
 const getUserId = async () => {
@@ -240,6 +240,39 @@ export const restoreArchivedCalendarCategory = async (id: number) => {
     return ok(true)
   } catch {
     return err('Error while restoring the category')
+  }
+}
+
+export async function restoreAllArchivedCalendarCategoriesForUserId(userId: string): Promise<void> {
+  try {
+    const payload = await getPayload({ config })
+    const { limits } = await getPlanLimitsForUserId(userId)
+
+    const activeCount = await countActiveCalendarCategories(payload, userId)
+    const room =
+      limits.calendarCategories === Infinity
+        ? Infinity
+        : Math.max(0, limits.calendarCategories - activeCount)
+    if (room <= 0) return
+
+    const { docs: archived } = await payload.find({
+      collection: 'calendar-categories',
+      where: {
+        and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: true } }],
+      },
+      sort: 'planArchivedAt',
+      limit: room === Infinity ? 0 : room,
+    })
+
+    for (const category of archived) {
+      await payload.update({
+        collection: 'calendar-categories',
+        id: category.id,
+        data: { planArchivedAt: null } as any,
+      })
+    }
+  } catch (e) {
+    console.error('restoreAllArchivedCalendarCategoriesForUserId error:', e)
   }
 }
 

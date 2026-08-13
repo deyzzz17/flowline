@@ -22,14 +22,20 @@ import {
   Users,
 } from 'lucide-react'
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { toast } from 'sonner'
 import { api } from '@/api'
 import { useCalendarCategories } from '@/hooks/calendar/use-calendar-categories'
 import { useCalendarFilter } from '../calendar/calendar-filter-context'
 import { useSidebarFooter } from '@/hooks/sidebar/use-sidebar-footer'
 import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
+import { useRestorePrompt } from '@/components/ui/restore-prompt-context'
+import {
+  listPlanArchivedCalendarCategories,
+  restoreArchivedCalendarCategory,
+} from '@/api/calendar/actions'
 import { cn } from '@/lib/utils'
 import type { Task, List } from '@/payload-types'
 import {
@@ -110,6 +116,8 @@ export function AppSidebar() {
   const { categories, createMutation, updateMutation, deleteMutation } = useCalendarCategories()
   const { hiddenCategories, toggleCategory, habitsVisible, toggleHabits } = useCalendarFilter()
   const planLimits = usePlanLimits()
+  const { openPrompt } = useRestorePrompt()
+  const queryClient = useQueryClient()
   const categoriesLimit =
     planLimits?.limits.calendarCategories ?? FALLBACK_CALENDAR_CATEGORIES_LIMIT
 
@@ -212,6 +220,41 @@ export function AppSidebar() {
     if (!deleteTarget) return
     await deleteMutation.mutateAsync(deleteTarget.id)
     setDeleteTarget(null)
+
+    const { docs: archived } = await listPlanArchivedCalendarCategories()
+    if (archived.length === 0) return
+
+    const activeCount = Math.max(0, categories.length - 1)
+    const room =
+      planLimits && isPlanUnlimited(planLimits.plan, 'calendarCategories')
+        ? archived.length
+        : Math.max(0, categoriesLimit - activeCount)
+
+    if (room <= 0) return
+
+    openPrompt({
+      title: 'Restore an archived category?',
+      description:
+        'You have calendar categories that were archived when your plan changed. Restore some now that you have room.',
+      items: archived.map((c) => ({ id: c.id, label: c.name, color: c.color })),
+      maxSelectable: room,
+      onConfirm: async (ids) => {
+        const results = await Promise.all(ids.map((id) => restoreArchivedCalendarCategory(id)))
+        const allOk = results.every((r) => r.ok)
+
+        queryClient.invalidateQueries({ queryKey: ['calendar-categories'] })
+
+        if (allOk) {
+          toast.info(ids.length > 1 ? 'Categories restored' : 'Category restored')
+        } else {
+          toast.error('Some categories could not be restored', {
+            description: 'Please try again.',
+          })
+        }
+
+        return { ok: allOk }
+      },
+    })
   }
 
   return (
