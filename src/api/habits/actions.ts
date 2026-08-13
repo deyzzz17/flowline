@@ -6,7 +6,7 @@ import config from '@/payload.config'
 import { ok, err } from '@/types/result'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
-import { getUserPlanLimits } from '@/lib/get-user-plan'
+import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 import { revalidatePath } from 'next/cache'
 
@@ -822,6 +822,173 @@ export const restoreArchivedHabit = async (id: number) => {
     return ok(true)
   } catch {
     return err('Error while restoring the habit')
+  }
+}
+
+export async function restoreAllArchivedHabitsForUserId(userId: string): Promise<void> {
+  try {
+    const payload = await getPayload({ config })
+    const { limits } = await getPlanLimitsForUserId(userId)
+
+    const activeCount = await countActiveHabits(payload, userId)
+    const room = limits.habits === Infinity ? Infinity : Math.max(0, limits.habits - activeCount)
+    if (room <= 0) return
+
+    const { docs: archived } = await payload.find({
+      collection: 'habits',
+      where: {
+        and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: true } }],
+      },
+      sort: 'planArchivedAt',
+      limit: room === Infinity ? 0 : room,
+    })
+
+    for (const habit of archived) {
+      await payload.update({
+        collection: 'habits',
+        id: habit.id,
+        data: { planArchivedAt: null } as any,
+      })
+    }
+  } catch (e) {
+    console.error('restoreAllArchivedHabitsForUserId error:', e)
+  }
+}
+
+export interface HabitTrackingFieldsOverLimit {
+  habitId: number
+  habitName: string
+  trackingFields: TrackingField[]
+}
+
+async function listActiveHabitsForCompliance(payload: Awaited<ReturnType<typeof getPayload>>, userId: string) {
+  const { docs: habits } = await payload.find({
+    collection: 'habits',
+    where: {
+      and: [
+        { userId: { equals: userId } },
+        { archivedAt: { exists: false } },
+        { planArchivedAt: { exists: false } },
+      ],
+    },
+    sort: 'order',
+    limit: 0,
+  })
+  return habits
+}
+
+export const checkTrackingFieldsComplianceForUser = async (): Promise<{
+  limit: number
+  habits: HabitTrackingFieldsOverLimit[]
+} | null> => {
+  const userId = await getUserId()
+  if (!userId) return null
+
+  const payload = await getPayload({ config })
+  const { limits } = await getUserPlanLimits()
+  const habits = await listActiveHabitsForCompliance(payload, userId)
+
+  const overLimit: HabitTrackingFieldsOverLimit[] = habits
+    .map((h) => ({
+      habit: h,
+      fields: parseJsonField<TrackingField[]>((h as any).trackingFields) ?? [],
+    }))
+    .filter(({ fields }) => fields.length > limits.trackingFieldsPerHabit)
+    .map(({ habit, fields }) => ({
+      habitId: habit.id,
+      habitName: habit.name,
+      trackingFields: fields,
+    }))
+
+  if (overLimit.length === 0) return null
+  return { limit: limits.trackingFieldsPerHabit, habits: overLimit }
+}
+
+export const chooseTrackingFieldsToKeep = async (habitId: number, keepKeys: string[]) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const payload = await getPayload({ config })
+    const habit = await payload.findByID({ collection: 'habits', id: habitId })
+    if (!habit || (habit as any).userId !== userId) return err('Not authorized')
+
+    const { limits } = await getUserPlanLimits()
+    if (keepKeys.length > limits.trackingFieldsPerHabit) {
+      return err('TOO_MANY_SELECTED')
+    }
+
+    const fields = parseJsonField<TrackingField[]>((habit as any).trackingFields) ?? []
+    const keepSet = new Set(keepKeys)
+    const filtered = fields.filter((f) => keepSet.has(f.key))
+
+    await payload.update({
+      collection: 'habits',
+      id: habitId,
+      data: { trackingFields: JSON.stringify(filtered) } as any,
+    })
+
+    revalidatePath('/')
+    return ok({ remaining: filtered.length })
+  } catch {
+    return err('Error while updating tracking fields')
+  }
+}
+
+export interface HabitGoalsOverLimit {
+  habitId: number
+  habitName: string
+  goals: HabitGoal[]
+}
+
+export const checkGoalsComplianceForUser = async (): Promise<{
+  limit: number
+  habits: HabitGoalsOverLimit[]
+} | null> => {
+  const userId = await getUserId()
+  if (!userId) return null
+
+  const payload = await getPayload({ config })
+  const { limits } = await getUserPlanLimits()
+  const habits = await listActiveHabitsForCompliance(payload, userId)
+
+  const overLimit: HabitGoalsOverLimit[] = habits
+    .map((h) => ({ habit: h, goals: parseGoals(h) }))
+    .filter(({ goals }) => goals.length > limits.goalsPerHabit)
+    .map(({ habit, goals }) => ({ habitId: habit.id, habitName: habit.name, goals }))
+
+  if (overLimit.length === 0) return null
+  return { limit: limits.goalsPerHabit, habits: overLimit }
+}
+
+export const chooseGoalsToKeep = async (habitId: number, keepGoalIds: string[]) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const payload = await getPayload({ config })
+    const habit = await payload.findByID({ collection: 'habits', id: habitId })
+    if (!habit || (habit as any).userId !== userId) return err('Not authorized')
+
+    const { limits } = await getUserPlanLimits()
+    if (keepGoalIds.length > limits.goalsPerHabit) {
+      return err('TOO_MANY_SELECTED')
+    }
+
+    const goals = parseGoals(habit)
+    const keepSet = new Set(keepGoalIds)
+    const filtered = goals.filter((g) => keepSet.has(g.id))
+
+    await payload.update({
+      collection: 'habits',
+      id: habitId,
+      data: { goals: JSON.stringify(filtered) } as any,
+    })
+
+    revalidatePath('/')
+    return ok({ remaining: filtered.length })
+  } catch {
+    return err('Error while updating goals')
   }
 }
 

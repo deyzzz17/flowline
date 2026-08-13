@@ -11,6 +11,8 @@ import {
   archiveHabit,
   deleteHabit,
   getHabitDetail,
+  listPlanArchivedHabits,
+  restoreArchivedHabit,
   type HabitDetail,
   type HabitGoal,
   type TrackingDataPoint,
@@ -29,6 +31,11 @@ import { useRouter } from 'next/navigation'
 import { AlertDialog, AlertDialogContent, AlertDialogFooter } from '@/components/ui/alert-dialog'
 import { useSearchParams, usePathname } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
+import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
+import { useRestorePrompt } from '@/components/ui/restore-prompt-context'
+import { isPlanUnlimited } from '@/lib/plan-limits'
+
+const FALLBACK_HABITS_LIMIT = 5
 
 const DAY_LABELS: Record<string, string> = {
   mon: 'Mo', tue: 'Tu', wed: 'We', thu: 'Th', fri: 'Fr', sat: 'Sa', sun: 'Su',
@@ -218,6 +225,8 @@ export function HabitDetailClient({ habit: initialHabit, initialTrackingAnalytic
   const pathname = usePathname()
   const endOnReachDialogOpen = searchParams.get('allGoalsReached') === '1'
   const queryClient = useQueryClient()
+  const planLimits = usePlanLimits()
+  const { openPrompt } = useRestorePrompt()
 
   const openEndOnReachDialog = () => {
     const params = new URLSearchParams(searchParams.toString())
@@ -335,6 +344,40 @@ export function HabitDetailClient({ habit: initialHabit, initialTrackingAnalytic
       closeEndOnReachDialog()
       queryClient.setQueryData(['habits'], (old: HabitWithStats[] | undefined) => old?.filter((h) => h.id !== habit.id) ?? [])
       router.push('/habits/habits-view')
+
+      const archived = await listPlanArchivedHabits()
+      if (archived.length === 0) return
+
+      const habitsLimit = planLimits?.limits.habits ?? FALLBACK_HABITS_LIMIT
+      const activeCount = queryClient.getQueryData<HabitWithStats[]>(['habits'])?.length ?? 0
+      const room =
+        planLimits && isPlanUnlimited(planLimits.plan, 'habits')
+          ? archived.length
+          : Math.max(0, habitsLimit - activeCount)
+
+      if (room <= 0) return
+
+      openPrompt({
+        title: 'Restore an archived habit?',
+        description:
+          'You have habits that were archived when your plan changed. Restore some now that you have room.',
+        items: archived.map((h) => ({ id: h.id, label: h.name, color: h.color })),
+        maxSelectable: room,
+        onConfirm: async (ids) => {
+          const results = await Promise.all(ids.map((id) => restoreArchivedHabit(id)))
+          const allOk = results.every((r) => r.ok)
+
+          queryClient.invalidateQueries({ queryKey: ['habits'] })
+
+          if (allOk) {
+            toast.info(ids.length > 1 ? 'Habits restored' : 'Habit restored')
+          } else {
+            toast.error('Some habits could not be restored', { description: 'Please try again.' })
+          }
+
+          return { ok: allOk }
+        },
+      })
     })
   }
 

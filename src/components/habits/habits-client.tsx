@@ -25,6 +25,8 @@ import {
   deleteHabit,
   listHabits,
   listArchivedHabits,
+  listPlanArchivedHabits,
+  restoreArchivedHabit,
   type HabitWithStats,
   type HabitData,
   type ArchivedHabit,
@@ -44,14 +46,19 @@ import {
 } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
 import { useToggleHabit } from '@/hooks/habits/use-toggle-habits'
+import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
+import { useRestorePrompt } from '@/components/ui/restore-prompt-context'
 import {
   LIMIT_ERRORS,
   SAFETY_CAP_ERRORS,
+  isPlanUnlimited,
   type LimitError,
   type SafetyCapError,
 } from '@/lib/plan-limits'
 import { PlanLimitDialog } from '../ui/plan-limit-dialog'
 import { SafetyCapDialog } from '../ui/safety-cap-dialog'
+
+const FALLBACK_HABITS_LIMIT = 5
 
 const DAY_NAMES = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
 const DAY_LABELS: Record<string, string> = {
@@ -447,6 +454,8 @@ interface HabitsClientProps {
 export function HabitsClient({ initialHabits }: HabitsClientProps) {
   const queryClient = useQueryClient()
   const { toggle: toggleHabit } = useToggleHabit()
+  const planLimits = usePlanLimits()
+  const { openPrompt } = useRestorePrompt()
   const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
 
   const lastDateRef = useRef<string>(
@@ -681,6 +690,40 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
     toast.success('Habit deleted')
     setDeleteTarget(null)
     refresh()
+
+    const archived = await listPlanArchivedHabits()
+    if (archived.length === 0) return
+
+    const habitsLimit = planLimits?.limits.habits ?? FALLBACK_HABITS_LIMIT
+    const activeCount = Math.max(0, habits.length - 1)
+    const room =
+      planLimits && isPlanUnlimited(planLimits.plan, 'habits')
+        ? archived.length
+        : Math.max(0, habitsLimit - activeCount)
+
+    if (room <= 0) return
+
+    openPrompt({
+      title: 'Restore an archived habit?',
+      description:
+        'You have habits that were archived when your plan changed. Restore some now that you have room.',
+      items: archived.map((h) => ({ id: h.id, label: h.name, color: h.color })),
+      maxSelectable: room,
+      onConfirm: async (ids) => {
+        const results = await Promise.all(ids.map((id) => restoreArchivedHabit(id)))
+        const allOk = results.every((r) => r.ok)
+
+        queryClient.invalidateQueries({ queryKey: ['habits'] })
+
+        if (allOk) {
+          toast.info(ids.length > 1 ? 'Habits restored' : 'Habit restored')
+        } else {
+          toast.error('Some habits could not be restored', { description: 'Please try again.' })
+        }
+
+        return { ok: allOk }
+      },
+    })
   }
 
   const cardProps = {
