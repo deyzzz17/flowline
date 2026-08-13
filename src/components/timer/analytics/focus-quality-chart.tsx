@@ -19,6 +19,7 @@ import { ChartTypeToggle, type ChartType } from './chart-type-toggle'
 import { TimePeriodSelector, type TimePeriod } from './time-period-selector'
 import { cn } from '@/lib/utils'
 import { getTimerAnalytics, type SessionAnalytics } from '@/api/timer-analytics/actions'
+import { AnalyticsPlanNotice } from '@/components/ui/analytics-plan-notice'
 
 function hexToRgba(hex: string, alpha: number) {
   try {
@@ -304,6 +305,8 @@ export function FocusQualityChart({ initialData, initialPeriod }: FocusQualityCh
           </div>
         )}
       </div>
+
+      {analyticsData.restrictedByPlan && <AnalyticsPlanNotice />}
 
       {!hasRatedSessions ? (
         <EmptyState message="No rated sessions for this period." />

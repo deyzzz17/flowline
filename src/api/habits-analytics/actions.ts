@@ -4,6 +4,8 @@ import 'server-only'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { getSession } from '@/lib/get-session'
+import { getUserPlanLimits } from '@/lib/get-user-plan'
+import { getAnalyticsWindowStart, clampToAnalyticsWindow } from '@/lib/analytics-window'
 
 const getUserId = async () => {
   const session = await getSession()
@@ -33,6 +35,7 @@ export interface TrackingFieldAnalytics {
 export interface HabitTrackingAnalyticsResult {
   periodLabel: string
   fields: TrackingFieldAnalytics[]
+  restrictedByPlan: boolean
 }
 
 export interface HeatmapDay {
@@ -44,6 +47,7 @@ export interface HeatmapDay {
 export interface HeatmapAnalyticsResult {
   year: number
   data: HeatmapDay[]
+  restrictedByPlan: boolean
 }
 
 function getPeriodRange(period: TrackingPeriod, offset: number): { from: Date; to: Date } {
@@ -160,7 +164,7 @@ export const getHabitTrackingAnalytics = async (
   offset: number,
 ): Promise<HabitTrackingAnalyticsResult> => {
   const userId = await getUserId()
-  const empty: HabitTrackingAnalyticsResult = { periodLabel: '', fields: [] }
+  const empty: HabitTrackingAnalyticsResult = { periodLabel: '', fields: [], restrictedByPlan: false }
   if (!userId) return empty
 
   const payload = await getPayload({ config })
@@ -181,13 +185,17 @@ export const getHabitTrackingAnalytics = async (
   const periodLabel = getPeriodLabel(period, from, to)
   const buckets = getBuckets(period, from, to)
 
+  const { plan } = await getUserPlanLimits()
+  const windowStart = getAnalyticsWindowStart(plan)
+  const { fetchFrom, restrictedByPlan } = clampToAnalyticsWindow(from, windowStart)
+
   const { docs: completions } = await payload.find({
     collection: 'habit-completions',
     where: {
       and: [
         { userId: { equals: userId } },
         { habitId: { equals: habitId } },
-        { completedAt: { greater_than_equal: from.toISOString() } },
+        { completedAt: { greater_than_equal: fetchFrom.toISOString() } },
         { completedAt: { less_than_equal: to.toISOString() } },
       ],
     },
@@ -232,12 +240,12 @@ export const getHabitTrackingAnalytics = async (
     }
   })
 
-  return { periodLabel, fields }
+  return { periodLabel, fields, restrictedByPlan }
 }
 
 export const getHeatmapAnalytics = async (year: number): Promise<HeatmapAnalyticsResult> => {
   const userId = await getUserId()
-  if (!userId) return { year, data: [] }
+  if (!userId) return { year, data: [], restrictedByPlan: false }
 
   const payload = await getPayload({ config })
 
@@ -247,19 +255,23 @@ export const getHeatmapAnalytics = async (year: number): Promise<HeatmapAnalytic
     limit: 0,
   })
 
-  if (habits.length === 0) return { year, data: [] }
+  if (habits.length === 0) return { year, data: [], restrictedByPlan: false }
 
   const from = new Date(year, 0, 1)
   from.setHours(0, 0, 0, 0)
   const to = new Date(year, 11, 31)
   to.setHours(23, 59, 59, 999)
 
+  const { plan } = await getUserPlanLimits()
+  const windowStart = getAnalyticsWindowStart(plan)
+  const { fetchFrom, restrictedByPlan } = clampToAnalyticsWindow(from, windowStart)
+
   const { docs: completions } = await payload.find({
     collection: 'habit-completions',
     where: {
       and: [
         { userId: { equals: userId } },
-        { completedAt: { greater_than_equal: from.toISOString() } },
+        { completedAt: { greater_than_equal: fetchFrom.toISOString() } },
         { completedAt: { less_than_equal: to.toISOString() } },
       ],
     },
@@ -316,5 +328,5 @@ export const getHeatmapAnalytics = async (year: number): Promise<HeatmapAnalytic
     cur.setDate(cur.getDate() + 1)
   }
 
-  return { year, data }
+  return { year, data, restrictedByPlan }
 }

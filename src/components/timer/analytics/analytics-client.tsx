@@ -21,6 +21,7 @@ import { TimeBySubcategoryChart } from './time-by-subcategory-chart'
 import { DistributionChart } from './distribution-chart'
 import { FocusQualityChart } from './focus-quality-chart'
 import { getTimerAnalytics, type SessionAnalytics } from '@/api/timer-analytics/actions'
+import { AnalyticsPlanNotice } from '@/components/ui/analytics-plan-notice'
 import { cn } from '@/lib/utils'
 
 function formatSeconds(s: number): string {
@@ -200,7 +201,8 @@ export function AnalyticsClient({ initialData, initialPeriod }: AnalyticsClientP
                 </div>
               </div>
             </div>
-            <div className={cn('p-4 sm:p-5 transition-opacity', isPending && 'opacity-40')}>
+            <div className={cn('p-4 sm:p-5 transition-opacity space-y-3', isPending && 'opacity-40')}>
+              {data.restrictedByPlan && <AnalyticsPlanNotice />}
               <TimeByCategoryChart
                 data={data.timeSeries ?? []}
                 series={data.seriesDefinitions ?? []}
@@ -270,7 +272,10 @@ export function AnalyticsClient({ initialData, initialPeriod }: AnalyticsClientP
               </div>
             </div>
           </div>
-          <div className={cn('p-4 sm:p-5 transition-opacity', isSubPending && 'opacity-40')}>
+          <div
+            className={cn('p-4 sm:p-5 transition-opacity space-y-3', isSubPending && 'opacity-40')}
+          >
+            {subcategoryData.restrictedByPlan && <AnalyticsPlanNotice />}
             <TimeBySubcategoryChart
               data={subcategoryData.timeSeries ?? []}
               series={subcategoryData.seriesDefinitions ?? []}

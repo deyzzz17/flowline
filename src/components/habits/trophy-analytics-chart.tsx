@@ -10,6 +10,7 @@ import {
   type TrophyAnalyticsResult,
 } from '@/api/habits-analytics/goal-trophy-analytics-actions'
 import { formatDistanceToNow } from 'date-fns'
+import { AnalyticsPlanNotice } from '@/components/ui/analytics-plan-notice'
 
 function niceYAxis(maxVal: number): { domain: [number, number]; ticks: number[] } {
   if (maxVal === 0) return { domain: [0, 4], ticks: [0, 1, 2, 3, 4] }
@@ -160,6 +161,8 @@ export function TrophyAnalyticsChart({
           ))}
         </div>
       </div>
+
+      {data.restrictedByPlan && <AnalyticsPlanNotice />}
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">

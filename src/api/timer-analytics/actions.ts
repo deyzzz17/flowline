@@ -4,6 +4,8 @@ import 'server-only'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { getUserId } from '../timer/actions'
+import { getUserPlanLimits } from '@/lib/get-user-plan'
+import { getAnalyticsWindowStart, clampToAnalyticsWindow } from '@/lib/analytics-window'
 
 export type AnalyticsPeriod = 'day' | 'week' | 'month' | 'year'
 
@@ -47,9 +49,10 @@ export interface SessionAnalytics {
   focusQualitySubTimeSeries: TimeSeriesPoint[]
   focusQualitySubSeriesDefinitions: SeriesDefinition[]
   periodLabel: string
+  restrictedByPlan: boolean
 }
 
-function emptyAnalytics(periodLabel: string): SessionAnalytics {
+function emptyAnalytics(periodLabel: string, restrictedByPlan = false): SessionAnalytics {
   return {
     timeByCategory: [],
     timeBySubcategory: [],
@@ -66,6 +69,7 @@ function emptyAnalytics(periodLabel: string): SessionAnalytics {
     focusQualitySubTimeSeries: [],
     focusQualitySubSeriesDefinitions: [],
     periodLabel,
+    restrictedByPlan,
   }
 }
 
@@ -194,6 +198,10 @@ export const getTimerAnalytics = async (
 
   if (!userId) return emptyAnalytics(periodLabel)
 
+  const { plan } = await getUserPlanLimits()
+  const windowStart = getAnalyticsWindowStart(plan)
+  const { fetchFrom, restrictedByPlan } = clampToAnalyticsWindow(periodStart, windowStart)
+
   const payload = await getPayload({ config })
 
   const { docs: sessions } = await payload.find({
@@ -201,14 +209,14 @@ export const getTimerAnalytics = async (
     where: {
       and: [
         { userId: { equals: userId } },
-        { startedAt: { greater_than_equal: periodStart.toISOString() } },
+        { startedAt: { greater_than_equal: fetchFrom.toISOString() } },
         { startedAt: { less_than_equal: periodEnd.toISOString() } },
       ],
     },
     limit: 0,
   })
 
-  if (sessions.length === 0) return emptyAnalytics(periodLabel)
+  if (sessions.length === 0) return emptyAnalytics(periodLabel, restrictedByPlan)
 
   const { docs: userCategories } = await payload.find({
     collection: 'timer-categories',
@@ -443,5 +451,6 @@ export const getTimerAnalytics = async (
       bySubcategory,
     },
     periodLabel,
+    restrictedByPlan,
   }
 }

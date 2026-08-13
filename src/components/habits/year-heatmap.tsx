@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getHeatmapAnalytics, type HeatmapAnalyticsResult } from '@/api/habits-analytics/actions'
+import { AnalyticsPlanNotice } from '@/components/ui/analytics-plan-notice'
 
 const MONTH_LABELS = [
   'Jan',
@@ -164,6 +165,8 @@ export function YearHeatmap({ initialData }: YearHeatmapProps) {
           </button>
         </div>
       </div>
+
+      {data.restrictedByPlan && <AnalyticsPlanNotice className="mb-4" />}
 
       {tooltip.visible && (
         <div

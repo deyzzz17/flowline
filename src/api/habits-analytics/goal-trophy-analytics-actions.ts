@@ -4,6 +4,8 @@ import 'server-only'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { getSession } from '@/lib/get-session'
+import { getUserPlanLimits } from '@/lib/get-user-plan'
+import { getAnalyticsWindowStart, clampToAnalyticsWindow } from '@/lib/analytics-window'
 
 const getUserSession = async () => {
   const session = await getSession()
@@ -28,6 +30,7 @@ export interface TrophyAnalyticsResult {
     goalDescription: string
     completedAt: string
   }[]
+  restrictedByPlan: boolean
 }
 
 function localDateStr(date: Date, timezone: string): string {
@@ -211,7 +214,13 @@ export const getGoalTrophyAnalytics = async (
   offset: number,
 ): Promise<TrophyAnalyticsResult> => {
   const session = await getUserSession()
-  const empty: TrophyAnalyticsResult = { periodLabel: '', points: [], total: 0, claimed: [] }
+  const empty: TrophyAnalyticsResult = {
+    periodLabel: '',
+    points: [],
+    total: 0,
+    claimed: [],
+    restrictedByPlan: false,
+  }
   if (!session?.user?.id) return empty
 
   const userId = session.user.id
@@ -231,6 +240,10 @@ export const getGoalTrophyAnalytics = async (
   const periodLabel = getPeriodLabel(period, from, to, timezone)
   const buckets = getBuckets(period, from, to, timezone)
 
+  const { plan } = await getUserPlanLimits()
+  const windowStart = getAnalyticsWindowStart(plan)
+  const { fetchFrom, restrictedByPlan } = clampToAnalyticsWindow(from, windowStart)
+
   const claimedGoals: {
     habitName: string
     habitColor: string
@@ -243,7 +256,7 @@ export const getGoalTrophyAnalytics = async (
     for (const goal of goals) {
       if (!goal.completedAt) continue
       const completedAt = new Date(goal.completedAt)
-      if (completedAt >= from && completedAt <= to) {
+      if (completedAt >= fetchFrom && completedAt <= to) {
         claimedGoals.push({
           habitName: habit.name,
           habitColor: (habit as any).color ?? '#8b5cf6',
@@ -273,5 +286,6 @@ export const getGoalTrophyAnalytics = async (
         goalDescription: g.goalDescription,
         completedAt: g.completedAt.toISOString(),
       })),
+    restrictedByPlan,
   }
 }

@@ -27,6 +27,7 @@ import {
 } from 'recharts'
 import { getListAnalytics, type ListAnalyticsData } from '@/api/list-analytics/actions'
 import { format } from 'date-fns'
+import { AnalyticsPlanNotice } from '@/components/ui/analytics-plan-notice'
 
 type Period = 'day' | 'week' | 'month'
 type ChartType = 'bar' | 'line'
@@ -443,7 +444,8 @@ export function ListAnalyticsClient({ initialData }: { initialData: ListAnalytic
           </div>
         </div>
 
-        <div className={cn('transition-opacity', isFetching && 'opacity-40')}>
+        <div className={cn('space-y-3 transition-opacity', isFetching && 'opacity-40')}>
+          {data.restrictedByPlan && <AnalyticsPlanNotice />}
           <SeriesChart series={data.series} tags={data.seriesTags} chartType={chartType} />
         </div>
       </div>

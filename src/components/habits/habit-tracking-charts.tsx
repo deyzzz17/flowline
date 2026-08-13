@@ -21,6 +21,7 @@ import {
   type TrackingFieldAnalytics,
   type HabitTrackingAnalyticsResult,
 } from '@/api/habits-analytics/actions'
+import { AnalyticsPlanNotice } from '@/components/ui/analytics-plan-notice'
 
 const PERIODS: { value: TrackingPeriod; label: string }[] = [
   { value: 'week', label: 'Week' },
@@ -291,6 +292,7 @@ export function HabitTrackingCharts({
         </div>
       </div>
       <div className={cn('space-y-4 transition-opacity', isPending && 'opacity-40')}>
+        {data.restrictedByPlan && <AnalyticsPlanNotice />}
         {data.fields.map((field) => (
           <FieldChart key={field.fieldKey} field={field} color={color} />
         ))}

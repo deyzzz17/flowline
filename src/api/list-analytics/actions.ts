@@ -5,6 +5,8 @@ import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { Pool } from 'pg'
 import { getSession } from '@/lib/get-session'
+import { getUserPlanLimits } from '@/lib/get-user-plan'
+import { getAnalyticsWindowStart, clampToAnalyticsWindow } from '@/lib/analytics-window'
 
 const getUserId = async () => {
   const session = await getSession()
@@ -52,6 +54,7 @@ export interface ListAnalyticsData {
   period: 'day' | 'week' | 'month'
   periodStart: string
   periodEnd: string
+  restrictedByPlan: boolean
 }
 
 function localToUTC(
@@ -119,6 +122,7 @@ export const getListAnalytics = async (
       period,
       periodStart: '',
       periodEnd: '',
+      restrictedByPlan: false,
     }
 
   let userTimezone = 'UTC'
@@ -219,7 +223,14 @@ export const getListAnalytics = async (
   )
   const donutEndUTC = endOfDayUTC(nowLocal.year, nowLocal.month, nowLocal.day, userTimezone)
 
-  const fetchStartUTC = donutStartUTC < seriesStartUTC ? donutStartUTC : seriesStartUTC
+  const { plan } = await getUserPlanLimits()
+  const windowStart = getAnalyticsWindowStart(plan)
+  const { fetchFrom: clampedSeriesStartUTC, restrictedByPlan } = clampToAnalyticsWindow(
+    seriesStartUTC,
+    windowStart,
+  )
+
+  const fetchStartUTC = donutStartUTC < clampedSeriesStartUTC ? donutStartUTC : clampedSeriesStartUTC
   const fetchEndUTC = donutEndUTC > seriesEndUTC ? donutEndUTC : seriesEndUTC
 
   const { docs: completions } = await payload.find({
@@ -406,5 +417,6 @@ export const getListAnalytics = async (
     period,
     periodStart: seriesStartUTC.toISOString(),
     periodEnd: seriesEndUTC.toISOString(),
+    restrictedByPlan,
   }
 }
