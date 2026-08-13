@@ -80,9 +80,11 @@ export const NewListClient = () => {
           return
         }
         setError(
-          result.error === 'DUPLICATE_NAME'
-            ? `A list named "${name.trim()}" already exists. Please choose a different name.`
-            : 'Something went wrong while creating the list. Please try again.',
+          result.error === 'DUPLICATE_NAME_ARCHIVED'
+            ? `An archived list named "${name.trim()}" already exists. Please choose a different name.`
+            : result.error === 'DUPLICATE_NAME'
+              ? `A list named "${name.trim()}" already exists. Please choose a different name.`
+              : 'Something went wrong while creating the list. Please try again.',
         )
         return
       }

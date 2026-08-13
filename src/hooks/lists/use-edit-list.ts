@@ -66,9 +66,11 @@ export const useEditList = (list: List) => {
           queryClient.setQueryData(['lists'], context.previousLists)
         }
         setEditError(
-          result.error === 'DUPLICATE_NAME'
-            ? `A list named "${name.trim()}" already exists. Please choose a different name.`
-            : (result.error ?? 'Error while editing the list.'),
+          result.error === 'DUPLICATE_NAME_ARCHIVED'
+            ? `An archived list named "${name.trim()}" already exists. Please choose a different name.`
+            : result.error === 'DUPLICATE_NAME'
+              ? `A list named "${name.trim()}" already exists. Please choose a different name.`
+              : (result.error ?? 'Error while editing the list.'),
         )
         setEditOpen(true)
         return

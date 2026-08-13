@@ -76,7 +76,7 @@ export const createList = async (input: CreateListInput) => {
     })
 
     if (existing.length > 0) {
-      return err('DUPLICATE_NAME')
+      return err(existing[0].planArchivedAt ? 'DUPLICATE_NAME_ARCHIVED' : 'DUPLICATE_NAME')
     }
 
     const newList = await payload.create({
@@ -328,7 +328,7 @@ export const editList = async (id: number, input: EditListInput) => {
         limit: 1,
       })
       if (existing.length > 0) {
-        return err('DUPLICATE_NAME')
+        return err(existing[0].planArchivedAt ? 'DUPLICATE_NAME_ARCHIVED' : 'DUPLICATE_NAME')
       }
     }
 
