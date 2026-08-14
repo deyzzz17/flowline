@@ -65,6 +65,7 @@ export function TimerComplianceGate() {
     const { info } = step
     return (
       <PlanSelectionDialog
+        key="categories"
         icon={<Tag className="h-4 w-4 text-violet-500" />}
         title="Choose which timer categories to keep"
         description={
@@ -106,6 +107,7 @@ export function TimerComplianceGate() {
   const { info } = step
   return (
     <PlanSelectionDialog
+      key="configs"
       icon={<Timer className="h-4 w-4 text-violet-500" />}
       title="Choose which timer presets to keep"
       description={

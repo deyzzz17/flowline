@@ -83,19 +83,15 @@ export function SubscriptionSection({ billing }: { billing?: BillingInfo | null 
             </span>
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed">{meta.description}</p>
-          {periodEndFormatted && !billing?.isTrial && (
-            <p
-              className={cn(
-                'mt-1 text-xs',
-                billing?.cancelAtPeriodEnd
-                  ? 'font-medium text-amber-600 dark:text-amber-400'
-                  : 'text-muted-foreground/60',
-              )}
-            >
-              {billing?.cancelAtPeriodEnd
-                ? `Cancels on ${periodEndFormatted} — you'll switch to Free`
-                : `Renews ${periodEndFormatted}`}
+          {periodEndFormatted && billing?.cancelAtPeriodEnd && (
+            <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+              {billing?.isTrial
+                ? `Canceled — your trial won't convert to paid. You'll switch to Free on ${periodEndFormatted}`
+                : `Cancels on ${periodEndFormatted} — you'll switch to Free`}
             </p>
+          )}
+          {periodEndFormatted && !billing?.isTrial && !billing?.cancelAtPeriodEnd && (
+            <p className="mt-1 text-xs text-muted-foreground/60">Renews {periodEndFormatted}</p>
           )}
           {billing?.subscriptionStatus === 'past_due' && (
             <div className="mt-2 flex items-center gap-1.5 text-xs text-destructive font-medium">

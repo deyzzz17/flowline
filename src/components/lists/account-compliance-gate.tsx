@@ -62,6 +62,7 @@ export function AccountComplianceGate({
 
     return (
       <PlanSelectionDialog
+        key="lists"
         icon={<ClipboardList className="h-4 w-4 text-violet-500" />}
         title="Choose which lists to keep"
         description={
@@ -122,6 +123,7 @@ export function AccountComplianceGate({
 
   return (
     <PlanSelectionDialog
+      key="tags"
       icon={<Tag className="h-4 w-4 text-violet-500" />}
       title="Choose which tags to keep"
       description={
