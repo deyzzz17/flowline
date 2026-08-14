@@ -88,7 +88,8 @@ export const useTimerCustomize = () => {
       if (archived.length === 0) return
 
       const categoriesLimit = planLimits?.limits.timerCategories ?? FALLBACK_TIMER_CATEGORIES_LIMIT
-      const activeCount = Math.max(0, categories.length - 1)
+      const nonDefaultCount = categories.filter((c) => !c.isDefault).length
+      const activeCount = Math.max(0, nonDefaultCount - 1)
       const room =
         planLimits && isPlanUnlimited(planLimits.plan, 'timerCategories')
           ? archived.length
