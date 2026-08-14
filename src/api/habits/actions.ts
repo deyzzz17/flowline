@@ -661,7 +661,10 @@ export const createHabit = async (data: HabitData) => {
       )
     }
 
-    if ((data.trackingFields ?? []).length > limits.trackingFieldsPerHabit) {
+    if (
+      (data.trackingFields ?? []).filter((f) => !f.isDefault).length >
+      limits.trackingFieldsPerHabit
+    ) {
       return err(
         isPlanUnlimited(plan, 'trackingFieldsPerHabit')
           ? SAFETY_CAP_ERRORS.TRACKING_FIELDS_CAP
@@ -891,13 +894,15 @@ export const checkTrackingFieldsComplianceForUser = async (): Promise<{
   const overLimit: HabitTrackingFieldsOverLimit[] = habits
     .map((h) => ({
       habit: h,
-      fields: parseJsonField<TrackingField[]>((h as any).trackingFields) ?? [],
+      customFields: (parseJsonField<TrackingField[]>((h as any).trackingFields) ?? []).filter(
+        (f) => !f.isDefault,
+      ),
     }))
-    .filter(({ fields }) => fields.length > limits.trackingFieldsPerHabit)
-    .map(({ habit, fields }) => ({
+    .filter(({ customFields }) => customFields.length > limits.trackingFieldsPerHabit)
+    .map(({ habit, customFields }) => ({
       habitId: habit.id,
       habitName: habit.name,
-      trackingFields: fields,
+      trackingFields: customFields,
     }))
 
   if (overLimit.length === 0) return null
@@ -920,7 +925,7 @@ export const chooseTrackingFieldsToKeep = async (habitId: number, keepKeys: stri
 
     const fields = parseJsonField<TrackingField[]>((habit as any).trackingFields) ?? []
     const keepSet = new Set(keepKeys)
-    const filtered = fields.filter((f) => keepSet.has(f.key))
+    const filtered = fields.filter((f) => f.isDefault || keepSet.has(f.key))
 
     await payload.update({
       collection: 'habits',
@@ -1030,7 +1035,7 @@ export const updateHabit = async (id: number, data: Partial<HabitData>) => {
 
       if (
         data.trackingFields !== undefined &&
-        data.trackingFields.length > limits.trackingFieldsPerHabit
+        data.trackingFields.filter((f) => !f.isDefault).length > limits.trackingFieldsPerHabit
       ) {
         return err(
           isPlanUnlimited(plan, 'trackingFieldsPerHabit')

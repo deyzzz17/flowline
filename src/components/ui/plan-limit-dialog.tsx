@@ -47,7 +47,7 @@ const LIMIT_MESSAGES: Record<LimitError, { title: string; description: string; c
   TRACKING_FIELDS_LIMIT: {
     title: 'Tracking field limit reached',
     description:
-      "You've reached the maximum number of tracking fields per habit on the Free plan (10). Upgrade to Plus for unlimited tracking fields.",
+      "You've reached the maximum number of custom tracking fields for this habit (10). Delete one of your existing custom fields, or upgrade to Pro for unlimited tracking fields.",
     cta: 'Upgrade for unlimited tracking fields',
   },
   GOALS_LIMIT: {

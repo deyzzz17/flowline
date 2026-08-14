@@ -23,7 +23,9 @@ import {
   Pencil,
   Trophy,
   CalendarDays,
+  Lock,
 } from 'lucide-react'
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
@@ -77,7 +79,7 @@ const DEFAULT_TRACKING_FIELDS: Omit<TrackingField, 'enabled'>[] = [
 ]
 
 // Valeurs de repli tant que usePlanLimits n'a pas encore résolu (plan free)
-const FALLBACK_TRACKING_FIELDS_LIMIT = 10
+const FALLBACK_TRACKING_FIELDS_LIMIT = 0
 const FALLBACK_GOALS_LIMIT = 5
 
 type TrackingFieldType = 'number' | 'text' | 'boolean'
@@ -456,6 +458,7 @@ function HabitFormInner({
   const trackingFieldsLimit =
     planLimits?.limits.trackingFieldsPerHabit ?? FALLBACK_TRACKING_FIELDS_LIMIT
   const goalsLimit = planLimits?.limits.goalsPerHabit ?? FALLBACK_GOALS_LIMIT
+  const isCustomFieldsBlocked = trackingFieldsLimit === 0
 
   const [name, setName] = useState(init.name)
   const [description, setDescription] = useState(init.description)
@@ -581,7 +584,8 @@ function HabitFormInner({
 
   const addCustomField = () => {
     if (!newFieldLabel.trim()) return
-    if (trackingFields.length >= trackingFieldsLimit) {
+    const customFieldsCount = trackingFields.filter((f) => !f.isDefault).length
+    if (customFieldsCount >= trackingFieldsLimit) {
       if (planLimits && isPlanUnlimited(planLimits.plan, 'trackingFieldsPerHabit')) {
         setCapError(SAFETY_CAP_ERRORS.TRACKING_FIELDS_CAP)
       } else {
@@ -1199,6 +1203,14 @@ function HabitFormInner({
               </button>
             </div>
           </div>
+        ) : isCustomFieldsBlocked ? (
+          <Link
+            href="/billing"
+            className="flex items-center gap-1.5 rounded-full border border-dashed border-border/40 px-3 py-1 text-xs text-muted-foreground/50 opacity-60 transition-all hover:border-violet-500/40 hover:text-violet-500 hover:opacity-100"
+          >
+            <Lock className="h-3 w-3" />
+            Custom fields require Plus
+          </Link>
         ) : (
           <button
             type="button"
