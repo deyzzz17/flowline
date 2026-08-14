@@ -53,11 +53,30 @@ export function HabitsComplianceGate() {
 
   const runTrackingFieldsCheck = useCallback(async () => {
     const result = await checkTrackingFieldsComplianceForUser()
-    if (result && result.habits.length > 0) {
-      setStep({ kind: 'trackingFields', limit: result.limit, queue: result.habits, index: 0 })
-    } else {
+    if (!result || result.habits.length === 0) {
       await runGoalsCheck()
+      return
     }
+
+    if (result.limit === 0) {
+      // Free plan allows zero custom tracking fields — there's nothing to choose between,
+      // so skip the selection dialog and clear them directly. Default fields are untouched.
+      const results = await Promise.all(
+        result.habits.map((h) => chooseTrackingFieldsToKeep(h.habitId, [])),
+      )
+      if (results.some((r) => !r.ok)) {
+        toast.error('Something went wrong. Please try again.')
+      } else {
+        const total = result.habits.reduce((sum, h) => sum + h.trackingFields.length, 0)
+        toast.info('Custom tracking fields removed', {
+          description: `Custom tracking fields aren't available on the Free plan. ${total} field${total !== 1 ? 's were' : ' was'} removed — default fields are unaffected.`,
+        })
+      }
+      await runGoalsCheck()
+      return
+    }
+
+    setStep({ kind: 'trackingFields', limit: result.limit, queue: result.habits, index: 0 })
   }, [runGoalsCheck])
 
   useEffect(() => {
