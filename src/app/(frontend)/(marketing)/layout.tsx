@@ -12,15 +12,25 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <>
       <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background backdrop-blur supports-backdrop-filter:bg-background/60">
         <div className="mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-10">
-          <Link href="/" className="group flex items-center gap-3">
-            <FlowlineLogo />
-            <span
-              translate="no"
-              className="text-[17px] font-bold tracking-tight text-foreground transition-colors group-hover:text-foreground/80"
-            >
-              Flowline
-            </span>
-          </Link>
+          <div className="flex items-center gap-8">
+            <Link href="/" className="group flex items-center gap-3">
+              <FlowlineLogo />
+              <span
+                translate="no"
+                className="text-[17px] font-bold tracking-tight text-foreground transition-colors group-hover:text-foreground/80"
+              >
+                Flowline
+              </span>
+            </Link>
+            <nav className="hidden items-center sm:flex">
+              <Link
+                href="/pricing"
+                className="rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Pricing
+              </Link>
+            </nav>
+          </div>
           <div className="flex items-center gap-2 sm:gap-3">
             <ModeToggle />
             <AuthButtons />
