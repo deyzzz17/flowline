@@ -69,7 +69,7 @@ async function findUserByEmail(email: string): Promise<ContactProfile | null> {
   }
 }
 
-async function findUsersByIds(ids: string[]): Promise<Map<string, ContactProfile>> {
+export async function findUsersByIds(ids: string[]): Promise<Map<string, ContactProfile>> {
   const map = new Map<string, ContactProfile>()
   if (ids.length === 0) return map
   const pool = new Pool({ connectionString: process.env.DATABASE_URL })

@@ -122,6 +122,7 @@ interface TaskCardProps {
   readOnly?: boolean
   noEdit?: boolean
   showListBadge?: boolean
+  canHardDelete?: boolean
   taskManager: ReturnType<typeof useTask>
 }
 
@@ -132,6 +133,7 @@ export const TaskCard = ({
   readOnly,
   noEdit,
   showListBadge,
+  canHardDelete = true,
   taskManager,
 }: TaskCardProps) => {
   const {
@@ -1288,7 +1290,7 @@ export const TaskCard = ({
                                   )}
                                 </button>
                               )}
-                              {!isDeleted && !isCompleted && (
+                              {!isDeleted && !isCompleted && !readOnly && (
                                 <button
                                   type="button"
                                   className="text-muted-foreground/30 hover:text-primary transition-colors"
@@ -1317,7 +1319,7 @@ export const TaskCard = ({
                                     />
                                   )
                                 })()}
-                              {!isDeleted && !isCompleted && (
+                              {!isDeleted && !isCompleted && !readOnly && (
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
                                     <button
@@ -1444,40 +1446,42 @@ export const TaskCard = ({
                 >
                   <ArrowPathIcon className="h-4 w-4" />
                 </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
-                      disabled={isPending}
-                    >
-                      <TrashIcon className="h-4 w-4" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently delete <strong>{task.title}</strong>.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => {
-                          deleteTask.mutate(task.id)
-                          toast.info('Task successfully removed', {
-                            description: `This task has been removed from your list.`,
-                          })
-                        }}
-                        variant="destructive"
+                {canHardDelete && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
+                        disabled={isPending}
                       >
-                        Delete permanently
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                        <TrashIcon className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete <strong>{task.title}</strong>.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => {
+                            deleteTask.mutate(task.id)
+                            toast.info('Task successfully removed', {
+                              description: `This task has been removed from your list.`,
+                            })
+                          }}
+                          variant="destructive"
+                        >
+                          Delete permanently
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
               </>
             ) : (
               <Button

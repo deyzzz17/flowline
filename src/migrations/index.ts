@@ -41,6 +41,7 @@ import * as migration_20260619_143703 from './20260619_143703';
 import * as migration_20260811_160114 from './20260811_160114';
 import * as migration_20260812_094547 from './20260812_094547';
 import * as migration_20260812_104649 from './20260812_104649';
+import * as migration_20260819_150003_shared_lists from './20260819_150003_shared_lists';
 
 export const migrations = [
   {
@@ -256,6 +257,11 @@ export const migrations = [
   {
     up: migration_20260812_104649.up,
     down: migration_20260812_104649.down,
-    name: '20260812_104649'
+    name: '20260812_104649',
+  },
+  {
+    up: migration_20260819_150003_shared_lists.up,
+    down: migration_20260819_150003_shared_lists.down,
+    name: '20260819_150003_shared_lists'
   },
 ];

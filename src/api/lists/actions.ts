@@ -10,6 +10,7 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
+import { resolveListRole } from '@/lib/list-roles'
 
 type CreateListInput = {
   name: string
@@ -297,7 +298,8 @@ export const getListById = async (id: number) => {
     const payload = await getPayload({ config })
     const list = await payload.findByID({ collection: 'lists', id })
 
-    if (list.userId !== userId) return err('Not authorized')
+    const role = await resolveListRole(payload, id, userId)
+    if (!role) return err('Not authorized')
 
     return ok(list)
   } catch {
@@ -311,9 +313,9 @@ export const editList = async (id: number, input: EditListInput) => {
     if (!userId) return err('Not authenticated')
 
     const payload = await getPayload({ config })
-    const list = await payload.findByID({ collection: 'lists', id })
 
-    if (list.userId !== userId) return err('Not authorized')
+    const role = await resolveListRole(payload, id, userId)
+    if (role !== 'admin') return err('Not authorized')
 
     if (input.name !== undefined) {
       const { docs: existing } = await payload.find({
@@ -356,7 +358,8 @@ export const deleteList = async (id: number) => {
     const payload = await getPayload({ config })
     const list = await payload.findByID({ collection: 'lists', id })
 
-    if (list.userId !== userId) return err('Not authorized')
+    const role = await resolveListRole(payload, id, userId)
+    if (role !== 'admin') return err('Not authorized')
 
     const { docs: tasks } = await payload.find({
       collection: 'tasks',
@@ -366,6 +369,17 @@ export const deleteList = async (id: number) => {
 
     for (const task of tasks) {
       await payload.delete({ collection: 'tasks', id: task.id })
+    }
+
+    if (list.isShared) {
+      const { docs: members } = await payload.find({
+        collection: 'list-members',
+        where: { list: { equals: id } },
+        limit: 0,
+      })
+      for (const member of members) {
+        await payload.delete({ collection: 'list-members', id: member.id })
+      }
     }
 
     await payload.delete({ collection: 'lists', id })
@@ -428,6 +442,13 @@ export const createDefaultList = async () => {
   }
 }
 
+export const getListRole = async (listId: number) => {
+  const userId = await getUserId()
+  if (!userId) return null
+  const payload = await getPayload({ config })
+  return resolveListRole(payload, listId, userId)
+}
+
 export const getListBySlug = async (slug: string) => {
   const userId = await getUserId()
   if (!userId) return err('Not authenticated')
@@ -435,14 +456,14 @@ export const getListBySlug = async (slug: string) => {
   const { docs } = await payload.find({
     collection: 'lists',
     where: {
-      and: [
-        { userId: { equals: userId } },
-        { slug: { equals: slug } },
-        { planArchivedAt: { exists: false } },
-      ],
+      and: [{ slug: { equals: slug } }, { planArchivedAt: { exists: false } }],
     },
     limit: 1,
   })
   if (!docs[0]) return err('List not found')
+
+  const role = await resolveListRole(payload, docs[0].id, userId)
+  if (!role) return err('List not found')
+
   return ok(docs[0])
 }

@@ -82,6 +82,7 @@ export interface Config {
     habits: Habit;
     'habit-completions': HabitCompletion;
     connections: Connection;
+    'list-members': ListMember;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -104,6 +105,7 @@ export interface Config {
     habits: HabitsSelect<false> | HabitsSelect<true>;
     'habit-completions': HabitCompletionsSelect<false> | HabitCompletionsSelect<true>;
     connections: ConnectionsSelect<false> | ConnectionsSelect<true>;
+    'list-members': ListMembersSelect<false> | ListMembersSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -259,6 +261,10 @@ export interface List {
    * The default “To-Do” list created automatically upon registration
    */
   isDefault?: boolean | null;
+  /**
+   * True once this list has had at least one member invited. One-way flag — never reset to false.
+   */
+  isShared?: boolean | null;
   /**
    * Indicates when the list was set aside following a plan downgrade (quota exceeded). As long as this field is filled in, the list and its tasks are hidden throughout the app, except in The screen for managing lists archived via downgrade. This is distinct from any other archiving concept.
    */
@@ -631,6 +637,30 @@ export interface Connection {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "list-members".
+ */
+export interface ListMember {
+  id: number;
+  list: number | List;
+  /**
+   * userId of the invited/member user
+   */
+  userId: string;
+  /**
+   * userId of the admin who sent the invite
+   */
+  invitedBy: string;
+  role: 'editor' | 'reader';
+  status: 'pending' | 'accepted';
+  /**
+   * Set when the invite is accepted
+   */
+  respondedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -712,6 +742,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'connections';
         value: number | Connection;
+      } | null)
+    | ({
+        relationTo: 'list-members';
+        value: number | ListMember;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -876,6 +910,7 @@ export interface ListsSelect<T extends boolean = true> {
         color?: T;
       };
   isDefault?: T;
+  isShared?: T;
   planArchivedAt?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -1068,6 +1103,20 @@ export interface HabitCompletionsSelect<T extends boolean = true> {
 export interface ConnectionsSelect<T extends boolean = true> {
   requesterId?: T;
   recipientId?: T;
+  status?: T;
+  respondedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "list-members_select".
+ */
+export interface ListMembersSelect<T extends boolean = true> {
+  list?: T;
+  userId?: T;
+  invitedBy?: T;
+  role?: T;
   status?: T;
   respondedAt?: T;
   updatedAt?: T;

@@ -5,6 +5,7 @@ import { tagsAPI } from './tags'
 import { tasksAPI } from './tasks'
 import { timerAPI } from './timer'
 import { calendarAPI } from './calendar'
+import { listMembersAPI } from './list-members'
 
 export const api = {
   tasks: tasksAPI,
@@ -14,4 +15,5 @@ export const api = {
   lists: listsAPI,
   timer: timerAPI,
   calendar: calendarAPI,
+  listMembers: listMembersAPI,
 }

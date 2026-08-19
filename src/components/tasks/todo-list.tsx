@@ -8,9 +8,16 @@ interface TodoListProps {
   readOnly?: boolean
   noEdit?: boolean
   showListBadge?: boolean
+  canHardDelete?: boolean
 }
 
-export const TodoList = ({ tasks, readOnly, noEdit, showListBadge }: TodoListProps) => {
+export const TodoList = ({
+  tasks,
+  readOnly,
+  noEdit,
+  showListBadge,
+  canHardDelete,
+}: TodoListProps) => {
   const taskManager = useTask()
   return (
     <div className="grid gap-3 sm:gap-4 w-full">
@@ -26,6 +33,7 @@ export const TodoList = ({ tasks, readOnly, noEdit, showListBadge }: TodoListPro
             readOnly={readOnly}
             noEdit={noEdit}
             showListBadge={showListBadge}
+            canHardDelete={canHardDelete}
             taskManager={taskManager}
           />
         )

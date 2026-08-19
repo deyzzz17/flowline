@@ -7,9 +7,15 @@ interface AchievedListProps {
   tasks: Task[]
   readOnly?: boolean
   showListBadge?: boolean
+  canHardDelete?: boolean
 }
 
-export const AchievedList = ({ tasks, readOnly, showListBadge }: AchievedListProps) => {
+export const AchievedList = ({
+  tasks,
+  readOnly,
+  showListBadge,
+  canHardDelete,
+}: AchievedListProps) => {
   const taskManager = useTask()
   return (
     <div className="grid gap-3 sm:gap-4 w-full">
@@ -20,6 +26,7 @@ export const AchievedList = ({ tasks, readOnly, showListBadge }: AchievedListPro
           isDisabled={readOnly ? false : undefined}
           readOnly={readOnly}
           showListBadge={showListBadge}
+          canHardDelete={canHardDelete}
           taskManager={taskManager}
         />
       ))}

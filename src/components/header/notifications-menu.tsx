@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell, X, Trophy } from 'lucide-react'
+import { Bell, X, Trophy, Users, Check, Loader2 } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { useNotifications } from '@/hooks/header/use-notifications'
@@ -49,11 +49,25 @@ function tryHighlight(taskId: number, attempts = 0) {
 }
 
 export const NotificationsMenu = () => {
-  const { open, setOpen, notifications, hasUnread, count, dismiss, dismissAll } = useNotifications()
+  const {
+    open,
+    setOpen,
+    notifications,
+    hasUnread,
+    count,
+    dismiss,
+    dismissAll,
+    acceptListInvite,
+    isAcceptingListInvite,
+    declineListInvite,
+    isDecliningListInvite,
+  } = useNotifications()
   const router = useRouter()
   const pathname = usePathname()
 
-  const handleNotifClick = (notif: typeof notifications[0]) => {
+  const handleNotifClick = (notif: (typeof notifications)[0]) => {
+    if (notif.level === 'list_invite') return
+
     setOpen(false)
 
     if (notif.level === 'goal_claim' && notif.habitSlug) {
@@ -125,49 +139,101 @@ export const NotificationsMenu = () => {
                 key={notif.id}
                 className="group relative flex items-start gap-3 px-4 py-3 hover:bg-muted/50 transition-colors"
               >
-                <button
-                  type="button"
-                  onClick={() => handleNotifClick(notif)}
-                  className="flex flex-1 items-start gap-3 text-left"
-                > 
-                  {notif.level === 'goal_claim' ? (
-                    <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
-                      style={{ backgroundColor: notif.listColor + '25' }}>
-                      <Trophy className="h-3 w-3" style={{ color: notif.listColor }} />
-                    </div>
-                  ) : (
-                    <div
-                      className="mt-0.5 h-2 w-2 shrink-0 rounded-full mt-1.5"
-                      style={{ backgroundColor: notif.listColor }}
-                    />
-                  )}
+                {(() => {
+                  const content = (
+                    <>
+                      {notif.level === 'goal_claim' ? (
+                        <div
+                          className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+                          style={{ backgroundColor: notif.listColor + '25' }}
+                        >
+                          <Trophy className="h-3 w-3" style={{ color: notif.listColor }} />
+                        </div>
+                      ) : notif.level === 'list_invite' ? (
+                        <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500/15">
+                          <Users className="h-3 w-3 text-violet-500" />
+                        </div>
+                      ) : (
+                        <div
+                          className="mt-0.5 h-2 w-2 shrink-0 rounded-full mt-1.5"
+                          style={{ backgroundColor: notif.listColor }}
+                        />
+                      )}
 
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-foreground truncate">
-                      {notif.level === 'goal_claim' ? notif.taskTitle : notif.taskTitle}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground/70 mt-0.5 truncate">
-                      {notif.level === 'goal_claim' ? notif.goalDescription : notif.listName}
-                    </p>
-                    <div className="mt-1.5 flex items-center gap-1.5">
-                      <span
-                        className={cn(
-                          'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                          notif.level === 'goal_claim'
-                            ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                            : notif.level === 'today'
-                              ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                              : notif.level === 'urgent'
-                                ? 'bg-destructive/10 text-destructive'
-                                : 'bg-orange-500/10 text-orange-500 dark:text-orange-400',
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-foreground truncate">
+                          {notif.taskTitle}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground/70 mt-0.5 truncate">
+                          {notif.level === 'goal_claim' ? notif.goalDescription : notif.listName}
+                        </p>
+                        <div className="mt-1.5 flex items-center gap-1.5">
+                          <span
+                            className={cn(
+                              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                              notif.level === 'goal_claim'
+                                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                : notif.level === 'list_invite'
+                                  ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                                  : notif.level === 'today'
+                                    ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                                    : notif.level === 'urgent'
+                                      ? 'bg-destructive/10 text-destructive'
+                                      : 'bg-orange-500/10 text-orange-500 dark:text-orange-400',
+                            )}
+                          >
+                            {notif.level === 'goal_claim' && <Trophy className="h-2.5 w-2.5" />}
+                            {notif.message}
+                          </span>
+                        </div>
+
+                        {notif.level === 'list_invite' && notif.inviteId !== undefined && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                acceptListInvite(notif.inviteId as number)
+                              }}
+                              disabled={isAcceptingListInvite || isDecliningListInvite}
+                              className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1 text-[10px] font-semibold text-white transition-colors hover:bg-violet-500 disabled:opacity-50"
+                            >
+                              {isAcceptingListInvite ? (
+                                <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                              ) : (
+                                <Check className="h-2.5 w-2.5" />
+                              )}
+                              Accept
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                declineListInvite(notif.inviteId as number)
+                              }}
+                              disabled={isAcceptingListInvite || isDecliningListInvite}
+                              className="inline-flex items-center gap-1 rounded-lg border border-border/60 px-2.5 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                            >
+                              Decline
+                            </button>
+                          </div>
                         )}
-                      >
-                        {notif.level === 'goal_claim' && <Trophy className="h-2.5 w-2.5" />}
-                        {notif.message}
-                      </span>
-                    </div>
-                  </div>
-                </button>
+                      </div>
+                    </>
+                  )
+
+                  return notif.level === 'list_invite' ? (
+                    <div className="flex flex-1 items-start gap-3 text-left">{content}</div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleNotifClick(notif)}
+                      className="flex flex-1 items-start gap-3 text-left"
+                    >
+                      {content}
+                    </button>
+                  )
+                })()}
 
                 <button
                   type="button"

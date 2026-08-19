@@ -8,9 +8,16 @@ interface InactiveListProps {
   readOnly?: boolean
   noEdit?: boolean
   showListBadge?: boolean
+  canHardDelete?: boolean
 }
 
-export const InactiveList = ({ tasks, readOnly, noEdit, showListBadge }: InactiveListProps) => {
+export const InactiveList = ({
+  tasks,
+  readOnly,
+  noEdit,
+  showListBadge,
+  canHardDelete,
+}: InactiveListProps) => {
   const taskManager = useTask()
   return (
     <div className="grid gap-3 sm:gap-4 w-full">
@@ -21,6 +28,7 @@ export const InactiveList = ({ tasks, readOnly, noEdit, showListBadge }: Inactiv
           readOnly={readOnly}
           noEdit={noEdit}
           showListBadge={showListBadge}
+          canHardDelete={canHardDelete}
           taskManager={taskManager}
         />
       ))}

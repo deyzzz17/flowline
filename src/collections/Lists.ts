@@ -54,6 +54,16 @@ export const Lists: CollectionConfig = {
       },
     },
     {
+      name: 'isShared',
+      type: 'checkbox',
+      defaultValue: false,
+      index: true,
+      admin: {
+        description:
+          'True once this list has had at least one member invited. One-way flag — never reset to false.',
+      },
+    },
+    {
       name: 'planArchivedAt',
       type: 'date',
       required: false,

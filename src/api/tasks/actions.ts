@@ -10,8 +10,9 @@ import { cookies } from 'next/headers'
 import { Task } from '@/payload-types'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
-import { getUserPlanLimits } from '@/lib/get-user-plan'
+import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
+import { resolveListRole, canEditListContent, canViewList } from '@/lib/list-roles'
 
 type CreateTaskInput = {
   title: string
@@ -47,6 +48,52 @@ const getUserTimezone = async (): Promise<string> => {
   const session = await getSession()
   const timezone = (session?.user as { timezone?: string } | undefined)?.timezone
   return timezone || 'UTC'
+}
+
+function getTaskListId(task: { list?: unknown }): number | null {
+  const list = task.list
+  if (list && typeof list === 'object') return (list as { id: number }).id
+  if (typeof list === 'number') return list
+  return null
+}
+
+async function assertCanViewTask(
+  payload: Awaited<ReturnType<typeof getPayload>>,
+  task: { list?: unknown; userId?: string | null },
+  userId: string,
+): Promise<string | null> {
+  const listId = getTaskListId(task)
+  if (listId) {
+    const role = await resolveListRole(payload, listId, userId)
+    return canViewList(role) ? null : 'Not authorized'
+  }
+  return task.userId === userId ? null : 'Not authorized'
+}
+
+async function assertCanEditTask(
+  payload: Awaited<ReturnType<typeof getPayload>>,
+  task: { list?: unknown; userId?: string | null },
+  userId: string,
+): Promise<string | null> {
+  const listId = getTaskListId(task)
+  if (listId) {
+    const role = await resolveListRole(payload, listId, userId)
+    return canEditListContent(role) ? null : 'Not authorized'
+  }
+  return task.userId === userId ? null : 'Not authorized'
+}
+
+async function assertIsListAdminForTask(
+  payload: Awaited<ReturnType<typeof getPayload>>,
+  task: { list?: unknown; userId?: string | null },
+  userId: string,
+): Promise<string | null> {
+  const listId = getTaskListId(task)
+  if (listId) {
+    const role = await resolveListRole(payload, listId, userId)
+    return role === 'admin' ? null : 'Not authorized'
+  }
+  return task.userId === userId ? null : 'Not authorized'
 }
 
 const allSubtasksDone = (subtasks: Subtask[]): boolean => {
@@ -137,7 +184,27 @@ export const createTask = async (task: CreateTaskInput) => {
       initialStatus = task.recurrence.days?.includes(today as never) ? 'active' : 'inactive'
     }
 
-    const { plan, limits } = await getUserPlanLimits()
+    let plan: Awaited<ReturnType<typeof getUserPlanLimits>>['plan']
+    let limits: Awaited<ReturnType<typeof getUserPlanLimits>>['limits']
+
+    if (task.listId) {
+      const list = await payload
+        .findByID({ collection: 'lists', id: task.listId })
+        .catch(() => null)
+      if (!list) return err('List not found')
+
+      const role = await resolveListRole(payload, task.listId, userId)
+      if (!canEditListContent(role)) return err('Not authorized')
+
+      // Task capacity is a property of the list, gated by its owner's plan — not the creator's own plan.
+      const ownerLimits = await getPlanLimitsForUserId(list.userId)
+      plan = ownerLimits.plan
+      limits = ownerLimits.limits
+    } else {
+      const own = await getUserPlanLimits()
+      plan = own.plan
+      limits = own.limits
+    }
 
     if (task.listId) {
       const { totalDocs } = await payload.find({
@@ -492,6 +559,11 @@ export const updateTaskStatus = async (
   if (!userId) return err('Not authenticated')
 
   const payload = await getPayload({ config })
+  const task = await payload.findByID({ collection: 'tasks', id })
+
+  const authError = await assertCanEditTask(payload, task, userId)
+  if (authError) return err(authError)
+
   return await payload.update({
     collection: 'tasks',
     id,
@@ -500,13 +572,34 @@ export const updateTaskStatus = async (
 }
 
 export const deleteTask = async (id: number) => {
-  const payload = await getPayload({ config })
-  return await payload.delete({ collection: 'tasks', id })
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const payload = await getPayload({ config })
+    const task = await payload.findByID({ collection: 'tasks', id })
+
+    const authError = await assertIsListAdminForTask(payload, task, userId)
+    if (authError) return err(authError)
+
+    await payload.delete({ collection: 'tasks', id })
+    return ok(true)
+  } catch {
+    return err('Error while deleting the task')
+  }
 }
 
 export const softDeleteTask = async (taskId: number) => {
   try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
     const payload = await getPayload({ config })
+    const task = await payload.findByID({ collection: 'tasks', id: taskId })
+
+    const authError = await assertCanEditTask(payload, task, userId)
+    if (authError) return err(authError)
+
     await payload.update({
       collection: 'tasks',
       id: taskId,
@@ -524,7 +617,8 @@ export const softDeleteTask = async (taskId: number) => {
 
 export const moveToTrash = async (id: number) => {
   try {
-    await deleteTask(id)
+    const result = await deleteTask(id)
+    if (!result.ok) return result
     revalidatePath('/')
     return ok(true)
   } catch {
@@ -540,6 +634,9 @@ export const toggleTaskStatus = async (id: number, currentStatus: 'active' | 'co
 
     const payload = await getPayload({ config })
     const task = await payload.findByID({ collection: 'tasks', id })
+
+    const authError = await assertCanViewTask(payload, task, userId)
+    if (authError) return err(authError)
 
     const subtasks = (task.subtasks ?? []) as NonNullable<Task['subtasks']>
     const hasSubtasks = subtasks.length > 0
@@ -572,8 +669,14 @@ export const toggleTaskStatus = async (id: number, currentStatus: 'active' | 'co
 
 export const restoreTask = async (id: number) => {
   try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
     const payload = await getPayload({ config })
     const task = await payload.findByID({ collection: 'tasks', id })
+
+    const authError = await assertCanEditTask(payload, task, userId)
+    if (authError) return err(authError)
 
     let newStatus: 'active' | 'inactive' = 'active'
 
@@ -612,13 +715,22 @@ export const editTask = async (id: number, draft: EditTaskInput) => {
     const payload = await getPayload({ config })
     const originalTask = await payload.findByID({ collection: 'tasks', id })
 
-    if (originalTask.userId !== userId) return err('Not authorized')
+    const authError = await assertCanEditTask(payload, originalTask, userId)
+    if (authError) return err(authError)
 
     const finalTitle =
       draft.title !== undefined && draft.title.trim() !== '' ? draft.title : originalTask.title
 
     if (draft.subtasks != null) {
-      const { plan, limits } = await getUserPlanLimits()
+      const listId = getTaskListId(originalTask)
+      let plan: Awaited<ReturnType<typeof getUserPlanLimits>>['plan']
+      let limits: Awaited<ReturnType<typeof getUserPlanLimits>>['limits']
+      if (listId) {
+        const list = await payload.findByID({ collection: 'lists', id: listId })
+        ;({ plan, limits } = await getPlanLimitsForUserId(list.userId))
+      } else {
+        ;({ plan, limits } = await getUserPlanLimits())
+      }
       if (draft.subtasks.length > limits.subtasksPerTask) {
         return err(
           isPlanUnlimited(plan, 'subtasksPerTask')
@@ -661,6 +773,9 @@ export const toggleSubtask = async (taskId: number, subtaskIndex: number) => {
     const payload = await getPayload({ config })
     const task = await payload.findByID({ collection: 'tasks', id: taskId })
 
+    const authError = await assertCanViewTask(payload, task, userId)
+    if (authError) return err(authError)
+
     type Subtask = NonNullable<Task['subtasks']>[number]
     const subtasks = (task.subtasks ?? []) as Subtask[]
 
@@ -701,8 +816,14 @@ export const toggleSubtask = async (taskId: number, subtaskIndex: number) => {
 
 export const deleteSubtask = async (taskId: number, subtaskIndex: number) => {
   try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
     const payload = await getPayload({ config })
     const task = await payload.findByID({ collection: 'tasks', id: taskId })
+
+    const authError = await assertCanEditTask(payload, task, userId)
+    if (authError) return err(authError)
 
     type Subtask = NonNullable<Task['subtasks']>[number]
     const subtasks = (task.subtasks ?? []) as Subtask[]
@@ -810,6 +931,9 @@ export const completeTaskWithSubtasks = async (id: number) => {
     const payload = await getPayload({ config })
     const task = await payload.findByID({ collection: 'tasks', id })
 
+    const authError = await assertCanViewTask(payload, task, userId)
+    if (authError) return err(authError)
+
     type Subtask = NonNullable<Task['subtasks']>[number]
     const subtasks = (task.subtasks ?? []) as Subtask[]
 
@@ -833,8 +957,15 @@ export const completeTaskWithSubtasks = async (id: number) => {
 
 export const uncompleteSubtask = async (taskId: number, subtaskIndex: number) => {
   try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
     const payload = await getPayload({ config })
     const task = await payload.findByID({ collection: 'tasks', id: taskId })
+
+    const authError = await assertCanViewTask(payload, task, userId)
+    if (authError) return err(authError)
+
     type Subtask = NonNullable<Task['subtasks']>[number]
     const subtasks = (task.subtasks ?? []) as Subtask[]
     const updatedSubtasks = subtasks.map((s, i) => (i === subtaskIndex ? { ...s, done: false } : s))

@@ -72,6 +72,16 @@ const SAFETY_CAP_MESSAGES: Record<SafetyCapError, { title: string; description: 
     description:
       "You've reached our current technical limit for timer presets. Let us know and we'll review raising it for your account.",
   },
+  SHARED_LISTS_CAP: {
+    title: 'Shared list limit reached',
+    description:
+      "You've reached our current technical limit for shared lists. Let us know and we'll review raising it for your account.",
+  },
+  SHARED_LIST_MEMBERS_CAP: {
+    title: 'Member limit reached',
+    description:
+      "This list has reached our current technical limit for invited members. Let us know and we'll review raising it for your account.",
+  },
 }
 
 interface SafetyCapDialogProps {

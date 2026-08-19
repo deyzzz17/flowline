@@ -6,6 +6,7 @@ import {
   deleteList,
   createDefaultList,
   getListBySlug,
+  getListRole,
 } from './actions'
 
 export const listsAPI = {
@@ -16,4 +17,5 @@ export const listsAPI = {
   delete: deleteList,
   createDefault: createDefaultList,
   slug: getListBySlug,
+  role: getListRole,
 }

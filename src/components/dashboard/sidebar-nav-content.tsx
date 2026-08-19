@@ -31,6 +31,7 @@ import { useCalendarCategories } from '@/hooks/calendar/use-calendar-categories'
 import { useCalendarFilter } from '../calendar/calendar-filter-context'
 import { useSidebarFooter } from '@/hooks/sidebar/use-sidebar-footer'
 import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
+import { useSharedLists } from '@/hooks/lists/use-shared-lists'
 import { useRestorePrompt } from '@/components/ui/restore-prompt-context'
 import {
   listPlanArchivedCalendarCategories,
@@ -103,6 +104,7 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
   const { categories, createMutation, updateMutation, deleteMutation } = useCalendarCategories()
   const { hiddenCategories, toggleCategory, habitsVisible, toggleHabits } = useCalendarFilter()
   const planLimits = usePlanLimits()
+  const sharedLists = useSharedLists()
   const { openPrompt } = useRestorePrompt()
   const queryClient = useQueryClient()
   const categoriesLimit =
@@ -379,6 +381,19 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
             Home
           </Link>
 
+          <Link
+            {...navLink('/contacts')}
+            className={cn(
+              'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
+              isActive('/contacts')
+                ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+            )}
+          >
+            <Users className="h-4 w-4 shrink-0" />
+            Contacts
+          </Link>
+
           <div>
             <button
               type="button"
@@ -485,6 +500,35 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
                     )}
                   </Link>
                 ))}
+                {sharedLists.length > 0 && (
+                  <>
+                    <div className="mt-2 mb-1 flex items-center gap-1.5 px-3">
+                      <Users className="h-3 w-3 text-violet-500/70" />
+                      <span className="text-[10px] font-semibold uppercase tracking-widest text-violet-500/70">
+                        Shared
+                      </span>
+                    </div>
+                    {sharedLists.map((list) => (
+                      <Link
+                        key={list.id}
+                        {...navLink(`/lists/${list.slug}`)}
+                        className={cn(
+                          'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
+                          isActive(`/lists/${list.slug}`)
+                            ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                            : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                        )}
+                      >
+                        <span
+                          className="h-2 w-2 rounded-full shrink-0"
+                          style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
+                        />
+                        <span className="flex-1 truncate">{list.name}</span>
+                        <Users className="h-3 w-3 shrink-0 text-violet-500/50" />
+                      </Link>
+                    ))}
+                  </>
+                )}
                 <Link
                   {...navLink('/lists/new-list')}
                   className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/60 hover:bg-muted hover:text-foreground transition-all"

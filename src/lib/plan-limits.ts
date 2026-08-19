@@ -12,6 +12,8 @@ export interface PlanLimits {
   contacts: number
   timerCategories: number
   timerPresets: number
+  sharedLists: number
+  sharedListMembers: number
 }
 
 const UNLIMITED = Infinity
@@ -27,6 +29,8 @@ const ABSOLUTE_MAX_CALENDAR_CATEGORIES = 200
 const ABSOLUTE_MAX_CONTACTS = 200
 const ABSOLUTE_MAX_TIMER_CATEGORIES = 100
 const ABSOLUTE_MAX_TIMER_PRESETS = 100
+const ABSOLUTE_MAX_SHARED_LISTS = 50
+const ABSOLUTE_MAX_SHARED_LIST_MEMBERS = 20
 
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   free: {
@@ -41,6 +45,8 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     contacts: 10,
     timerCategories: 10,
     timerPresets: 10,
+    sharedLists: 0,
+    sharedListMembers: 0,
   },
   plus: {
     lists: UNLIMITED,
@@ -54,6 +60,8 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     contacts: UNLIMITED,
     timerCategories: UNLIMITED,
     timerPresets: UNLIMITED,
+    sharedLists: 3,
+    sharedListMembers: 3,
   },
   pro: {
     lists: UNLIMITED,
@@ -67,6 +75,8 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     contacts: UNLIMITED,
     timerCategories: UNLIMITED,
     timerPresets: UNLIMITED,
+    sharedLists: UNLIMITED,
+    sharedListMembers: UNLIMITED,
   },
 }
 
@@ -87,6 +97,8 @@ export function getLimits(plan: Plan): PlanLimits {
     contacts: Math.min(limits.contacts, ABSOLUTE_MAX_CONTACTS),
     timerCategories: Math.min(limits.timerCategories, ABSOLUTE_MAX_TIMER_CATEGORIES),
     timerPresets: Math.min(limits.timerPresets, ABSOLUTE_MAX_TIMER_PRESETS),
+    sharedLists: Math.min(limits.sharedLists, ABSOLUTE_MAX_SHARED_LISTS),
+    sharedListMembers: Math.min(limits.sharedListMembers, ABSOLUTE_MAX_SHARED_LIST_MEMBERS),
   }
 }
 
@@ -110,6 +122,8 @@ export const LIMIT_ERRORS = {
   CONTACTS_LIMIT: 'CONTACTS_LIMIT',
   TIMER_CATEGORIES_LIMIT: 'TIMER_CATEGORIES_LIMIT',
   TIMER_PRESETS_LIMIT: 'TIMER_PRESETS_LIMIT',
+  SHARED_LISTS_LIMIT: 'SHARED_LISTS_LIMIT',
+  SHARED_LIST_MEMBERS_LIMIT: 'SHARED_LIST_MEMBERS_LIMIT',
 } as const
 
 export type LimitError = (typeof LIMIT_ERRORS)[keyof typeof LIMIT_ERRORS]
@@ -126,6 +140,8 @@ export const SAFETY_CAP_ERRORS = {
   CONTACTS_CAP: 'CONTACTS_CAP',
   TIMER_CATEGORIES_CAP: 'TIMER_CATEGORIES_CAP',
   TIMER_PRESETS_CAP: 'TIMER_PRESETS_CAP',
+  SHARED_LISTS_CAP: 'SHARED_LISTS_CAP',
+  SHARED_LIST_MEMBERS_CAP: 'SHARED_LIST_MEMBERS_CAP',
 } as const
 
 export type SafetyCapError = (typeof SAFETY_CAP_ERRORS)[keyof typeof SAFETY_CAP_ERRORS]

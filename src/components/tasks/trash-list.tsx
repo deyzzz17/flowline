@@ -7,9 +7,11 @@ import { useTask } from '@/hooks/tasks/use-task'
 interface TrashListProps {
   tasks: Task[]
   showListBadge?: boolean
+  readOnly?: boolean
+  canHardDelete?: boolean
 }
 
-export const Trash = ({ tasks, showListBadge }: TrashListProps) => {
+export const Trash = ({ tasks, showListBadge, readOnly, canHardDelete }: TrashListProps) => {
   const taskManager = useTask()
 
   return (
@@ -19,6 +21,8 @@ export const Trash = ({ tasks, showListBadge }: TrashListProps) => {
           key={task.id}
           task={task}
           showListBadge={showListBadge}
+          readOnly={readOnly}
+          canHardDelete={canHardDelete}
           taskManager={taskManager}
         />
       ))}

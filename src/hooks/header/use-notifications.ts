@@ -12,6 +12,12 @@ import {
   type PendingRequest,
   type AcceptedNotification,
 } from '@/api/contacts/actions'
+import {
+  listMyListInvites,
+  acceptListInvite,
+  declineListInvite,
+  type ListInvite,
+} from '@/api/list-members/actions'
 import type { Task } from '@/payload-types'
 import type { HabitWithStats } from '@/api/habits/actions'
 
@@ -22,6 +28,7 @@ export type NotificationLevel =
   | 'goal_claim'
   | 'connection_request'
   | 'connection_accepted'
+  | 'list_invite'
 
 export interface TaskNotification {
   id: string
@@ -37,11 +44,13 @@ export interface TaskNotification {
   goalDescription?: string
   connectionId?: number
   userImage?: string | null
+  inviteId?: number
 }
 
 const ACCEPTED_DISMISSED_KEY = 'connection_accepted_dismissed'
 const PENDING_RECEIVED_KEY = ['connections', 'pending-received']
 const PAGE_DATA_KEY = ['contacts', 'page-data']
+const LIST_INVITES_KEY = ['list-invites', 'mine']
 
 function getDismissedAcceptedIds(): Set<string> {
   if (typeof window === 'undefined') return new Set()
@@ -137,6 +146,7 @@ function buildNotifications(tasks: Task[]): TaskNotification[] {
   const order: Record<NotificationLevel, number> = {
     connection_request: -1,
     connection_accepted: -1,
+    list_invite: -1,
     today: 0,
     urgent: 1,
     warning: 2,
@@ -185,6 +195,24 @@ function buildConnectionRequestNotifications(requests: PendingRequest[]): TaskNo
     dueDate: r.createdAt,
     connectionId: r.connectionId,
     userImage: r.user.image,
+  }))
+}
+
+function buildListInviteNotifications(invites: ListInvite[]): TaskNotification[] {
+  return invites.map((i) => ({
+    id: `list-invite-${i.id}`,
+    taskId: i.id,
+    taskTitle: i.list.name,
+    listName: i.invitedBy
+      ? `${i.invitedBy.name} invited you to collaborate`
+      : 'You were invited to collaborate',
+    listSlug: i.list.slug,
+    listColor: i.list.color ?? '#8b5cf6',
+    level: 'list_invite' as const,
+    message: 'List invite',
+    dueDate: i.invitedAt,
+    inviteId: i.id,
+    userImage: i.invitedBy?.image ?? null,
   }))
 }
 
@@ -253,6 +281,14 @@ export const useNotifications = () => {
     refetchInterval: 30_000,
   })
 
+  const { data: listInvitesData } = useQuery({
+    queryKey: LIST_INVITES_KEY,
+    queryFn: () => listMyListInvites(),
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 30_000,
+  })
+
   const allNotifications = useMemo(() => {
     const taskNotifs = buildNotifications((data?.docs ?? []) as Task[])
     const goalNotifs = buildGoalClaimNotifications(habitsData ?? [])
@@ -261,8 +297,16 @@ export const useNotifications = () => {
       acceptedByOthersData ?? [],
       dismissedAcceptedIds,
     )
-    return [...requestNotifs, ...acceptedNotifs, ...taskNotifs, ...goalNotifs]
-  }, [data, habitsData, pendingRequestsData, acceptedByOthersData, dismissedAcceptedIds])
+    const listInviteNotifs = buildListInviteNotifications(listInvitesData ?? [])
+    return [...requestNotifs, ...listInviteNotifs, ...acceptedNotifs, ...taskNotifs, ...goalNotifs]
+  }, [
+    data,
+    habitsData,
+    pendingRequestsData,
+    acceptedByOthersData,
+    listInvitesData,
+    dismissedAcceptedIds,
+  ])
 
   const notifications = useMemo(
     () => allNotifications.filter((n) => !dismissedIds.has(n.id)),
@@ -389,6 +433,48 @@ export const useNotifications = () => {
     },
   })
 
+  const acceptListInviteMutation = useMutation({
+    mutationFn: (inviteId: number) => acceptListInvite(inviteId),
+    onMutate: async (inviteId) => {
+      await queryClient.cancelQueries({ queryKey: LIST_INVITES_KEY })
+      const previousInvites = queryClient.getQueryData<ListInvite[]>(LIST_INVITES_KEY)
+      queryClient.setQueryData<ListInvite[]>(
+        LIST_INVITES_KEY,
+        (old) => old?.filter((i) => i.id !== inviteId) ?? [],
+      )
+      return { previousInvites }
+    },
+    onError: (_err, _inviteId, context) => {
+      if (context?.previousInvites) {
+        queryClient.setQueryData(LIST_INVITES_KEY, context.previousInvites)
+      }
+    },
+    onSuccess: (result) => {
+      if (!result.ok) return
+      queryClient.invalidateQueries({ queryKey: ['lists'] })
+      queryClient.invalidateQueries({ queryKey: ['lists', 'shared-with-me'] })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    },
+  })
+
+  const declineListInviteMutation = useMutation({
+    mutationFn: (inviteId: number) => declineListInvite(inviteId),
+    onMutate: async (inviteId) => {
+      await queryClient.cancelQueries({ queryKey: LIST_INVITES_KEY })
+      const previousInvites = queryClient.getQueryData<ListInvite[]>(LIST_INVITES_KEY)
+      queryClient.setQueryData<ListInvite[]>(
+        LIST_INVITES_KEY,
+        (old) => old?.filter((i) => i.id !== inviteId) ?? [],
+      )
+      return { previousInvites }
+    },
+    onError: (_err, _inviteId, context) => {
+      if (context?.previousInvites) {
+        queryClient.setQueryData(LIST_INVITES_KEY, context.previousInvites)
+      }
+    },
+  })
+
   return {
     open,
     setOpen: handleOpen,
@@ -401,5 +487,9 @@ export const useNotifications = () => {
     isAcceptingConnection: acceptMutation.isPending,
     declineConnection: declineMutation.mutate,
     isDecliningConnection: declineMutation.isPending,
+    acceptListInvite: acceptListInviteMutation.mutate,
+    isAcceptingListInvite: acceptListInviteMutation.isPending,
+    declineListInvite: declineListInviteMutation.mutate,
+    isDecliningListInvite: declineListInviteMutation.isPending,
   }
 }

@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -40,11 +41,14 @@ import {
   Sparkles,
   Trash2,
   PauseCircle,
+  Users,
 } from 'lucide-react'
 import { useEditList } from '@/hooks/lists/use-edit-list'
 import { useDeleteList } from '@/hooks/lists/use-delete-list'
 import { cn } from '@/lib/utils'
 import type { List } from '@/payload-types'
+import type { ListRole } from '@/lib/list-roles'
+import { ListMembersPanel } from './list-members-panel'
 
 function hexToRgba(hex: string, alpha: number) {
   try {
@@ -74,9 +78,15 @@ const PRESET_COLORS = [
 
 interface ListClientProps {
   list: List
+  role: ListRole
 }
 
-export const ListClient = ({ list }: ListClientProps) => {
+export const ListClient = ({ list, role }: ListClientProps) => {
+  const isAdmin = role === 'admin'
+  const isReadOnly = role === 'reader'
+  const canHardDelete = role === 'admin'
+  const [membersOpen, setMembersOpen] = useState(false)
+
   const { data } = useQuery({
     queryKey: ['tasks', list.id],
     queryFn: () => api.tasks.list(1, list.id),
@@ -135,55 +145,67 @@ export const ListClient = ({ list }: ListClientProps) => {
             </p>
           </div>
 
-          <div className="flex flex-col items-end gap-2">
-            <div className="flex items-center gap-0.5">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                onClick={handleOpen}
-              >
-                <PencilSquareIcon className="h-4 w-4" />
-              </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
-                    disabled={isDeleting}
-                  >
-                    {isDeleting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <TrashIcon className="h-4 w-4" />
-                    )}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete this list?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will permanently delete <strong>{displayName}</strong> and all its tasks.
-                      This action cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleDelete}
-                      variant="destructive"
+          {isAdmin && (
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex items-center gap-0.5">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                  onClick={() => setMembersOpen(true)}
+                >
+                  <Users className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                  onClick={handleOpen}
+                >
+                  <PencilSquareIcon className="h-4 w-4" />
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
                       disabled={isDeleting}
                     >
-                      Delete list
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                      {isDeleting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <TrashIcon className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete this list?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete <strong>{displayName}</strong> and all its
+                        tasks. This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleDelete}
+                        variant="destructive"
+                        disabled={isDeleting}
+                      >
+                        Delete list
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </section>
+
+      {isAdmin && <ListMembersPanel list={list} open={membersOpen} onOpenChange={setMembersOpen} />}
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-md">
@@ -346,7 +368,7 @@ export const ListClient = ({ list }: ListClientProps) => {
                     : `${todoTasks.length} task${todoTasks.length !== 1 ? 's' : ''} remaining.`}
                 </p>
               </div>
-              <CreateTask listId={list.id} />
+              {!isReadOnly && <CreateTask listId={list.id} />}
             </div>
             <div className="rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm">
               <div className="flex items-center justify-between border-b border-border/50 px-5 py-3.5">
@@ -372,7 +394,7 @@ export const ListClient = ({ list }: ListClientProps) => {
                     </p>
                   </div>
                 ) : (
-                  <TodoList tasks={todoTasks} />
+                  <TodoList tasks={todoTasks} readOnly={isReadOnly} canHardDelete={canHardDelete} />
                 )}
               </div>
             </div>
@@ -415,7 +437,11 @@ export const ListClient = ({ list }: ListClientProps) => {
                     </p>
                   </div>
                 ) : (
-                  <AchievedList tasks={achievedTasks} />
+                  <AchievedList
+                    tasks={achievedTasks}
+                    readOnly={isReadOnly}
+                    canHardDelete={canHardDelete}
+                  />
                 )}
               </div>
             </div>
@@ -463,7 +489,11 @@ export const ListClient = ({ list }: ListClientProps) => {
                     </p>
                   </div>
                 ) : (
-                  <InactiveList tasks={inactiveTasks} />
+                  <InactiveList
+                    tasks={inactiveTasks}
+                    readOnly={isReadOnly}
+                    canHardDelete={canHardDelete}
+                  />
                 )}
               </div>
             </div>
@@ -506,7 +536,7 @@ export const ListClient = ({ list }: ListClientProps) => {
                     </p>
                   </div>
                 ) : (
-                  <Trash tasks={trashedTasks} />
+                  <Trash tasks={trashedTasks} readOnly={isReadOnly} canHardDelete={canHardDelete} />
                 )}
               </div>
             </div>

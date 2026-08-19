@@ -80,6 +80,18 @@ const LIMIT_MESSAGES: Record<LimitError, { title: string; description: string; c
       "You've reached the maximum number of timer presets on the Free plan (10). Upgrade to Plus for unlimited presets.",
     cta: 'Upgrade for unlimited presets',
   },
+  SHARED_LISTS_LIMIT: {
+    title: 'Shared list limit reached',
+    description:
+      "You've reached your plan's limit for shared lists. Upgrade to Plus for up to 3 shared lists, or Pro for unlimited shared lists.",
+    cta: 'Upgrade for more shared lists',
+  },
+  SHARED_LIST_MEMBERS_LIMIT: {
+    title: 'Member limit reached',
+    description:
+      "You've reached your plan's limit for members on this list. Upgrade to Plus to invite up to 3 people, or Pro for unlimited members.",
+    cta: 'Upgrade for more members',
+  },
 }
 
 interface PlanLimitDialogProps {
