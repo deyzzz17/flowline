@@ -12,31 +12,33 @@ export default async function HomePage() {
   await requireGuest()
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background text-slate-900 selection:bg-violet-200 dark:text-white dark:selection:bg-violet-500/30">
-      <div
-        className="pointer-events-none fixed inset-0 z-0 dark:hidden"
-        style={{
-          backgroundImage: `linear-gradient(to right,rgba(109,40,217,0.04) 1px,transparent 1px),linear-gradient(to bottom,rgba(109,40,217,0.04) 1px,transparent 1px)`,
-          backgroundSize: '72px 72px',
-        }}
-      />
-      <div
-        className="pointer-events-none fixed inset-0 z-0 hidden dark:block"
-        style={{
-          backgroundImage: `linear-gradient(to right,rgba(255,255,255,0.03) 1px,transparent 1px),linear-gradient(to bottom,rgba(255,255,255,0.03) 1px,transparent 1px)`,
-          backgroundSize: '72px 72px',
-        }}
-      />
+    <div className="min-h-screen bg-background text-slate-900 selection:bg-violet-200 dark:text-white dark:selection:bg-violet-500/30">
+      <div className="relative overflow-hidden">
+        <div
+          className="pointer-events-none absolute inset-0 z-0 dark:hidden"
+          style={{
+            backgroundImage: `linear-gradient(to right,rgba(109,40,217,0.04) 1px,transparent 1px),linear-gradient(to bottom,rgba(109,40,217,0.04) 1px,transparent 1px)`,
+            backgroundSize: '72px 72px',
+          }}
+        />
+        <div
+          className="pointer-events-none absolute inset-0 z-0 hidden dark:block"
+          style={{
+            backgroundImage: `linear-gradient(to right,rgba(255,255,255,0.03) 1px,transparent 1px),linear-gradient(to bottom,rgba(255,255,255,0.03) 1px,transparent 1px)`,
+            backgroundSize: '72px 72px',
+          }}
+        />
 
-      <Orb className="h-150 w-150 bg-violet-400 -top-48 -left-48" />
-      <Orb className="h-100 w-100 bg-purple-400 top-1/3 -right-32" />
-      <Orb className="h-125 w-125 bg-indigo-400 bottom-0 left-1/3" />
+        <Orb className="h-150 w-150 bg-violet-400 -top-48 -left-48" />
+        <Orb className="h-100 w-100 bg-purple-400 top-1/3 -right-32" />
+        <Orb className="h-125 w-125 bg-indigo-400 bottom-0 left-1/3" />
 
-      <div className="relative z-10">
-        <HeroSection />
-        <PillarsSection />
-        <DemoSection />
-        <FinalCtaSection />
+        <div className="relative z-10">
+          <HeroSection />
+          <PillarsSection />
+          <DemoSection />
+          <FinalCtaSection />
+        </div>
       </div>
       <Footer />
     </div>

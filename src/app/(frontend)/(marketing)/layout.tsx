@@ -24,6 +24,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </Link>
             <nav className="hidden items-center sm:flex">
               <Link
+                href="/docs"
+                className="rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Docs
+              </Link>
+              <Link
                 href="/pricing"
                 className="rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
