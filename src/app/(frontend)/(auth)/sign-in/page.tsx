@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import Image from 'next/image'
 import { Orb } from '@/components/home/orb'
 import { SignInForm } from '@/components/authentification/sign-in-form'
@@ -13,7 +14,9 @@ export default async function SignInPage() {
       <div className="relative z-10 flex flex-col p-6 md:p-10">
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-sm space-y-8">
-            <SignInForm />
+            <Suspense>
+              <SignInForm />
+            </Suspense>
           </div>
         </div>
       </div>

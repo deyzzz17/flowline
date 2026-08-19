@@ -23,6 +23,7 @@ export const SignInForm = () => {
     setShowPassword,
     fieldErrors,
     setFieldErrors,
+    redirectTo,
   } = useSignIn()
 
   const validate = () => {
@@ -176,7 +177,7 @@ export const SignInForm = () => {
 
       <button
         type="button"
-        onClick={() => signInWithGoogle()}
+        onClick={() => signInWithGoogle(redirectTo ?? undefined)}
         className="flex h-10 w-full items-center justify-center gap-3 rounded-xl border border-border/60 bg-background text-sm font-medium text-foreground transition-all duration-200 hover:bg-muted hover:border-border"
       >
         <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" aria-hidden="true">
@@ -203,7 +204,7 @@ export const SignInForm = () => {
       <p className="text-center text-sm text-muted-foreground">
         Don&apos;t have an account?{' '}
         <Link
-          href="/sign-up"
+          href={redirectTo ? `/sign-up?redirectTo=${encodeURIComponent(redirectTo)}` : '/sign-up'}
           className="font-semibold text-violet-600 transition-colors hover:text-violet-500 dark:text-violet-400"
         >
           Sign up

@@ -17,6 +17,12 @@ export function Footer() {
 
           <nav className="flex items-center gap-6">
             <Link
+              href="/pricing"
+              className="text-xs text-slate-400 transition-colors hover:text-slate-600 dark:text-white/30 dark:hover:text-white/60"
+            >
+              Pricing
+            </Link>
+            <Link
               href="/privacy"
               className="text-xs text-slate-400 transition-colors hover:text-slate-600 dark:text-white/30 dark:hover:text-white/60"
             >

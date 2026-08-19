@@ -1,11 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { api } from '@/api'
 
 export const useSignIn = () => {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectParam = searchParams.get('redirectTo')
+  const redirectTo =
+    redirectParam?.startsWith('/') && !redirectParam.startsWith('//') ? redirectParam : null
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -23,10 +27,11 @@ export const useSignIn = () => {
       setIsLoading(false)
       return
     }
-    router.push('/dashboard')
+    router.push(redirectTo ?? '/dashboard')
   }
 
   return {
+    redirectTo,
     email,
     setEmail,
     password,
