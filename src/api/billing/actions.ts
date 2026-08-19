@@ -12,6 +12,15 @@ const getUserId = async () => {
   return session?.user?.id ?? null
 }
 
+// Statuses Stripe will never allow further subscription-item updates on.
+const INACTIVE_STATUSES = new Set([
+  'canceled',
+  'incomplete_expired',
+  'unpaid',
+  'incomplete',
+  'paused',
+])
+
 export interface BillingInfo {
   plan: Plan
   billingInterval: BillingInterval | null
@@ -59,6 +68,28 @@ export const getBillingInfo = async (): Promise<BillingInfo | null> => {
           periodEnd = new Date(itemPeriodEnd * 1000)
         }
         cancelAtPeriodEnd = sub.cancel_at_period_end ?? false
+
+        // Trust Stripe's live status over the DB cache: a failed/missed webhook
+        // delivery can leave "subscriptionStatus" stale (e.g. still "active"
+        // long after the subscription was actually canceled in Stripe), which
+        // would otherwise make the UI try to "update" a dead subscription.
+        if (sub.status !== row.subscriptionStatus) {
+          if (INACTIVE_STATUSES.has(sub.status)) {
+            await pool.query(
+              `UPDATE "user" SET plan = 'free', "subscriptionStatus" = $1, "subscriptionId" = NULL, "trialEndsAt" = NULL WHERE id = $2`,
+              [sub.status, userId],
+            )
+            row.plan = 'free'
+            row.subscriptionId = null
+            row.trialEndsAt = null
+          } else {
+            await pool.query(`UPDATE "user" SET "subscriptionStatus" = $1 WHERE id = $2`, [
+              sub.status,
+              userId,
+            ])
+          }
+          row.subscriptionStatus = sub.status
+        }
       } catch {}
     }
 

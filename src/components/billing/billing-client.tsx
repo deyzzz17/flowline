@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Check, Loader2, AlertTriangle, Info } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import {
   createCheckoutSession,
@@ -293,6 +294,17 @@ function PlanCard({
   )
 }
 
+function reportIfFailed(result: { ok: boolean; error?: string } | undefined) {
+  // A successful billing action always ends in a server-side redirect (to
+  // Stripe or back to /billing), which never resolves back to this promise —
+  // so anything we actually get back here is a failure that needs surfacing.
+  if (result && !result.ok) {
+    toast.error('Something went wrong', {
+      description: 'Please try again or contact support if the problem persists.',
+    })
+  }
+}
+
 export function BillingClient({ billing }: BillingClientProps) {
   const [interval, setInterval] = useState<BillingInterval>('monthly')
   const [isPending, startTransition] = useTransition()
@@ -328,15 +340,15 @@ export function BillingClient({ billing }: BillingClientProps) {
 
     startTransition(async () => {
       if (action === 'checkout') {
-        await createCheckoutSession(planId, iv)
+        reportIfFailed(await createCheckoutSession(planId, iv))
       } else if (
         action === 'upgrade_plan' ||
         action === 'downgrade_plan' ||
         action === 'switch_to_annual'
       ) {
-        await changeSubscriptionPlan(planId, iv)
+        reportIfFailed(await changeSubscriptionPlan(planId, iv))
       } else if (action === 'downgrade_to_free') {
-        await import('@/api/billing/actions').then((m) => m.createPortalSession())
+        reportIfFailed(await import('@/api/billing/actions').then((m) => m.createPortalSession()))
       }
     })
   }
@@ -347,9 +359,9 @@ export function BillingClient({ billing }: BillingClientProps) {
     setAnnualCommitmentDialog(null)
     startTransition(async () => {
       if (isNew) {
-        await createCheckoutSession(planId, iv)
+        reportIfFailed(await createCheckoutSession(planId, iv))
       } else {
-        await changeSubscriptionPlan(planId, iv)
+        reportIfFailed(await changeSubscriptionPlan(planId, iv))
       }
     })
   }
@@ -359,7 +371,7 @@ export function BillingClient({ billing }: BillingClientProps) {
     const { planId } = monthlySwitch
     setMonthlySwitch(null)
     startTransition(async () => {
-      await switchToMonthlyAtRenewal(planId)
+      reportIfFailed(await switchToMonthlyAtRenewal(planId))
     })
   }
 
@@ -367,7 +379,7 @@ export function BillingClient({ billing }: BillingClientProps) {
     if (!monthlySwitch) return
     setMonthlySwitch(null)
     startTransition(async () => {
-      await import('@/api/billing/actions').then((m) => m.createPortalSession())
+      reportIfFailed(await import('@/api/billing/actions').then((m) => m.createPortalSession()))
     })
   }
 
