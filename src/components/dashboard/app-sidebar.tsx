@@ -31,6 +31,7 @@ import { useCalendarCategories } from '@/hooks/calendar/use-calendar-categories'
 import { useCalendarFilter } from '../calendar/calendar-filter-context'
 import { useSidebarFooter } from '@/hooks/sidebar/use-sidebar-footer'
 import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
+import { useSharedLists } from '@/hooks/lists/use-shared-lists'
 import { useRestorePrompt } from '@/components/ui/restore-prompt-context'
 import {
   listPlanArchivedCalendarCategories,
@@ -116,6 +117,7 @@ export function AppSidebar() {
   const { categories, createMutation, updateMutation, deleteMutation } = useCalendarCategories()
   const { hiddenCategories, toggleCategory, habitsVisible, toggleHabits } = useCalendarFilter()
   const planLimits = usePlanLimits()
+  const sharedLists = useSharedLists()
   const { openPrompt } = useRestorePrompt()
   const queryClient = useQueryClient()
   const categoriesLimit =
@@ -397,6 +399,15 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
 
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={isActive('/contacts')} tooltip="Contacts">
+                    <Link href={nav('/contacts')}>
+                      <Users className="h-4 w-4 shrink-0" />
+                      <span>Contacts</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+
                 <Collapsible asChild className="group/lists" disabled={isCollapsed}>
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
@@ -490,6 +501,33 @@ export function AppSidebar() {
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
                         ))}
+                        {sharedLists.length > 0 && (
+                          <>
+                            <div className="mt-2 mb-1 flex items-center gap-1.5 px-2">
+                              <Users className="h-3 w-3 text-violet-500/70" />
+                              <span className="text-[10px] font-semibold uppercase tracking-widest text-violet-500/70">
+                                Shared
+                              </span>
+                            </div>
+                            {sharedLists.map((list) => (
+                              <SidebarMenuSubItem key={list.id}>
+                                <SidebarMenuSubButton
+                                  asChild
+                                  isActive={isActive(`/lists/${list.slug}`)}
+                                >
+                                  <Link href={nav(`/lists/${list.slug}`)}>
+                                    <span
+                                      className="h-2 w-2 rounded-full shrink-0"
+                                      style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
+                                    />
+                                    <span className="flex-1 truncate">{list.name}</span>
+                                    <Users className="h-3 w-3 shrink-0 text-violet-500/50" />
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            ))}
+                          </>
+                        )}
                         <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild>
                             <Link
