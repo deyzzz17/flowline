@@ -234,7 +234,7 @@ export function ListMembersPanel({ list, open, onOpenChange }: ListMembersPanelP
                 </div>
               ) : members.length === 0 ? (
                 <p className="py-3 text-center text-xs text-muted-foreground/60">
-                  This list isn&apos;t shared yet — invite someone from your contacts above.
+                  No members yet — invite someone from your contacts above.
                 </p>
               ) : (
                 <div className="space-y-1">

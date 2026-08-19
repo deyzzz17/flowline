@@ -148,14 +148,16 @@ export const ListClient = ({ list, role }: ListClientProps) => {
           {isAdmin && (
             <div className="flex flex-col items-end gap-2">
               <div className="flex items-center gap-0.5">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                  onClick={() => setMembersOpen(true)}
-                >
-                  <Users className="h-4 w-4" />
-                </Button>
+                {list.isShared && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    onClick={() => setMembersOpen(true)}
+                  >
+                    <Users className="h-4 w-4" />
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -205,7 +207,9 @@ export const ListClient = ({ list, role }: ListClientProps) => {
         </div>
       </section>
 
-      {isAdmin && <ListMembersPanel list={list} open={membersOpen} onOpenChange={setMembersOpen} />}
+      {isAdmin && list.isShared && (
+        <ListMembersPanel list={list} open={membersOpen} onOpenChange={setMembersOpen} />
+      )}
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-md">

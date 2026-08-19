@@ -7,6 +7,7 @@ import {
   listMembersForList,
   listMyListInvites,
   listListsSharedWithMe,
+  createSharedList,
 } from './actions'
 
 export const listMembersAPI = {
@@ -18,4 +19,5 @@ export const listMembersAPI = {
   listForList: listMembersForList,
   myInvites: listMyListInvites,
   listSharedWithMe: listListsSharedWithMe,
+  createShared: createSharedList,
 }

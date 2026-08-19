@@ -89,6 +89,96 @@ async function countSharedLists(
   return totalDocs
 }
 
+export type CreateSharedListInput = {
+  name: string
+  category?: { name?: string; color?: string }
+  invites: { userId: string; role: ListMemberRole }[]
+}
+
+export const createSharedList = async (input: CreateSharedListInput) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    if (!checkRateLimit(`create-shared-list:${userId}`, 1, 1000)) {
+      return err('Too many requests. Please wait a moment.')
+    }
+
+    const payload = await getPayload({ config })
+    const { plan, limits } = await getPlanLimitsForUserId(userId)
+
+    const sharedListCount = await countSharedLists(payload, userId)
+    if (isAtLimit(sharedListCount, limits.sharedLists)) {
+      return err(
+        isPlanUnlimited(plan, 'sharedLists')
+          ? SAFETY_CAP_ERRORS.SHARED_LISTS_CAP
+          : LIMIT_ERRORS.SHARED_LISTS_LIMIT,
+      )
+    }
+
+    const uniqueInvites = Array.from(
+      new Map(input.invites.map((i) => [i.userId, i])).values(),
+    ).filter((i) => i.userId !== userId)
+
+    if (uniqueInvites.length > limits.sharedListMembers) {
+      return err(
+        isPlanUnlimited(plan, 'sharedListMembers')
+          ? SAFETY_CAP_ERRORS.SHARED_LIST_MEMBERS_CAP
+          : LIMIT_ERRORS.SHARED_LIST_MEMBERS_LIMIT,
+      )
+    }
+
+    if (uniqueInvites.length > 0) {
+      const acceptedContactIds = await getAcceptedContactIds(payload, userId)
+      const invalidInvite = uniqueInvites.find((i) => !acceptedContactIds.includes(i.userId))
+      if (invalidInvite) {
+        return err('You can only invite people from your contacts.')
+      }
+    }
+
+    const { docs: existing } = await payload.find({
+      collection: 'lists',
+      where: {
+        and: [{ userId: { equals: userId } }, { name: { equals: input.name.trim() } }],
+      },
+      limit: 1,
+    })
+    if (existing.length > 0) {
+      return err(existing[0].planArchivedAt ? 'DUPLICATE_NAME_ARCHIVED' : 'DUPLICATE_NAME')
+    }
+
+    const list = await payload.create({
+      collection: 'lists',
+      data: {
+        name: input.name.trim(),
+        userId,
+        ...(input.category && { category: input.category }),
+        isDefault: false,
+        isShared: true,
+      },
+    })
+
+    for (const invite of uniqueInvites) {
+      await payload.create({
+        collection: 'list-members',
+        data: {
+          list: list.id,
+          userId: invite.userId,
+          invitedBy: userId,
+          role: invite.role,
+          status: 'pending',
+        },
+      })
+    }
+
+    revalidatePath('/')
+    return ok(list)
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Error creating the shared list'
+    return err(message)
+  }
+}
+
 export const inviteListMember = async (
   listId: number,
   inviteeUserId: string,

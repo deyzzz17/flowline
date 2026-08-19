@@ -20,6 +20,7 @@ import {
   Pencil,
   Trash2,
   Users,
+  UserPlus,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -535,6 +536,13 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
                 >
                   <Plus className="h-3.5 w-3.5 shrink-0" />
                   New list
+                </Link>
+                <Link
+                  {...navLink('/lists/new-shared-list')}
+                  className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/60 hover:bg-muted hover:text-foreground transition-all"
+                >
+                  <UserPlus className="h-3.5 w-3.5 shrink-0" />
+                  New shared list
                 </Link>
               </div>
             )}

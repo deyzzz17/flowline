@@ -20,6 +20,7 @@ import {
   Pencil,
   Trash2,
   Users,
+  UserPlus,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -536,6 +537,17 @@ export function AppSidebar() {
                             >
                               <Plus className="h-3.5 w-3.5" />
                               New list
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild>
+                            <Link
+                              href={nav('/lists/new-shared-list')}
+                              className="text-muted-foreground/60"
+                            >
+                              <UserPlus className="h-3.5 w-3.5" />
+                              New shared list
                             </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
