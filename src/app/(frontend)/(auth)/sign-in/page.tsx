@@ -23,13 +23,22 @@ export default async function SignInPage() {
       <div className="relative hidden overflow-hidden lg:block">
         <div className="absolute inset-0 z-10 bg-linear-to-br from-violet-600/20 via-transparent to-indigo-600/20" />
         <Image
-          src="/auth-cover.png"
+          src="/auth-cover-light.png"
           alt=""
           fill
           priority
           quality={90}
           sizes="50vw"
-          className="object-cover"
+          className="object-cover dark:hidden"
+        />
+        <Image
+          src="/auth-cover-dark.png"
+          alt=""
+          fill
+          priority
+          quality={90}
+          sizes="50vw"
+          className="hidden object-cover dark:block"
         />
       </div>
     </div>
