@@ -14,7 +14,7 @@ async function sendEmail(args: { to: string; subject: string; html: string }) {
 }
 
 function appUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  return process.env.NEXT_PUBLIC_APP_URL ?? 'https://preview-flowline.vercel.app'
 }
 
 function wrapEmail(bodyHtml: string): string {

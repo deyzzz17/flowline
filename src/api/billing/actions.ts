@@ -177,7 +177,7 @@ export const createCheckoutSession = async (plan: Plan, interval: BillingInterva
   const trialAlreadyUsed = await hasUsedTrial(userId, plan)
   const trialDays = !trialAlreadyUsed ? planConfig.trialDays : null
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://preview-flowline.vercel.app'
 
   const checkoutSession = await stripe.checkout.sessions.create({
     customer: customerId,
@@ -204,7 +204,7 @@ export const createPortalSession = async () => {
   const billing = await getBillingInfo()
   if (!billing?.stripeCustomerId) return err('No Stripe customer found')
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://preview-flowline.vercel.app'
 
   const portalSession = await stripe.billingPortal.sessions.create({
     customer: billing.stripeCustomerId,
