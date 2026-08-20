@@ -20,7 +20,7 @@ export function useToggleSubtask() {
   )
 
   const toggle = useCallback(
-    ({
+    async ({
       taskId,
       subtaskIndex,
       taskStatus,
@@ -30,6 +30,11 @@ export function useToggleSubtask() {
       taskStatus: Task['status']
     }) => {
       const key = subtaskKey(taskId, subtaskIndex)
+
+      // See useToggleTask for why this matters: without canceling in-flight
+      // refetches first, a stale response can land after our optimistic
+      // write and overwrite it, causing a visible check/uncheck/check flicker.
+      await queryClient.cancelQueries({ queryKey: ['tasks'] })
 
       const queries = queryClient.getQueriesData<{ docs: Task[] }>({ queryKey: ['tasks'] })
       let currentDone = false

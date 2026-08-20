@@ -1160,17 +1160,45 @@ export const TaskCard = ({
                             }
                           : s,
                       )
-                      const result = await api.tasks.edit(task.id, {
-                        subtasks: updatedSubtasks.map((s) => ({
-                          title: s.title,
-                          done: s.done ?? false,
-                          description: s.description ?? '',
-                          dueDate: s.dueDate ?? null,
-                          tags: (s.tags ?? []) as NonNullable<Task['subtasks']>[number]['tags'],
-                          assignedTo: (s.assignedTo ?? []) as string[],
-                        })),
-                      })
+                      const payloadSubtasks = updatedSubtasks.map((s) => ({
+                        title: s.title,
+                        done: s.done ?? false,
+                        description: s.description ?? '',
+                        dueDate: s.dueDate ?? null,
+                        tags: (s.tags ?? []) as NonNullable<Task['subtasks']>[number]['tags'],
+                        assignedTo: (s.assignedTo ?? []) as string[],
+                      }))
+
+                      // Close and apply instantly; cancel any in-flight refetch
+                      // first so a stale response can't land after our
+                      // optimistic write and silently revert it.
+                      setEditingSubtaskIndex(null)
+                      await queryClient.cancelQueries({ queryKey: ['tasks'] })
+                      const previousData = queryClient
+                        .getQueriesData<{ docs: Task[] }>({ queryKey: ['tasks'] })
+                        .map(([queryKey, data]) => ({ queryKey, data }))
+
+                      queryClient.setQueriesData<{ docs: Task[] }>(
+                        { queryKey: ['tasks'] },
+                        (old) => {
+                          if (!old) return old
+                          return {
+                            ...old,
+                            docs: old.docs.map((t) =>
+                              t.id === task.id
+                                ? { ...t, subtasks: updatedSubtasks as Task['subtasks'] }
+                                : t,
+                            ),
+                          }
+                        },
+                      )
+
+                      const result = await api.tasks.edit(task.id, { subtasks: payloadSubtasks })
+
                       if (!result.ok) {
+                        previousData.forEach(({ queryKey, data }) => {
+                          queryClient.setQueryData(queryKey, data)
+                        })
                         if (result.error === LIMIT_ERRORS.SUBTASKS_LIMIT) {
                           setLimitDialog(LIMIT_ERRORS.SUBTASKS_LIMIT)
                         } else if (result.error === SAFETY_CAP_ERRORS.SUBTASKS_CAP) {
@@ -1179,7 +1207,6 @@ export const TaskCard = ({
                         return
                       }
                       queryClient.invalidateQueries({ queryKey: ['tasks'] })
-                      setEditingSubtaskIndex(null)
                     }
 
                     return (

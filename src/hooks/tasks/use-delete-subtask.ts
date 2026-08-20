@@ -10,7 +10,9 @@ export function useDeleteSubtask() {
   return useMutation({
     mutationFn: ({ taskId, subtaskIndex }: { taskId: number; subtaskIndex: number }) =>
       api.tasks.deleteSubtask(taskId, subtaskIndex),
-    onMutate: ({ taskId, subtaskIndex }) => {
+    onMutate: async ({ taskId, subtaskIndex }) => {
+      await queryClient.cancelQueries({ queryKey: ['tasks'] })
+
       const queries = queryClient.getQueriesData<{ docs: Task[] }>({ queryKey: ['tasks'] })
       const previousData = queries.map(([queryKey, data]) => ({ queryKey, data }))
 

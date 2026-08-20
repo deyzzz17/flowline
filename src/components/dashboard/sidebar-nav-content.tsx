@@ -34,6 +34,7 @@ import { useCalendarFilter } from '../calendar/calendar-filter-context'
 import { useSidebarFooter } from '@/hooks/sidebar/use-sidebar-footer'
 import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
 import { useSharedLists } from '@/hooks/lists/use-shared-lists'
+import { useListUrgency } from '@/hooks/tasks/use-list-urgency'
 import { useRestorePrompt } from '@/components/ui/restore-prompt-context'
 import {
   listPlanArchivedCalendarCategories,
@@ -94,6 +95,45 @@ function getListUrgency(tasks: Task[]): 'red' | 'orange' | null {
     if (diff <= 172800000) hasOrange = true
   }
   return hasOrange ? 'orange' : null
+}
+
+function SharedListLink({
+  list,
+  isActive,
+  navLink,
+}: {
+  list: List
+  isActive: boolean
+  navLink: { href: string; onClick?: () => void }
+}) {
+  const urgency = useListUrgency(list.id)
+
+  return (
+    <Link
+      {...navLink}
+      className={cn(
+        'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
+        isActive
+          ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+          : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+      )}
+    >
+      <span
+        className="h-2 w-2 rounded-full shrink-0"
+        style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
+      />
+      <span className="flex-1 truncate">{list.name}</span>
+      {urgency && (
+        <span
+          className={cn(
+            'size-1.5 shrink-0 rounded-full',
+            urgency === 'red' ? 'bg-destructive' : 'bg-orange-500',
+          )}
+        />
+      )}
+      <Users className="h-3 w-3 shrink-0 text-violet-500/50" />
+    </Link>
+  )
 }
 
 interface SidebarNavContentProps {
@@ -520,33 +560,12 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
                   </span>
                 </div>
                 {[...ownSharedLists, ...sharedLists].map((list) => (
-                  <Link
+                  <SharedListLink
                     key={list.id}
-                    {...navLink(`/lists/${list.slug}`)}
-                    className={cn(
-                      'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
-                      isActive(`/lists/${list.slug}`)
-                        ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                    )}
-                  >
-                    <span
-                      className="h-2 w-2 rounded-full shrink-0"
-                      style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
-                    />
-                    <span className="flex-1 truncate">{list.name}</span>
-                    {getListUrgency(tasksByList[list.id] ?? []) && (
-                      <span
-                        className={cn(
-                          'size-1.5 shrink-0 rounded-full',
-                          getListUrgency(tasksByList[list.id] ?? []) === 'red'
-                            ? 'bg-destructive'
-                            : 'bg-orange-500',
-                        )}
-                      />
-                    )}
-                    <Users className="h-3 w-3 shrink-0 text-violet-500/50" />
-                  </Link>
+                    list={list}
+                    isActive={isActive(`/lists/${list.slug}`)}
+                    navLink={navLink(`/lists/${list.slug}`)}
+                  />
                 ))}
                 {planLimits?.plan === 'free' ? (
                   <div className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/40">

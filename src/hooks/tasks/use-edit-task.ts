@@ -24,7 +24,13 @@ export const useEditTask = () => {
   return useMutation({
     mutationFn: ({ id, draft }: { id: number; draft: EditDraft }) => api.tasks.edit(id, draft),
 
-    onMutate: ({ id, draft }) => {
+    onMutate: async ({ id, draft }) => {
+      // Cancel any in-flight refetch for these keys first — otherwise a stale
+      // response that was already on the wire can land after our optimistic
+      // write and silently overwrite it, which looks like the edit applying,
+      // reverting, then applying again.
+      await queryClient.cancelQueries({ queryKey: ['tasks'] })
+
       const queries = queryClient.getQueriesData<{ docs: Task[] }>({ queryKey: ['tasks'] })
       const previousData = queries.map(([queryKey, data]) => ({ queryKey, data }))
 

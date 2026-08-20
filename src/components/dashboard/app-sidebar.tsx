@@ -34,6 +34,7 @@ import { useCalendarFilter } from '../calendar/calendar-filter-context'
 import { useSidebarFooter } from '@/hooks/sidebar/use-sidebar-footer'
 import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
 import { useSharedLists } from '@/hooks/lists/use-shared-lists'
+import { useListUrgency } from '@/hooks/tasks/use-list-urgency'
 import { useRestorePrompt } from '@/components/ui/restore-prompt-context'
 import {
   listPlanArchivedCalendarCategories,
@@ -109,6 +110,41 @@ function getListUrgency(tasks: Task[]): 'red' | 'orange' | null {
     if (diff <= 172800000) hasOrange = true
   }
   return hasOrange ? 'orange' : null
+}
+
+function SharedListMenuItem({
+  list,
+  isActive,
+  href,
+}: {
+  list: List
+  isActive: boolean
+  href: string
+}) {
+  const urgency = useListUrgency(list.id)
+
+  return (
+    <SidebarMenuSubItem>
+      <SidebarMenuSubButton asChild isActive={isActive}>
+        <Link href={href}>
+          <span
+            className="h-2 w-2 rounded-full shrink-0"
+            style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
+          />
+          <span className="flex-1 truncate">{list.name}</span>
+          {urgency && (
+            <span
+              className={cn(
+                'size-1.5 shrink-0 rounded-full',
+                urgency === 'red' ? 'bg-destructive' : 'bg-orange-500',
+              )}
+            />
+          )}
+          <Users className="h-3 w-3 shrink-0 text-violet-500/50" />
+        </Link>
+      </SidebarMenuSubButton>
+    </SidebarMenuSubItem>
+  )
 }
 
 export function AppSidebar() {
@@ -525,31 +561,12 @@ export function AppSidebar() {
                           </span>
                         </div>
                         {[...ownSharedLists, ...sharedLists].map((list) => (
-                          <SidebarMenuSubItem key={list.id}>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={isActive(`/lists/${list.slug}`)}
-                            >
-                              <Link href={nav(`/lists/${list.slug}`)}>
-                                <span
-                                  className="h-2 w-2 rounded-full shrink-0"
-                                  style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
-                                />
-                                <span className="flex-1 truncate">{list.name}</span>
-                                {getListUrgency(tasksByList[list.id] ?? []) && (
-                                  <span
-                                    className={cn(
-                                      'size-1.5 shrink-0 rounded-full',
-                                      getListUrgency(tasksByList[list.id] ?? []) === 'red'
-                                        ? 'bg-destructive'
-                                        : 'bg-orange-500',
-                                    )}
-                                  />
-                                )}
-                                <Users className="h-3 w-3 shrink-0 text-violet-500/50" />
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
+                          <SharedListMenuItem
+                            key={list.id}
+                            list={list}
+                            isActive={isActive(`/lists/${list.slug}`)}
+                            href={nav(`/lists/${list.slug}`)}
+                          />
                         ))}
                         <SidebarMenuSubItem>
                           {planLimits?.plan === 'free' ? (
