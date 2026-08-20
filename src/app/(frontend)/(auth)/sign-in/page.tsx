@@ -27,7 +27,7 @@ export default async function SignInPage() {
           alt=""
           fill
           priority
-          quality={100}
+          quality={90}
           sizes="50vw"
           className="object-cover"
         />
