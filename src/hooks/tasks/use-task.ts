@@ -19,6 +19,7 @@ type EditDraft = {
   type?: Task['type']
   recurrence?: Task['recurrence']
   subtasks?: { title: string; done: boolean }[]
+  assignedTo?: string[]
 }
 
 export const useTask = () => {
@@ -32,6 +33,7 @@ export const useTask = () => {
   const [editFrequency, setEditFrequency] = useState<'daily' | 'custom'>('daily')
   const [editDays, setEditDays] = useState<RecurrenceDay[]>([])
   const [editSubtasks, setEditSubtasks] = useState<EditSubtask[]>([])
+  const [editAssignedTo, setEditAssignedTo] = useState<string[]>([])
   const [subtaskInput, setSubtaskInput] = useState('')
   const [expandedSubtask, setExpandedSubtask] = useState<number | null>(null)
   const [expandedViewSubtask, setExpandedViewSubtask] = useState<number | null>(null)
@@ -44,7 +46,8 @@ export const useTask = () => {
     description: string
     dueDate: Date | undefined
     tags: string[]
-  }>({ title: '', description: '', dueDate: undefined, tags: [] })
+    assignedTo: string[]
+  }>({ title: '', description: '', dueDate: undefined, tags: [], assignedTo: [] })
 
   const toggleMutation = useToggleTask()
   const editMutation = useEditTask()
@@ -110,6 +113,8 @@ export const useTask = () => {
     setEditFrequency,
     editSubtasks,
     setEditSubtasks,
+    editAssignedTo,
+    setEditAssignedTo,
     subtaskInput,
     setSubtaskInput,
     expandedSubtask,

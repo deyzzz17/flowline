@@ -21,6 +21,16 @@ export const Tasks: CollectionConfig = {
     { name: 'userId', type: 'text', required: true, index: true },
     { name: 'list', type: 'relationship', relationTo: 'lists', required: false, index: true },
     {
+      name: 'assignedTo',
+      type: 'text',
+      hasMany: true,
+      required: false,
+      admin: {
+        description:
+          'userIds of shared-list members this task is assigned to. Only the list admin may set this.',
+      },
+    },
+    {
       name: 'type',
       type: 'select',
       defaultValue: 'simple',
@@ -60,6 +70,7 @@ export const Tasks: CollectionConfig = {
         { name: 'done', type: 'checkbox', defaultValue: false },
         { name: 'description', type: 'textarea' },
         { name: 'dueDate', type: 'date' },
+        { name: 'assignedTo', type: 'text', hasMany: true, required: false },
         {
           name: 'tags',
           type: 'select',

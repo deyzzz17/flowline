@@ -9,6 +9,7 @@ interface InactiveListProps {
   noEdit?: boolean
   showListBadge?: boolean
   canHardDelete?: boolean
+  canAssign?: boolean
 }
 
 export const InactiveList = ({
@@ -17,6 +18,7 @@ export const InactiveList = ({
   noEdit,
   showListBadge,
   canHardDelete,
+  canAssign,
 }: InactiveListProps) => {
   const taskManager = useTask()
   return (
@@ -29,6 +31,7 @@ export const InactiveList = ({
           noEdit={noEdit}
           showListBadge={showListBadge}
           canHardDelete={canHardDelete}
+          canAssign={canAssign}
           taskManager={taskManager}
         />
       ))}

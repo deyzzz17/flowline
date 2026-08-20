@@ -12,7 +12,12 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
-import { resolveListRole, canEditListContent, canViewList } from '@/lib/list-roles'
+import {
+  resolveListRole,
+  canEditListContent,
+  canViewList,
+  getListMemberIds,
+} from '@/lib/list-roles'
 
 type CreateTaskInput = {
   title: string
@@ -25,6 +30,7 @@ type CreateTaskInput = {
   dueDate?: string | null
   autoDeleteOnDueDate?: boolean
   listId?: number | null
+  assignedTo?: string[]
 }
 
 type EditTaskInput = Partial<
@@ -33,6 +39,7 @@ type EditTaskInput = Partial<
   customTags?: number[]
   autoDeleteOnDueDate?: boolean
   listId?: number | null
+  assignedTo?: string[]
 }
 
 type Subtask = NonNullable<Task['subtasks']>[number]
@@ -186,6 +193,7 @@ export const createTask = async (task: CreateTaskInput) => {
 
     let plan: Awaited<ReturnType<typeof getUserPlanLimits>>['plan']
     let limits: Awaited<ReturnType<typeof getUserPlanLimits>>['limits']
+    let role: Awaited<ReturnType<typeof resolveListRole>> = null
 
     if (task.listId) {
       const list = await payload
@@ -193,7 +201,7 @@ export const createTask = async (task: CreateTaskInput) => {
         .catch(() => null)
       if (!list) return err('List not found')
 
-      const role = await resolveListRole(payload, task.listId, userId)
+      role = await resolveListRole(payload, task.listId, userId)
       if (!canEditListContent(role)) return err('Not authorized')
 
       // Task capacity is a property of the list, gated by its owner's plan — not the creator's own plan.
@@ -231,6 +239,20 @@ export const createTask = async (task: CreateTaskInput) => {
       )
     }
 
+    // Only the list admin may assign a task/subtask to members, and only to
+    // people who actually belong to that list.
+    const memberIds =
+      role === 'admin' && task.listId ? await getListMemberIds(payload, task.listId) : []
+    const sanitizeAssignees = (assignedTo: string[] | null | undefined) =>
+      role === 'admin' && assignedTo
+        ? Array.from(new Set(assignedTo)).filter((id) => memberIds.includes(id))
+        : []
+
+    const sanitizedSubtasks = (task.subtasks ?? []).map((s) => ({
+      ...s,
+      assignedTo: sanitizeAssignees(s.assignedTo),
+    }))
+
     const newTask = await payload.create({
       collection: 'tasks',
       data: {
@@ -240,7 +262,8 @@ export const createTask = async (task: CreateTaskInput) => {
         type: task.type ?? 'simple',
         tags: task.tags ?? [],
         customTags: (task.customTags ?? []) as number[],
-        subtasks: task.subtasks ?? [],
+        subtasks: sanitizedSubtasks,
+        assignedTo: sanitizeAssignees(task.assignedTo),
         ...(task.recurrence && { recurrence: task.recurrence }),
         ...(task.dueDate !== undefined && { dueDate: task.dueDate }),
         autoDeleteOnDueDate: task.autoDeleteOnDueDate ?? false,
@@ -740,11 +763,13 @@ export const editTask = async (id: number, draft: EditTaskInput) => {
     const authError = await assertCanEditTask(payload, originalTask, userId)
     if (authError) return err(authError)
 
+    const listId = getTaskListId(originalTask)
+    const role = listId ? await resolveListRole(payload, listId, userId) : null
+
     const finalTitle =
       draft.title !== undefined && draft.title.trim() !== '' ? draft.title : originalTask.title
 
     if (draft.subtasks != null) {
-      const listId = getTaskListId(originalTask)
       let plan: Awaited<ReturnType<typeof getUserPlanLimits>>['plan']
       let limits: Awaited<ReturnType<typeof getUserPlanLimits>>['limits']
       if (listId) {
@@ -762,6 +787,23 @@ export const editTask = async (id: number, draft: EditTaskInput) => {
       }
     }
 
+    // Only the list admin may assign a task/subtask to members. A non-admin
+    // editor can still edit subtasks (title, description, tags, ...) — we
+    // just ignore whatever "assignedTo" they submit and keep the existing
+    // assignment for each subtask instead of trusting the client.
+    const memberIds = role === 'admin' && listId ? await getListMemberIds(payload, listId) : []
+    const sanitizeAssignees = (assignedTo: string[] | null | undefined) =>
+      assignedTo ? Array.from(new Set(assignedTo)).filter((mid) => memberIds.includes(mid)) : []
+
+    const originalSubtasks = (originalTask.subtasks ?? []) as Subtask[]
+    const sanitizedSubtasks = draft.subtasks?.map((s, i) => ({
+      ...s,
+      assignedTo:
+        role === 'admin'
+          ? sanitizeAssignees(s.assignedTo)
+          : (originalSubtasks[i]?.assignedTo ?? []),
+    }))
+
     const updatedTask = await payload.update({
       collection: 'tasks',
       id,
@@ -770,7 +812,9 @@ export const editTask = async (id: number, draft: EditTaskInput) => {
         ...(draft.description !== undefined && { description: draft.description }),
         ...(draft.tags !== undefined && { tags: draft.tags }),
         ...(draft.customTags !== undefined && { customTags: draft.customTags as number[] }),
-        ...(draft.subtasks !== undefined && { subtasks: draft.subtasks }),
+        ...(sanitizedSubtasks !== undefined && { subtasks: sanitizedSubtasks }),
+        ...(role === 'admin' &&
+          draft.assignedTo !== undefined && { assignedTo: sanitizeAssignees(draft.assignedTo) }),
         ...(draft.recurrence !== undefined && { recurrence: draft.recurrence }),
         ...(draft.dueDate !== undefined && { dueDate: draft.dueDate }),
         ...(draft.autoDeleteOnDueDate !== undefined && {

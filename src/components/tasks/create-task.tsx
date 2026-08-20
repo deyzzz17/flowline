@@ -47,6 +47,8 @@ import { PlanLimitDialog } from '../ui/plan-limit-dialog'
 import { SafetyCapDialog } from '../ui/safety-cap-dialog'
 import { RestoreArchivedPrompt } from '../ui/restore-archived-prompt'
 import { listPlanArchivedTags, restoreArchivedTag } from '@/api/tags/actions'
+import { AssigneePicker } from './assignee-picker'
+import { useListMemberProfiles } from '@/hooks/list-members/use-member-profiles'
 
 const TAG_OPTIONS = [
   { value: 'urgent', label: 'Urgent' },
@@ -83,9 +85,10 @@ const FALLBACK_TAGS_LIMIT = 10
 
 interface CreateTaskProps {
   listId?: number
+  canAssign?: boolean
 }
 
-export const CreateTask = ({ listId }: CreateTaskProps) => {
+export const CreateTask = ({ listId, canAssign }: CreateTaskProps) => {
   const { isOpen, close, setIsOpen } = useManageForm()
   const {
     title,
@@ -106,6 +109,9 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
     removeSubtask,
     updateSubtaskDetail,
     toggleSubtaskTag,
+    assignedTo,
+    toggleAssignee,
+    toggleSubtaskAssignee,
     frequency,
     setFrequency,
     days,
@@ -131,6 +137,7 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
   const planLimits = usePlanLimits()
   const subtasksLimit = planLimits?.limits.subtasksPerTask ?? FALLBACK_SUBTASKS_LIMIT
   const tagsLimit = planLimits?.limits.customTags ?? FALLBACK_TAGS_LIMIT
+  const assignableMembers = useListMemberProfiles(listId, canAssign)
 
   const titleRef = React.useRef<HTMLInputElement>(null)
 
@@ -581,6 +588,16 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
               </div>
             </FormField>
 
+            {canAssign && assignableMembers.length > 0 && (
+              <FormField label="Assign to" optional>
+                <AssigneePicker
+                  members={assignableMembers}
+                  value={assignedTo}
+                  onToggle={toggleAssignee}
+                />
+              </FormField>
+            )}
+
             <FormField label="Subtasks" optional>
               <div className="space-y-2">
                 {subtasks.length > 0 && (
@@ -694,6 +711,19 @@ export const CreateTask = ({ listId }: CreateTaskProps) => {
                                     })}
                                 </div>
                               </div>
+                              {canAssign && assignableMembers.length > 0 && (
+                                <div className="space-y-3">
+                                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                    Assign to{' '}
+                                    <span className="normal-case font-normal">Optional</span>
+                                  </label>
+                                  <AssigneePicker
+                                    members={assignableMembers}
+                                    value={s.assignedTo ?? []}
+                                    onToggle={(userId) => toggleSubtaskAssignee(index, userId)}
+                                  />
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>

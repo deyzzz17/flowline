@@ -17,6 +17,7 @@ export type SubtaskDetail = {
   description?: string
   dueDate?: Date
   tags?: string[]
+  assignedTo?: string[]
 }
 
 let tempIdCounter = -1
@@ -33,6 +34,7 @@ export const useTaskCreation = () => {
   const [tags, setTags] = useState<TaskTag[]>([])
   const [customTags, setCustomTags] = useState<string[]>([])
   const [subtasks, setSubtasks] = useState<SubtaskDetail[]>([])
+  const [assignedTo, setAssignedTo] = useState<string[]>([])
   const [frequency, setFrequency] = useState<RecurrenceFrequency>('daily')
   const [days, setDays] = useState<RecurrenceDay[]>([])
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined)
@@ -78,6 +80,19 @@ export const useTaskCreation = () => {
     updateSubtaskDetail(index, 'tags', updated)
   }
 
+  const toggleAssignee = (userId: string) =>
+    setAssignedTo((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId],
+    )
+
+  const toggleSubtaskAssignee = (index: number, userId: string) => {
+    const current = subtasks[index]?.assignedTo ?? []
+    const updated = current.includes(userId)
+      ? current.filter((id) => id !== userId)
+      : [...current, userId]
+    updateSubtaskDetail(index, 'assignedTo', updated)
+  }
+
   const resetForm = () => {
     setTitle('')
     setDescription('')
@@ -85,6 +100,7 @@ export const useTaskCreation = () => {
     setTags([])
     setCustomTags([])
     setSubtasks([])
+    setAssignedTo([])
     setFrequency('daily')
     setDays([])
     setDueDate(undefined)
@@ -178,12 +194,14 @@ export const useTaskCreation = () => {
       dueDate: dueDate ? dueDate.toISOString() : null,
       autoDeleteOnDueDate,
       ...(listId !== undefined && { listId }),
+      assignedTo,
       subtasks: subtasks.map((s) => ({
         title: s.title,
         done: s.done,
         ...(s.description && { description: s.description }),
         ...(s.dueDate && { dueDate: s.dueDate.toISOString() }),
         ...(s.tags?.length && { tags: s.tags as NonNullable<Task['subtasks']>[number]['tags'] }),
+        ...(s.assignedTo?.length && { assignedTo: s.assignedTo }),
       })),
       ...(type === 'recurring' && {
         recurrence: {
@@ -223,6 +241,9 @@ export const useTaskCreation = () => {
     removeSubtask,
     updateSubtaskDetail,
     toggleSubtaskTag,
+    assignedTo,
+    toggleAssignee,
+    toggleSubtaskAssignee,
     frequency,
     setFrequency,
     days,

@@ -13,6 +13,7 @@ type EditDraft = {
   type?: Task['type']
   recurrence?: Task['recurrence']
   subtasks?: Task['subtasks']
+  assignedTo?: string[]
 }
 
 type UserTag = { id: number; name: string; color: string }
@@ -64,6 +65,8 @@ export const useEditTask = () => {
                               (task.subtasks?.[i] as { id?: string } | undefined)?.id ?? String(i),
                           }))
                         : task.subtasks,
+                    assignedTo:
+                      draft.assignedTo !== undefined ? (draft.assignedTo as any) : task.assignedTo,
                   }
                 : task,
             ),

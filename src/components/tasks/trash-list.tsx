@@ -9,9 +9,16 @@ interface TrashListProps {
   showListBadge?: boolean
   readOnly?: boolean
   canHardDelete?: boolean
+  canAssign?: boolean
 }
 
-export const Trash = ({ tasks, showListBadge, readOnly, canHardDelete }: TrashListProps) => {
+export const Trash = ({
+  tasks,
+  showListBadge,
+  readOnly,
+  canHardDelete,
+  canAssign,
+}: TrashListProps) => {
   const taskManager = useTask()
 
   return (
@@ -23,6 +30,7 @@ export const Trash = ({ tasks, showListBadge, readOnly, canHardDelete }: TrashLi
           showListBadge={showListBadge}
           readOnly={readOnly}
           canHardDelete={canHardDelete}
+          canAssign={canAssign}
           taskManager={taskManager}
         />
       ))}

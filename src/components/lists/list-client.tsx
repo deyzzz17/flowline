@@ -85,6 +85,7 @@ export const ListClient = ({ list, role }: ListClientProps) => {
   const isAdmin = role === 'admin'
   const isReadOnly = role === 'reader'
   const canHardDelete = role === 'admin'
+  const canAssign = isAdmin && !!list.isShared
   const [membersOpen, setMembersOpen] = useState(false)
 
   const { data } = useQuery({
@@ -372,7 +373,7 @@ export const ListClient = ({ list, role }: ListClientProps) => {
                     : `${todoTasks.length} task${todoTasks.length !== 1 ? 's' : ''} remaining.`}
                 </p>
               </div>
-              {!isReadOnly && <CreateTask listId={list.id} />}
+              {!isReadOnly && <CreateTask listId={list.id} canAssign={canAssign} />}
             </div>
             <div className="rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm">
               <div className="flex items-center justify-between border-b border-border/50 px-5 py-3.5">
@@ -398,7 +399,12 @@ export const ListClient = ({ list, role }: ListClientProps) => {
                     </p>
                   </div>
                 ) : (
-                  <TodoList tasks={todoTasks} readOnly={isReadOnly} canHardDelete={canHardDelete} />
+                  <TodoList
+                    tasks={todoTasks}
+                    readOnly={isReadOnly}
+                    canHardDelete={canHardDelete}
+                    canAssign={canAssign}
+                  />
                 )}
               </div>
             </div>
@@ -445,6 +451,7 @@ export const ListClient = ({ list, role }: ListClientProps) => {
                     tasks={achievedTasks}
                     readOnly={isReadOnly}
                     canHardDelete={canHardDelete}
+                    canAssign={canAssign}
                   />
                 )}
               </div>
@@ -497,6 +504,7 @@ export const ListClient = ({ list, role }: ListClientProps) => {
                     tasks={inactiveTasks}
                     readOnly={isReadOnly}
                     canHardDelete={canHardDelete}
+                    canAssign={canAssign}
                   />
                 )}
               </div>
@@ -540,7 +548,12 @@ export const ListClient = ({ list, role }: ListClientProps) => {
                     </p>
                   </div>
                 ) : (
-                  <Trash tasks={trashedTasks} readOnly={isReadOnly} canHardDelete={canHardDelete} />
+                  <Trash
+                    tasks={trashedTasks}
+                    readOnly={isReadOnly}
+                    canHardDelete={canHardDelete}
+                    canAssign={canAssign}
+                  />
                 )}
               </div>
             </div>

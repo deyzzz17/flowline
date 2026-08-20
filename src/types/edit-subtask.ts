@@ -4,4 +4,5 @@ export type EditSubtask = {
   description?: string
   dueDate?: Date
   tags?: string[]
+  assignedTo?: string[]
 }

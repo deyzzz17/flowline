@@ -46,3 +46,21 @@ export function canEditListContent(role: ListRole): boolean {
 export function canViewList(role: ListRole): boolean {
   return role === 'admin' || role === 'editor' || role === 'reader'
 }
+
+// Everyone a task in this list could legitimately be assigned to: the admin
+// (owner) plus every currently-accepted member. Used both to validate an
+// assignment server-side and to resolve assignee profiles for display.
+export async function getListMemberIds(payload: BasePayload, listId: number): Promise<string[]> {
+  const list = await payload.findByID({ collection: 'lists', id: listId }).catch(() => null)
+  if (!list) return []
+
+  const { docs } = await payload.find({
+    collection: 'list-members',
+    where: {
+      and: [{ list: { equals: listId } }, { status: { equals: 'accepted' } }],
+    },
+    limit: 0,
+  })
+
+  return [list.userId, ...docs.map((d) => d.userId as string)]
+}

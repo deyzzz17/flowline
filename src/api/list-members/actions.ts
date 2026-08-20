@@ -10,7 +10,7 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
 import { getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
-import { resolveListRole } from '@/lib/list-roles'
+import { resolveListRole, getListMemberIds, canViewList } from '@/lib/list-roles'
 import { findUsersByIds, type ContactProfile } from '@/api/contacts/actions'
 import type { List } from '@/payload-types'
 
@@ -403,6 +403,20 @@ export const listMembersForList = async (listId: number): Promise<ListMemberEntr
       }
     })
     .filter((x): x is ListMemberEntry => x !== null)
+}
+
+export const listMemberProfiles = async (listId: number): Promise<ContactProfile[]> => {
+  const userId = await getUserId()
+  if (!userId) return []
+
+  const payload = await getPayload({ config })
+  const role = await resolveListRole(payload, listId, userId)
+  if (!canViewList(role)) return []
+
+  const memberIds = await getListMemberIds(payload, listId)
+  const usersMap = await findUsersByIds(memberIds)
+
+  return memberIds.map((id) => usersMap.get(id)).filter((u): u is ContactProfile => u !== undefined)
 }
 
 export const listMyListInvites = async (): Promise<ListInvite[]> => {

@@ -200,6 +200,10 @@ export interface Task {
   status: 'active' | 'completed' | 'deleted' | 'inactive';
   userId: string;
   list?: (number | null) | List;
+  /**
+   * userIds of shared-list members this task is assigned to. Only the list admin may set this.
+   */
+  assignedTo?: string[] | null;
   type: 'simple' | 'recurring';
   tags?: ('urgent' | 'work' | 'personal' | 'health' | 'finance' | 'learning')[] | null;
   customTags?: (number | UserTag)[] | null;
@@ -209,6 +213,7 @@ export interface Task {
         done?: boolean | null;
         description?: string | null;
         dueDate?: string | null;
+        assignedTo?: string[] | null;
         tags?: ('urgent' | 'work' | 'personal' | 'health' | 'finance' | 'learning')[] | null;
         id?: string | null;
       }[]
@@ -839,6 +844,7 @@ export interface TasksSelect<T extends boolean = true> {
   status?: T;
   userId?: T;
   list?: T;
+  assignedTo?: T;
   type?: T;
   tags?: T;
   customTags?: T;
@@ -849,6 +855,7 @@ export interface TasksSelect<T extends boolean = true> {
         done?: T;
         description?: T;
         dueDate?: T;
+        assignedTo?: T;
         tags?: T;
         id?: T;
       };

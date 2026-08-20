@@ -8,6 +8,7 @@ interface AchievedListProps {
   readOnly?: boolean
   showListBadge?: boolean
   canHardDelete?: boolean
+  canAssign?: boolean
 }
 
 export const AchievedList = ({
@@ -15,6 +16,7 @@ export const AchievedList = ({
   readOnly,
   showListBadge,
   canHardDelete,
+  canAssign,
 }: AchievedListProps) => {
   const taskManager = useTask()
   return (
@@ -27,6 +29,7 @@ export const AchievedList = ({
           readOnly={readOnly}
           showListBadge={showListBadge}
           canHardDelete={canHardDelete}
+          canAssign={canAssign}
           taskManager={taskManager}
         />
       ))}

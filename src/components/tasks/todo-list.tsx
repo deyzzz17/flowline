@@ -9,6 +9,7 @@ interface TodoListProps {
   noEdit?: boolean
   showListBadge?: boolean
   canHardDelete?: boolean
+  canAssign?: boolean
 }
 
 export const TodoList = ({
@@ -17,6 +18,7 @@ export const TodoList = ({
   noEdit,
   showListBadge,
   canHardDelete,
+  canAssign,
 }: TodoListProps) => {
   const taskManager = useTask()
   return (
@@ -34,6 +36,7 @@ export const TodoList = ({
             noEdit={noEdit}
             showListBadge={showListBadge}
             canHardDelete={canHardDelete}
+            canAssign={canAssign}
             taskManager={taskManager}
           />
         )

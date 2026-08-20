@@ -50,6 +50,9 @@ import { PlanLimitDialog } from '../ui/plan-limit-dialog'
 import { RestoreArchivedPrompt } from '../ui/restore-archived-prompt'
 import { listPlanArchivedTags, restoreArchivedTag } from '@/api/tags/actions'
 import { SafetyCapDialog } from '../ui/safety-cap-dialog'
+import { AssigneePicker } from './assignee-picker'
+import { AssigneeBadges } from './assignee-badges'
+import { useListMemberProfiles } from '@/hooks/list-members/use-member-profiles'
 
 function hexToRgba(hex: string, alpha: number) {
   try {
@@ -123,6 +126,7 @@ interface TaskCardProps {
   noEdit?: boolean
   showListBadge?: boolean
   canHardDelete?: boolean
+  canAssign?: boolean
   taskManager: ReturnType<typeof useTask>
 }
 
@@ -134,6 +138,7 @@ export const TaskCard = ({
   noEdit,
   showListBadge,
   canHardDelete = true,
+  canAssign = false,
   taskManager,
 }: TaskCardProps) => {
   const {
@@ -159,6 +164,8 @@ export const TaskCard = ({
     setEditFrequency,
     editSubtasks,
     setEditSubtasks,
+    editAssignedTo,
+    setEditAssignedTo,
     subtaskInput,
     setSubtaskInput,
     expandedSubtask,
@@ -244,6 +251,12 @@ export const TaskCard = ({
   const hasSubtasks = subtasks.length > 0
   const subtaskProgress = hasSubtasks ? Math.round((completedSubtasks / subtasks.length) * 100) : 0
   const tags = (task.tags ?? []) as string[]
+
+  const taskListId =
+    task.list && typeof task.list === 'object' ? task.list.id : (task.list ?? undefined)
+  // Only the admin can see or set assignments — other members never resolve
+  // or see who a task/subtask is assigned to.
+  const assignableMembers = useListMemberProfiles(taskListId, canAssign)
   type UserTag = { id: number; name: string; color: string }
   const taskCustomTags = (task.customTags ?? []) as UserTag[]
   const recurrenceDays = (task.recurrence?.days ?? []) as string[]
@@ -269,8 +282,10 @@ export const TaskCard = ({
         description: s.description ?? '',
         dueDate: s.dueDate ? new Date(s.dueDate) : undefined,
         tags: (s.tags ?? []) as string[],
+        assignedTo: (s.assignedTo ?? []) as string[],
       })),
     )
+    setEditAssignedTo((task.assignedTo ?? []) as string[])
     setExpandedSubtask(null)
     setShowNewTag(false)
     setNewTagName('')
@@ -280,6 +295,20 @@ export const TaskCard = ({
 
   const toggleEditTag = (tag: TaskTag) =>
     setEditTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
+
+  const toggleEditAssignee = (userId: string) =>
+    setEditAssignedTo((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId],
+    )
+
+  const toggleEditSubtaskAssignee = (index: number, userId: string) => {
+    const current = editSubtasks[index]?.assignedTo ?? []
+    updateSubtask(
+      index,
+      'assignedTo',
+      current.includes(userId) ? current.filter((id) => id !== userId) : [...current, userId],
+    )
+  }
 
   const toggleEditCustomTag = (tagId: string) =>
     setEditCustomTags((prev) =>
@@ -360,7 +389,9 @@ export const TaskCard = ({
           description: s.description ?? '',
           dueDate: s.dueDate ? s.dueDate.toISOString() : null,
           tags: (s.tags ?? []) as NonNullable<Task['subtasks']>[number]['tags'],
+          assignedTo: s.assignedTo ?? [],
         })),
+      assignedTo: editAssignedTo,
     })
   }
 
@@ -691,6 +722,19 @@ export const TaskCard = ({
                 )}
               </div>
 
+              {canAssign && assignableMembers.length > 0 && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Assign to
+                  </label>
+                  <AssigneePicker
+                    members={assignableMembers}
+                    value={editAssignedTo}
+                    onToggle={toggleEditAssignee}
+                  />
+                </div>
+              )}
+
               {editType === 'recurring' && (
                 <div className="space-y-2.5 rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
                   <p className="text-xs font-semibold uppercase tracking-widest text-violet-600 dark:text-violet-400">
@@ -871,6 +915,19 @@ export const TaskCard = ({
                                   })}
                                 </div>
                               </div>
+                              {canAssign && assignableMembers.length > 0 && (
+                                <div className="space-y-1.5">
+                                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                                    Assign to{' '}
+                                    <span className="normal-case font-normal">Optional</span>
+                                  </p>
+                                  <AssigneePicker
+                                    members={assignableMembers}
+                                    value={s.assignedTo ?? []}
+                                    onToggle={(userId) => toggleEditSubtaskAssignee(i, userId)}
+                                  />
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1045,6 +1102,12 @@ export const TaskCard = ({
                 </div>
               )}
 
+              {!isEditing && canAssign && (task.assignedTo?.length ?? 0) > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <AssigneeBadges assignedTo={task.assignedTo} members={assignableMembers} />
+                </div>
+              )}
+
               {!isEditing && isActive && <TaskSessionsBadge taskId={task.id} />}
 
               {hasSubtasks && (
@@ -1076,6 +1139,7 @@ export const TaskCard = ({
                         description: subtask.description ?? '',
                         dueDate: subtask.dueDate ? new Date(subtask.dueDate) : undefined,
                         tags: subtaskTags,
+                        assignedTo: (subtask.assignedTo ?? []) as string[],
                       })
                       setEditingSubtaskIndex(index)
                       setExpandedViewSubtask(null)
@@ -1092,6 +1156,7 @@ export const TaskCard = ({
                               tags: subtaskEditDraft.tags as NonNullable<
                                 Task['subtasks']
                               >[number]['tags'],
+                              assignedTo: canAssign ? subtaskEditDraft.assignedTo : s.assignedTo,
                             }
                           : s,
                       )
@@ -1102,6 +1167,7 @@ export const TaskCard = ({
                           description: s.description ?? '',
                           dueDate: s.dueDate ?? null,
                           tags: (s.tags ?? []) as NonNullable<Task['subtasks']>[number]['tags'],
+                          assignedTo: (s.assignedTo ?? []) as string[],
                         })),
                       })
                       if (!result.ok) {
@@ -1227,6 +1293,20 @@ export const TaskCard = ({
                                 </div>
                               )}
                             </div>
+                            {canAssign && assignableMembers.length > 0 && (
+                              <AssigneePicker
+                                members={assignableMembers}
+                                value={subtaskEditDraft.assignedTo}
+                                onToggle={(userId) =>
+                                  setSubtaskEditDraft((prev) => ({
+                                    ...prev,
+                                    assignedTo: prev.assignedTo.includes(userId)
+                                      ? prev.assignedTo.filter((id) => id !== userId)
+                                      : [...prev.assignedTo, userId],
+                                  }))
+                                }
+                              />
+                            )}
                             <div className="flex gap-2 pt-0.5">
                               <Button
                                 size="sm"
@@ -1272,6 +1352,13 @@ export const TaskCard = ({
                               >
                                 {subtask.title}
                               </label>
+                              {canAssign && (subtask.assignedTo?.length ?? 0) > 0 && (
+                                <AssigneeBadges
+                                  assignedTo={subtask.assignedTo}
+                                  members={assignableMembers}
+                                  size="xs"
+                                />
+                              )}
                               {hasSubtaskDetails && !isViewExpanded && (
                                 <Tag className="h-2.5 w-2.5 shrink-0 text-violet-500/50" />
                               )}
