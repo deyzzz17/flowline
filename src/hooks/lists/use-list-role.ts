@@ -2,22 +2,19 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
-import type { List } from '@/payload-types'
+import type { ListRole } from '@/lib/list-roles'
+import { SHARED_LIST_POLL_INTERVAL_MS } from '@/lib/realtime'
 
-export type ListRole = 'admin' | 'editor' | 'reader' | null
-
-export const useListRole = (listId: number | undefined): ListRole => {
-  const { data: ownedLists } = useQuery({ queryKey: ['lists'], queryFn: () => api.lists.list() })
-  const { data: sharedLists } = useQuery({
-    queryKey: ['lists', 'shared-with-me'],
-    queryFn: () => api.listMembers.listSharedWithMe(),
+// Seeded with the server-resolved role so there's no permission flash on
+// load; polls (shared lists only) so an admin's role change or removal
+// takes effect for the affected member without them refreshing.
+export const useListRole = (listId: number, initialRole: ListRole, isShared: boolean): ListRole => {
+  const { data } = useQuery({
+    queryKey: ['lists', 'role', listId],
+    queryFn: () => api.lists.role(listId),
+    initialData: initialRole,
+    refetchInterval: isShared ? SHARED_LIST_POLL_INTERVAL_MS : false,
   })
 
-  if (!listId) return null
-
-  const isOwned = (ownedLists?.docs ?? []).some((l: List) => l.id === listId)
-  if (isOwned) return 'admin'
-
-  const shared = (sharedLists ?? []).find((l) => l.id === listId)
-  return shared?.myRole ?? null
+  return data
 }

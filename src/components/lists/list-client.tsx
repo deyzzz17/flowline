@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { api } from '@/api'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { TodoList } from '@/components/tasks/todo-list'
@@ -60,6 +62,8 @@ import {
   type TaskSortBy,
   type AssigneeFilter,
 } from '@/lib/task-sort'
+import { SHARED_LIST_POLL_INTERVAL_MS } from '@/lib/realtime'
+import { useListRole } from '@/hooks/lists/use-list-role'
 
 function hexToRgba(hex: string, alpha: number) {
   try {
@@ -92,12 +96,26 @@ interface ListClientProps {
   role: ListRole
 }
 
-export const ListClient = ({ list, role }: ListClientProps) => {
+export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
+  const router = useRouter()
+  const role = useListRole(list.id, initialRole, !!list.isShared)
   const isAdmin = role === 'admin'
   const isReadOnly = role === 'reader'
   const canHardDelete = role === 'admin'
   const canAssign = isAdmin && !!list.isShared
   const [membersOpen, setMembersOpen] = useState(false)
+
+  useEffect(() => {
+    if (initialRole && !role) {
+      toast.error('You lost access to this list', {
+        description: 'It was deleted, or the owner removed you as a member.',
+      })
+      router.push('/lists/today')
+    }
+    // Only react to the live role dropping to null after having had access —
+    // initialRole is the SSR snapshot and must not retrigger this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role])
   const [sortBy, setSortBy] = useState<TaskSortBy>('newest')
   const [assigneeFilter, setAssigneeFilter] = useState<AssigneeFilter>('all')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
@@ -108,6 +126,7 @@ export const ListClient = ({ list, role }: ListClientProps) => {
   const { data } = useQuery({
     queryKey: ['tasks', list.id],
     queryFn: () => api.tasks.list(1, list.id),
+    refetchInterval: list.isShared ? SHARED_LIST_POLL_INTERVAL_MS : false,
   })
 
   const rawTasks = data?.docs ?? []

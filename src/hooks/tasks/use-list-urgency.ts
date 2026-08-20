@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
 import type { Task } from '@/payload-types'
+import { SHARED_LIST_POLL_INTERVAL_MS } from '@/lib/realtime'
 
 function computeUrgency(tasks: Task[]): 'red' | 'orange' | null {
   const now = Date.now()
@@ -25,6 +26,7 @@ export function useListUrgency(listId: number) {
   const { data } = useQuery({
     queryKey: ['tasks', listId],
     queryFn: () => api.tasks.list(1, listId),
+    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
   })
 
   return computeUrgency((data?.docs ?? []) as Task[])
