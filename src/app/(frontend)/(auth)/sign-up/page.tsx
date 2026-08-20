@@ -20,9 +20,18 @@ export default async function SignUpPage() {
           </div>
         </div>
       </div>
-      <div className="relative hidden overflow-hidden lg:block">
-        <div className="absolute inset-0 z-10 bg-linear-to-br from-violet-600/20 via-transparent to-indigo-600/20" />
-        <Image src="/auth-cover.png" alt="" fill priority sizes="50vw" className="object-cover" />
+      <div className="relative hidden items-center justify-center overflow-hidden bg-linear-to-br from-violet-600/10 via-background to-indigo-600/10 lg:flex">
+        <Orb className="absolute top-10 right-10 h-72 w-72 rounded-full bg-violet-500 opacity-10 dark:opacity-20 blur-3xl" />
+        <Orb className="absolute bottom-10 left-10 h-56 w-56 rounded-full bg-indigo-500 opacity-10 dark:opacity-20 blur-3xl" />
+        <Image
+          src="/auth-cover.png"
+          alt=""
+          width={1717}
+          height={916}
+          priority
+          quality={90}
+          className="relative z-10 h-auto max-h-[80vh] w-auto max-w-[860px] rounded-2xl object-contain shadow-2xl shadow-violet-950/30"
+        />
       </div>
     </div>
   )
