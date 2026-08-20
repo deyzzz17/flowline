@@ -140,7 +140,8 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
   const lists = (listsData?.docs ?? []) as List[]
   const allTasks = (tasksData?.docs ?? []) as Task[]
   const defaultList = lists.find((l: List) => l.isDefault)
-  const customLists = lists.filter((l: List) => !l.isDefault)
+  const customLists = lists.filter((l: List) => !l.isDefault && !l.isShared)
+  const ownSharedLists = lists.filter((l: List) => l.isShared)
 
   const tasksByList = allTasks.reduce<Record<number, Task[]>>((acc, task) => {
     const listId =
@@ -518,7 +519,7 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
                     Shared
                   </span>
                 </div>
-                {sharedLists.map((list) => (
+                {[...ownSharedLists, ...sharedLists].map((list) => (
                   <Link
                     key={list.id}
                     {...navLink(`/lists/${list.slug}`)}
@@ -534,17 +535,32 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
                       style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
                     />
                     <span className="flex-1 truncate">{list.name}</span>
+                    {getListUrgency(tasksByList[list.id] ?? []) && (
+                      <span
+                        className={cn(
+                          'size-1.5 shrink-0 rounded-full',
+                          getListUrgency(tasksByList[list.id] ?? []) === 'red'
+                            ? 'bg-destructive'
+                            : 'bg-orange-500',
+                        )}
+                      />
+                    )}
                     <Users className="h-3 w-3 shrink-0 text-violet-500/50" />
                   </Link>
                 ))}
                 {planLimits?.plan === 'free' ? (
-                  <Link
-                    {...navLink('/billing')}
-                    className="flex items-center rounded-xl px-3 py-2 text-muted-foreground/60 hover:bg-muted hover:text-violet-500 transition-all"
-                    title="Upgrade to Plus or Pro to create shared lists"
-                  >
-                    <Zap className="h-3.5 w-3.5 shrink-0" />
-                  </Link>
+                  <div className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/40">
+                    <UserPlus className="h-3.5 w-3.5 shrink-0" />
+                    <span className="flex-1 truncate">New shared list</span>
+                    <button
+                      type="button"
+                      onClick={() => setLimitDialog(LIMIT_ERRORS.SHARED_LISTS_LIMIT)}
+                      className="shrink-0 text-violet-500/70 transition-colors hover:text-violet-500"
+                      title="Upgrade to Plus or Pro to create shared lists"
+                    >
+                      <Zap className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 ) : (
                   <Link
                     {...navLink('/lists/new-shared-list')}

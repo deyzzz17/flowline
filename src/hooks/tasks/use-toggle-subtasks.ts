@@ -110,6 +110,11 @@ export function useCompleteTaskWithSubtasks() {
 
   const mutate = useCallback(
     async (taskId: number) => {
+      // See useToggleTask for why this matters: without canceling in-flight
+      // refetches first, a stale response can land after our optimistic
+      // write and overwrite it, causing a visible check/uncheck/check flicker.
+      await queryClient.cancelQueries({ queryKey: ['tasks'] })
+
       const queries = queryClient.getQueriesData<{ docs: Task[] }>({ queryKey: ['tasks'] })
       const previousData = queries.map(([queryKey, data]) => ({ queryKey, data }))
 

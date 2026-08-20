@@ -40,8 +40,14 @@ export function useToggleTask() {
     mutationFn: ({ id, status }: { id: number; status: 'active' | 'completed' }) =>
       api.tasks.toggleStatus(id, status),
 
-    onMutate: ({ id, status }) => {
+    onMutate: async ({ id, status }) => {
       setPendingIds((prev) => new Set(prev).add(id))
+
+      // Cancel any in-flight refetch for these keys first — otherwise a stale
+      // response that was already on the wire can land after our optimistic
+      // write and silently overwrite it, which looks like the checkbox
+      // flipping, reverting, then flipping again.
+      await queryClient.cancelQueries({ queryKey: ['tasks'] })
 
       const queries = queryClient.getQueriesData<{ docs: Task[] }>({ queryKey: ['tasks'] })
       const previousData = queries.map(([queryKey, data]) => ({ queryKey, data }))

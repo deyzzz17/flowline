@@ -149,7 +149,8 @@ export function AppSidebar() {
   const lists = (listsData?.docs ?? []) as List[]
   const allTasks = (tasksData?.docs ?? []) as Task[]
   const defaultList = lists.find((l: List) => l.isDefault)
-  const customLists = lists.filter((l: List) => !l.isDefault)
+  const customLists = lists.filter((l: List) => !l.isDefault && !l.isShared)
+  const ownSharedLists = lists.filter((l: List) => l.isShared)
 
   const tasksByList = allTasks.reduce<Record<number, Task[]>>((acc, task) => {
     const listId =
@@ -523,7 +524,7 @@ export function AppSidebar() {
                             Shared
                           </span>
                         </div>
-                        {sharedLists.map((list) => (
+                        {[...ownSharedLists, ...sharedLists].map((list) => (
                           <SidebarMenuSubItem key={list.id}>
                             <SidebarMenuSubButton
                               asChild
@@ -535,6 +536,16 @@ export function AppSidebar() {
                                   style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
                                 />
                                 <span className="flex-1 truncate">{list.name}</span>
+                                {getListUrgency(tasksByList[list.id] ?? []) && (
+                                  <span
+                                    className={cn(
+                                      'size-1.5 shrink-0 rounded-full',
+                                      getListUrgency(tasksByList[list.id] ?? []) === 'red'
+                                        ? 'bg-destructive'
+                                        : 'bg-orange-500',
+                                    )}
+                                  />
+                                )}
                                 <Users className="h-3 w-3 shrink-0 text-violet-500/50" />
                               </Link>
                             </SidebarMenuSubButton>
@@ -542,15 +553,18 @@ export function AppSidebar() {
                         ))}
                         <SidebarMenuSubItem>
                           {planLimits?.plan === 'free' ? (
-                            <SidebarMenuSubButton asChild>
-                              <Link
-                                href={nav('/billing')}
-                                className="text-muted-foreground/60"
+                            <div className="flex h-7 items-center gap-2 rounded-md px-2 text-xs text-muted-foreground/40">
+                              <UserPlus className="h-3.5 w-3.5 shrink-0" />
+                              <span className="flex-1 truncate">New shared list</span>
+                              <button
+                                type="button"
+                                onClick={() => setLimitDialog(LIMIT_ERRORS.SHARED_LISTS_LIMIT)}
+                                className="shrink-0 text-violet-500/70 transition-colors hover:text-violet-500"
                                 title="Upgrade to Plus or Pro to create shared lists"
                               >
                                 <Zap className="h-3.5 w-3.5" />
-                              </Link>
-                            </SidebarMenuSubButton>
+                              </button>
+                            </div>
                           ) : (
                             <SidebarMenuSubButton asChild>
                               <Link
