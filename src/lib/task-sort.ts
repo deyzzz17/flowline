@@ -44,6 +44,21 @@ export function sortTasks(tasks: Task[], sortBy: TaskSortBy): Task[] {
   }
 }
 
+// selectedTags mixes fixed tag values (e.g. "urgent") and custom tag ids
+// (stringified, e.g. "42") in one array — matches how the tag pickers
+// elsewhere in the app already store selections.
+export function filterTasksByTags(tasks: Task[], selectedTags: string[]): Task[] {
+  if (selectedTags.length === 0) return tasks
+
+  return tasks.filter((task) => {
+    const fixedTags = (task.tags ?? []) as string[]
+    const customTagIds = (task.customTags ?? []).map((t) =>
+      typeof t === 'object' ? String(t.id) : String(t),
+    )
+    return selectedTags.some((tag) => fixedTags.includes(tag) || customTagIds.includes(tag))
+  })
+}
+
 export function filterTasksByAssignee(
   tasks: Task[],
   filter: AssigneeFilter,

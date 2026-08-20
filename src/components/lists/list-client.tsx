@@ -52,9 +52,11 @@ import { ListMembersPanel } from './list-members-panel'
 import { useSession } from '@/lib/auth-client'
 import { TaskSortControl } from '@/components/tasks/task-sort-control'
 import { AssigneeFilterControl } from '@/components/tasks/assignee-filter-control'
+import { TagFilterControl } from '@/components/tasks/tag-filter-control'
 import {
   sortTasks,
   filterTasksByAssignee,
+  filterTasksByTags,
   type TaskSortBy,
   type AssigneeFilter,
 } from '@/lib/task-sort'
@@ -98,6 +100,7 @@ export const ListClient = ({ list, role }: ListClientProps) => {
   const [membersOpen, setMembersOpen] = useState(false)
   const [sortBy, setSortBy] = useState<TaskSortBy>('newest')
   const [assigneeFilter, setAssigneeFilter] = useState<AssigneeFilter>('all')
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
 
   const { data: session } = useSession()
   const currentUserId = session?.user?.id
@@ -108,10 +111,12 @@ export const ListClient = ({ list, role }: ListClientProps) => {
   })
 
   const rawTasks = data?.docs ?? []
-  const scopedTasks = list.isShared
+  const assigneeScopedTasks = list.isShared
     ? filterTasksByAssignee(rawTasks, assigneeFilter, currentUserId)
     : rawTasks
-  const allTasks = sortTasks(scopedTasks, sortBy)
+  const tagScopedTasks =
+    sortBy === 'tag' ? filterTasksByTags(assigneeScopedTasks, selectedTags) : assigneeScopedTasks
+  const allTasks = sortTasks(tagScopedTasks, sortBy)
   const todoTasks = allTasks.filter((t) => t.status === 'active')
   const achievedTasks = allTasks.filter((t) => t.status === 'completed')
   const inactiveTasks = allTasks.filter((t) => t.status === 'inactive')
@@ -378,13 +383,6 @@ export const ListClient = ({ list, role }: ListClientProps) => {
               <span className="hidden xs:inline sm:inline">Trash</span>
             </TabsTrigger>
           </TabsList>
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <TaskSortControl value={sortBy} onChange={setSortBy} />
-            {list.isShared && (
-              <AssigneeFilterControl value={assigneeFilter} onChange={setAssigneeFilter} />
-            )}
-          </div>
         </div>
 
         <TabsContent value="todo" className="outline-none">
@@ -397,6 +395,17 @@ export const ListClient = ({ list, role }: ListClientProps) => {
                     ? 'Your list is clear, add something to get started.'
                     : `${todoTasks.length} task${todoTasks.length !== 1 ? 's' : ''} remaining.`}
                 </p>
+                <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                  <TaskSortControl value={sortBy} onChange={setSortBy} />
+                  {list.isShared && (
+                    <AssigneeFilterControl value={assigneeFilter} onChange={setAssigneeFilter} />
+                  )}
+                </div>
+                {sortBy === 'tag' && (
+                  <div className="mt-2.5">
+                    <TagFilterControl value={selectedTags} onChange={setSelectedTags} />
+                  </div>
+                )}
               </div>
               {!isReadOnly && <CreateTask listId={list.id} canAssign={canAssign} />}
             </div>
