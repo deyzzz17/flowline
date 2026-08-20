@@ -7,7 +7,10 @@ export async function resolveListRole(
   listId: number,
   userId: string,
 ): Promise<ListRole> {
-  const list = await payload.findByID({ collection: 'lists', id: listId }).catch(() => null)
+  const list = await payload.findByID({ collection: 'lists', id: listId }).catch((e) => {
+    console.error('resolveListRole: failed to fetch list', listId, e)
+    return null
+  })
   if (!list) return null
   if (list.userId === userId) return 'admin'
   if (!list.isShared) return null
@@ -51,7 +54,10 @@ export function canViewList(role: ListRole): boolean {
 // (owner) plus every currently-accepted member. Used both to validate an
 // assignment server-side and to resolve assignee profiles for display.
 export async function getListMemberIds(payload: BasePayload, listId: number): Promise<string[]> {
-  const list = await payload.findByID({ collection: 'lists', id: listId }).catch(() => null)
+  const list = await payload.findByID({ collection: 'lists', id: listId }).catch((e) => {
+    console.error('getListMemberIds: failed to fetch list', listId, e)
+    return null
+  })
   if (!list) return []
 
   const { docs } = await payload.find({
