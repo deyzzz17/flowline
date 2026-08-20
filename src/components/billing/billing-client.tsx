@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { Check, Loader2, AlertTriangle, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -306,6 +307,7 @@ function reportIfFailed(result: { ok: boolean; error?: string } | undefined) {
 }
 
 export function BillingClient({ billing }: BillingClientProps) {
+  const router = useRouter()
   const [interval, setInterval] = useState<BillingInterval>('monthly')
   const [isPending, startTransition] = useTransition()
   const [annualCommitmentDialog, setAnnualCommitmentDialog] = useState<{
@@ -314,6 +316,21 @@ export function BillingClient({ billing }: BillingClientProps) {
     isNew: boolean
   } | null>(null)
   const [monthlySwitch, setMonthlySwitch] = useState<{ planId: Plan } | null>(null)
+
+  // Unlike checkout/portal (which redirect to Stripe and never resolve back
+  // here), plan changes and interval switches mutate Stripe in place and
+  // return — the billing page's data still needs an explicit refresh or the
+  // UI just sits on the old plan with no visible feedback either way.
+  const reportPlanChangeResult = (result: { ok: boolean; error?: string } | undefined) => {
+    if (!result?.ok) {
+      toast.error('Something went wrong', {
+        description: 'Please try again or contact support if the problem persists.',
+      })
+      return
+    }
+    toast.success('Plan updated')
+    router.refresh()
+  }
 
   const handleAction = (action: CardAction, planId: Plan, iv: BillingInterval) => {
     if (action === 'current') return
@@ -346,7 +363,7 @@ export function BillingClient({ billing }: BillingClientProps) {
         action === 'downgrade_plan' ||
         action === 'switch_to_annual'
       ) {
-        reportIfFailed(await changeSubscriptionPlan(planId, iv))
+        reportPlanChangeResult(await changeSubscriptionPlan(planId, iv))
       } else if (action === 'downgrade_to_free') {
         reportIfFailed(await import('@/api/billing/actions').then((m) => m.createPortalSession()))
       }
@@ -361,7 +378,7 @@ export function BillingClient({ billing }: BillingClientProps) {
       if (isNew) {
         reportIfFailed(await createCheckoutSession(planId, iv))
       } else {
-        reportIfFailed(await changeSubscriptionPlan(planId, iv))
+        reportPlanChangeResult(await changeSubscriptionPlan(planId, iv))
       }
     })
   }
@@ -371,7 +388,7 @@ export function BillingClient({ billing }: BillingClientProps) {
     const { planId } = monthlySwitch
     setMonthlySwitch(null)
     startTransition(async () => {
-      reportIfFailed(await switchToMonthlyAtRenewal(planId))
+      reportPlanChangeResult(await switchToMonthlyAtRenewal(planId))
     })
   }
 

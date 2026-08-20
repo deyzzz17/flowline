@@ -75,6 +75,11 @@ export const NotificationsMenu = () => {
       return
     }
 
+    if (notif.level === 'connection_request' || notif.level === 'connection_accepted') {
+      router.push('/contacts')
+      return
+    }
+
     const targetPath = `/lists/${notif.listSlug}`
     const isSamePage = pathname === targetPath
     if (isSamePage) {

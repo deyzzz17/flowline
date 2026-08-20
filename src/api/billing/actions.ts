@@ -2,6 +2,7 @@
 
 import 'server-only'
 import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
 import { stripe, PLANS, type Plan, type BillingInterval } from '@/lib/stripe'
 import { getSession } from '@/lib/get-session'
 import { Pool } from 'pg'
@@ -231,6 +232,7 @@ export const changeSubscriptionPlan = async (newPlan: Plan, interval: BillingInt
       proration_behavior: 'create_prorations',
     })
 
+    revalidatePath('/billing')
     return ok(true)
   } catch (e) {
     console.error('Failed to change subscription:', e)
@@ -273,6 +275,7 @@ export const switchToMonthlyAtRenewal = async (plan: Plan) => {
       ],
     })
 
+    revalidatePath('/billing')
     return ok(true)
   } catch (e) {
     console.error('Failed to schedule interval switch:', e)
