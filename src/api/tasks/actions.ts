@@ -419,6 +419,29 @@ export const listTasks = async (
 
   const payload = await getPayload({ config })
 
+  // A single list's page shows every task in that list to every member
+  // (admin/editor/reader), not just tasks the current viewer happens to have
+  // created — the "created by me" filter below is only for cross-list,
+  // personal-only views (today/recurring/sidebar) where no listId is given.
+  if (listId !== undefined) {
+    const role = await resolveListRole(payload, listId, userId)
+    if (!role) return { docs: [] }
+
+    return await payload.find({
+      collection: 'tasks',
+      sort: '-createdAt',
+      limit: 0,
+      page,
+      where: {
+        and: [
+          { list: { equals: listId } },
+          { planArchivedAt: { exists: false } },
+          ...(status ? [{ status: { equals: status } }] : []),
+        ],
+      },
+    })
+  }
+
   return await payload.find({
     collection: 'tasks',
     sort: '-createdAt',
@@ -429,7 +452,6 @@ export const listTasks = async (
         { userId: { equals: userId } },
         { planArchivedAt: { exists: false } },
         ...(status ? [{ status: { equals: status } }] : []),
-        ...(listId !== undefined ? [{ list: { equals: listId } }] : []),
       ],
     },
   })

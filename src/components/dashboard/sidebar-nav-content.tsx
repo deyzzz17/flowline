@@ -21,6 +21,7 @@ import {
   Trash2,
   Users,
   UserPlus,
+  Zap,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -501,35 +502,6 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
                     )}
                   </Link>
                 ))}
-                {sharedLists.length > 0 && (
-                  <>
-                    <div className="mt-2 mb-1 flex items-center gap-1.5 px-3">
-                      <Users className="h-3 w-3 text-violet-500/70" />
-                      <span className="text-[10px] font-semibold uppercase tracking-widest text-violet-500/70">
-                        Shared
-                      </span>
-                    </div>
-                    {sharedLists.map((list) => (
-                      <Link
-                        key={list.id}
-                        {...navLink(`/lists/${list.slug}`)}
-                        className={cn(
-                          'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
-                          isActive(`/lists/${list.slug}`)
-                            ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                            : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                        )}
-                      >
-                        <span
-                          className="h-2 w-2 rounded-full shrink-0"
-                          style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
-                        />
-                        <span className="flex-1 truncate">{list.name}</span>
-                        <Users className="h-3 w-3 shrink-0 text-violet-500/50" />
-                      </Link>
-                    ))}
-                  </>
-                )}
                 <Link
                   {...navLink('/lists/new-list')}
                   className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/60 hover:bg-muted hover:text-foreground transition-all"
@@ -537,13 +509,51 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
                   <Plus className="h-3.5 w-3.5 shrink-0" />
                   New list
                 </Link>
-                <Link
-                  {...navLink('/lists/new-shared-list')}
-                  className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/60 hover:bg-muted hover:text-foreground transition-all"
-                >
-                  <UserPlus className="h-3.5 w-3.5 shrink-0" />
-                  New shared list
-                </Link>
+
+                <div className="my-1.5 border-t border-border/40" />
+
+                <div className="mt-1 mb-1 flex items-center gap-1.5 px-3">
+                  <Users className="h-3 w-3 text-violet-500/70" />
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-violet-500/70">
+                    Shared
+                  </span>
+                </div>
+                {sharedLists.map((list) => (
+                  <Link
+                    key={list.id}
+                    {...navLink(`/lists/${list.slug}`)}
+                    className={cn(
+                      'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
+                      isActive(`/lists/${list.slug}`)
+                        ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    )}
+                  >
+                    <span
+                      className="h-2 w-2 rounded-full shrink-0"
+                      style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
+                    />
+                    <span className="flex-1 truncate">{list.name}</span>
+                    <Users className="h-3 w-3 shrink-0 text-violet-500/50" />
+                  </Link>
+                ))}
+                {planLimits?.plan === 'free' ? (
+                  <Link
+                    {...navLink('/billing')}
+                    className="flex items-center rounded-xl px-3 py-2 text-muted-foreground/60 hover:bg-muted hover:text-violet-500 transition-all"
+                    title="Upgrade to Plus or Pro to create shared lists"
+                  >
+                    <Zap className="h-3.5 w-3.5 shrink-0" />
+                  </Link>
+                ) : (
+                  <Link
+                    {...navLink('/lists/new-shared-list')}
+                    className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/60 hover:bg-muted hover:text-foreground transition-all"
+                  >
+                    <UserPlus className="h-3.5 w-3.5 shrink-0" />
+                    New shared list
+                  </Link>
+                )}
               </div>
             )}
           </div>
