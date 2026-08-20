@@ -3,6 +3,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
 import { cn } from '@/lib/utils'
+import { ListFilter } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 const TAG_OPTIONS = [
   { value: 'urgent', label: 'Urgent' },
@@ -12,17 +19,6 @@ const TAG_OPTIONS = [
   { value: 'finance', label: 'Finance' },
   { value: 'learning', label: 'Learning' },
 ] as const
-
-function hexToRgba(hex: string, alpha: number) {
-  try {
-    const r = parseInt(hex.slice(1, 3), 16)
-    const g = parseInt(hex.slice(3, 5), 16)
-    const b = parseInt(hex.slice(5, 7), 16)
-    return `rgba(${r},${g},${b},${alpha})`
-  } catch {
-    return `rgba(139,92,246,${alpha})`
-  }
-}
 
 interface TagFilterControlProps {
   value: string[]
@@ -41,56 +37,49 @@ export function TagFilterControl({ value, onChange }: TagFilterControlProps) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-dashed border-border/60 bg-muted/20 p-2">
-      {TAG_OPTIONS.map((tag) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
         <button
-          key={tag.value}
           type="button"
-          onClick={() => toggle(tag.value)}
           className={cn(
-            'rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
-            value.includes(tag.value)
+            'flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium transition-all',
+            value.length > 0
               ? 'border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400'
               : 'border-border/60 bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
           )}
         >
-          {tag.label}
+          <ListFilter className="h-3.5 w-3.5" />
+          Select{value.length > 0 ? ` (${value.length})` : ''}
         </button>
-      ))}
-      {userTags.map((tag) => {
-        const isSelected = value.includes(String(tag.id))
-        return (
-          <button
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-48">
+        {TAG_OPTIONS.map((tag) => (
+          <DropdownMenuCheckboxItem
+            key={tag.value}
+            checked={value.includes(tag.value)}
+            onSelect={(e) => e.preventDefault()}
+            onCheckedChange={() => toggle(tag.value)}
+            className="text-xs"
+          >
+            {tag.label}
+          </DropdownMenuCheckboxItem>
+        ))}
+        {userTags.map((tag) => (
+          <DropdownMenuCheckboxItem
             key={tag.id}
-            type="button"
-            onClick={() => toggle(String(tag.id))}
-            className={cn(
-              'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
-              !isSelected && 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
-            )}
-            style={
-              isSelected
-                ? {
-                    backgroundColor: hexToRgba(tag.color, 0.15),
-                    borderColor: hexToRgba(tag.color, 0.5),
-                    color: tag.color,
-                  }
-                : undefined
-            }
+            checked={value.includes(String(tag.id))}
+            onSelect={(e) => e.preventDefault()}
+            onCheckedChange={() => toggle(String(tag.id))}
+            className="text-xs"
           >
             <span
               className="h-1.5 w-1.5 rounded-full shrink-0"
               style={{ backgroundColor: tag.color }}
             />
             {tag.name}
-          </button>
-        )
-      })}
-      {value.length === 0 && (
-        <span className="px-1 text-xs text-muted-foreground/50">
-          Select one or more tags to only show matching tasks.
-        </span>
-      )}
-    </div>
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
