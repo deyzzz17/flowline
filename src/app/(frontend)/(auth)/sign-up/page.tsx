@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
-import Image from 'next/image'
 import { Orb } from '@/components/home/orb'
 import { SignUpForm } from '@/components/authentification/sign-up-form'
+import { AuthCover } from '@/components/authentification/auth-cover'
 import { requireGuest } from '@/lib/require-auth'
 
 export default async function SignUpPage() {
@@ -21,25 +21,7 @@ export default async function SignUpPage() {
         </div>
       </div>
       <div className="relative hidden overflow-hidden lg:block">
-        <div className="absolute inset-0 z-10 bg-linear-to-br from-violet-600/20 via-transparent to-indigo-600/20" />
-        <Image
-          src="/auth-cover-light.png"
-          alt=""
-          fill
-          priority
-          quality={90}
-          sizes="50vw"
-          className="object-cover dark:hidden"
-        />
-        <Image
-          src="/auth-cover-dark.png"
-          alt=""
-          fill
-          priority
-          quality={90}
-          sizes="50vw"
-          className="hidden object-cover dark:block"
-        />
+        <AuthCover />
       </div>
     </div>
   )
