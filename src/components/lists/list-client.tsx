@@ -49,6 +49,15 @@ import { cn } from '@/lib/utils'
 import type { List } from '@/payload-types'
 import type { ListRole } from '@/lib/list-roles'
 import { ListMembersPanel } from './list-members-panel'
+import { useSession } from '@/lib/auth-client'
+import { TaskSortControl } from '@/components/tasks/task-sort-control'
+import { AssigneeFilterControl } from '@/components/tasks/assignee-filter-control'
+import {
+  sortTasks,
+  filterTasksByAssignee,
+  type TaskSortBy,
+  type AssigneeFilter,
+} from '@/lib/task-sort'
 
 function hexToRgba(hex: string, alpha: number) {
   try {
@@ -87,13 +96,22 @@ export const ListClient = ({ list, role }: ListClientProps) => {
   const canHardDelete = role === 'admin'
   const canAssign = isAdmin && !!list.isShared
   const [membersOpen, setMembersOpen] = useState(false)
+  const [sortBy, setSortBy] = useState<TaskSortBy>('newest')
+  const [assigneeFilter, setAssigneeFilter] = useState<AssigneeFilter>('all')
+
+  const { data: session } = useSession()
+  const currentUserId = session?.user?.id
 
   const { data } = useQuery({
     queryKey: ['tasks', list.id],
     queryFn: () => api.tasks.list(1, list.id),
   })
 
-  const allTasks = data?.docs ?? []
+  const rawTasks = data?.docs ?? []
+  const scopedTasks = list.isShared
+    ? filterTasksByAssignee(rawTasks, assigneeFilter, currentUserId)
+    : rawTasks
+  const allTasks = sortTasks(scopedTasks, sortBy)
   const todoTasks = allTasks.filter((t) => t.status === 'active')
   const achievedTasks = allTasks.filter((t) => t.status === 'completed')
   const inactiveTasks = allTasks.filter((t) => t.status === 'inactive')
@@ -360,6 +378,13 @@ export const ListClient = ({ list, role }: ListClientProps) => {
               <span className="hidden xs:inline sm:inline">Trash</span>
             </TabsTrigger>
           </TabsList>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <TaskSortControl value={sortBy} onChange={setSortBy} />
+            {list.isShared && (
+              <AssigneeFilterControl value={assigneeFilter} onChange={setAssigneeFilter} />
+            )}
+          </div>
         </div>
 
         <TabsContent value="todo" className="outline-none">
