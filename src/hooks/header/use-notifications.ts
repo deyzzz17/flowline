@@ -18,6 +18,10 @@ import {
   declineListInvite,
   type ListInvite,
 } from '@/api/list-members/actions'
+import {
+  listMyCommentMentionNotifications,
+  type CommentMentionNotification,
+} from '@/api/task-comments/actions'
 import type { Task } from '@/payload-types'
 import type { HabitWithStats } from '@/api/habits/actions'
 
@@ -29,6 +33,7 @@ export type NotificationLevel =
   | 'connection_request'
   | 'connection_accepted'
   | 'list_invite'
+  | 'comment_mention'
 
 export interface TaskNotification {
   id: string
@@ -48,26 +53,28 @@ export interface TaskNotification {
 }
 
 const ACCEPTED_DISMISSED_KEY = 'connection_accepted_dismissed'
+const COMMENT_MENTION_DISMISSED_KEY = 'comment_mention_dismissed'
 const PENDING_RECEIVED_KEY = ['connections', 'pending-received']
 const PAGE_DATA_KEY = ['contacts', 'page-data']
 const LIST_INVITES_KEY = ['list-invites', 'mine']
+const COMMENT_MENTIONS_KEY = ['task-comments', 'my-mentions']
 
-function getDismissedAcceptedIds(): Set<string> {
+function getDismissedIdsFromStorage(key: string): Set<string> {
   if (typeof window === 'undefined') return new Set()
   try {
-    const raw = localStorage.getItem(ACCEPTED_DISMISSED_KEY)
+    const raw = localStorage.getItem(key)
     return raw ? new Set(JSON.parse(raw)) : new Set()
   } catch {
     return new Set()
   }
 }
 
-function addDismissedAcceptedId(id: string) {
+function addDismissedIdToStorage(key: string, id: string) {
   if (typeof window === 'undefined') return
   try {
-    const current = getDismissedAcceptedIds()
+    const current = getDismissedIdsFromStorage(key)
     current.add(id)
-    localStorage.setItem(ACCEPTED_DISMISSED_KEY, JSON.stringify([...current]))
+    localStorage.setItem(key, JSON.stringify([...current]))
   } catch {}
 }
 
@@ -147,6 +154,7 @@ function buildNotifications(tasks: Task[]): TaskNotification[] {
     connection_request: -1,
     connection_accepted: -1,
     list_invite: -1,
+    comment_mention: -1,
     today: 0,
     urgent: 1,
     warning: 2,
@@ -237,16 +245,38 @@ function buildConnectionAcceptedNotifications(
     }))
 }
 
+function buildCommentMentionNotifications(
+  mentions: CommentMentionNotification[],
+  dismissedIds: Set<string>,
+): TaskNotification[] {
+  return mentions
+    .filter((m) => !dismissedIds.has(`comment-mention-${m.commentId}`))
+    .map((m) => ({
+      id: `comment-mention-${m.commentId}`,
+      taskId: m.taskId,
+      taskTitle: m.taskTitle,
+      listName: `${m.authorName} mentioned you in a comment`,
+      listSlug: m.listSlug,
+      listColor: m.listColor,
+      level: 'comment_mention' as const,
+      message: 'Mentioned in a comment',
+      dueDate: m.createdAt,
+      userImage: m.authorImage,
+    }))
+}
+
 export const useNotifications = () => {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const readIdsRef = useRef<Set<string>>(new Set())
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
   const [dismissedAcceptedIds, setDismissedAcceptedIds] = useState<Set<string>>(new Set())
+  const [dismissedMentionIds, setDismissedMentionIds] = useState<Set<string>>(new Set())
   const [, forceUpdate] = useState(0)
 
   useEffect(() => {
-    setDismissedAcceptedIds(getDismissedAcceptedIds())
+    setDismissedAcceptedIds(getDismissedIdsFromStorage(ACCEPTED_DISMISSED_KEY))
+    setDismissedMentionIds(getDismissedIdsFromStorage(COMMENT_MENTION_DISMISSED_KEY))
   }, [])
 
   const { data } = useQuery({
@@ -289,6 +319,14 @@ export const useNotifications = () => {
     refetchInterval: 30_000,
   })
 
+  const { data: commentMentionsData } = useQuery({
+    queryKey: COMMENT_MENTIONS_KEY,
+    queryFn: () => listMyCommentMentionNotifications(),
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 30_000,
+  })
+
   const allNotifications = useMemo(() => {
     const taskNotifs = buildNotifications((data?.docs ?? []) as Task[])
     const goalNotifs = buildGoalClaimNotifications(habitsData ?? [])
@@ -298,7 +336,18 @@ export const useNotifications = () => {
       dismissedAcceptedIds,
     )
     const listInviteNotifs = buildListInviteNotifications(listInvitesData ?? [])
-    return [...requestNotifs, ...listInviteNotifs, ...acceptedNotifs, ...taskNotifs, ...goalNotifs]
+    const commentMentionNotifs = buildCommentMentionNotifications(
+      commentMentionsData ?? [],
+      dismissedMentionIds,
+    )
+    return [
+      ...requestNotifs,
+      ...listInviteNotifs,
+      ...acceptedNotifs,
+      ...commentMentionNotifs,
+      ...taskNotifs,
+      ...goalNotifs,
+    ]
   }, [
     data,
     habitsData,
@@ -306,6 +355,8 @@ export const useNotifications = () => {
     acceptedByOthersData,
     listInvitesData,
     dismissedAcceptedIds,
+    commentMentionsData,
+    dismissedMentionIds,
   ])
 
   const notifications = useMemo(
@@ -327,8 +378,11 @@ export const useNotifications = () => {
     setDismissedIds((prev) => new Set([...prev, id]))
     readIdsRef.current.add(id)
     if (id.startsWith('connection-accepted-')) {
-      addDismissedAcceptedId(id)
+      addDismissedIdToStorage(ACCEPTED_DISMISSED_KEY, id)
       setDismissedAcceptedIds((prev) => new Set([...prev, id]))
+    } else if (id.startsWith('comment-mention-')) {
+      addDismissedIdToStorage(COMMENT_MENTION_DISMISSED_KEY, id)
+      setDismissedMentionIds((prev) => new Set([...prev, id]))
     }
   }
 
@@ -337,12 +391,21 @@ export const useNotifications = () => {
     setDismissedIds((prev) => new Set([...prev, ...allIds]))
     notifications.forEach((n) => {
       readIdsRef.current.add(n.id)
-      if (n.id.startsWith('connection-accepted-')) addDismissedAcceptedId(n.id)
+      if (n.id.startsWith('connection-accepted-')) addDismissedIdToStorage(ACCEPTED_DISMISSED_KEY, n.id)
+      else if (n.id.startsWith('comment-mention-'))
+        addDismissedIdToStorage(COMMENT_MENTION_DISMISSED_KEY, n.id)
     })
     setDismissedAcceptedIds((prev) => {
       const next = new Set(prev)
       notifications.forEach((n) => {
         if (n.id.startsWith('connection-accepted-')) next.add(n.id)
+      })
+      return next
+    })
+    setDismissedMentionIds((prev) => {
+      const next = new Set(prev)
+      notifications.forEach((n) => {
+        if (n.id.startsWith('comment-mention-')) next.add(n.id)
       })
       return next
     })

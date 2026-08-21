@@ -247,6 +247,138 @@ export const toggleCommentDislike = async (commentId: number) => {
   }
 }
 
+export type EditCommentInput = {
+  commentId: number
+  content: string
+  mentions?: string[]
+}
+
+export const editComment = async (input: EditCommentInput) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const content = input.content.trim()
+    if (!content) return err('Comment cannot be empty')
+
+    const payload = await getPayload({ config })
+    const ctx = await getCommentListContext(payload, input.commentId)
+    if (!ctx) return err('Comment not found')
+    if (ctx.comment.userId !== userId) return err('Not authorized')
+
+    const { plan } = await getPlanLimitsForUserId(userId)
+    if (!canComment(plan)) return err('COMMENTS_REQUIRE_PAID_PLAN')
+
+    const mentions = Array.from(new Set(input.mentions ?? []))
+    if (mentions.length > 0) {
+      const memberIds = await getListMemberIds(payload, ctx.listId)
+      const invalid = mentions.find((id) => !memberIds.includes(id))
+      if (invalid) return err('You can only mention members of this list.')
+    }
+
+    const comment = await payload.update({
+      collection: 'task-comments',
+      id: input.commentId,
+      data: { content, mentions },
+    })
+
+    revalidatePath('/')
+    return ok(comment)
+  } catch {
+    return err('Error while editing the comment')
+  }
+}
+
+export const deleteComment = async (commentId: number) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const payload = await getPayload({ config })
+    const ctx = await getCommentListContext(payload, commentId)
+    if (!ctx) return err('Comment not found')
+    if (ctx.comment.userId !== userId) return err('Not authorized')
+
+    // Comments only nest one level deep, so a single pass is enough to
+    // clean up any replies left dangling under the deleted comment.
+    const { docs: replies } = await payload.find({
+      collection: 'task-comments',
+      where: { parentComment: { equals: commentId } },
+      limit: 0,
+    })
+    for (const reply of replies) {
+      await payload.delete({ collection: 'task-comments', id: reply.id })
+    }
+
+    await payload.delete({ collection: 'task-comments', id: commentId })
+
+    revalidatePath('/')
+    return ok(true)
+  } catch {
+    return err('Error while deleting the comment')
+  }
+}
+
+export interface CommentMentionNotification {
+  commentId: number
+  taskId: number
+  taskTitle: string
+  listSlug: string
+  listColor: string
+  authorName: string
+  authorImage: string | null
+  createdAt: string
+}
+
+export const listMyCommentMentionNotifications = async (): Promise<
+  CommentMentionNotification[]
+> => {
+  const userId = await getUserId()
+  if (!userId) return []
+
+  const payload = await getPayload({ config })
+
+  // hasMany text fields don't reliably support a DB-level "array contains"
+  // filter across adapters, so we scan the most recent comments authored by
+  // others and filter the mentions client-side here instead.
+  const { docs } = await payload.find({
+    collection: 'task-comments',
+    where: { userId: { not_equals: userId } },
+    sort: '-createdAt',
+    limit: 200,
+  })
+
+  const mentioning = docs.filter((d) => ((d.mentions ?? []) as string[]).includes(userId))
+  if (mentioning.length === 0) return []
+
+  const authorsMap = await findUsersByIds(mentioning.map((d) => d.userId as string))
+
+  const result: CommentMentionNotification[] = []
+  for (const d of mentioning) {
+    const taskId = typeof d.task === 'object' ? d.task?.id : d.task
+    if (!taskId) continue
+    const ctx = await getTaskListContext(payload, taskId)
+    if (!ctx) continue
+
+    const role = await resolveListRole(payload, ctx.listId, userId)
+    if (!canViewList(role)) continue
+
+    const author = authorsMap.get(d.userId as string)
+    result.push({
+      commentId: d.id,
+      taskId,
+      taskTitle: ctx.task.title,
+      listSlug: ctx.list.slug ?? '',
+      listColor: ctx.list.category?.color ?? '#8b5cf6',
+      authorName: author?.name ?? 'Someone',
+      authorImage: author?.image ?? null,
+      createdAt: d.createdAt as string,
+    })
+  }
+
+  return result
+}
+
 export async function deleteCommentsForTaskIds(taskIds: number[]): Promise<void> {
   if (taskIds.length === 0) return
   try {
