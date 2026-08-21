@@ -83,6 +83,7 @@ export interface Config {
     'habit-completions': HabitCompletion;
     connections: Connection;
     'list-members': ListMember;
+    'task-comments': TaskComment;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -106,6 +107,7 @@ export interface Config {
     'habit-completions': HabitCompletionsSelect<false> | HabitCompletionsSelect<true>;
     connections: ConnectionsSelect<false> | ConnectionsSelect<true>;
     'list-members': ListMembersSelect<false> | ListMembersSelect<true>;
+    'task-comments': TaskCommentsSelect<false> | TaskCommentsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -665,6 +667,30 @@ export interface ListMember {
   createdAt: string;
 }
 /**
+ * Comments on tasks belonging to a shared list. Only Plus/Pro members can post; likes/dislikes are open to everyone on the list.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-comments".
+ */
+export interface TaskComment {
+  id: number;
+  task: number | Task;
+  userId: string;
+  content: string;
+  /**
+   * Set when this comment is a reply to another comment on the same task.
+   */
+  parentComment?: (number | null) | TaskComment;
+  /**
+   * userIds mentioned in this comment, restricted to members of the list.
+   */
+  mentions?: string[] | null;
+  likes?: string[] | null;
+  dislikes?: string[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -751,6 +777,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'list-members';
         value: number | ListMember;
+      } | null)
+    | ({
+        relationTo: 'task-comments';
+        value: number | TaskComment;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1126,6 +1156,21 @@ export interface ListMembersSelect<T extends boolean = true> {
   role?: T;
   status?: T;
   respondedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-comments_select".
+ */
+export interface TaskCommentsSelect<T extends boolean = true> {
+  task?: T;
+  userId?: T;
+  content?: T;
+  parentComment?: T;
+  mentions?: T;
+  likes?: T;
+  dislikes?: T;
   updatedAt?: T;
   createdAt?: T;
 }

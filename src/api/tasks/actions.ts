@@ -18,6 +18,7 @@ import {
   canViewList,
   getListMemberIds,
 } from '@/lib/list-roles'
+import { deleteCommentsForTaskIds } from '@/api/task-comments/actions'
 
 type CreateTaskInput = {
   title: string
@@ -340,6 +341,7 @@ export const chooseTasksToKeep = async (listId: number, keepIds: number[]) => {
     const keepSet = new Set(keepIds)
     const toDelete = activeTasks.filter((t) => !keepSet.has(t.id))
 
+    await deleteCommentsForTaskIds(toDelete.map((t) => t.id))
     for (const task of toDelete) {
       if (task.userId !== userId) continue
       await payload.delete({ collection: 'tasks', id: task.id })
@@ -627,6 +629,7 @@ export const deleteTask = async (id: number) => {
     const authError = await assertIsListAdminForTask(payload, task, userId)
     if (authError) return err(authError)
 
+    await deleteCommentsForTaskIds([id])
     await payload.delete({ collection: 'tasks', id })
     return ok(true)
   } catch {

@@ -110,6 +110,12 @@ export function isPlanUnlimited(plan: Plan, field: keyof PlanLimits): boolean {
   return PLAN_LIMITS[plan][field] === Infinity
 }
 
+// Task comments are a Plus/Pro feature, not a numeric limit — free members can
+// still read, like, and dislike comments, they just can't post one.
+export function canComment(plan: Plan): boolean {
+  return plan !== 'free'
+}
+
 export const LIMIT_ERRORS = {
   LISTS_LIMIT: 'LISTS_LIMIT',
   HABITS_LIMIT: 'HABITS_LIMIT',

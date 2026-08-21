@@ -53,6 +53,7 @@ import { SafetyCapDialog } from '../ui/safety-cap-dialog'
 import { AssigneePicker } from './assignee-picker'
 import { AssigneeBadges } from './assignee-badges'
 import { useListMemberProfiles } from '@/hooks/list-members/use-member-profiles'
+import { TaskCommentsSection } from './task-comments-section'
 
 function hexToRgba(hex: string, alpha: number) {
   try {
@@ -254,6 +255,7 @@ export const TaskCard = ({
 
   const taskListId =
     task.list && typeof task.list === 'object' ? task.list.id : (task.list ?? undefined)
+  const isSharedListTask = task.list && typeof task.list === 'object' && !!task.list.isShared
   // Only the admin can see or set assignments — other members never resolve
   // or see who a task/subtask is assigned to.
   const assignableMembers = useListMemberProfiles(taskListId, canAssign)
@@ -1514,6 +1516,10 @@ export const TaskCard = ({
                     )
                   })}
                 </div>
+              )}
+
+              {isSharedListTask && !isDeleted && taskListId !== undefined && (
+                <TaskCommentsSection taskId={task.id} listId={taskListId} />
               )}
             </div>
           )}

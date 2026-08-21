@@ -21,6 +21,7 @@ import { HabitCompletions } from './collections/HabitCompletions'
 import { TaskCompletions } from './collections/TaskCompletion'
 import { Connections } from './collections/Connections'
 import { ListMembers } from './collections/ListMembers'
+import { TaskComments } from './collections/TaskComments'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -49,6 +50,7 @@ export default buildConfig({
     HabitCompletions,
     Connections,
     ListMembers,
+    TaskComments,
   ],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',

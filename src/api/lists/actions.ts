@@ -11,6 +11,7 @@ import { getSession } from '@/lib/get-session'
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 import { resolveListRole } from '@/lib/list-roles'
+import { deleteCommentsForTaskIds } from '@/api/task-comments/actions'
 
 type CreateListInput = {
   name: string
@@ -387,6 +388,10 @@ export const deleteList = async (id: number) => {
       where: { list: { equals: id } },
       limit: 0,
     })
+
+    if (list.isShared && tasks.length > 0) {
+      await deleteCommentsForTaskIds(tasks.map((t) => t.id))
+    }
 
     for (const task of tasks) {
       await payload.delete({ collection: 'tasks', id: task.id })
