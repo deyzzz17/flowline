@@ -9,6 +9,10 @@ import {
   listMyListInvites,
   listListsSharedWithMe,
   createSharedList,
+  checkSharedListsCompliance,
+  chooseSharedListsToKeep,
+  listPlanArchivedSharedLists,
+  restoreArchivedSharedList,
 } from './actions'
 
 export const listMembersAPI = {
@@ -22,4 +26,8 @@ export const listMembersAPI = {
   myInvites: listMyListInvites,
   listSharedWithMe: listListsSharedWithMe,
   createShared: createSharedList,
+  checkSharedListsCompliance,
+  chooseSharedListsToKeep,
+  listPlanArchivedSharedLists,
+  restoreArchivedSharedList,
 }

@@ -11,6 +11,7 @@ import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { syncRecurringTasksForUser } from '@/api/tasks/actions'
 import { checkListsCompliance } from '@/api/lists/actions'
+import { checkSharedListsCompliance } from '@/api/list-members/actions'
 import { checkTagsCompliance } from '@/api/tags/actions'
 import { Toaster } from '@/components/ui/sonner'
 import { NotificationsMenu } from '@/components/header/notifications-menu'
@@ -26,12 +27,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = session?.user
 
   let listsCompliance = null
+  let sharedListsCompliance = null
   let tagsCompliance = null
 
   if (user?.id) {
     await syncRecurringTasksForUser()
-    ;[listsCompliance, tagsCompliance] = await Promise.all([
+    ;[listsCompliance, sharedListsCompliance, tagsCompliance] = await Promise.all([
       checkListsCompliance(),
+      checkSharedListsCompliance(),
       checkTagsCompliance(),
     ])
   }
@@ -52,6 +55,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <Toaster position="bottom-right" />
               <AccountComplianceGate
                 initialListsCompliance={listsCompliance}
+                initialSharedListsCompliance={sharedListsCompliance}
                 initialTagsCompliance={tagsCompliance}
               />
               <div

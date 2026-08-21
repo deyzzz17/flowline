@@ -4,6 +4,10 @@ import { useRouter } from 'next/navigation'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import { listPlanArchivedLists, restoreArchivedList } from '@/api/lists/actions'
+import {
+  listPlanArchivedSharedLists,
+  restoreArchivedSharedList,
+} from '@/api/list-members/actions'
 import { type List } from '@/payload-types'
 import { toast } from 'sonner'
 import { useRestorePrompt } from '@/components/ui/restore-prompt-context'
@@ -11,6 +15,7 @@ import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
 import { isPlanUnlimited } from '@/lib/plan-limits'
 
 const FALLBACK_LISTS_LIMIT = 3
+const FALLBACK_SHARED_LISTS_LIMIT = 3
 
 export const useDeleteList = (list: List) => {
   const router = useRouter()
@@ -44,23 +49,32 @@ export const useDeleteList = (list: List) => {
       queryClient.invalidateQueries({ queryKey: ['lists'] })
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
 
-      const { docs: archived } = await listPlanArchivedLists()
+      const isShared = !!list.isShared
+      const { docs: archived } = isShared
+        ? await listPlanArchivedSharedLists()
+        : await listPlanArchivedLists()
       if (archived.length === 0) return
 
-      const listsLimit = planLimits?.limits.lists ?? FALLBACK_LISTS_LIMIT
+      const listsLimit = isShared
+        ? (planLimits?.limits.sharedLists ?? FALLBACK_SHARED_LISTS_LIMIT)
+        : (planLimits?.limits.lists ?? FALLBACK_LISTS_LIMIT)
+      const limitField = isShared ? 'sharedLists' : 'lists'
       const currentLists = queryClient.getQueryData<{ docs: List[] }>(['lists'])
-      const activeCount = currentLists?.docs.length ?? 0
+      const activeCount = isShared
+        ? (currentLists?.docs.filter((l) => l.isShared).length ?? 0)
+        : (currentLists?.docs.filter((l) => !l.isShared).length ?? 0)
       const room =
-        planLimits && isPlanUnlimited(planLimits.plan, 'lists')
+        planLimits && isPlanUnlimited(planLimits.plan, limitField)
           ? archived.length
           : Math.max(0, listsLimit - activeCount)
 
       if (room <= 0) return
 
       openPrompt({
-        title: 'Restore an archived list?',
-        description:
-          'You have lists that were archived when your plan changed. Restore some now that you have room.',
+        title: isShared ? 'Restore an archived shared list?' : 'Restore an archived list?',
+        description: isShared
+          ? 'You have shared lists that were archived when your plan changed. Restore some now that you have room.'
+          : 'You have lists that were archived when your plan changed. Restore some now that you have room.',
         items: archived.map((l) => ({
           id: l.id,
           label: l.name,
@@ -68,7 +82,8 @@ export const useDeleteList = (list: List) => {
         })),
         maxSelectable: room,
         onConfirm: async (ids) => {
-          const results = await Promise.all(ids.map((id) => restoreArchivedList(id)))
+          const restore = isShared ? restoreArchivedSharedList : restoreArchivedList
+          const results = await Promise.all(ids.map((id) => restore(id)))
           const allOk = results.every((r) => r.ok)
 
           queryClient.invalidateQueries({ queryKey: ['lists'] })

@@ -82,7 +82,11 @@ async function countSharedLists(
   const { totalDocs } = await payload.find({
     collection: 'lists',
     where: {
-      and: [{ userId: { equals: ownerId } }, { isShared: { equals: true } }],
+      and: [
+        { userId: { equals: ownerId } },
+        { isShared: { equals: true } },
+        { planArchivedAt: { exists: false } },
+      ],
     },
     limit: 0,
   })
@@ -483,4 +487,203 @@ export const listListsSharedWithMe = async (): Promise<SharedWithMeList[]> => {
   }
 
   return result
+}
+
+export const checkSharedListsCompliance = async () => {
+  const userId = await getUserId()
+  if (!userId) return null
+
+  const payload = await getPayload({ config })
+  const { limits } = await getPlanLimitsForUserId(userId)
+
+  const { docs: activeSharedLists, totalDocs } = await payload.find({
+    collection: 'lists',
+    sort: 'createdAt',
+    limit: 0,
+    where: {
+      and: [
+        { userId: { equals: userId } },
+        { isShared: { equals: true } },
+        { planArchivedAt: { exists: false } },
+      ],
+    },
+  })
+
+  if (totalDocs <= limits.sharedLists) return null
+
+  return {
+    overBy: totalDocs - limits.sharedLists,
+    limit: limits.sharedLists,
+    lists: activeSharedLists,
+  }
+}
+
+export const chooseSharedListsToKeep = async (keepIds: number[]) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const payload = await getPayload({ config })
+    const { limits } = await getPlanLimitsForUserId(userId)
+
+    if (keepIds.length > limits.sharedLists) {
+      return err('TOO_MANY_SELECTED')
+    }
+
+    const { docs: activeSharedLists } = await payload.find({
+      collection: 'lists',
+      where: {
+        and: [
+          { userId: { equals: userId } },
+          { isShared: { equals: true } },
+          { planArchivedAt: { exists: false } },
+        ],
+      },
+      limit: 0,
+    })
+
+    const keepSet = new Set(keepIds)
+    const toArchive = activeSharedLists.filter((l) => !keepSet.has(l.id))
+
+    const now = new Date().toISOString()
+    for (const list of toArchive) {
+      if (list.userId !== userId) continue
+
+      await payload.update({
+        collection: 'lists',
+        id: list.id,
+        data: { planArchivedAt: now },
+      })
+
+      const { docs: tasks } = await payload.find({
+        collection: 'tasks',
+        where: { list: { equals: list.id } },
+        limit: 0,
+      })
+      for (const task of tasks) {
+        await payload.update({
+          collection: 'tasks',
+          id: task.id,
+          data: { planArchivedAt: now } as any,
+        })
+      }
+    }
+
+    revalidatePath('/')
+    return ok(true)
+  } catch {
+    return err('Error while archiving shared lists')
+  }
+}
+
+export const listPlanArchivedSharedLists = async () => {
+  const userId = await getUserId()
+  if (!userId) return { docs: [] }
+
+  const payload = await getPayload({ config })
+
+  return await payload.find({
+    collection: 'lists',
+    sort: '-planArchivedAt',
+    limit: 0,
+    where: {
+      and: [
+        { userId: { equals: userId } },
+        { isShared: { equals: true } },
+        { planArchivedAt: { exists: true } },
+      ],
+    },
+  })
+}
+
+export const restoreArchivedSharedList = async (id: number) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const payload = await getPayload({ config })
+    const list = await payload.findByID({ collection: 'lists', id })
+    if (!list || list.userId !== userId) return err('Not authorized')
+    if (!list.planArchivedAt) return err('List is not archived')
+    if (!list.isShared) return err('This is not a shared list')
+
+    const { limits } = await getPlanLimitsForUserId(userId)
+    const currentCount = await countSharedLists(payload, userId)
+
+    if (isAtLimit(currentCount, limits.sharedLists)) {
+      return err('LIMIT_FULL')
+    }
+
+    await payload.update({
+      collection: 'lists',
+      id,
+      data: { planArchivedAt: null },
+    })
+
+    const { docs: tasks } = await payload.find({
+      collection: 'tasks',
+      where: { list: { equals: id } },
+      limit: 0,
+    })
+    for (const task of tasks) {
+      await payload.update({
+        collection: 'tasks',
+        id: task.id,
+        data: { planArchivedAt: null } as any,
+      })
+    }
+
+    revalidatePath('/')
+    return ok(true)
+  } catch {
+    return err('Error while restoring the shared list')
+  }
+}
+
+export async function restoreAllArchivedSharedListsForUserId(userId: string): Promise<void> {
+  try {
+    const payload = await getPayload({ config })
+    const { limits } = await getPlanLimitsForUserId(userId)
+
+    const activeCount = await countSharedLists(payload, userId)
+    const room =
+      limits.sharedLists === Infinity ? Infinity : Math.max(0, limits.sharedLists - activeCount)
+    if (room <= 0) return
+
+    const { docs: archived } = await payload.find({
+      collection: 'lists',
+      where: {
+        and: [
+          { userId: { equals: userId } },
+          { isShared: { equals: true } },
+          { planArchivedAt: { exists: true } },
+        ],
+      },
+      sort: 'planArchivedAt',
+      limit: room === Infinity ? 0 : room,
+    })
+
+    for (const list of archived) {
+      await payload.update({
+        collection: 'lists',
+        id: list.id,
+        data: { planArchivedAt: null },
+      })
+
+      const { docs: tasks } = await payload.find({
+        collection: 'tasks',
+        where: { list: { equals: list.id } },
+        limit: 0,
+      })
+      for (const task of tasks) {
+        await payload.update({
+          collection: 'tasks',
+          id: task.id,
+          data: { planArchivedAt: null } as any,
+        })
+      }
+    }
+  } catch (e) {
+    console.error('restoreAllArchivedSharedListsForUserId error:', e)
+  }
 }

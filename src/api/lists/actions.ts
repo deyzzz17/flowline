@@ -40,7 +40,11 @@ async function countActiveLists(
   const { totalDocs } = await payload.find({
     collection: 'lists',
     where: {
-      and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: false } }],
+      and: [
+        { userId: { equals: userId } },
+        { planArchivedAt: { exists: false } },
+        { isShared: { not_equals: true } },
+      ],
     },
     limit: 0,
   })
@@ -124,7 +128,11 @@ export const listPlanArchivedLists = async () => {
     sort: '-planArchivedAt',
     limit: 0,
     where: {
-      and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: true } }],
+      and: [
+        { userId: { equals: userId } },
+        { planArchivedAt: { exists: true } },
+        { isShared: { not_equals: true } },
+      ],
     },
   })
 }
@@ -141,7 +149,11 @@ export const checkListsCompliance = async () => {
     sort: 'createdAt',
     limit: 0,
     where: {
-      and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: false } }],
+      and: [
+        { userId: { equals: userId } },
+        { planArchivedAt: { exists: false } },
+        { isShared: { not_equals: true } },
+      ],
     },
   })
 
@@ -165,7 +177,11 @@ export const chooseListsToKeep = async (keepIds: number[]) => {
     const { docs: activeLists } = await payload.find({
       collection: 'lists',
       where: {
-        and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: false } }],
+        and: [
+          { userId: { equals: userId } },
+          { planArchivedAt: { exists: false } },
+          { isShared: { not_equals: true } },
+        ],
       },
       limit: 0,
     })
@@ -213,6 +229,7 @@ export const restoreArchivedList = async (id: number) => {
     const list = await payload.findByID({ collection: 'lists', id })
     if (!list || list.userId !== userId) return err('Not authorized')
     if (!list.planArchivedAt) return err('List is not archived')
+    if (list.isShared) return err('This is a shared list')
 
     const { limits } = await getUserPlanLimits()
     const currentCount = await countActiveLists(payload, userId)
@@ -259,7 +276,11 @@ export async function restoreAllArchivedListsForUserId(userId: string): Promise<
     const { docs: archived } = await payload.find({
       collection: 'lists',
       where: {
-        and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: true } }],
+        and: [
+          { userId: { equals: userId } },
+          { planArchivedAt: { exists: true } },
+          { isShared: { not_equals: true } },
+        ],
       },
       sort: 'planArchivedAt',
       limit: room === Infinity ? 0 : room,
