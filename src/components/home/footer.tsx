@@ -29,6 +29,12 @@ export function Footer() {
               Privacy Policy
             </Link>
             <Link
+              href="/terms"
+              className="text-xs text-slate-400 transition-colors hover:text-slate-600 dark:text-white/30 dark:hover:text-white/60"
+            >
+              Terms
+            </Link>
+            <Link
               href="/cookies"
               className="text-xs text-slate-400 transition-colors hover:text-slate-600 dark:text-white/30 dark:hover:text-white/60"
             >
