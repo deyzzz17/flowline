@@ -1,5 +1,12 @@
 'use client'
 
+import { Users, Check } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import type { AssigneeFilter } from '@/lib/task-sort'
 
@@ -15,23 +22,36 @@ interface AssigneeFilterControlProps {
 }
 
 export function AssigneeFilterControl({ value, onChange }: AssigneeFilterControlProps) {
+  const currentLabel = OPTIONS.find((o) => o.value === value)?.label ?? 'Everyone'
+
   return (
-    <div className="flex items-center gap-0.5 rounded-xl border border-border/60 bg-muted/30 p-1">
-      {OPTIONS.map((option) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
         <button
-          key={option.value}
           type="button"
-          onClick={() => onChange(option.value)}
-          className={cn(
-            'rounded-lg px-2.5 py-1 text-xs font-medium transition-all',
-            value === option.value
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
+          className="flex items-center gap-1.5 rounded-xl border border-border/60 bg-background px-3 py-2 text-xs font-medium text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
         >
-          {option.label}
+          <Users className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">{currentLabel}</span>
         </button>
-      ))}
-    </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-36">
+        {OPTIONS.map((option) => (
+          <DropdownMenuItem
+            key={option.value}
+            onClick={() => onChange(option.value)}
+            className={cn('gap-2 text-xs cursor-pointer', value === option.value && 'font-medium')}
+          >
+            <Check
+              className={cn(
+                'h-3 w-3 shrink-0',
+                value === option.value ? 'opacity-100' : 'opacity-0',
+              )}
+            />
+            {option.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

@@ -3,6 +3,7 @@
 import { useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { useCommentMentionSearch } from '@/hooks/tasks/use-comment-mention-search'
+import { useIsMobile } from '@/hooks/use-mobile'
 import type { ContactProfile } from '@/api/contacts/actions'
 import { Loader2, Send } from 'lucide-react'
 
@@ -28,13 +29,16 @@ export const CommentInput = ({
   value,
   onChange,
   members,
-  placeholder = 'Write a comment... use @ to mention someone',
+  placeholder,
   onSubmit,
   isSubmitting,
   autoFocus,
   onCancel,
 }: CommentInputProps) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const isMobile = useIsMobile()
+  const resolvedPlaceholder =
+    placeholder ?? (isMobile ? 'Write a comment' : 'Write a comment... use @ to mention someone')
   const { mentionSearch, selectedIndex, setSelectedIndex, filtered, openMention, closeMention, insertMention } =
     useCommentMentionSearch(members)
 
@@ -108,7 +112,7 @@ export const CommentInput = ({
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           onBlur={handleBlur}
-          placeholder={placeholder}
+          placeholder={resolvedPlaceholder}
           autoFocus={autoFocus}
           rows={1}
           className="min-h-9 max-h-32 flex-1 resize-none rounded-xl border border-border/50 bg-muted/30 px-3 py-2 text-sm outline-none transition-colors focus:border-primary/30"

@@ -315,7 +315,7 @@ export function TaskCommentsSection({ taskId, listId, isReader }: TaskCommentsSe
   }
 
   const renderComment = (comment: CommentEntry, isReply: boolean) => (
-    <div key={comment.id} className={cn('flex gap-2', isReply && 'ml-8 mt-2')}>
+    <div key={comment.id} className={cn('flex gap-2', isReply && 'ml-4 mt-2 sm:ml-8')}>
       <Avatar className="h-6 w-6 shrink-0 mt-0.5">
         <AvatarImage src={comment.author.image ?? undefined} alt={comment.author.name} />
         <AvatarFallback className="bg-violet-500/15 text-[9px] font-semibold text-violet-600 dark:text-violet-400">
@@ -462,7 +462,7 @@ export function TaskCommentsSection({ taskId, listId, isReader }: TaskCommentsSe
       </button>
 
       {isOpen && (
-        <div className="mt-2 space-y-3 rounded-xl border border-border/40 bg-muted/10 p-3">
+        <div className="-mx-1.5 mt-2 space-y-3 rounded-xl border border-border/40 bg-muted/10 p-2 sm:mx-0 sm:p-3">
           {isLoading && <p className="text-xs text-muted-foreground">Loading comments...</p>}
 
           {!isLoading && topLevel.length === 0 && (
