@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { CookiePreferencesLink } from '@/components/marketing/cookie-preferences-link'
 
 export const metadata: Metadata = {
@@ -269,7 +270,14 @@ const sections = [
         <p>
           Flowline only uses strictly necessary cookies to operate the application (maintaining your
           authentication session). We do not use any advertising, tracking, or third-party analytics
-          cookies.
+          cookies. See our{' '}
+          <Link
+            href="/cookies"
+            className="text-violet-600 dark:text-violet-400 underline underline-offset-2 font-medium"
+          >
+            Cookie Policy
+          </Link>{' '}
+          for the full list of cookies we use.
         </p>
         <p>
           <CookiePreferencesLink />

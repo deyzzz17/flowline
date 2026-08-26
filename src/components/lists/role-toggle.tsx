@@ -37,14 +37,14 @@ export function RoleToggle({
 
 const ROLE_PERMISSIONS: Record<ListMemberRole, string[]> = {
   editor: [
-    'View all tasks and subtasks',
-    'Create, edit, and complete tasks and subtasks',
+    'View, create, edit, and complete tasks and subtasks',
     'Comment on tasks (Plus/Pro) and react to comments',
+    'Cannot invite/remove members or permanently delete tasks',
   ],
   reader: [
-    'View all tasks and subtasks',
-    'Comment on tasks (Plus/Pro) and react to comments',
-    'Cannot create, edit, or complete tasks',
+    'View all tasks and subtasks, and mark them as complete',
+    'React to comments (like/dislike), but cannot post one',
+    'Cannot create, edit, comment on, or permanently delete tasks',
   ],
 }
 

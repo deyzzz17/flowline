@@ -61,9 +61,10 @@ function markSeen(taskId: number) {
 interface TaskCommentsSectionProps {
   taskId: number
   listId: number
+  isReader: boolean
 }
 
-export function TaskCommentsSection({ taskId, listId }: TaskCommentsSectionProps) {
+export function TaskCommentsSection({ taskId, listId, isReader }: TaskCommentsSectionProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [draft, setDraft] = useState('')
   const [replyTo, setReplyTo] = useState<number | null>(null)
@@ -90,7 +91,7 @@ export function TaskCommentsSection({ taskId, listId }: TaskCommentsSectionProps
     refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
   })
 
-  const allowedToPost = !planLimits || canComment(planLimits.plan)
+  const allowedToPost = !isReader && (!planLimits || canComment(planLimits.plan))
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey })
   const snapshot = () => queryClient.getQueryData<CommentEntry[]>(queryKey)
@@ -482,13 +483,19 @@ export function TaskCommentsSection({ taskId, listId }: TaskCommentsSectionProps
             <div className="flex items-center gap-2.5 rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-xs text-muted-foreground">
               <Lock className="h-3.5 w-3.5 shrink-0 text-violet-500" />
               <span>
-                <Link
-                  href="/billing"
-                  className="font-semibold text-violet-600 hover:underline dark:text-violet-400"
-                >
-                  Upgrade to Plus or Pro
-                </Link>{' '}
-                to post comments. You can still like and dislike them.
+                {isReader ? (
+                  'Readers can view and react to comments, but only editors and admins can post one.'
+                ) : (
+                  <>
+                    <Link
+                      href="/billing"
+                      className="font-semibold text-violet-600 hover:underline dark:text-violet-400"
+                    >
+                      Upgrade to Plus or Pro
+                    </Link>{' '}
+                    to post comments. You can still like and dislike them.
+                  </>
+                )}
               </span>
             </div>
           )}

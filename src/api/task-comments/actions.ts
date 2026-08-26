@@ -10,7 +10,7 @@ import { ok, err } from '@/types/result'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
 import { getPlanLimitsForUserId } from '@/lib/get-user-plan'
-import { resolveListRole, canViewList, getListMemberIds } from '@/lib/list-roles'
+import { resolveListRole, canViewList, canEditListContent, getListMemberIds } from '@/lib/list-roles'
 import { canComment } from '@/lib/plan-limits'
 import { findUsersByIds, type ContactProfile } from '@/api/contacts/actions'
 import type { List, Task } from '@/payload-types'
@@ -119,8 +119,10 @@ export const createComment = async (input: CreateCommentInput) => {
     if (!ctx) return err('Task not found')
     if (!ctx.list.isShared) return err('Comments are only available on shared lists')
 
+    // Commenting is content creation, not just viewing — readers can read and
+    // react to comments, but only editors and admins can post one.
     const role = await resolveListRole(payload, ctx.listId, userId)
-    if (!canViewList(role)) return err('Not authorized')
+    if (!canEditListContent(role)) return err('Not authorized')
 
     const { plan } = await getPlanLimitsForUserId(userId)
     if (!canComment(plan)) return err('COMMENTS_REQUIRE_PAID_PLAN')
@@ -265,6 +267,9 @@ export const editComment = async (input: EditCommentInput) => {
     const ctx = await getCommentListContext(payload, input.commentId)
     if (!ctx) return err('Comment not found')
     if (ctx.comment.userId !== userId) return err('Not authorized')
+
+    const role = await resolveListRole(payload, ctx.listId, userId)
+    if (!canEditListContent(role)) return err('Not authorized')
 
     const { plan } = await getPlanLimitsForUserId(userId)
     if (!canComment(plan)) return err('COMMENTS_REQUIRE_PAID_PLAN')

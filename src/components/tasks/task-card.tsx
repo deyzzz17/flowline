@@ -1519,7 +1519,7 @@ export const TaskCard = ({
               )}
 
               {isSharedListTask && !isDeleted && taskListId !== undefined && (
-                <TaskCommentsSection taskId={task.id} listId={taskListId} />
+                <TaskCommentsSection taskId={task.id} listId={taskListId} isReader={!!readOnly} />
               )}
             </div>
           )}

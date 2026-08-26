@@ -42,6 +42,9 @@ export default function TermsOfServicePage() {
             <Link href="/terms" className="hover:text-foreground transition-colors">
               Terms of Service
             </Link>
+            <Link href="/cookies" className="hover:text-foreground transition-colors">
+              Cookies
+            </Link>
             <Link href="/support" className="hover:text-foreground transition-colors">
               Support
             </Link>
