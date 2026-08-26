@@ -34,6 +34,12 @@ export function useToggleHabit() {
                 currentStreak: newCompleted
                   ? h.currentStreak + 1
                   : Math.max(0, h.currentStreak - 1),
+                // Approximates today's ~1/30th share of the rolling 30-day rate so the
+                // progress ring moves immediately; the next refetch settles on the exact value.
+                completionRate30d: Math.min(
+                  100,
+                  Math.max(0, h.completionRate30d + (newCompleted ? 3 : -3)),
+                ),
               }
             : h,
         )

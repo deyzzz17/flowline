@@ -248,9 +248,21 @@ export function HabitDetailClient({ habit: initialHabit, initialTrackingAnalytic
   }
 
   const handleToggle = async () => {
+    const previous = habit
+
     if (habit.completedToday) {
-      setHabit((prev) => ({ ...prev, completedToday: false, currentStreak: Math.max(0, prev.currentStreak - 1) }))
-      await toggleHabitCompletion(habit.id)
+      setHabit((prev) => ({
+        ...prev,
+        completedToday: false,
+        currentStreak: Math.max(0, prev.currentStreak - 1),
+        completionRate30d: Math.max(0, prev.completionRate30d - 3),
+      }))
+      const result = await toggleHabitCompletion(habit.id)
+      if ('error' in result) {
+        setHabit(previous)
+        toast.error('Failed to update')
+        return
+      }
       refresh()
       return
     }
@@ -259,33 +271,56 @@ export function HabitDetailClient({ habit: initialHabit, initialTrackingAnalytic
       setTrackingOpen(true)
       return
     }
-    setHabit((prev) => ({ ...prev, completedToday: true, currentStreak: prev.currentStreak + 1 }))
+    setHabit((prev) => ({
+      ...prev,
+      completedToday: true,
+      currentStreak: prev.currentStreak + 1,
+      completionRate30d: Math.min(100, prev.completionRate30d + 3),
+    }))
     const result = await toggleHabitCompletion(habit.id)
     if ('error' in result) {
+      setHabit(previous)
       toast.error('Failed to update')
-      refresh()
-    } else {
-      refresh()
+      return
     }
+    refresh()
   }
 
   const handleTrackingSubmit = async (values: Record<string, number | string | boolean>) => {
     setTrackingOpen(false)
-    setHabit((prev) => ({ ...prev, completedToday: true, currentStreak: prev.currentStreak + 1 }))
+    const previous = habit
+    setHabit((prev) => ({
+      ...prev,
+      completedToday: true,
+      currentStreak: prev.currentStreak + 1,
+      completionRate30d: Math.min(100, prev.completionRate30d + 3),
+    }))
     const result = await toggleHabitCompletion(habit.id, undefined, values)
     if ('error' in result) {
+      setHabit(previous)
       toast.error('Failed to update')
-    } else {
-      const fresh = await getHabitTrackingAnalytics(habit.id, 'week', 0)
-      setTrackingAnalytics(fresh)
+      return
     }
+    const fresh = await getHabitTrackingAnalytics(habit.id, 'week', 0)
+    setTrackingAnalytics(fresh)
     refresh()
   }
 
   const handleTrackingSkip = async () => {
     setTrackingOpen(false)
-    setHabit((prev) => ({ ...prev, completedToday: true, currentStreak: prev.currentStreak + 1 }))
-    await toggleHabitCompletion(habit.id)
+    const previous = habit
+    setHabit((prev) => ({
+      ...prev,
+      completedToday: true,
+      currentStreak: prev.currentStreak + 1,
+      completionRate30d: Math.min(100, prev.completionRate30d + 3),
+    }))
+    const result = await toggleHabitCompletion(habit.id)
+    if ('error' in result) {
+      setHabit(previous)
+      toast.error('Failed to update')
+      return
+    }
     refresh()
   }
 
@@ -338,12 +373,18 @@ export function HabitDetailClient({ habit: initialHabit, initialTrackingAnalytic
 
   const handleDeleteHabit = () => {
     startTransition(async () => {
-      const result = await deleteHabit(habit.id)
-      if ('error' in result) { toast.error('Failed to delete habit'); return }
-      toast.success('Habit deleted')
+      const previousHabits = queryClient.getQueryData<HabitWithStats[]>(['habits'])
       closeEndOnReachDialog()
       queryClient.setQueryData(['habits'], (old: HabitWithStats[] | undefined) => old?.filter((h) => h.id !== habit.id) ?? [])
       router.push('/habits/habits-view')
+
+      const result = await deleteHabit(habit.id)
+      if ('error' in result) {
+        queryClient.setQueryData(['habits'], previousHabits)
+        toast.error('Failed to delete habit')
+        return
+      }
+      toast.success('Habit deleted')
 
       const archived = await listPlanArchivedHabits()
       if (archived.length === 0) return

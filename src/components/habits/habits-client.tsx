@@ -523,19 +523,25 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
     if (!trackingHabit) return
     const habit = trackingHabit
     setTrackingHabit(null)
+    const previousHabits = queryClient.getQueryData<HabitWithStats[]>(['habits'])
     queryClient.setQueryData<HabitWithStats[]>(
       ['habits'],
       (old) =>
         old?.map((h) =>
           h.id === habit.id
-            ? { ...h, completedToday: true, currentStreak: h.currentStreak + 1 }
+            ? {
+                ...h,
+                completedToday: true,
+                currentStreak: h.currentStreak + 1,
+                completionRate30d: Math.min(100, h.completionRate30d + 3),
+              }
             : h,
         ) ?? old,
     )
     const result = await toggleHabitCompletion(habit.id, undefined, values, userTimezone)
     if ('error' in result) {
+      queryClient.setQueryData(['habits'], previousHabits)
       toast.error('Failed to update habit')
-      refresh()
       return
     }
     refresh()
@@ -682,13 +688,22 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
 
   const handleDelete = async () => {
     if (!deleteTarget) return
-    const result = await deleteHabit(deleteTarget.id)
+    const target = deleteTarget
+    setDeleteTarget(null)
+
+    await queryClient.cancelQueries({ queryKey: ['habits'] })
+    const previousHabits = queryClient.getQueryData<HabitWithStats[]>(['habits'])
+    queryClient.setQueryData<HabitWithStats[]>(['habits'], (old) =>
+      old?.filter((h) => h.id !== target.id) ?? [],
+    )
+
+    const result = await deleteHabit(target.id)
     if ('error' in result) {
+      queryClient.setQueryData(['habits'], previousHabits)
       toast.error('Failed to delete habit')
       return
     }
     toast.success('Habit deleted')
-    setDeleteTarget(null)
     refresh()
 
     const archived = await listPlanArchivedHabits()
