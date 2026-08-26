@@ -21,7 +21,7 @@ import {
 } from '@/lib/plan-limits'
 import { PlanLimitDialog } from '../ui/plan-limit-dialog'
 import { SafetyCapDialog } from '../ui/safety-cap-dialog'
-import type { ListMemberRole } from '@/api/list-members/actions'
+import { RoleToggle, RolePermissionsHint } from './role-toggle'
 
 function hexToRgba(hex: string, alpha: number) {
   try {
@@ -64,34 +64,6 @@ function ContactRowAvatar({ name, image }: { name: string; image?: string | null
         {getInitials(name)}
       </AvatarFallback>
     </Avatar>
-  )
-}
-
-function RoleToggle({
-  role,
-  onChange,
-}: {
-  role: ListMemberRole
-  onChange: (role: ListMemberRole) => void
-}) {
-  return (
-    <div className="flex items-center gap-0.5 rounded-lg border border-border/60 bg-muted/30 p-0.5">
-      {(['editor', 'reader'] as ListMemberRole[]).map((r) => (
-        <button
-          key={r}
-          type="button"
-          onClick={() => onChange(r)}
-          className={cn(
-            'rounded-md px-2 py-1 text-[10px] font-medium capitalize transition-all',
-            role === r
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          {r}
-        </button>
-      ))}
-    </div>
   )
 }
 
@@ -315,24 +287,24 @@ export const NewSharedListClient = () => {
           </div>
 
           {invitees.length > 0 && (
-            <div className="space-y-1">
+            <div className="space-y-2">
               {invitees.map((i) => (
-                <div
-                  key={i.user.id}
-                  className="flex items-center gap-2.5 rounded-xl bg-muted/40 px-2 py-1.5"
-                >
-                  <ContactRowAvatar name={i.user.name} image={i.user.image} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{i.user.name}</p>
+                <div key={i.user.id} className="rounded-xl bg-muted/40 px-2 py-1.5">
+                  <div className="flex items-center gap-2.5">
+                    <ContactRowAvatar name={i.user.name} image={i.user.image} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-foreground">{i.user.name}</p>
+                    </div>
+                    <RoleToggle role={i.role} onChange={(role) => setInviteeRole(i.user.id, role)} />
+                    <button
+                      type="button"
+                      onClick={() => removeInvitee(i.user.id)}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                  <RoleToggle role={i.role} onChange={(role) => setInviteeRole(i.user.id, role)} />
-                  <button
-                    type="button"
-                    onClick={() => removeInvitee(i.user.id)}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
+                  <RolePermissionsHint role={i.role} className="pl-11 pt-1.5" />
                 </div>
               ))}
             </div>

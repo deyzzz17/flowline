@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Users, UserPlus, X, Loader2, Search, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog'
 import { listContacts } from '@/api/contacts/actions'
 import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
@@ -27,6 +28,8 @@ import {
 } from '@/lib/plan-limits'
 import { PlanLimitDialog } from '@/components/ui/plan-limit-dialog'
 import { SafetyCapDialog } from '@/components/ui/safety-cap-dialog'
+import { RoleToggle, RolePermissionsHint } from './role-toggle'
+import { toast } from 'sonner'
 import type { List } from '@/payload-types'
 import type { ListMemberRole } from '@/api/list-members/actions'
 
@@ -48,37 +51,6 @@ function MemberAvatar({ name, image }: { name: string; image?: string | null }) 
   )
 }
 
-function RoleToggle({
-  role,
-  onChange,
-  disabled,
-}: {
-  role: ListMemberRole
-  onChange: (role: ListMemberRole) => void
-  disabled?: boolean
-}) {
-  return (
-    <div className="flex items-center gap-0.5 rounded-lg border border-border/60 bg-muted/30 p-0.5">
-      {(['editor', 'reader'] as ListMemberRole[]).map((r) => (
-        <button
-          key={r}
-          type="button"
-          disabled={disabled}
-          onClick={() => onChange(r)}
-          className={cn(
-            'rounded-md px-2 py-1 text-[10px] font-medium capitalize transition-all disabled:opacity-50',
-            role === r
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          {r}
-        </button>
-      ))}
-    </div>
-  )
-}
-
 interface ListMembersPanelProps {
   list: List
   open: boolean
@@ -90,12 +62,39 @@ export function ListMembersPanel({ list, open, onOpenChange }: ListMembersPanelP
   const [inviteRole, setInviteRole] = useState<ListMemberRole>('editor')
   const [limitDialog, setLimitDialog] = useState<LimitError | null>(null)
   const [capDialog, setCapDialog] = useState<SafetyCapError | null>(null)
+  const [pendingRoles, setPendingRoles] = useState<Record<number, ListMemberRole>>({})
 
   const planLimits = usePlanLimits()
   const { members, isLoading: membersLoading } = useListMembers(list.id)
   const inviteMutation = useInviteMember(list.id)
   const removeMutation = useRemoveMember(list.id)
   const changeRoleMutation = useChangeMemberRole(list.id)
+
+  // Role changes are staged locally and only applied when the admin hits
+  // "Confirm changes" — closing the dialog without confirming discards them.
+  useEffect(() => {
+    if (!open) setPendingRoles({})
+  }, [open])
+
+  const pendingEntries = useMemo(
+    () =>
+      Object.entries(pendingRoles)
+        .map(([id, role]) => ({ memberId: Number(id), role }))
+        .filter(({ memberId, role }) => members.find((m) => m.id === memberId)?.role !== role),
+    [pendingRoles, members],
+  )
+
+  const handleConfirmRoleChanges = async () => {
+    const results = await Promise.all(
+      pendingEntries.map(({ memberId, role }) => changeRoleMutation.mutateAsync({ memberId, role })),
+    )
+    setPendingRoles({})
+    if (results.every((r) => r.ok)) {
+      toast.info(pendingEntries.length > 1 ? 'Roles updated' : 'Role updated')
+    } else {
+      toast.error('Some role changes could not be saved', { description: 'Please try again.' })
+    }
+  }
 
   const { data: contactsData } = useQuery({
     queryKey: ['contacts', 'list', 'for-invite'],
@@ -180,6 +179,7 @@ export function ListMembersPanel({ list, open, onOpenChange }: ListMembersPanelP
                 </p>
                 <RoleToggle role={inviteRole} onChange={setInviteRole} />
               </div>
+              <RolePermissionsHint role={inviteRole} />
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
                 <Input
@@ -238,55 +238,96 @@ export function ListMembersPanel({ list, open, onOpenChange }: ListMembersPanelP
                 </p>
               ) : (
                 <div className="space-y-1">
-                  {members.map((m) => (
-                    <div
-                      key={m.id}
-                      className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 hover:bg-muted/40 transition-colors"
-                    >
-                      <MemberAvatar name={m.user.name} image={m.user.image} />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-foreground">
-                          {m.user.name}
-                        </p>
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className={cn(
-                              'inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
-                              m.status === 'pending'
-                                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                                : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-                            )}
-                          >
-                            {m.status === 'pending' ? (
-                              'Invited'
-                            ) : (
-                              <>
-                                <Check className="h-2.5 w-2.5" />
-                                Member
-                              </>
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                      <RoleToggle
-                        role={m.role}
-                        disabled={changeRoleMutation.isPending}
-                        onChange={(role) => changeRoleMutation.mutate({ memberId: m.id, role })}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeMutation.mutate(m.id)}
-                        disabled={removeMutation.isPending}
-                        className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                  {members.map((m) => {
+                    const effectiveRole = pendingRoles[m.id] ?? m.role
+                    const isDirty = effectiveRole !== m.role
+                    return (
+                      <div
+                        key={m.id}
+                        className={cn(
+                          'rounded-xl px-2 py-1.5 transition-colors',
+                          isDirty ? 'bg-violet-500/5' : 'hover:bg-muted/40',
+                        )}
                       >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex items-center gap-2.5">
+                          <MemberAvatar name={m.user.name} image={m.user.image} />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-foreground">
+                              {m.user.name}
+                            </p>
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className={cn(
+                                  'inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
+                                  m.status === 'pending'
+                                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                    : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+                                )}
+                              >
+                                {m.status === 'pending' ? (
+                                  'Invited'
+                                ) : (
+                                  <>
+                                    <Check className="h-2.5 w-2.5" />
+                                    Member
+                                  </>
+                                )}
+                              </span>
+                              {isDirty && (
+                                <span className="text-[10px] font-medium text-violet-600 dark:text-violet-400">
+                                  Pending change
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <RoleToggle
+                            role={effectiveRole}
+                            onChange={(role) =>
+                              setPendingRoles((prev) => ({ ...prev, [m.id]: role }))
+                            }
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeMutation.mutate(m.id)}
+                            disabled={removeMutation.isPending}
+                            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <RolePermissionsHint role={effectiveRole} className="pl-11 pt-1" />
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
           </div>
+
+          {pendingEntries.length > 0 && (
+            <DialogFooter className="items-center gap-3 pt-1 sm:justify-between">
+              <button
+                type="button"
+                onClick={() => setPendingRoles({})}
+                className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmRoleChanges}
+                disabled={changeRoleMutation.isPending}
+                className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-violet-500 disabled:opacity-50"
+              >
+                {changeRoleMutation.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Check className="h-3.5 w-3.5" />
+                )}
+                Confirm changes
+              </button>
+            </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
     </>

@@ -11,7 +11,10 @@ export async function resolveListRole(
     console.error('resolveListRole: failed to fetch list', listId, e)
     return null
   })
-  if (!list) return null
+  // A plan-archived list is hidden throughout the app for everyone — admin
+  // and members alike — until it's restored, so it must resolve to no role
+  // rather than leaking access to whoever is still viewing/polling it.
+  if (!list || list.planArchivedAt) return null
   if (list.userId === userId) return 'admin'
   if (!list.isShared) return null
 
