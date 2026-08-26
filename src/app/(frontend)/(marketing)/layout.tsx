@@ -4,12 +4,14 @@ import { FlowlineLogo } from '@/components/header/flowline-logo'
 import { AuthButtons } from '@/components/header/auth-button'
 import Link from 'next/link'
 import { requireGuest } from '@/lib/require-auth'
+import { CookieConsentProvider } from '@/contexts/cookie-consent-context'
+import { CookieConsentBanner } from '@/components/marketing/cookie-consent-banner'
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   await requireGuest()
 
   return (
-    <>
+    <CookieConsentProvider>
       <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background backdrop-blur supports-backdrop-filter:bg-background/60">
         <div className="mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-10">
           <div className="flex items-center gap-8">
@@ -44,6 +46,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </div>
       </header>
       <main className="w-full">{children}</main>
-    </>
+      <CookieConsentBanner />
+    </CookieConsentProvider>
   )
 }

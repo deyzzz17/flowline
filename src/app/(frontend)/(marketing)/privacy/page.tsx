@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { CookiePreferencesLink } from '@/components/marketing/cookie-preferences-link'
 
 export const metadata: Metadata = {
   title: 'Privacy Policy — Flowline',
@@ -264,11 +265,16 @@ const sections = [
     id: 'cookies',
     title: '10. Cookies',
     content: (
-      <p className="text-muted-foreground">
-        Flowline only uses strictly necessary cookies to operate the application (maintaining your
-        authentication session). We do not use any advertising, tracking, or third-party analytics
-        cookies.
-      </p>
+      <div className="space-y-2 text-muted-foreground">
+        <p>
+          Flowline only uses strictly necessary cookies to operate the application (maintaining your
+          authentication session). We do not use any advertising, tracking, or third-party analytics
+          cookies.
+        </p>
+        <p>
+          <CookiePreferencesLink />
+        </p>
+      </div>
     ),
   },
   {

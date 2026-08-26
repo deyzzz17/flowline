@@ -1,6 +1,11 @@
+'use client'
+
 import Link from 'next/link'
+import { useCookieConsent } from '@/contexts/cookie-consent-context'
 
 export function Footer() {
+  const { openPreferences } = useCookieConsent()
+
   return (
     <footer className="relative z-10 border-t border-slate-200/60 dark:border-white/8">
       <div className="mx-auto max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-10">
@@ -28,6 +33,13 @@ export function Footer() {
             >
               Privacy Policy
             </Link>
+            <button
+              type="button"
+              onClick={openPreferences}
+              className="text-xs text-slate-400 transition-colors hover:text-slate-600 dark:text-white/30 dark:hover:text-white/60"
+            >
+              Cookie preferences
+            </button>
           </nav>
         </div>
       </div>
