@@ -13,6 +13,16 @@ export const TimerSessions: CollectionConfig = {
       index: true,
     },
     {
+      name: 'workspace',
+      type: 'relationship',
+      relationTo: 'workspaces',
+      required: false,
+      index: true,
+      admin: {
+        description: 'Workspace this session belongs to.',
+      },
+    },
+    {
       name: 'startedAt',
       type: 'date',
       required: true,

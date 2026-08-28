@@ -11,6 +11,7 @@ import { getSession } from '@/lib/get-session'
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 import { resolveListRole } from '@/lib/list-roles'
+import { getOrCreatePersonalWorkspace } from '@/lib/get-or-create-workspace'
 import { deleteCommentsForTaskIds } from '@/api/task-comments/actions'
 
 type CreateListInput = {
@@ -85,11 +86,14 @@ export const createList = async (input: CreateListInput) => {
       return err(existing[0].planArchivedAt ? 'DUPLICATE_NAME_ARCHIVED' : 'DUPLICATE_NAME')
     }
 
+    const workspace = await getOrCreatePersonalWorkspace(payload, userId)
+
     const newList = await payload.create({
       collection: 'lists',
       data: {
         name: input.name,
         userId,
+        workspace: workspace.id,
         ...(input.category && { category: input.category }),
         isDefault: false,
       },
@@ -435,15 +439,31 @@ export const createDefaultList = async () => {
     let defaultList = existing.docs[0]
 
     if (!defaultList) {
-      defaultList = await payload.create({
-        collection: 'lists',
-        data: {
-          name: 'Todo',
-          userId,
-          isDefault: true,
-          category: { name: 'Personal', color: '#8b5cf6' },
-        },
-      })
+      const workspace = await getOrCreatePersonalWorkspace(payload, userId)
+      try {
+        defaultList = await payload.create({
+          collection: 'lists',
+          data: {
+            name: 'Todo',
+            userId,
+            workspace: workspace.id,
+            isDefault: true,
+            category: { name: 'Personal', color: '#8b5cf6' },
+          },
+        })
+      } catch (createError) {
+        // Two concurrent calls can both pass the "no default list yet" check above;
+        // the unique (userId, slug) index lets only one insert win. Fall back to it.
+        const { docs: winner } = await payload.find({
+          collection: 'lists',
+          where: {
+            and: [{ userId: { equals: userId } }, { isDefault: { equals: true } }],
+          },
+          limit: 1,
+        })
+        if (!winner[0]) throw createError
+        defaultList = winner[0]
+      }
     }
 
     const { docs: unassignedTasks } = await payload.find({

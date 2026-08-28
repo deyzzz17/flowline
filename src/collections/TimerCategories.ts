@@ -24,6 +24,16 @@ export const TimerCategories: CollectionConfig = {
       index: true,
     },
     {
+      name: 'workspace',
+      type: 'relationship',
+      relationTo: 'workspaces',
+      required: false,
+      index: true,
+      admin: {
+        description: 'Workspace this category belongs to.',
+      },
+    },
+    {
       name: 'isDefault',
       type: 'checkbox',
       defaultValue: false,

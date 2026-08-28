@@ -5,6 +5,12 @@ export const Lists: CollectionConfig = {
   admin: {
     useAsTitle: 'name',
   },
+  indexes: [
+    {
+      fields: ['userId', 'slug'],
+      unique: true,
+    },
+  ],
   fields: [
     {
       name: 'name',
@@ -26,6 +32,16 @@ export const Lists: CollectionConfig = {
       type: 'text',
       required: true,
       index: true,
+    },
+    {
+      name: 'workspace',
+      type: 'relationship',
+      relationTo: 'workspaces',
+      required: false,
+      index: true,
+      admin: {
+        description: 'Workspace this list belongs to.',
+      },
     },
     {
       name: 'category',

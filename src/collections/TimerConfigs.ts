@@ -13,6 +13,16 @@ export const TimerConfigs: CollectionConfig = {
       index: true,
     },
     {
+      name: 'workspace',
+      type: 'relationship',
+      relationTo: 'workspaces',
+      required: false,
+      index: true,
+      admin: {
+        description: 'Workspace this preset belongs to.',
+      },
+    },
+    {
       name: 'name',
       type: 'text',
       required: true,

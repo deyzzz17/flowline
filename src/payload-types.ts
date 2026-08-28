@@ -73,6 +73,7 @@ export interface Config {
     'task-completions': TaskCompletion;
     'user-tags': UserTag;
     lists: List;
+    workspaces: Workspace;
     'timer-categories': TimerCategory;
     'timer-sessions': TimerSession;
     'timer-configs': TimerConfig;
@@ -97,6 +98,7 @@ export interface Config {
     'task-completions': TaskCompletionsSelect<false> | TaskCompletionsSelect<true>;
     'user-tags': UserTagsSelect<false> | UserTagsSelect<true>;
     lists: ListsSelect<false> | ListsSelect<true>;
+    workspaces: WorkspacesSelect<false> | WorkspacesSelect<true>;
     'timer-categories': TimerCategoriesSelect<false> | TimerCategoriesSelect<true>;
     'timer-sessions': TimerSessionsSelect<false> | TimerSessionsSelect<true>;
     'timer-configs': TimerConfigsSelect<false> | TimerConfigsSelect<true>;
@@ -260,6 +262,10 @@ export interface List {
    */
   slug?: string | null;
   userId: string;
+  /**
+   * Workspace this list belongs to.
+   */
+  workspace?: (number | null) | Workspace;
   category?: {
     name?: string | null;
     color?: string | null;
@@ -276,6 +282,24 @@ export interface List {
    * Indicates when the list was set aside following a plan downgrade (quota exceeded). As long as this field is filled in, the list and its tasks are hidden throughout the app, except in The screen for managing lists archived via downgrade. This is distinct from any other archiving concept.
    */
   planArchivedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "workspaces".
+ */
+export interface Workspace {
+  id: number;
+  name: string;
+  /**
+   * Owner of this workspace.
+   */
+  userId: string;
+  /**
+   * The default workspace every user gets automatically. There is exactly one per user; it cannot be deleted.
+   */
+  isPersonal?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -333,6 +357,10 @@ export interface TimerCategory {
   color: string;
   userId: string;
   /**
+   * Workspace this category belongs to.
+   */
+  workspace?: (number | null) | Workspace;
+  /**
    * Default categories provided by the app
    */
   isDefault?: boolean | null;
@@ -350,6 +378,10 @@ export interface TimerCategory {
 export interface TimerSession {
   id: number;
   userId: string;
+  /**
+   * Workspace this session belongs to.
+   */
+  workspace?: (number | null) | Workspace;
   startedAt: string;
   /**
    * Duration in seconds
@@ -377,6 +409,10 @@ export interface TimerSession {
 export interface TimerConfig {
   id: number;
   userId: string;
+  /**
+   * Workspace this preset belongs to.
+   */
+  workspace?: (number | null) | Workspace;
   /**
    * Auto-generated or user-defined label
    */
@@ -739,6 +775,10 @@ export interface PayloadLockedDocument {
         value: number | List;
       } | null)
     | ({
+        relationTo: 'workspaces';
+        value: number | Workspace;
+      } | null)
+    | ({
         relationTo: 'timer-categories';
         value: number | TimerCategory;
       } | null)
@@ -940,6 +980,7 @@ export interface ListsSelect<T extends boolean = true> {
   name?: T;
   slug?: T;
   userId?: T;
+  workspace?: T;
   category?:
     | T
     | {
@@ -954,12 +995,24 @@ export interface ListsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "workspaces_select".
+ */
+export interface WorkspacesSelect<T extends boolean = true> {
+  name?: T;
+  userId?: T;
+  isPersonal?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "timer-categories_select".
  */
 export interface TimerCategoriesSelect<T extends boolean = true> {
   name?: T;
   color?: T;
   userId?: T;
+  workspace?: T;
   isDefault?: T;
   planArchivedAt?: T;
   updatedAt?: T;
@@ -971,6 +1024,7 @@ export interface TimerCategoriesSelect<T extends boolean = true> {
  */
 export interface TimerSessionsSelect<T extends boolean = true> {
   userId?: T;
+  workspace?: T;
   startedAt?: T;
   duration?: T;
   categoryName?: T;
@@ -991,6 +1045,7 @@ export interface TimerSessionsSelect<T extends boolean = true> {
  */
 export interface TimerConfigsSelect<T extends boolean = true> {
   userId?: T;
+  workspace?: T;
   name?: T;
   sessionDuration?: T;
   workDuration?: T;

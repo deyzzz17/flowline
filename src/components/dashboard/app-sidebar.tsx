@@ -61,6 +61,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  SidebarSeparator,
   useSidebar,
 } from '@/components/ui/sidebar'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -84,6 +85,7 @@ import { PlanLimitDialog } from '../ui/plan-limit-dialog'
 import { SafetyCapDialog } from '../ui/safety-cap-dialog'
 import { SidebarNewsletter } from './sidebar-newsletter'
 import { FeedbackDialog } from '../support/feedback-dialog'
+import { SidebarWorkspaceSwitcher } from './workspace-switcher'
 
 const PRESET_COLORS = [
   '#8b5cf6',
@@ -160,6 +162,7 @@ export function AppSidebar() {
   const queryClient = useQueryClient()
   const categoriesLimit =
     planLimits?.limits.calendarCategories ?? FALLBACK_CALENDAR_CATEGORIES_LIMIT
+  const planLabel = planLimits ? `${planLimits.plan.charAt(0).toUpperCase()}${planLimits.plan.slice(1)} plan` : undefined
 
   const [showNewCategory, setShowNewCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
@@ -681,6 +684,16 @@ export function AppSidebar() {
                     </CollapsibleContent>
                   </SidebarMenuItem>
                 </Collapsible>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          <SidebarSeparator className="mx-3 w-auto" />
+
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarWorkspaceSwitcher planLabel={planLabel} />
 
                 <Collapsible asChild className="group/lists" disabled={isCollapsed}>
                   <SidebarMenuItem>

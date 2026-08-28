@@ -69,6 +69,7 @@ import { PlanLimitDialog } from '../ui/plan-limit-dialog'
 import { SafetyCapDialog } from '../ui/safety-cap-dialog'
 import { SidebarNewsletter } from './sidebar-newsletter'
 import { FeedbackDialog } from '../support/feedback-dialog'
+import { WorkspaceSwitcher } from './workspace-switcher'
 
 const PRESET_COLORS = [
   '#8b5cf6',
@@ -151,6 +152,7 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
   const queryClient = useQueryClient()
   const categoriesLimit =
     planLimits?.limits.calendarCategories ?? FALLBACK_CALENDAR_CATEGORIES_LIMIT
+  const planLabel = planLimits ? `${planLimits.plan.charAt(0).toUpperCase()}${planLimits.plan.slice(1)} plan` : undefined
 
   const [listsOpen, setListsOpen] = useState(false)
   const [habitsOpen, setHabitsOpen] = useState(false)
@@ -663,6 +665,10 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
               </div>
             )}
           </div>
+
+          <div className="my-2 border-t border-border/60" />
+
+          <WorkspaceSwitcher planLabel={planLabel} />
 
           <div>
             <button

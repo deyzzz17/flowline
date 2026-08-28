@@ -5,6 +5,7 @@ import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { ok, err } from '@/types/result'
 import { getSession } from '@/lib/get-session'
+import { getOrCreatePersonalWorkspace } from '@/lib/get-or-create-workspace'
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 
@@ -35,10 +36,11 @@ export const listTimerCategories = async () => {
   })
 
   if (existing.docs.length === 0) {
+    const workspace = await getOrCreatePersonalWorkspace(payload, userId)
     for (const cat of DEFAULT_CATEGORIES) {
       await payload.create({
         collection: 'timer-categories',
-        data: { ...cat, userId, isDefault: true },
+        data: { ...cat, userId, workspace: workspace.id, isDefault: true },
       })
     }
     return await payload.find({
@@ -88,9 +90,10 @@ export const createTimerCategory = async (data: { name: string; color: string })
       )
     }
 
+    const workspace = await getOrCreatePersonalWorkspace(payload, userId)
     const category = await payload.create({
       collection: 'timer-categories',
-      data: { ...data, userId, isDefault: false },
+      data: { ...data, userId, workspace: workspace.id, isDefault: false },
     })
     return ok(category)
   } catch {
@@ -283,10 +286,12 @@ export const createTimerSession = async (data: CreateSessionData) => {
     if (!userId) return err('Not authenticated')
 
     const payload = await getPayload({ config })
+    const workspace = await getOrCreatePersonalWorkspace(payload, userId)
     const session = await payload.create({
       collection: 'timer-sessions',
       data: {
         userId,
+        workspace: workspace.id,
         startedAt: data.startedAt ?? new Date().toISOString(),
         duration: data.duration,
         categoryName: data.categoryName,
@@ -382,9 +387,10 @@ export const saveTimerConfig = async (data: Omit<SavedTimerConfig, 'id'>) => {
       )
     }
 
+    const workspace = await getOrCreatePersonalWorkspace(payload, userId)
     const saved = await payload.create({
       collection: 'timer-configs',
-      data: { ...data, userId },
+      data: { ...data, userId, workspace: workspace.id },
     })
     return ok(saved)
   } catch {
