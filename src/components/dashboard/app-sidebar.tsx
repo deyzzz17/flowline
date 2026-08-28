@@ -130,6 +130,10 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
   const defaultList = lists.find((l: List) => l.isDefault)
   const customLists = lists.filter((l: List) => !l.isDefault && !l.isShared)
   const ownSharedLists = lists.filter((l: List) => l.isShared)
+  // Lists shared WITH us aren't workspace-scoped yet — for now they only show
+  // up under the Personal workspace.
+  const isPersonalActive = !activeWorkspace || activeWorkspace.isPersonal
+  const invitedSharedLists = isPersonalActive ? sharedLists : []
 
   const tasksByList = allTasks.reduce<Record<number, Task[]>>((acc, task) => {
     const listId =
@@ -367,7 +371,7 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                             Shared
                           </span>
                         </div>
-                        {[...ownSharedLists, ...sharedLists].map((list) => (
+                        {[...ownSharedLists, ...invitedSharedLists].map((list) => (
                           <SharedListMenuItem
                             key={list.id}
                             list={list}
