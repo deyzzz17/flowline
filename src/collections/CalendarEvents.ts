@@ -5,6 +5,16 @@ export const CalendarEvents: CollectionConfig = {
   admin: { useAsTitle: 'title' },
   fields: [
     { name: 'userId', type: 'text', required: true, index: true },
+    {
+      name: 'workspace',
+      type: 'relationship',
+      relationTo: 'workspaces',
+      required: false,
+      index: true,
+      admin: {
+        description: 'Workspace this event belongs to.',
+      },
+    },
     { name: 'title', type: 'text', required: true },
     { name: 'description', type: 'textarea', required: false },
     {

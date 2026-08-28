@@ -4,7 +4,14 @@ import 'dotenv/config'
 import { getPayload } from 'payload'
 import config from '../src/payload.config'
 
-const COLLECTIONS = ['lists', 'timer-configs', 'timer-sessions', 'timer-categories'] as const
+const COLLECTIONS = [
+  'lists',
+  'timer-configs',
+  'timer-sessions',
+  'timer-categories',
+  'calendar-categories',
+  'calendar-events',
+] as const
 
 async function main() {
   const payload = await getPayload({ config })

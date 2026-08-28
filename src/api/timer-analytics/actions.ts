@@ -4,6 +4,7 @@ import 'server-only'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { getUserId } from '../timer/actions'
+import { getCurrentWorkspaceId } from '@/lib/get-current-workspace'
 import { getUserPlanLimits } from '@/lib/get-user-plan'
 import { getAnalyticsWindowStart, clampToAnalyticsWindow } from '@/lib/analytics-window'
 
@@ -203,12 +204,14 @@ export const getTimerAnalytics = async (
   const { fetchFrom, restrictedByPlan } = clampToAnalyticsWindow(periodStart, windowStart)
 
   const payload = await getPayload({ config })
+  const workspaceId = await getCurrentWorkspaceId(payload, userId)
 
   const { docs: sessions } = await payload.find({
     collection: 'timer-sessions',
     where: {
       and: [
         { userId: { equals: userId } },
+        { workspace: { equals: workspaceId } },
         { startedAt: { greater_than_equal: fetchFrom.toISOString() } },
         { startedAt: { less_than_equal: periodEnd.toISOString() } },
       ],
@@ -220,7 +223,9 @@ export const getTimerAnalytics = async (
 
   const { docs: userCategories } = await payload.find({
     collection: 'timer-categories',
-    where: { userId: { equals: userId } },
+    where: {
+      and: [{ userId: { equals: userId } }, { workspace: { equals: workspaceId } }],
+    },
     limit: 0,
   })
   const categoryColorMap = new Map(userCategories.map((c) => [c.name, c.color]))
@@ -265,7 +270,9 @@ export const getTimerAnalytics = async (
 
   const { docs: allSessions } = await payload.find({
     collection: 'timer-sessions',
-    where: { userId: { equals: userId } },
+    where: {
+      and: [{ userId: { equals: userId } }, { workspace: { equals: workspaceId } }],
+    },
     limit: 0,
   })
   const allCatMap = new Map<string, string>()

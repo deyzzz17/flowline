@@ -5,6 +5,16 @@ export const CalendarCategories: CollectionConfig = {
   admin: { useAsTitle: 'name' },
   fields: [
     { name: 'userId', type: 'text', required: true, index: true },
+    {
+      name: 'workspace',
+      type: 'relationship',
+      relationTo: 'workspaces',
+      required: false,
+      index: true,
+      admin: {
+        description: 'Workspace this category belongs to.',
+      },
+    },
     { name: 'name', type: 'text', required: true },
     { name: 'color', type: 'text', required: true, defaultValue: '#8b5cf6' },
     { name: 'isDefault', type: 'checkbox', defaultValue: false },

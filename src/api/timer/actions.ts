@@ -5,7 +5,7 @@ import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { ok, err } from '@/types/result'
 import { getSession } from '@/lib/get-session'
-import { getOrCreatePersonalWorkspace } from '@/lib/get-or-create-workspace'
+import { getCurrentWorkspaceId } from '@/lib/get-current-workspace'
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 
@@ -27,26 +27,29 @@ export const listTimerCategories = async () => {
   if (!userId) return { docs: [] }
 
   const payload = await getPayload({ config })
+  const workspaceId = await getCurrentWorkspaceId(payload, userId)
   const existing = await payload.find({
     collection: 'timer-categories',
     where: {
-      and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: false } }],
+      and: [{ workspace: { equals: workspaceId } }, { planArchivedAt: { exists: false } }],
     },
     limit: 0,
   })
 
-  if (existing.docs.length === 0) {
-    const workspace = await getOrCreatePersonalWorkspace(payload, userId)
+  // Only the Personal workspace gets seeded with default categories — other
+  // workspaces start empty (no data on creation).
+  const workspace = await payload.findByID({ collection: 'workspaces', id: workspaceId })
+  if (existing.docs.length === 0 && workspace.isPersonal) {
     for (const cat of DEFAULT_CATEGORIES) {
       await payload.create({
         collection: 'timer-categories',
-        data: { ...cat, userId, workspace: workspace.id, isDefault: true },
+        data: { ...cat, userId, workspace: workspaceId, isDefault: true },
       })
     }
     return await payload.find({
       collection: 'timer-categories',
       where: {
-        and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: false } }],
+        and: [{ workspace: { equals: workspaceId } }, { planArchivedAt: { exists: false } }],
       },
       limit: 0,
     })
@@ -90,10 +93,10 @@ export const createTimerCategory = async (data: { name: string; color: string })
       )
     }
 
-    const workspace = await getOrCreatePersonalWorkspace(payload, userId)
+    const workspaceId = await getCurrentWorkspaceId(payload, userId)
     const category = await payload.create({
       collection: 'timer-categories',
-      data: { ...data, userId, workspace: workspace.id, isDefault: false },
+      data: { ...data, userId, workspace: workspaceId, isDefault: false },
     })
     return ok(category)
   } catch {
@@ -286,12 +289,12 @@ export const createTimerSession = async (data: CreateSessionData) => {
     if (!userId) return err('Not authenticated')
 
     const payload = await getPayload({ config })
-    const workspace = await getOrCreatePersonalWorkspace(payload, userId)
+    const workspaceId = await getCurrentWorkspaceId(payload, userId)
     const session = await payload.create({
       collection: 'timer-sessions',
       data: {
         userId,
-        workspace: workspace.id,
+        workspace: workspaceId,
         startedAt: data.startedAt ?? new Date().toISOString(),
         duration: data.duration,
         categoryName: data.categoryName,
@@ -346,10 +349,11 @@ export const listTimerConfigs = async () => {
   if (!userId) return { docs: [] }
 
   const payload = await getPayload({ config })
+  const workspaceId = await getCurrentWorkspaceId(payload, userId)
   return payload.find({
     collection: 'timer-configs',
     where: {
-      and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: false } }],
+      and: [{ workspace: { equals: workspaceId } }, { planArchivedAt: { exists: false } }],
     },
     sort: '-createdAt',
     limit: 50,
@@ -387,10 +391,10 @@ export const saveTimerConfig = async (data: Omit<SavedTimerConfig, 'id'>) => {
       )
     }
 
-    const workspace = await getOrCreatePersonalWorkspace(payload, userId)
+    const workspaceId = await getCurrentWorkspaceId(payload, userId)
     const saved = await payload.create({
       collection: 'timer-configs',
-      data: { ...data, userId, workspace: workspace.id },
+      data: { ...data, userId, workspace: workspaceId },
     })
     return ok(saved)
   } catch {

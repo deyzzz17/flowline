@@ -14,6 +14,7 @@ export interface PlanLimits {
   timerPresets: number
   sharedLists: number
   sharedListMembers: number
+  /** Extra workspaces beyond the auto-created Personal one — Personal never counts against this. */
   workspaces: number
 }
 
@@ -49,7 +50,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     timerPresets: 10,
     sharedLists: 0,
     sharedListMembers: 0,
-    workspaces: 1,
+    workspaces: 0,
   },
   plus: {
     lists: UNLIMITED,

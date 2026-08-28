@@ -45,7 +45,7 @@ import * as migration_20260819_150003_shared_lists from './20260819_150003_share
 import * as migration_20260820_142630_task_assignment from './20260820_142630_task_assignment';
 import * as migration_20260821_143910_task_comments from './20260821_143910_task_comments';
 import * as migration_20260828_144648_add_workspaces from './20260828_144648_add_workspaces';
-import * as migration_20260828_150532_fix_lists_unique_slug from './20260828_150532_fix_lists_unique_slug';
+import * as migration_20260828_154737_workspaces_full_scope from './20260828_154737_workspaces_full_scope';
 
 export const migrations = [
   {
@@ -284,8 +284,8 @@ export const migrations = [
     name: '20260828_144648_add_workspaces',
   },
   {
-    up: migration_20260828_150532_fix_lists_unique_slug.up,
-    down: migration_20260828_150532_fix_lists_unique_slug.down,
-    name: '20260828_150532_fix_lists_unique_slug'
+    up: migration_20260828_154737_workspaces_full_scope.up,
+    down: migration_20260828_154737_workspaces_full_scope.down,
+    name: '20260828_154737_workspaces_full_scope'
   },
 ];

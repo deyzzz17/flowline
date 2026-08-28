@@ -95,7 +95,7 @@ const LIMIT_MESSAGES: Record<LimitError, { title: string; description: string; c
   WORKSPACES_LIMIT: {
     title: 'Workspace limit reached',
     description:
-      "You've reached your plan's limit for workspaces. Upgrade to Plus for up to 3 workspaces, or Pro for unlimited workspaces.",
+      "You've reached your plan's limit for workspaces. Upgrade to Plus for up to 3 additional workspaces, or Pro for unlimited workspaces.",
     cta: 'Upgrade for more workspaces',
   },
 }

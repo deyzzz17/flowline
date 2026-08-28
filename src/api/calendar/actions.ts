@@ -7,6 +7,7 @@ import { ok, err } from '@/types/result'
 import { Pool } from 'pg'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
+import { getCurrentWorkspaceId } from '@/lib/get-current-workspace'
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 
@@ -84,22 +85,30 @@ export const listCalendarCategories = async () => {
   const userId = await getUserId()
   if (!userId) return { docs: [] }
   const payload = await getPayload({ config })
+  const workspaceId = await getCurrentWorkspaceId(payload, userId)
   const existing = await payload.find({
     collection: 'calendar-categories',
     where: {
-      and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: false } }],
+      and: [{ workspace: { equals: workspaceId } }, { planArchivedAt: { exists: false } }],
     },
     limit: 0,
     sort: 'createdAt',
   })
-  if (existing.docs.length === 0) {
+
+  // Only the Personal workspace gets seeded with default categories — other
+  // workspaces start empty (no data on creation).
+  const workspace = await payload.findByID({ collection: 'workspaces', id: workspaceId })
+  if (existing.docs.length === 0 && workspace.isPersonal) {
     for (const cat of DEFAULT_CALENDAR_CATEGORIES) {
-      await payload.create({ collection: 'calendar-categories', data: { ...cat, userId } })
+      await payload.create({
+        collection: 'calendar-categories',
+        data: { ...cat, userId, workspace: workspaceId },
+      })
     }
     return payload.find({
       collection: 'calendar-categories',
       where: {
-        and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: false } }],
+        and: [{ workspace: { equals: workspaceId } }, { planArchivedAt: { exists: false } }],
       },
       limit: 0,
       sort: 'createdAt',
@@ -128,6 +137,7 @@ export const createCalendarCategory = async (data: CalendarCategoryData) => {
     if (!userId) return err('Not authenticated')
 
     const payload = await getPayload({ config })
+    const workspaceId = await getCurrentWorkspaceId(payload, userId)
 
     const { plan, limits } = await getUserPlanLimits()
     const totalDocs = await countActiveCalendarCategories(payload, userId)
@@ -142,7 +152,7 @@ export const createCalendarCategory = async (data: CalendarCategoryData) => {
     return ok(
       await payload.create({
         collection: 'calendar-categories',
-        data: { ...data, userId, isDefault: false },
+        data: { ...data, userId, workspace: workspaceId, isDefault: false },
       }),
     )
   } catch {
@@ -493,6 +503,7 @@ export const listFlowlineCalendarEvents = async (from: string, to: string) => {
   const userId = await getUserId()
   if (!userId) return { docs: [] }
   const payload = await getPayload({ config })
+  const workspaceId = await getCurrentWorkspaceId(payload, userId)
   const { docs } = await payload.find({
     collection: 'calendar-events',
     limit: 500,
@@ -500,6 +511,7 @@ export const listFlowlineCalendarEvents = async (from: string, to: string) => {
     where: {
       and: [
         { userId: { equals: userId } },
+        { workspace: { equals: workspaceId } },
         {
           or: [
             { and: [{ recurrenceId: { exists: false } }, { startDate: { less_than_equal: to } }] },
@@ -516,6 +528,13 @@ export const listGoogleCalendarEvents = async (from: string, to: string) => {
   const userId = await getUserId()
   if (!userId) return { docs: [] }
   const payload = await getPayload({ config })
+
+  // Google Calendar is only connected on the Personal workspace for now — other
+  // workspaces don't have their own connection.
+  const workspaceId = await getCurrentWorkspaceId(payload, userId)
+  const workspace = await payload.findByID({ collection: 'workspaces', id: workspaceId })
+  if (!workspace.isPersonal) return { docs: [] }
+
   const docs = await fetchGoogleCalendarEvents(userId, from, to, payload)
   return { docs }
 }
@@ -530,10 +549,12 @@ export const createCalendarEvent = async (data: CalendarEventData) => {
     }
 
     const payload = await getPayload({ config })
+    const workspaceId = await getCurrentWorkspaceId(payload, userId)
     const event = await payload.create({
       collection: 'calendar-events',
       data: {
         userId,
+        workspace: workspaceId,
         title: data.title,
         description: data.description,
         startDate: data.startDate,
@@ -715,10 +736,16 @@ export const updateCalendarEvent = async (
           newEnd = new Date(new Date(newStart).getTime() + originalDuration).toISOString()
         }
 
+        const parentWorkspace =
+          typeof (parent as any).workspace === 'object' && (parent as any).workspace !== null
+            ? (parent as any).workspace.id
+            : (parent as any).workspace
+
         const created = await payload.create({
           collection: 'calendar-events',
           data: {
             userId,
+            workspace: parentWorkspace,
             title: data.title ?? existing.title,
             description: data.description ?? (existing as any).description ?? undefined,
             startDate: newStart,

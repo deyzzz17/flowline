@@ -7,6 +7,7 @@ import { timerAPI } from './timer'
 import { calendarAPI } from './calendar'
 import { listMembersAPI } from './list-members'
 import { taskCommentsAPI } from './task-comments'
+import { workspacesAPI } from './workspaces'
 
 export const api = {
   tasks: tasksAPI,
@@ -18,4 +19,5 @@ export const api = {
   calendar: calendarAPI,
   listMembers: listMembersAPI,
   taskComments: taskCommentsAPI,
+  workspaces: workspacesAPI,
 }

@@ -12,6 +12,7 @@ import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 import { resolveListRole } from '@/lib/list-roles'
 import { getOrCreatePersonalWorkspace } from '@/lib/get-or-create-workspace'
+import { getCurrentWorkspaceId } from '@/lib/get-current-workspace'
 import { deleteCommentsForTaskIds } from '@/api/task-comments/actions'
 
 type CreateListInput = {
@@ -63,6 +64,7 @@ export const createList = async (input: CreateListInput) => {
     }
 
     const payload = await getPayload({ config })
+    const workspaceId = await getCurrentWorkspaceId(payload, userId)
 
     const { plan, limits } = await getUserPlanLimits()
 
@@ -77,7 +79,7 @@ export const createList = async (input: CreateListInput) => {
     const { docs: existing } = await payload.find({
       collection: 'lists',
       where: {
-        and: [{ userId: { equals: userId } }, { name: { equals: input.name.trim() } }],
+        and: [{ workspace: { equals: workspaceId } }, { name: { equals: input.name.trim() } }],
       },
       limit: 1,
     })
@@ -86,14 +88,12 @@ export const createList = async (input: CreateListInput) => {
       return err(existing[0].planArchivedAt ? 'DUPLICATE_NAME_ARCHIVED' : 'DUPLICATE_NAME')
     }
 
-    const workspace = await getOrCreatePersonalWorkspace(payload, userId)
-
     const newList = await payload.create({
       collection: 'lists',
       data: {
         name: input.name,
         userId,
-        workspace: workspace.id,
+        workspace: workspaceId,
         ...(input.category && { category: input.category }),
         isDefault: false,
       },
@@ -111,13 +111,18 @@ export const listLists = async () => {
   if (!userId) return { docs: [] }
 
   const payload = await getPayload({ config })
+  const workspaceId = await getCurrentWorkspaceId(payload, userId)
 
   return await payload.find({
     collection: 'lists',
     sort: 'createdAt',
     limit: 0,
     where: {
-      and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: false } }],
+      and: [
+        { userId: { equals: userId } },
+        { workspace: { equals: workspaceId } },
+        { planArchivedAt: { exists: false } },
+      ],
     },
   })
 }
@@ -344,11 +349,17 @@ export const editList = async (id: number, input: EditListInput) => {
     if (role !== 'admin') return err('Not authorized')
 
     if (input.name !== undefined) {
+      const current = await payload.findByID({ collection: 'lists', id })
+      const workspaceId =
+        typeof current.workspace === 'object' && current.workspace !== null
+          ? current.workspace.id
+          : current.workspace
+
       const { docs: existing } = await payload.find({
         collection: 'lists',
         where: {
           and: [
-            { userId: { equals: userId } },
+            { workspace: { equals: workspaceId } },
             { name: { equals: input.name.trim() } },
             { id: { not_equals: id } },
           ],
@@ -453,7 +464,7 @@ export const createDefaultList = async () => {
         })
       } catch (createError) {
         // Two concurrent calls can both pass the "no default list yet" check above;
-        // the unique (userId, slug) index lets only one insert win. Fall back to it.
+        // the unique (workspace, slug) index lets only one insert win. Fall back to it.
         const { docs: winner } = await payload.find({
           collection: 'lists',
           where: {

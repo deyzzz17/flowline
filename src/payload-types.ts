@@ -440,6 +440,10 @@ export interface TimerConfig {
 export interface CalendarEvent {
   id: number;
   userId: string;
+  /**
+   * Workspace this event belongs to.
+   */
+  workspace?: (number | null) | Workspace;
   title: string;
   description?: string | null;
   startDate: string;
@@ -511,6 +515,10 @@ export interface CalendarEvent {
 export interface CalendarCategory {
   id: number;
   userId: string;
+  /**
+   * Workspace this category belongs to.
+   */
+  workspace?: (number | null) | Workspace;
   name: string;
   color: string;
   isDefault?: boolean | null;
@@ -1063,6 +1071,7 @@ export interface TimerConfigsSelect<T extends boolean = true> {
  */
 export interface CalendarEventsSelect<T extends boolean = true> {
   userId?: T;
+  workspace?: T;
   title?: T;
   description?: T;
   startDate?: T;
@@ -1111,6 +1120,7 @@ export interface CalendarEventsSelect<T extends boolean = true> {
  */
 export interface CalendarCategoriesSelect<T extends boolean = true> {
   userId?: T;
+  workspace?: T;
   name?: T;
   color?: T;
   isDefault?: T;

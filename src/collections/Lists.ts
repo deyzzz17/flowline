@@ -7,7 +7,7 @@ export const Lists: CollectionConfig = {
   },
   indexes: [
     {
-      fields: ['userId', 'slug'],
+      fields: ['workspace', 'slug'],
       unique: true,
     },
   ],
@@ -97,12 +97,15 @@ export const Lists: CollectionConfig = {
       async ({ data, req, operation, originalDoc }) => {
         const { payload } = req
         const userId = data.userId ?? originalDoc?.userId
+        const workspaceRaw = data.workspace ?? originalDoc?.workspace
+        const workspaceId =
+          typeof workspaceRaw === 'object' && workspaceRaw !== null ? workspaceRaw.id : workspaceRaw
         const name = data.name
-        if (userId && name) {
+        if (workspaceId && name) {
           const existing = await payload.find({
             collection: 'lists',
             where: {
-              and: [{ userId: { equals: userId } }, { name: { equals: name } }],
+              and: [{ workspace: { equals: workspaceId } }, { name: { equals: name } }],
             },
             limit: 1,
           })

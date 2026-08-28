@@ -1703,11 +1703,11 @@
           "method": "btree",
           "with": {}
         },
-        "userId_slug_idx": {
-          "name": "userId_slug_idx",
+        "workspace_slug_idx": {
+          "name": "workspace_slug_idx",
           "columns": [
             {
-              "expression": "user_id",
+              "expression": "workspace_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2714,6 +2714,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "title": {
           "name": "title",
           "type": "varchar",
@@ -2842,6 +2848,21 @@
           "method": "btree",
           "with": {}
         },
+        "calendar_events_workspace_idx": {
+          "name": "calendar_events_workspace_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "calendar_events_start_date_idx": {
           "name": "calendar_events_start_date_idx",
           "columns": [
@@ -2903,7 +2924,21 @@
           "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "calendar_events_workspace_id_workspaces_id_fk": {
+          "name": "calendar_events_workspace_id_workspaces_id_fk",
+          "tableFrom": "calendar_events",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -2925,6 +2960,12 @@
           "type": "varchar",
           "primaryKey": false,
           "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
         },
         "name": {
           "name": "name",
@@ -2983,6 +3024,21 @@
           "method": "btree",
           "with": {}
         },
+        "calendar_categories_workspace_idx": {
+          "name": "calendar_categories_workspace_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "calendar_categories_plan_archived_at_idx": {
           "name": "calendar_categories_plan_archived_at_idx",
           "columns": [
@@ -3029,7 +3085,21 @@
           "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "calendar_categories_workspace_id_workspaces_id_fk": {
+          "name": "calendar_categories_workspace_id_workspaces_id_fk",
+          "tableFrom": "calendar_categories",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -5619,6 +5689,6 @@
     "tables": {},
     "columns": {}
   },
-  "id": "33112faf-ca14-4a9b-a11d-6f32abfa98dd",
+  "id": "93083cd6-0a1d-490c-bc57-b8b6d754852b",
   "prevId": "00000000-0000-0000-0000-000000000000"
 }
