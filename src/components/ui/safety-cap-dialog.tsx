@@ -82,6 +82,11 @@ const SAFETY_CAP_MESSAGES: Record<SafetyCapError, { title: string; description: 
     description:
       "This list has reached our current technical limit for invited members. Let us know and we'll review raising it for your account.",
   },
+  WORKSPACES_CAP: {
+    title: 'Workspace limit reached',
+    description:
+      "You've reached our current technical limit for workspaces. Let us know and we'll review raising it for your account.",
+  },
 }
 
 interface SafetyCapDialogProps {

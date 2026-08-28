@@ -92,6 +92,12 @@ const LIMIT_MESSAGES: Record<LimitError, { title: string; description: string; c
       "You've reached your plan's limit for members on this list. Upgrade to Plus to invite up to 3 people, or Pro for unlimited members.",
     cta: 'Upgrade for more members',
   },
+  WORKSPACES_LIMIT: {
+    title: 'Workspace limit reached',
+    description:
+      "You've reached your plan's limit for workspaces. Upgrade to Plus for up to 3 workspaces, or Pro for unlimited workspaces.",
+    cta: 'Upgrade for more workspaces',
+  },
 }
 
 interface PlanLimitDialogProps {

@@ -162,7 +162,6 @@ export function AppSidebar() {
   const queryClient = useQueryClient()
   const categoriesLimit =
     planLimits?.limits.calendarCategories ?? FALLBACK_CALENDAR_CATEGORIES_LIMIT
-  const planLabel = planLimits ? `${planLimits.plan.charAt(0).toUpperCase()}${planLimits.plan.slice(1)} plan` : undefined
 
   const [showNewCategory, setShowNewCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
@@ -693,7 +692,7 @@ export function AppSidebar() {
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu>
-                <SidebarWorkspaceSwitcher planLabel={planLabel} />
+                <SidebarWorkspaceSwitcher />
 
                 <Collapsible asChild className="group/lists" disabled={isCollapsed}>
                   <SidebarMenuItem>

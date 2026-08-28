@@ -14,6 +14,7 @@ export interface PlanLimits {
   timerPresets: number
   sharedLists: number
   sharedListMembers: number
+  workspaces: number
 }
 
 const UNLIMITED = Infinity
@@ -31,6 +32,7 @@ const ABSOLUTE_MAX_TIMER_CATEGORIES = 100
 const ABSOLUTE_MAX_TIMER_PRESETS = 100
 const ABSOLUTE_MAX_SHARED_LISTS = 50
 const ABSOLUTE_MAX_SHARED_LIST_MEMBERS = 20
+const ABSOLUTE_MAX_WORKSPACES = 20
 
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   free: {
@@ -47,6 +49,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     timerPresets: 10,
     sharedLists: 0,
     sharedListMembers: 0,
+    workspaces: 1,
   },
   plus: {
     lists: UNLIMITED,
@@ -62,6 +65,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     timerPresets: UNLIMITED,
     sharedLists: 3,
     sharedListMembers: 3,
+    workspaces: 3,
   },
   pro: {
     lists: UNLIMITED,
@@ -77,6 +81,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     timerPresets: UNLIMITED,
     sharedLists: UNLIMITED,
     sharedListMembers: UNLIMITED,
+    workspaces: UNLIMITED,
   },
 }
 
@@ -99,6 +104,7 @@ export function getLimits(plan: Plan): PlanLimits {
     timerPresets: Math.min(limits.timerPresets, ABSOLUTE_MAX_TIMER_PRESETS),
     sharedLists: Math.min(limits.sharedLists, ABSOLUTE_MAX_SHARED_LISTS),
     sharedListMembers: Math.min(limits.sharedListMembers, ABSOLUTE_MAX_SHARED_LIST_MEMBERS),
+    workspaces: Math.min(limits.workspaces, ABSOLUTE_MAX_WORKSPACES),
   }
 }
 
@@ -130,6 +136,7 @@ export const LIMIT_ERRORS = {
   TIMER_PRESETS_LIMIT: 'TIMER_PRESETS_LIMIT',
   SHARED_LISTS_LIMIT: 'SHARED_LISTS_LIMIT',
   SHARED_LIST_MEMBERS_LIMIT: 'SHARED_LIST_MEMBERS_LIMIT',
+  WORKSPACES_LIMIT: 'WORKSPACES_LIMIT',
 } as const
 
 export type LimitError = (typeof LIMIT_ERRORS)[keyof typeof LIMIT_ERRORS]
@@ -148,6 +155,7 @@ export const SAFETY_CAP_ERRORS = {
   TIMER_PRESETS_CAP: 'TIMER_PRESETS_CAP',
   SHARED_LISTS_CAP: 'SHARED_LISTS_CAP',
   SHARED_LIST_MEMBERS_CAP: 'SHARED_LIST_MEMBERS_CAP',
+  WORKSPACES_CAP: 'WORKSPACES_CAP',
 } as const
 
 export type SafetyCapError = (typeof SAFETY_CAP_ERRORS)[keyof typeof SAFETY_CAP_ERRORS]
