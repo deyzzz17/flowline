@@ -9,7 +9,7 @@ import { ok, err } from '@/types/result'
 import { getSession } from '@/lib/get-session'
 import { getUserPlanLimits } from '@/lib/get-user-plan'
 import { getOrCreatePersonalWorkspace } from '@/lib/get-or-create-workspace'
-import { getCurrentWorkspaceId, ACTIVE_WORKSPACE_COOKIE } from '@/lib/get-current-workspace'
+import { getCurrentWorkspace, ACTIVE_WORKSPACE_COOKIE } from '@/lib/get-current-workspace'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 
 const getUserId = async () => {
@@ -22,7 +22,6 @@ export const listWorkspaces = async () => {
   if (!userId) return { docs: [], activeId: null }
 
   const payload = await getPayload({ config })
-  await getOrCreatePersonalWorkspace(payload, userId)
 
   const { docs } = await payload.find({
     collection: 'workspaces',
@@ -31,11 +30,17 @@ export const listWorkspaces = async () => {
     limit: 0,
   })
 
-  const activeId = await getCurrentWorkspaceId(payload, userId)
+  // Almost always already there — only ever missing for a brand-new account,
+  // so this extra round trip is skipped in the common case.
+  const allDocs = docs.some((w) => w.isPersonal)
+    ? docs
+    : [...docs, await getOrCreatePersonalWorkspace(payload, userId)]
+
+  const activeWorkspace = await getCurrentWorkspace(payload, userId, allDocs)
 
   return {
-    docs: [...docs].sort((a, b) => Number(b.isPersonal) - Number(a.isPersonal)),
-    activeId,
+    docs: [...allDocs].sort((a, b) => Number(b.isPersonal) - Number(a.isPersonal)),
+    activeId: activeWorkspace.id,
   }
 }
 

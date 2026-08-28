@@ -5,7 +5,7 @@ import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { ok, err } from '@/types/result'
 import { getSession } from '@/lib/get-session'
-import { getCurrentWorkspaceId } from '@/lib/get-current-workspace'
+import { getCurrentWorkspace, getCurrentWorkspaceId } from '@/lib/get-current-workspace'
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 
@@ -27,7 +27,8 @@ export const listTimerCategories = async () => {
   if (!userId) return { docs: [] }
 
   const payload = await getPayload({ config })
-  const workspaceId = await getCurrentWorkspaceId(payload, userId)
+  const workspace = await getCurrentWorkspace(payload, userId)
+  const workspaceId = workspace.id
   const existing = await payload.find({
     collection: 'timer-categories',
     where: {
@@ -38,7 +39,6 @@ export const listTimerCategories = async () => {
 
   // Only the Personal workspace gets seeded with default categories — other
   // workspaces start empty (no data on creation).
-  const workspace = await payload.findByID({ collection: 'workspaces', id: workspaceId })
   if (existing.docs.length === 0 && workspace.isPersonal) {
     for (const cat of DEFAULT_CATEGORIES) {
       await payload.create({

@@ -35,6 +35,18 @@ import { SafetyCapDialog } from '@/components/ui/safety-cap-dialog'
 import type { Workspace } from '@/payload-types'
 import { cn } from '@/lib/utils'
 
+// Query keys whose data depends on the active workspace — invalidated (not a
+// full page reload) when switching, so the switch feels instant.
+const WORKSPACE_SCOPED_QUERY_KEYS = [
+  'lists',
+  'timer-configs',
+  'timer-categories',
+  'timer-analytics',
+  'calendar-categories',
+  'calendar-events-flowline',
+  'calendar-events-google',
+]
+
 function WorkspaceAvatar({ className }: { className?: string }) {
   return (
     <span
@@ -71,7 +83,11 @@ function useWorkspaceSwitcher() {
   const switchMutation = useMutation({
     mutationFn: (id: number) => api.workspaces.switch(id),
     onSuccess: (result) => {
-      if (result.ok) window.location.reload()
+      if (!result.ok) return
+      queryClient.invalidateQueries({ queryKey: ['workspaces'] })
+      for (const key of WORKSPACE_SCOPED_QUERY_KEYS) {
+        queryClient.invalidateQueries({ queryKey: [key] })
+      }
     },
   })
 
@@ -127,6 +143,7 @@ function useWorkspaceSwitcher() {
     activeWorkspace,
     atLimit,
     switchTo: (id: number) => switchMutation.mutate(id),
+    switchingId: switchMutation.isPending ? switchMutation.variables : null,
     openCreateDialog,
     handleLockedClick,
     createOpen,
@@ -147,6 +164,7 @@ function WorkspaceMenuContent({
   align,
   workspaces,
   activeId,
+  switchingId,
   onSwitch,
   atLimit,
   onCreateClick,
@@ -155,6 +173,7 @@ function WorkspaceMenuContent({
   align?: 'start' | 'center' | 'end'
   workspaces: Workspace[]
   activeId: number | null
+  switchingId: number | null
   onSwitch: (id: number) => void
   atLimit: boolean
   onCreateClick: () => void
@@ -168,12 +187,17 @@ function WorkspaceMenuContent({
       {workspaces.map((w) => (
         <DropdownMenuItem
           key={w.id}
+          disabled={switchingId !== null}
           onClick={() => w.id !== activeId && onSwitch(w.id)}
           className="gap-2 text-sm cursor-pointer"
         >
           <WorkspaceAvatar className="size-6" />
           <span className="flex-1 truncate">{w.name}</span>
-          {w.id === activeId && <Check className="h-3.5 w-3.5 text-violet-500" />}
+          {switchingId === w.id ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+          ) : (
+            w.id === activeId && <Check className="h-3.5 w-3.5 text-violet-500" />
+          )}
         </DropdownMenuItem>
       ))}
       <DropdownMenuSeparator />
@@ -284,6 +308,7 @@ export function WorkspaceSwitcher() {
         <WorkspaceMenuContent
           workspaces={s.workspaces}
           activeId={s.activeId}
+          switchingId={s.switchingId}
           onSwitch={s.switchTo}
           atLimit={s.atLimit}
           onCreateClick={s.openCreateDialog}
@@ -332,6 +357,7 @@ export function SidebarWorkspaceSwitcher() {
           align="start"
           workspaces={s.workspaces}
           activeId={s.activeId}
+          switchingId={s.switchingId}
           onSwitch={s.switchTo}
           atLimit={s.atLimit}
           onCreateClick={s.openCreateDialog}
