@@ -447,197 +447,6 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
 
-                <Collapsible asChild className="group/lists" disabled={isCollapsed}>
-                  <SidebarMenuItem>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuButton
-                        tooltip="Lists"
-                        className={cn(isCollapsed && 'pointer-events-none')}
-                      >
-                        <ClipboardList className="h-4 w-4 shrink-0" />
-                        <span>Lists</span>
-                        <ChevronDown className="ml-auto h-3.5 w-3.5 transition-transform group-data-[state=closed]/lists:-rotate-90" />
-                      </SidebarMenuButton>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <SidebarMenuSub>
-                        <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={isActive('/list-analytics')}>
-                            <Link href={nav('/list-analytics')}>
-                              <BarChart2 className="h-3.5 w-3.5" />
-                              Analytics
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                        <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={isActive('/lists/today')}>
-                            <Link href={nav('/lists/today')}>
-                              <Sun className="h-3.5 w-3.5" />
-                              Today
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                        <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={isActive('/lists/recurring')}>
-                            <Link href={nav('/lists/recurring')}>
-                              <RefreshCw className="h-3.5 w-3.5" />
-                              Recurring
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                        <div className="my-1.5 border-t border-border/40 mx-2" />
-                        {defaultList && (
-                          <SidebarMenuSubItem>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={isActive(`/lists/${defaultList.slug}`)}
-                            >
-                              <Link href={nav(`/lists/${defaultList.slug}`)}>
-                                <span
-                                  className="h-2 w-2 rounded-full shrink-0"
-                                  style={{
-                                    backgroundColor: defaultList.category?.color ?? '#8b5cf6',
-                                  }}
-                                />
-                                <span className="flex-1 truncate">{defaultList.name}</span>
-                                {getListUrgency(tasksByList[defaultList.id] ?? []) && (
-                                  <span
-                                    className={cn(
-                                      'size-1.5 shrink-0 rounded-full',
-                                      getListUrgency(tasksByList[defaultList.id] ?? []) === 'red'
-                                        ? 'bg-destructive'
-                                        : 'bg-orange-500',
-                                    )}
-                                  />
-                                )}
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        )}
-                        {customLists.map((list: List) => (
-                          <SidebarMenuSubItem key={list.id}>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={isActive(`/lists/${list.slug}`)}
-                            >
-                              <Link href={nav(`/lists/${list.slug}`)}>
-                                <span
-                                  className="h-2 w-2 rounded-full shrink-0"
-                                  style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
-                                />
-                                <span className="flex-1 truncate">{list.name}</span>
-                                {getListUrgency(tasksByList[list.id] ?? []) && (
-                                  <span
-                                    className={cn(
-                                      'size-1.5 shrink-0 rounded-full',
-                                      getListUrgency(tasksByList[list.id] ?? []) === 'red'
-                                        ? 'bg-destructive'
-                                        : 'bg-orange-500',
-                                    )}
-                                  />
-                                )}
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
-                        <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild>
-                            <Link
-                              href={nav('/lists/new-list')}
-                              className="text-muted-foreground/60"
-                            >
-                              <Plus className="h-3.5 w-3.5" />
-                              New list
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-
-                        <div className="my-1.5 border-t border-border/40 mx-2" />
-
-                        <div className="mt-1 mb-1 flex items-center gap-1.5 px-2">
-                          <Users className="h-3 w-3 text-violet-500/70" />
-                          <span className="text-[10px] font-semibold uppercase tracking-widest text-violet-500/70">
-                            Shared
-                          </span>
-                        </div>
-                        {[...ownSharedLists, ...sharedLists].map((list) => (
-                          <SharedListMenuItem
-                            key={list.id}
-                            list={list}
-                            isActive={isActive(`/lists/${list.slug}`)}
-                            href={nav(`/lists/${list.slug}`)}
-                          />
-                        ))}
-                        <SidebarMenuSubItem>
-                          {planLimits?.plan === 'free' ? (
-                            <div className="flex h-7 items-center gap-2 rounded-md px-2 text-xs text-muted-foreground/40">
-                              <UserPlus className="h-3.5 w-3.5 shrink-0" />
-                              <span className="flex-1 truncate">New shared list</span>
-                              <button
-                                type="button"
-                                onClick={() => setLimitDialog(LIMIT_ERRORS.SHARED_LISTS_LIMIT)}
-                                className="shrink-0 text-violet-500/70 transition-colors hover:text-violet-500"
-                                title="Upgrade to Plus or Pro to create shared lists"
-                              >
-                                <Zap className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          ) : (
-                            <SidebarMenuSubButton asChild>
-                              <Link
-                                href={nav('/lists/new-shared-list')}
-                                className="text-muted-foreground/60"
-                              >
-                                <UserPlus className="h-3.5 w-3.5" />
-                                New shared list
-                              </Link>
-                            </SidebarMenuSubButton>
-                          )}
-                        </SidebarMenuSubItem>
-                      </SidebarMenuSub>
-                    </CollapsibleContent>
-                  </SidebarMenuItem>
-                </Collapsible>
-
-                <Collapsible asChild className="group/habits" disabled={isCollapsed}>
-                  <SidebarMenuItem>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuButton
-                        tooltip="Habits"
-                        isActive={isHabitsActive}
-                        className={cn(isCollapsed && 'pointer-events-none')}
-                      >
-                        <Flame className="h-4 w-4 shrink-0" />
-                        <span>Habits</span>
-                        <ChevronDown className="ml-auto h-3.5 w-3.5 transition-transform group-data-[state=closed]/habits:-rotate-90" />
-                      </SidebarMenuButton>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <SidebarMenuSub>
-                        <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={isActive('/habits/habits-view')}>
-                            <Link href={nav('/habits/habits-view')}>
-                              <Flame className="h-3.5 w-3.5" />
-                              Habits
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                        <SidebarMenuSubItem>
-                          <SidebarMenuSubButton
-                            asChild
-                            isActive={isActive('/habits/habits-analytics')}
-                          >
-                            <Link href={nav('/habits/habits-analytics')}>
-                              <BarChart2 className="h-3.5 w-3.5" />
-                              Analytics
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      </SidebarMenuSub>
-                    </CollapsibleContent>
-                  </SidebarMenuItem>
-                </Collapsible>
-
                 <Collapsible asChild className="group/calendar" disabled={isCollapsed}>
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
@@ -829,6 +638,197 @@ export function AppSidebar() {
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
                         )}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+
+                <Collapsible asChild className="group/habits" disabled={isCollapsed}>
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton
+                        tooltip="Habits"
+                        isActive={isHabitsActive}
+                        className={cn(isCollapsed && 'pointer-events-none')}
+                      >
+                        <Flame className="h-4 w-4 shrink-0" />
+                        <span>Habits</span>
+                        <ChevronDown className="ml-auto h-3.5 w-3.5 transition-transform group-data-[state=closed]/habits:-rotate-90" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={isActive('/habits/habits-view')}>
+                            <Link href={nav('/habits/habits-view')}>
+                              <Flame className="h-3.5 w-3.5" />
+                              Habits
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={isActive('/habits/habits-analytics')}
+                          >
+                            <Link href={nav('/habits/habits-analytics')}>
+                              <BarChart2 className="h-3.5 w-3.5" />
+                              Analytics
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+
+                <Collapsible asChild className="group/lists" disabled={isCollapsed}>
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton
+                        tooltip="Lists"
+                        className={cn(isCollapsed && 'pointer-events-none')}
+                      >
+                        <ClipboardList className="h-4 w-4 shrink-0" />
+                        <span>Lists</span>
+                        <ChevronDown className="ml-auto h-3.5 w-3.5 transition-transform group-data-[state=closed]/lists:-rotate-90" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={isActive('/list-analytics')}>
+                            <Link href={nav('/list-analytics')}>
+                              <BarChart2 className="h-3.5 w-3.5" />
+                              Analytics
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={isActive('/lists/today')}>
+                            <Link href={nav('/lists/today')}>
+                              <Sun className="h-3.5 w-3.5" />
+                              Today
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={isActive('/lists/recurring')}>
+                            <Link href={nav('/lists/recurring')}>
+                              <RefreshCw className="h-3.5 w-3.5" />
+                              Recurring
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                        <div className="my-1.5 border-t border-border/40 mx-2" />
+                        {defaultList && (
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton
+                              asChild
+                              isActive={isActive(`/lists/${defaultList.slug}`)}
+                            >
+                              <Link href={nav(`/lists/${defaultList.slug}`)}>
+                                <span
+                                  className="h-2 w-2 rounded-full shrink-0"
+                                  style={{
+                                    backgroundColor: defaultList.category?.color ?? '#8b5cf6',
+                                  }}
+                                />
+                                <span className="flex-1 truncate">{defaultList.name}</span>
+                                {getListUrgency(tasksByList[defaultList.id] ?? []) && (
+                                  <span
+                                    className={cn(
+                                      'size-1.5 shrink-0 rounded-full',
+                                      getListUrgency(tasksByList[defaultList.id] ?? []) === 'red'
+                                        ? 'bg-destructive'
+                                        : 'bg-orange-500',
+                                    )}
+                                  />
+                                )}
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        )}
+                        {customLists.map((list: List) => (
+                          <SidebarMenuSubItem key={list.id}>
+                            <SidebarMenuSubButton
+                              asChild
+                              isActive={isActive(`/lists/${list.slug}`)}
+                            >
+                              <Link href={nav(`/lists/${list.slug}`)}>
+                                <span
+                                  className="h-2 w-2 rounded-full shrink-0"
+                                  style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
+                                />
+                                <span className="flex-1 truncate">{list.name}</span>
+                                {getListUrgency(tasksByList[list.id] ?? []) && (
+                                  <span
+                                    className={cn(
+                                      'size-1.5 shrink-0 rounded-full',
+                                      getListUrgency(tasksByList[list.id] ?? []) === 'red'
+                                        ? 'bg-destructive'
+                                        : 'bg-orange-500',
+                                    )}
+                                  />
+                                )}
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild>
+                            <Link
+                              href={nav('/lists/new-list')}
+                              className="text-muted-foreground/60"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              New list
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+
+                        <div className="my-1.5 border-t border-border/40 mx-2" />
+
+                        <div className="mt-1 mb-1 flex items-center gap-1.5 px-2">
+                          <Users className="h-3 w-3 text-violet-500/70" />
+                          <span className="text-[10px] font-semibold uppercase tracking-widest text-violet-500/70">
+                            Shared
+                          </span>
+                        </div>
+                        {[...ownSharedLists, ...sharedLists].map((list) => (
+                          <SharedListMenuItem
+                            key={list.id}
+                            list={list}
+                            isActive={isActive(`/lists/${list.slug}`)}
+                            href={nav(`/lists/${list.slug}`)}
+                          />
+                        ))}
+                        <SidebarMenuSubItem>
+                          {planLimits?.plan === 'free' ? (
+                            <div className="flex h-7 items-center gap-2 rounded-md px-2 text-xs text-muted-foreground/40">
+                              <UserPlus className="h-3.5 w-3.5 shrink-0" />
+                              <span className="flex-1 truncate">New shared list</span>
+                              <button
+                                type="button"
+                                onClick={() => setLimitDialog(LIMIT_ERRORS.SHARED_LISTS_LIMIT)}
+                                className="shrink-0 text-violet-500/70 transition-colors hover:text-violet-500"
+                                title="Upgrade to Plus or Pro to create shared lists"
+                              >
+                                <Zap className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <SidebarMenuSubButton asChild>
+                              <Link
+                                href={nav('/lists/new-shared-list')}
+                                className="text-muted-foreground/60"
+                              >
+                                <UserPlus className="h-3.5 w-3.5" />
+                                New shared list
+                              </Link>
+                            </SidebarMenuSubButton>
+                          )}
+                        </SidebarMenuSubItem>
                       </SidebarMenuSub>
                     </CollapsibleContent>
                   </SidebarMenuItem>

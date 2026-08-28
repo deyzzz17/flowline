@@ -440,204 +440,6 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
           <div>
             <button
               type="button"
-              onClick={() => setListsOpen((v) => !v)}
-              className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
-            >
-              <div className="flex items-center gap-3">
-                <ClipboardList className="h-4 w-4 shrink-0" />
-                Lists
-              </div>
-              <SubChevron open={listsOpen} />
-            </button>
-            {listsOpen && (
-              <div className="mt-0.5 ml-3 space-y-0.5 border-l border-border/50 pl-3">
-                <Link
-                  {...navLink('/list-analytics')}
-                  className={cn(
-                    'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
-                    isActive('/list-analytics')
-                      ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                  )}
-                >
-                  <BarChart2 className="h-3.5 w-3.5 shrink-0" />
-                  Analytics
-                </Link>
-                <Link
-                  {...navLink('/lists/today')}
-                  className={cn(
-                    'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
-                    isActive('/lists/today')
-                      ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                  )}
-                >
-                  <Sun className="h-3.5 w-3.5 shrink-0" />
-                  Today
-                </Link>
-                <Link
-                  {...navLink('/lists/recurring')}
-                  className={cn(
-                    'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
-                    isActive('/lists/recurring')
-                      ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                  )}
-                >
-                  <RefreshCw className="h-3.5 w-3.5 shrink-0" />
-                  Recurring
-                </Link>
-                <div className="my-1.5 border-t border-border/40" />
-                {defaultList && (
-                  <Link
-                    {...navLink(`/lists/${defaultList.slug}`)}
-                    className={cn(
-                      'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
-                      isActive(`/lists/${defaultList.slug}`)
-                        ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                    )}
-                  >
-                    <span
-                      className="h-2 w-2 rounded-full shrink-0"
-                      style={{ backgroundColor: defaultList.category?.color ?? '#8b5cf6' }}
-                    />
-                    <span className="flex-1 truncate">{defaultList.name}</span>
-                    {getListUrgency(tasksByList[defaultList.id] ?? []) && (
-                      <span
-                        className={cn(
-                          'size-1.5 shrink-0 rounded-full',
-                          getListUrgency(tasksByList[defaultList.id] ?? []) === 'red'
-                            ? 'bg-destructive'
-                            : 'bg-orange-500',
-                        )}
-                      />
-                    )}
-                  </Link>
-                )}
-                {customLists.map((list: List) => (
-                  <Link
-                    key={list.id}
-                    {...navLink(`/lists/${list.slug}`)}
-                    className={cn(
-                      'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
-                      isActive(`/lists/${list.slug}`)
-                        ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                    )}
-                  >
-                    <span
-                      className="h-2 w-2 rounded-full shrink-0"
-                      style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
-                    />
-                    <span className="flex-1 truncate">{list.name}</span>
-                    {getListUrgency(tasksByList[list.id] ?? []) && (
-                      <span
-                        className={cn(
-                          'size-1.5 shrink-0 rounded-full',
-                          getListUrgency(tasksByList[list.id] ?? []) === 'red'
-                            ? 'bg-destructive'
-                            : 'bg-orange-500',
-                        )}
-                      />
-                    )}
-                  </Link>
-                ))}
-                <Link
-                  {...navLink('/lists/new-list')}
-                  className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/60 hover:bg-muted hover:text-foreground transition-all"
-                >
-                  <Plus className="h-3.5 w-3.5 shrink-0" />
-                  New list
-                </Link>
-
-                <div className="my-1.5 border-t border-border/40" />
-
-                <div className="mt-1 mb-1 flex items-center gap-1.5 px-3">
-                  <Users className="h-3 w-3 text-violet-500/70" />
-                  <span className="text-[10px] font-semibold uppercase tracking-widest text-violet-500/70">
-                    Shared
-                  </span>
-                </div>
-                {[...ownSharedLists, ...sharedLists].map((list) => (
-                  <SharedListLink
-                    key={list.id}
-                    list={list}
-                    isActive={isActive(`/lists/${list.slug}`)}
-                    navLink={navLink(`/lists/${list.slug}`)}
-                  />
-                ))}
-                {planLimits?.plan === 'free' ? (
-                  <div className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/40">
-                    <UserPlus className="h-3.5 w-3.5 shrink-0" />
-                    <span className="flex-1 truncate">New shared list</span>
-                    <button
-                      type="button"
-                      onClick={() => setLimitDialog(LIMIT_ERRORS.SHARED_LISTS_LIMIT)}
-                      className="shrink-0 text-violet-500/70 transition-colors hover:text-violet-500"
-                      title="Upgrade to Plus or Pro to create shared lists"
-                    >
-                      <Zap className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  <Link
-                    {...navLink('/lists/new-shared-list')}
-                    className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/60 hover:bg-muted hover:text-foreground transition-all"
-                  >
-                    <UserPlus className="h-3.5 w-3.5 shrink-0" />
-                    New shared list
-                  </Link>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <button
-              type="button"
-              onClick={() => setHabitsOpen((v) => !v)}
-              className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
-            >
-              <div className="flex items-center gap-3">
-                <Flame className="h-4 w-4 shrink-0" />
-                Habits
-              </div>
-              <SubChevron open={habitsOpen} />
-            </button>
-            {habitsOpen && (
-              <div className="mt-0.5 ml-3 space-y-0.5 border-l border-border/50 pl-3">
-                <Link
-                  {...navLink('/habits/habits-view')}
-                  className={cn(
-                    'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
-                    isActive('/habits/habits-view')
-                      ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                  )}
-                >
-                  <Flame className="h-3.5 w-3.5 shrink-0" />
-                  Habits
-                </Link>
-                <Link
-                  {...navLink('/habits/habits-analytics')}
-                  className={cn(
-                    'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
-                    isActive('/habits/habits-analytics')
-                      ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                  )}
-                >
-                  <BarChart2 className="h-3.5 w-3.5 shrink-0" />
-                  Analytics
-                </Link>
-              </div>
-            )}
-          </div>
-
-          <div>
-            <button
-              type="button"
               onClick={() => setCalendarOpen((v) => !v)}
               className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
             >
@@ -815,6 +617,204 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
                     <Plus className="h-3 w-3 shrink-0" />
                     New calendar
                   </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <button
+              type="button"
+              onClick={() => setHabitsOpen((v) => !v)}
+              className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <Flame className="h-4 w-4 shrink-0" />
+                Habits
+              </div>
+              <SubChevron open={habitsOpen} />
+            </button>
+            {habitsOpen && (
+              <div className="mt-0.5 ml-3 space-y-0.5 border-l border-border/50 pl-3">
+                <Link
+                  {...navLink('/habits/habits-view')}
+                  className={cn(
+                    'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
+                    isActive('/habits/habits-view')
+                      ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  )}
+                >
+                  <Flame className="h-3.5 w-3.5 shrink-0" />
+                  Habits
+                </Link>
+                <Link
+                  {...navLink('/habits/habits-analytics')}
+                  className={cn(
+                    'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
+                    isActive('/habits/habits-analytics')
+                      ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  )}
+                >
+                  <BarChart2 className="h-3.5 w-3.5 shrink-0" />
+                  Analytics
+                </Link>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <button
+              type="button"
+              onClick={() => setListsOpen((v) => !v)}
+              className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <ClipboardList className="h-4 w-4 shrink-0" />
+                Lists
+              </div>
+              <SubChevron open={listsOpen} />
+            </button>
+            {listsOpen && (
+              <div className="mt-0.5 ml-3 space-y-0.5 border-l border-border/50 pl-3">
+                <Link
+                  {...navLink('/list-analytics')}
+                  className={cn(
+                    'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
+                    isActive('/list-analytics')
+                      ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  )}
+                >
+                  <BarChart2 className="h-3.5 w-3.5 shrink-0" />
+                  Analytics
+                </Link>
+                <Link
+                  {...navLink('/lists/today')}
+                  className={cn(
+                    'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
+                    isActive('/lists/today')
+                      ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  )}
+                >
+                  <Sun className="h-3.5 w-3.5 shrink-0" />
+                  Today
+                </Link>
+                <Link
+                  {...navLink('/lists/recurring')}
+                  className={cn(
+                    'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
+                    isActive('/lists/recurring')
+                      ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  )}
+                >
+                  <RefreshCw className="h-3.5 w-3.5 shrink-0" />
+                  Recurring
+                </Link>
+                <div className="my-1.5 border-t border-border/40" />
+                {defaultList && (
+                  <Link
+                    {...navLink(`/lists/${defaultList.slug}`)}
+                    className={cn(
+                      'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
+                      isActive(`/lists/${defaultList.slug}`)
+                        ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    )}
+                  >
+                    <span
+                      className="h-2 w-2 rounded-full shrink-0"
+                      style={{ backgroundColor: defaultList.category?.color ?? '#8b5cf6' }}
+                    />
+                    <span className="flex-1 truncate">{defaultList.name}</span>
+                    {getListUrgency(tasksByList[defaultList.id] ?? []) && (
+                      <span
+                        className={cn(
+                          'size-1.5 shrink-0 rounded-full',
+                          getListUrgency(tasksByList[defaultList.id] ?? []) === 'red'
+                            ? 'bg-destructive'
+                            : 'bg-orange-500',
+                        )}
+                      />
+                    )}
+                  </Link>
+                )}
+                {customLists.map((list: List) => (
+                  <Link
+                    key={list.id}
+                    {...navLink(`/lists/${list.slug}`)}
+                    className={cn(
+                      'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
+                      isActive(`/lists/${list.slug}`)
+                        ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    )}
+                  >
+                    <span
+                      className="h-2 w-2 rounded-full shrink-0"
+                      style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
+                    />
+                    <span className="flex-1 truncate">{list.name}</span>
+                    {getListUrgency(tasksByList[list.id] ?? []) && (
+                      <span
+                        className={cn(
+                          'size-1.5 shrink-0 rounded-full',
+                          getListUrgency(tasksByList[list.id] ?? []) === 'red'
+                            ? 'bg-destructive'
+                            : 'bg-orange-500',
+                        )}
+                      />
+                    )}
+                  </Link>
+                ))}
+                <Link
+                  {...navLink('/lists/new-list')}
+                  className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/60 hover:bg-muted hover:text-foreground transition-all"
+                >
+                  <Plus className="h-3.5 w-3.5 shrink-0" />
+                  New list
+                </Link>
+
+                <div className="my-1.5 border-t border-border/40" />
+
+                <div className="mt-1 mb-1 flex items-center gap-1.5 px-3">
+                  <Users className="h-3 w-3 text-violet-500/70" />
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-violet-500/70">
+                    Shared
+                  </span>
+                </div>
+                {[...ownSharedLists, ...sharedLists].map((list) => (
+                  <SharedListLink
+                    key={list.id}
+                    list={list}
+                    isActive={isActive(`/lists/${list.slug}`)}
+                    navLink={navLink(`/lists/${list.slug}`)}
+                  />
+                ))}
+                {planLimits?.plan === 'free' ? (
+                  <div className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/40">
+                    <UserPlus className="h-3.5 w-3.5 shrink-0" />
+                    <span className="flex-1 truncate">New shared list</span>
+                    <button
+                      type="button"
+                      onClick={() => setLimitDialog(LIMIT_ERRORS.SHARED_LISTS_LIMIT)}
+                      className="shrink-0 text-violet-500/70 transition-colors hover:text-violet-500"
+                      title="Upgrade to Plus or Pro to create shared lists"
+                    >
+                      <Zap className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <Link
+                    {...navLink('/lists/new-shared-list')}
+                    className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/60 hover:bg-muted hover:text-foreground transition-all"
+                  >
+                    <UserPlus className="h-3.5 w-3.5 shrink-0" />
+                    New shared list
+                  </Link>
                 )}
               </div>
             )}
