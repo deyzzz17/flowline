@@ -397,32 +397,34 @@ export function CalendarNavSection({ scope, href, label, onNavigate }: CalendarN
             </Link>
             <div className="my-1.5 border-t border-border/40" />
 
-            <div className="flex items-center gap-2 rounded-xl px-3 py-1.5 hover:bg-muted/40 transition-colors">
-              <button
-                type="button"
-                onClick={s.toggleHabits}
-                className={cn(
-                  'flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all',
-                  s.habitsVisible ? 'border-transparent' : 'border-border/60 bg-background',
-                )}
-                style={
-                  s.habitsVisible
-                    ? { backgroundColor: '#f97316', borderColor: '#f97316' }
-                    : undefined
-                }
-              >
-                {s.habitsVisible && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
-              </button>
-              <Flame className="h-3 w-3 text-orange-500 shrink-0" />
-              <span
-                className={cn(
-                  'flex-1 truncate text-xs font-medium',
-                  s.habitsVisible ? 'text-foreground' : 'text-muted-foreground/50',
-                )}
-              >
-                Habits
-              </span>
-            </div>
+            {scope === 'global' && (
+              <div className="flex items-center gap-2 rounded-xl px-3 py-1.5 hover:bg-muted/40 transition-colors">
+                <button
+                  type="button"
+                  onClick={s.toggleHabits}
+                  className={cn(
+                    'flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all',
+                    s.habitsVisible ? 'border-transparent' : 'border-border/60 bg-background',
+                  )}
+                  style={
+                    s.habitsVisible
+                      ? { backgroundColor: '#f97316', borderColor: '#f97316' }
+                      : undefined
+                  }
+                >
+                  {s.habitsVisible && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
+                </button>
+                <Flame className="h-3 w-3 text-orange-500 shrink-0" />
+                <span
+                  className={cn(
+                    'flex-1 truncate text-xs font-medium',
+                    s.habitsVisible ? 'text-foreground' : 'text-muted-foreground/50',
+                  )}
+                >
+                  Habits
+                </span>
+              </div>
+            )}
 
             {s.categories.map((cat) => {
               const isVisible = !s.hiddenCategories.has(cat.id)
@@ -600,36 +602,38 @@ export function SidebarCalendarNavSection({ scope, href, label }: CalendarNavSec
               </SidebarMenuSubItem>
               <div className="my-1.5 border-t border-border/40 mx-2" />
 
-              <SidebarMenuSubItem>
-                <div className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-sidebar-accent transition-colors">
-                  <button
-                    type="button"
-                    onClick={s.toggleHabits}
-                    className={cn(
-                      'flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all',
-                      s.habitsVisible ? 'border-transparent' : 'border-border/60 bg-background',
-                    )}
-                    style={
-                      s.habitsVisible
-                        ? { backgroundColor: '#f97316', borderColor: '#f97316' }
-                        : undefined
-                    }
-                  >
-                    {s.habitsVisible && (
-                      <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />
-                    )}
-                  </button>
-                  <Flame className="h-3 w-3 text-orange-500 shrink-0" />
-                  <span
-                    className={cn(
-                      'flex-1 truncate text-xs font-medium',
-                      s.habitsVisible ? 'text-foreground' : 'text-muted-foreground/50',
-                    )}
-                  >
-                    Habits
-                  </span>
-                </div>
-              </SidebarMenuSubItem>
+              {scope === 'global' && (
+                <SidebarMenuSubItem>
+                  <div className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-sidebar-accent transition-colors">
+                    <button
+                      type="button"
+                      onClick={s.toggleHabits}
+                      className={cn(
+                        'flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all',
+                        s.habitsVisible ? 'border-transparent' : 'border-border/60 bg-background',
+                      )}
+                      style={
+                        s.habitsVisible
+                          ? { backgroundColor: '#f97316', borderColor: '#f97316' }
+                          : undefined
+                      }
+                    >
+                      {s.habitsVisible && (
+                        <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />
+                      )}
+                    </button>
+                    <Flame className="h-3 w-3 text-orange-500 shrink-0" />
+                    <span
+                      className={cn(
+                        'flex-1 truncate text-xs font-medium',
+                        s.habitsVisible ? 'text-foreground' : 'text-muted-foreground/50',
+                      )}
+                    >
+                      Habits
+                    </span>
+                  </div>
+                </SidebarMenuSubItem>
+              )}
 
               {s.categories.map((cat) => {
                 const isVisible = !s.hiddenCategories.has(cat.id)

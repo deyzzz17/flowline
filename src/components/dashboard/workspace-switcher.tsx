@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Building2, Check, ChevronsUpDown, Loader2, Plus, Zap } from 'lucide-react'
 import { api } from '@/api'
@@ -60,13 +61,17 @@ function WorkspaceAvatar({ className }: { className?: string }) {
   )
 }
 
-function useWorkspaceSwitcher() {
+export type WorkspacesData = { docs: Workspace[]; activeId: number | null }
+
+function useWorkspaceSwitcher(initialData?: WorkspacesData) {
   const queryClient = useQueryClient()
+  const router = useRouter()
   const planLimits = usePlanLimits()
 
   const { data } = useQuery({
     queryKey: ['workspaces'],
     queryFn: () => api.workspaces.list(),
+    ...(initialData && { initialData }),
   })
 
   const workspaces = (data?.docs ?? []) as Workspace[]
@@ -88,6 +93,7 @@ function useWorkspaceSwitcher() {
       for (const key of WORKSPACE_SCOPED_QUERY_KEYS) {
         queryClient.invalidateQueries({ queryKey: [key] })
       }
+      router.push('/lists/today')
     },
   })
 
@@ -270,8 +276,12 @@ function CreateWorkspaceDialog({
   )
 }
 
-export function WorkspaceSwitcher() {
-  const s = useWorkspaceSwitcher()
+interface WorkspaceSwitcherProps {
+  initialData?: WorkspacesData
+}
+
+export function WorkspaceSwitcher({ initialData }: WorkspaceSwitcherProps) {
+  const s = useWorkspaceSwitcher(initialData)
 
   return (
     <>
@@ -319,8 +329,8 @@ export function WorkspaceSwitcher() {
   )
 }
 
-export function SidebarWorkspaceSwitcher() {
-  const s = useWorkspaceSwitcher()
+export function SidebarWorkspaceSwitcher({ initialData }: WorkspaceSwitcherProps) {
+  const s = useWorkspaceSwitcher(initialData)
 
   return (
     <SidebarMenuItem>

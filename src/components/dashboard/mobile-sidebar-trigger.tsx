@@ -4,9 +4,14 @@ import { useState } from 'react'
 import { PanelLeft } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { SidebarNavContent } from './sidebar-nav-content'
+import type { WorkspacesData } from './workspace-switcher'
 import * as VisuallyHidden from '@radix-ui/react-visually-hidden'
 
-export function MobileSidebarTrigger() {
+export function MobileSidebarTrigger({
+  initialWorkspaces,
+}: {
+  initialWorkspaces?: WorkspacesData
+}) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -30,7 +35,10 @@ export function MobileSidebarTrigger() {
             <span className="text-[17px] font-bold tracking-tight text-foreground">Flowline</span>
           </div>
           <div className="h-[calc(100%-4rem)]">
-            <SidebarNavContent onNavigate={() => setOpen(false)} />
+            <SidebarNavContent
+              onNavigate={() => setOpen(false)}
+              initialWorkspaces={initialWorkspaces}
+            />
           </div>
         </SheetContent>
       </Sheet>

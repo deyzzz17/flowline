@@ -13,6 +13,8 @@ import { syncRecurringTasksForUser } from '@/api/tasks/actions'
 import { checkListsCompliance } from '@/api/lists/actions'
 import { checkSharedListsCompliance } from '@/api/list-members/actions'
 import { checkTagsCompliance } from '@/api/tags/actions'
+import { listWorkspaces } from '@/api/workspaces/actions'
+import type { WorkspacesData } from '@/components/dashboard/workspace-switcher'
 import { Toaster } from '@/components/ui/sonner'
 import { NotificationsMenu } from '@/components/header/notifications-menu'
 import { CalendarFilterProvider } from '@/components/calendar/calendar-filter-context'
@@ -29,14 +31,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   let listsCompliance = null
   let sharedListsCompliance = null
   let tagsCompliance = null
+  let initialWorkspaces: WorkspacesData | undefined
 
   if (user?.id) {
     await syncRecurringTasksForUser()
-    ;[listsCompliance, sharedListsCompliance, tagsCompliance] = await Promise.all([
-      checkListsCompliance(),
-      checkSharedListsCompliance(),
-      checkTagsCompliance(),
-    ])
+    ;[listsCompliance, sharedListsCompliance, tagsCompliance, initialWorkspaces] =
+      await Promise.all([
+        checkListsCompliance(),
+        checkSharedListsCompliance(),
+        checkTagsCompliance(),
+        listWorkspaces(),
+      ])
   }
 
   return (
@@ -70,7 +75,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                     <header className="h-16 shrink-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/60">
                       <div className="flex h-full items-center justify-between px-4 sm:px-6">
                         <div className="flex items-center gap-3">
-                          <MobileSidebarTrigger />
+                          <MobileSidebarTrigger initialWorkspaces={initialWorkspaces} />
                           <Link href="/dashboard" className="group flex items-center gap-3">
                             <FlowlineLogo />
                             <span
@@ -91,7 +96,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                     </header>
                     <div className="flex flex-1 min-h-0">
                       <div className="hidden md:flex">
-                        <AppSidebar />
+                        <AppSidebar initialWorkspaces={initialWorkspaces} />
                       </div>
                       <SidebarInset className="flex-1 min-h-0 overflow-y-auto">
                         {children}

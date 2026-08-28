@@ -37,7 +37,7 @@ import { PlanLimitDialog } from '../ui/plan-limit-dialog'
 import { SafetyCapDialog } from '../ui/safety-cap-dialog'
 import { SidebarNewsletter } from './sidebar-newsletter'
 import { FeedbackDialog } from '../support/feedback-dialog'
-import { WorkspaceSwitcher } from './workspace-switcher'
+import { WorkspaceSwitcher, type WorkspacesData } from './workspace-switcher'
 import { CalendarNavSection } from './calendar-nav-section'
 
 function getListUrgency(tasks: Task[]): 'red' | 'orange' | null {
@@ -93,9 +93,10 @@ function SharedListLink({
 
 interface SidebarNavContentProps {
   onNavigate?: () => void
+  initialWorkspaces?: WorkspacesData
 }
 
-export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
+export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavContentProps) {
   const pathname = usePathname()
   const { feedbackOpen, setFeedbackOpen } = useSidebarFooter()
   const planLimits = usePlanLimits()
@@ -238,7 +239,7 @@ export function SidebarNavContent({ onNavigate }: SidebarNavContentProps) {
 
           <div className="my-2 border-t border-border/60" />
 
-          <WorkspaceSwitcher />
+          <WorkspaceSwitcher initialData={initialWorkspaces} />
 
           <div>
             <button

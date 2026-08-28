@@ -53,7 +53,7 @@ import { PlanLimitDialog } from '../ui/plan-limit-dialog'
 import { SafetyCapDialog } from '../ui/safety-cap-dialog'
 import { SidebarNewsletter } from './sidebar-newsletter'
 import { FeedbackDialog } from '../support/feedback-dialog'
-import { SidebarWorkspaceSwitcher } from './workspace-switcher'
+import { SidebarWorkspaceSwitcher, type WorkspacesData } from './workspace-switcher'
 import { SidebarCalendarNavSection } from './calendar-nav-section'
 
 function getListUrgency(tasks: Task[]): 'red' | 'orange' | null {
@@ -103,7 +103,7 @@ function SharedListMenuItem({
   )
 }
 
-export function AppSidebar() {
+export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: WorkspacesData }) {
   const pathname = usePathname()
   const { setOpenMobile, state, isMobile, toggleSidebar } = useSidebar()
   const isCollapsed = state === 'collapsed'
@@ -247,7 +247,7 @@ export function AppSidebar() {
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu>
-                <SidebarWorkspaceSwitcher />
+                <SidebarWorkspaceSwitcher initialData={initialWorkspaces} />
 
                 <Collapsible asChild className="group/lists" disabled={isCollapsed}>
                   <SidebarMenuItem>

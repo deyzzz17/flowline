@@ -223,10 +223,13 @@ export const useCalendar = (scope: CalendarScope) => {
     staleTime: Infinity,
   })
 
+  // Habits are common to every workspace and only shown on the global calendar
+  // — the workspace-scoped calendar excludes them entirely.
   const { data: habitEventsData } = useQuery({
     queryKey: ['calendar-events-habits', from.toISOString(), to.toISOString()],
     queryFn: () => getHabitCalendarEvents(from.toISOString(), to.toISOString()),
     staleTime: 0,
+    enabled: scope === 'global',
   })
 
   const rawEvents = useMemo(
