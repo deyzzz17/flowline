@@ -10,7 +10,7 @@ export default async function CalendarPage() {
     <div className="h-full overflow-hidden">
       <CalendarCategoriesComplianceGate />
       <Suspense>
-        <CalendarClient scope="global" />
+        <CalendarClient />
       </Suspense>
     </div>
   )

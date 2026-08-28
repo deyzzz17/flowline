@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -9,21 +9,13 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
-import { ChevronLeft, ChevronRight, Plus, MoreHorizontal } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
-  useCalendar,
-  type CalendarTask,
-  type CalendarItem,
-  type CalendarEvent,
-} from '@/hooks/calendar/use-calendar'
+  useWorkspaceCalendar,
+} from '@/hooks/calendar/use-workspace-calendar'
+import type { CalendarTask, CalendarItem, CalendarEvent } from '@/hooks/calendar/calendar-utils'
 import { CalendarMonthView } from './calendar-month-view'
 import { CalendarWeekView } from './calendar-week-view'
 import { CalendarDayView } from './calendar-day-view'
@@ -31,10 +23,6 @@ import { CalendarYearView } from './calendar-year-view'
 import { CalendarEventDialog } from './calendar-event-dialog'
 import { TaskTimePicker } from './task-time-picker'
 import type { CalendarEventData, EditScope } from '@/api/calendar/actions'
-import { GoogleCalendarDialog } from './google-calendar-dialog'
-import { useGoogleCalendar } from '@/hooks/calendar/use-google-calendar'
-import { GoogleIcon } from '../icons/google-icon'
-import { HabitCalendarDialog } from './habit-calendar-dialog'
 import {
   VIEW_LABELS,
   getHeaderTitle,
@@ -44,7 +32,7 @@ import {
 } from './calendar-shared'
 import type { CalendarView } from '@/hooks/calendar/calendar-utils'
 
-export function CalendarClient() {
+export function WorkspaceCalendarClient() {
   const {
     view,
     setView,
@@ -67,7 +55,7 @@ export function CalendarClient() {
     createMutation,
     updateMutation,
     deleteMutation,
-  } = useCalendar()
+  } = useWorkspaceCalendar()
 
   const isMobile = useIsMobile()
 
@@ -89,42 +77,6 @@ export function CalendarClient() {
     targetDate: Date
   } | null>(null)
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
-  const { isConnected } = useGoogleCalendar()
-  const [googleDialogOpen, setGoogleDialogOpen] = useState(false)
-
-  const [habitDialog, setHabitDialog] = useState<{
-    open: boolean
-    habitId: number
-    habitSlug: string
-    habitName: string
-    habitColor: string
-    habitDescription?: string | null
-    startDate: string
-    endDate: string
-  } | null>(null)
-
-  const handleClickItem = useCallback(
-    (item: CalendarItem) => {
-      if (item.type === 'event') {
-        const ev = item as CalendarEvent
-        if ((ev as any).source === 'habit') {
-          setHabitDialog({
-            open: true,
-            habitId: (ev as any).habitId,
-            habitSlug: (ev as any).habitSlug,
-            habitName: ev.title,
-            habitColor: ev.color,
-            habitDescription: ev.description ?? null,
-            startDate: ev.startDate,
-            endDate: ev.endDate,
-          })
-          return
-        }
-      }
-      openEdit(item)
-    },
-    [openEdit],
-  )
 
   const isRecurringEvent = (item: CalendarItem): item is CalendarEvent => {
     if (item.type !== 'event') return false
@@ -137,7 +89,6 @@ export function CalendarClient() {
     if (!over) return
     const item = active.data.current?.item
     if (!item) return
-    if (item.source === 'google' || item.source === 'habit') return
 
     const targetDate = new Date(over.id as string)
     const hasSpecificHour = targetDate.getHours() !== 0 || targetDate.getMinutes() !== 0
@@ -156,8 +107,6 @@ export function CalendarClient() {
 
   const handleResizeEnd = (item: CalendarItem, newEndDate: Date) => {
     if (item.type === 'event') {
-      if ((item as CalendarEvent).source === 'google') return
-      if ((item as any).source === 'habit') return
       if (isRecurringEvent(item as CalendarEvent)) {
         setPendingAction({ type: 'resize', item: item as CalendarEvent, newEndDate })
       } else {
@@ -174,7 +123,6 @@ export function CalendarClient() {
   }
 
   const handleScopeSelect = (scope: EditScope) => {
-    console.log('[handleScopeSelect]', { scope, pendingAction })
     if (!pendingAction) return
     const { item } = pendingAction
     const occDate = item.occurrenceDate ?? item.originalDate ?? item.startDate
@@ -201,7 +149,6 @@ export function CalendarClient() {
 
   const handleSave = (data: CalendarEventData, scope?: EditScope, originalDate?: string) => {
     if (selectedItem?.type === 'event') {
-      if ((selectedItem as CalendarEvent).source === 'google') return
       updateMutation.mutate({ id: selectedItem.id as number, data, scope, originalDate })
     } else {
       createMutation.mutate(data)
@@ -296,37 +243,6 @@ export function CalendarClient() {
               <Plus className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">New event</span>
             </Button>
-
-            {isMobile ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7">
-                    <MoreHorizontal className="h-3.5 w-3.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={() => setGoogleDialogOpen(true)}
-                    className="gap-2 text-xs"
-                  >
-                    <GoogleIcon className="h-3.5 w-3.5" />
-                    {isConnected ? 'Google Calendar' : 'Connect Google'}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setGoogleDialogOpen(true)}
-                className="h-8 gap-1.5 text-xs"
-              >
-                <GoogleIcon className="h-3.5 w-3.5" />
-                {isConnected ? 'Google Calendar' : 'Connect Google'}
-              </Button>
-            )}
-
-            <GoogleCalendarDialog open={googleDialogOpen} onOpenChange={setGoogleDialogOpen} />
           </div>
         </div>
 
@@ -352,7 +268,7 @@ export function CalendarClient() {
               getItemsForDate={getItemsForDate}
               onClickDay={goToDay}
               onClickCell={goToDay}
-              onClickItem={handleClickItem}
+              onClickItem={openEdit}
               onDoubleClickDay={openNewEvent}
               isMobile={isMobile}
             />
@@ -362,7 +278,7 @@ export function CalendarClient() {
               currentDate={currentDate}
               getItemsForDate={getItemsForDate}
               onClickSlot={goToDay}
-              onClickItem={handleClickItem}
+              onClickItem={openEdit}
               onResizeEnd={handleResizeEnd}
               getItemDisplayHeight={getItemDisplayHeight}
               onDoubleClickSlot={openNewEvent}
@@ -374,7 +290,7 @@ export function CalendarClient() {
               currentDate={currentDate}
               getItemsForDate={getItemsForDate}
               onClickSlot={openNewEvent}
-              onClickItem={handleClickItem}
+              onClickItem={openEdit}
               onResizeEnd={handleResizeEnd}
               getItemDisplayHeight={getItemDisplayHeight}
             />
@@ -392,20 +308,6 @@ export function CalendarClient() {
         isSaving={createMutation.isPending || updateMutation.isPending}
         isDeleting={deleteMutation.isPending}
       />
-
-      {habitDialog && (
-        <HabitCalendarDialog
-          open={habitDialog.open}
-          habitId={habitDialog.habitId}
-          habitSlug={habitDialog.habitSlug}
-          habitName={habitDialog.habitName}
-          habitColor={habitDialog.habitColor}
-          habitDescription={habitDialog.habitDescription}
-          startDate={habitDialog.startDate}
-          endDate={habitDialog.endDate}
-          onClose={() => setHabitDialog(null)}
-        />
-      )}
     </DndContext>
   )
 }

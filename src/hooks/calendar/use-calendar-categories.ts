@@ -53,18 +53,23 @@ export const useCalendarCategories = (scope: CalendarScope = 'workspace') => {
         docs: (old?.docs ?? []).filter((c: any) => c.id !== id),
       }))
 
+      const removeDeletedCategoryEvents = (old?: { docs: any[] }) => {
+        if (!old) return old
+        return {
+          ...old,
+          docs: old.docs.filter((e) => {
+            const catId = typeof e.categoryId === 'number' ? e.categoryId : null
+            return catId !== id
+          }),
+        }
+      }
       queryClient.setQueriesData<{ docs: any[] }>(
         { queryKey: ['calendar-events-flowline'] },
-        (old) => {
-          if (!old) return old
-          return {
-            ...old,
-            docs: old.docs.filter((e) => {
-              const catId = typeof e.categoryId === 'number' ? e.categoryId : null
-              return catId !== id
-            }),
-          }
-        },
+        removeDeletedCategoryEvents,
+      )
+      queryClient.setQueriesData<{ docs: any[] }>(
+        { queryKey: ['workspace-calendar-events'] },
+        removeDeletedCategoryEvents,
       )
 
       return { previous }
@@ -73,12 +78,14 @@ export const useCalendarCategories = (scope: CalendarScope = 'workspace') => {
     onError: (_, __, context) => {
       queryClient.setQueryData(['calendar-categories'], context?.previous)
       queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] })
+      queryClient.invalidateQueries({ queryKey: ['workspace-calendar-events'] })
       toast.error('Failed to delete category')
     },
 
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-categories'] })
       queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] })
+      queryClient.invalidateQueries({ queryKey: ['workspace-calendar-events'] })
     },
   })
 

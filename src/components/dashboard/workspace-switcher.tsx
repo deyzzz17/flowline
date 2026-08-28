@@ -44,8 +44,7 @@ const WORKSPACE_SCOPED_QUERY_KEYS = [
   'timer-categories',
   'timer-analytics',
   'calendar-categories',
-  'calendar-events-flowline',
-  'calendar-events-google',
+  'workspace-calendar-events',
 ]
 
 function WorkspaceAvatar({ className }: { className?: string }) {
@@ -62,6 +61,18 @@ function WorkspaceAvatar({ className }: { className?: string }) {
 }
 
 export type WorkspacesData = { docs: Workspace[]; activeId: number | null }
+
+/** Reads the same `['workspaces']` query cache as the switcher — no extra fetch. */
+export function useActiveWorkspace(initialData?: WorkspacesData) {
+  const { data } = useQuery({
+    queryKey: ['workspaces'],
+    queryFn: () => api.workspaces.list(),
+    ...(initialData && { initialData }),
+  })
+  const workspaces = (data?.docs ?? []) as Workspace[]
+  const activeId = data?.activeId ?? null
+  return workspaces.find((w) => w.id === activeId) ?? null
+}
 
 function useWorkspaceSwitcher(initialData?: WorkspacesData) {
   const queryClient = useQueryClient()

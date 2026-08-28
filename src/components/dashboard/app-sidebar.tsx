@@ -53,7 +53,11 @@ import { PlanLimitDialog } from '../ui/plan-limit-dialog'
 import { SafetyCapDialog } from '../ui/safety-cap-dialog'
 import { SidebarNewsletter } from './sidebar-newsletter'
 import { FeedbackDialog } from '../support/feedback-dialog'
-import { SidebarWorkspaceSwitcher, type WorkspacesData } from './workspace-switcher'
+import {
+  SidebarWorkspaceSwitcher,
+  useActiveWorkspace,
+  type WorkspacesData,
+} from './workspace-switcher'
 import { SidebarCalendarNavSection } from './calendar-nav-section'
 
 function getListUrgency(tasks: Task[]): 'red' | 'orange' | null {
@@ -110,6 +114,7 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
   const { feedbackOpen, setFeedbackOpen } = useSidebarFooter()
   const planLimits = usePlanLimits()
   const sharedLists = useSharedLists()
+  const activeWorkspace = useActiveWorkspace(initialWorkspaces)
   const [limitDialog, setLimitDialog] = useState<LimitError | null>(null)
   const [capDialog, setCapDialog] = useState<SafetyCapError | null>(null)
 
@@ -436,11 +441,13 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                   </SidebarMenuItem>
                 </Collapsible>
 
-                <SidebarCalendarNavSection
-                  scope="workspace"
-                  href="/workspace-calendar"
-                  label="Workspace Calendar"
-                />
+                {activeWorkspace && !activeWorkspace.isPersonal && (
+                  <SidebarCalendarNavSection
+                    scope="workspace"
+                    href="/workspace-calendar"
+                    label="Workspace Calendar"
+                  />
+                )}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

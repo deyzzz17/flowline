@@ -37,7 +37,7 @@ import { PlanLimitDialog } from '../ui/plan-limit-dialog'
 import { SafetyCapDialog } from '../ui/safety-cap-dialog'
 import { SidebarNewsletter } from './sidebar-newsletter'
 import { FeedbackDialog } from '../support/feedback-dialog'
-import { WorkspaceSwitcher, type WorkspacesData } from './workspace-switcher'
+import { WorkspaceSwitcher, useActiveWorkspace, type WorkspacesData } from './workspace-switcher'
 import { CalendarNavSection } from './calendar-nav-section'
 
 function getListUrgency(tasks: Task[]): 'red' | 'orange' | null {
@@ -101,6 +101,7 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
   const { feedbackOpen, setFeedbackOpen } = useSidebarFooter()
   const planLimits = usePlanLimits()
   const sharedLists = useSharedLists()
+  const activeWorkspace = useActiveWorkspace(initialWorkspaces)
 
   const [listsOpen, setListsOpen] = useState(false)
   const [habitsOpen, setHabitsOpen] = useState(false)
@@ -439,12 +440,14 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
             )}
           </div>
 
-          <CalendarNavSection
-            scope="workspace"
-            href="/workspace-calendar"
-            label="Workspace Calendar"
-            onNavigate={onNavigate}
-          />
+          {activeWorkspace && !activeWorkspace.isPersonal && (
+            <CalendarNavSection
+              scope="workspace"
+              href="/workspace-calendar"
+              label="Workspace Calendar"
+              onNavigate={onNavigate}
+            />
+          )}
         </nav>
 
         <div className="shrink-0 p-3 space-y-1">
