@@ -523,7 +523,10 @@ export function CalendarEventDialog({
 }: CalendarEventDialogProps) {
   const isTask = selectedItem?.type === 'task'
   const isExistingEvent = selectedItem?.type === 'event'
-  const { categories } = useCalendarCategories()
+  // Always the active workspace's categories: any event this dialog creates or
+  // edits is attached to the active workspace, regardless of which calendar
+  // page (global or workspace) it was opened from.
+  const { categories } = useCalendarCategories('workspace')
   const { formatTime } = useTimeFormat()
 
   const [mode, setMode] = useState<'view' | 'edit' | 'create'>('create')

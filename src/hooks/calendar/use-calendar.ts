@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { api } from '@/api'
 import {
   type CalendarEventData,
+  type CalendarScope,
   type EditScope,
   type RecurrenceRule,
   type SeriesAdjustment,
@@ -155,7 +156,7 @@ interface ParentOverride {
   exceptions?: { date: string }[]
 }
 
-export const useCalendar = () => {
+export const useCalendar = (scope: CalendarScope) => {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -204,14 +205,14 @@ export const useCalendar = () => {
   const { from, to } = getViewRange(currentDate, view)
 
   const { data: eventsData } = useQuery({
-    queryKey: ['calendar-events-flowline', from.toISOString(), to.toISOString()],
-    queryFn: () => api.calendar.listFlowline(from.toISOString(), to.toISOString()),
+    queryKey: ['calendar-events-flowline', scope, from.toISOString(), to.toISOString()],
+    queryFn: () => api.calendar.listFlowline(from.toISOString(), to.toISOString(), scope),
     staleTime: Infinity,
   })
 
   const { data: googleEventsData } = useQuery({
-    queryKey: ['calendar-events-google', from.toISOString(), to.toISOString()],
-    queryFn: () => api.calendar.listGoogle(from.toISOString(), to.toISOString()),
+    queryKey: ['calendar-events-google', scope, from.toISOString(), to.toISOString()],
+    queryFn: () => api.calendar.listGoogle(from.toISOString(), to.toISOString(), scope),
     staleTime: 0,
     refetchInterval: 30_000,
   })

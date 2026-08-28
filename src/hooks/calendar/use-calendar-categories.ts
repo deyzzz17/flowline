@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import { toast } from 'sonner'
+import type { CalendarScope } from '@/api/calendar/actions'
 
 export interface CalendarCategory {
   id: number
@@ -11,12 +12,12 @@ export interface CalendarCategory {
   isDefault: boolean
 }
 
-export const useCalendarCategories = () => {
+export const useCalendarCategories = (scope: CalendarScope = 'workspace') => {
   const queryClient = useQueryClient()
 
   const { data, isLoading } = useQuery({
-    queryKey: ['calendar-categories'],
-    queryFn: () => api.calendar.categories.list(),
+    queryKey: ['calendar-categories', scope],
+    queryFn: () => api.calendar.categories.list(scope),
     staleTime: 60_000,
   })
 

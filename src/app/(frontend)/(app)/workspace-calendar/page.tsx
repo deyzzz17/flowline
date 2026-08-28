@@ -3,14 +3,14 @@ import { CalendarCategoriesComplianceGate } from '@/components/calendar/calendar
 import { requireAuth } from '@/lib/require-auth'
 import { Suspense } from 'react'
 
-export default async function CalendarPage() {
+export default async function WorkspaceCalendarPage() {
   await requireAuth()
 
   return (
     <div className="h-full overflow-hidden">
       <CalendarCategoriesComplianceGate />
       <Suspense>
-        <CalendarClient scope="global" />
+        <CalendarClient scope="workspace" />
       </Suspense>
     </div>
   )

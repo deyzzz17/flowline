@@ -45,6 +45,7 @@ import { GoogleCalendarDialog } from './google-calendar-dialog'
 import { useGoogleCalendar } from '@/hooks/calendar/use-google-calendar'
 import { GoogleIcon } from '../icons/google-icon'
 import { HabitCalendarDialog } from './habit-calendar-dialog'
+import type { CalendarScope } from '@/api/calendar/actions'
 
 const VIEW_LABELS: Record<CalendarView, string> = {
   year: 'Year',
@@ -163,7 +164,7 @@ function useIsMobile() {
   return isMobile
 }
 
-export function CalendarClient() {
+export function CalendarClient({ scope }: { scope: CalendarScope }) {
   const {
     view,
     setView,
@@ -186,7 +187,7 @@ export function CalendarClient() {
     createMutation,
     updateMutation,
     deleteMutation,
-  } = useCalendar()
+  } = useCalendar(scope)
 
   const isMobile = useIsMobile()
 

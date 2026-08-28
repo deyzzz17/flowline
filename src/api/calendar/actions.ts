@@ -75,16 +75,35 @@ export interface CalendarEventData {
 
 export type EditScope = 'this' | 'thisAndFollowing' | 'all'
 
+/**
+ * 'global' aggregates data across all of the user's workspaces (the common
+ * Calendar nav item); 'workspace' scopes it to the currently active workspace
+ * (the Calendar nav item nested under Timer).
+ */
+export type CalendarScope = 'global' | 'workspace'
+
 const DEFAULT_CALENDAR_CATEGORIES = [
   { name: 'Personal', color: '#8b5cf6', isDefault: true },
   { name: 'Work', color: '#3b82f6', isDefault: true },
   { name: 'Health', color: '#10b981', isDefault: true },
 ]
 
-export const listCalendarCategories = async () => {
+export const listCalendarCategories = async (scope: CalendarScope = 'workspace') => {
   const userId = await getUserId()
   if (!userId) return { docs: [] }
   const payload = await getPayload({ config })
+
+  if (scope === 'global') {
+    return payload.find({
+      collection: 'calendar-categories',
+      where: {
+        and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: false } }],
+      },
+      limit: 0,
+      sort: 'createdAt',
+    })
+  }
+
   const workspace = await getCurrentWorkspace(payload, userId)
   const workspaceId = workspace.id
   const existing = await payload.find({
@@ -499,11 +518,16 @@ async function fetchGoogleCalendarEvents(
   }
 }
 
-export const listFlowlineCalendarEvents = async (from: string, to: string) => {
+export const listFlowlineCalendarEvents = async (
+  from: string,
+  to: string,
+  scope: CalendarScope = 'workspace',
+) => {
   const userId = await getUserId()
   if (!userId) return { docs: [] }
   const payload = await getPayload({ config })
-  const workspaceId = await getCurrentWorkspaceId(payload, userId)
+  const workspaceFilter =
+    scope === 'global' ? [] : [{ workspace: { equals: await getCurrentWorkspaceId(payload, userId) } }]
   const { docs } = await payload.find({
     collection: 'calendar-events',
     limit: 500,
@@ -511,7 +535,7 @@ export const listFlowlineCalendarEvents = async (from: string, to: string) => {
     where: {
       and: [
         { userId: { equals: userId } },
-        { workspace: { equals: workspaceId } },
+        ...workspaceFilter,
         {
           or: [
             { and: [{ recurrenceId: { exists: false } }, { startDate: { less_than_equal: to } }] },
@@ -524,15 +548,23 @@ export const listFlowlineCalendarEvents = async (from: string, to: string) => {
   return { docs }
 }
 
-export const listGoogleCalendarEvents = async (from: string, to: string) => {
+export const listGoogleCalendarEvents = async (
+  from: string,
+  to: string,
+  scope: CalendarScope = 'workspace',
+) => {
   const userId = await getUserId()
   if (!userId) return { docs: [] }
   const payload = await getPayload({ config })
 
-  // Google Calendar is only connected on the Personal workspace for now — other
-  // workspaces don't have their own connection.
-  const workspace = await getCurrentWorkspace(payload, userId)
-  if (!workspace.isPersonal) return { docs: [] }
+  // Google Calendar is only connected on the Personal workspace for now. The
+  // global (all-workspaces) view still includes it since Personal is one of
+  // the aggregated workspaces; the workspace-scoped view only includes it
+  // when Personal itself is the active workspace.
+  if (scope === 'workspace') {
+    const workspace = await getCurrentWorkspace(payload, userId)
+    if (!workspace.isPersonal) return { docs: [] }
+  }
 
   const docs = await fetchGoogleCalendarEvents(userId, from, to, payload)
   return { docs }
