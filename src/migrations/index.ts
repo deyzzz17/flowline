@@ -47,6 +47,7 @@ import * as migration_20260821_143910_task_comments from './20260821_143910_task
 import * as migration_20260828_144648_add_workspaces from './20260828_144648_add_workspaces';
 import * as migration_20260828_154737_workspaces_full_scope from './20260828_154737_workspaces_full_scope';
 import * as migration_20260830_195000_workspaces_to_organizations from './20260830_195000_workspaces_to_organizations';
+import * as migration_20260831_014500_tasks_workspace from './20260831_014500_tasks_workspace';
 
 export const migrations = [
   {
@@ -293,5 +294,10 @@ export const migrations = [
     up: migration_20260830_195000_workspaces_to_organizations.up,
     down: migration_20260830_195000_workspaces_to_organizations.down,
     name: '20260830_195000_workspaces_to_organizations'
+  },
+  {
+    up: migration_20260831_014500_tasks_workspace.up,
+    down: migration_20260831_014500_tasks_workspace.down,
+    name: '20260831_014500_tasks_workspace'
   },
 ];

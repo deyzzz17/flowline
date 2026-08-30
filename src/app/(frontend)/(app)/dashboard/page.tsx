@@ -26,7 +26,7 @@ export default async function DashboardPage() {
     allTasksResult,
   ] = await Promise.all([
     requireAuth(),
-    listTasksToday(),
+    listTasksToday('global'),
     getTimerAnalytics('day', 0),
     getTimerAnalytics('day', -1),
     getTimerAnalytics('week', 0),

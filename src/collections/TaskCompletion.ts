@@ -37,5 +37,15 @@ export const TaskCompletions: CollectionConfig = {
     },
     { name: 'listId', type: 'number', required: false, index: true },
     { name: 'listName', type: 'text', required: false },
+    {
+      name: 'workspace',
+      type: 'text',
+      required: false,
+      index: true,
+      admin: {
+        description:
+          'Snapshot of the task\'s Better Auth organization id at completion time. Empty means the Personal workspace.',
+      },
+    },
   ],
 }

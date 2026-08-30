@@ -10,6 +10,7 @@ import { cookies } from 'next/headers'
 import { Task } from '@/payload-types'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
+import { getCurrentWorkspaceId, workspaceWhereClause } from '@/lib/get-current-workspace'
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 import {
@@ -149,6 +150,7 @@ async function createTaskCompletionSnapshot(
         customTagsSnapshot,
         ...(listId !== null && { listId }),
         ...(listName !== null && { listName }),
+        workspace: (task as any).workspace ?? null,
       },
     })
   } catch (e) {
@@ -195,6 +197,7 @@ export const createTask = async (task: CreateTaskInput) => {
     let plan: Awaited<ReturnType<typeof getUserPlanLimits>>['plan']
     let limits: Awaited<ReturnType<typeof getUserPlanLimits>>['limits']
     let role: Awaited<ReturnType<typeof resolveListRole>> = null
+    let taskWorkspace: string | null
 
     if (task.listId) {
       const list = await payload
@@ -209,10 +212,14 @@ export const createTask = async (task: CreateTaskInput) => {
       const ownerLimits = await getPlanLimitsForUserId(list.userId)
       plan = ownerLimits.plan
       limits = ownerLimits.limits
+      // A task's workspace always follows its list's workspace, not the
+      // creator's current active workspace — relevant for shared lists.
+      taskWorkspace = (list as any).workspace ?? null
     } else {
       const own = await getUserPlanLimits()
       plan = own.plan
       limits = own.limits
+      taskWorkspace = await getCurrentWorkspaceId()
     }
 
     if (task.listId) {
@@ -269,6 +276,7 @@ export const createTask = async (task: CreateTaskInput) => {
         ...(task.dueDate !== undefined && { dueDate: task.dueDate }),
         autoDeleteOnDueDate: task.autoDeleteOnDueDate ?? false,
         ...(task.listId !== undefined && task.listId !== null && { list: task.listId }),
+        workspace: taskWorkspace,
         userId,
       },
     })
@@ -527,7 +535,7 @@ function getWeekdayInTimezone(timeZone: string): (typeof DAYS)[number] {
     .toLowerCase() as (typeof DAYS)[number]
 }
 
-export const listTasksToday = async () => {
+export const listTasksToday = async (scope: 'workspace' | 'global' = 'workspace') => {
   const userId = await getUserId()
   if (!userId) return { docs: [] }
 
@@ -536,6 +544,11 @@ export const listTasksToday = async () => {
 
   const { start: today, end: tomorrow } = getTodayBoundsInTimezone(timeZone)
   const todayDay = getWeekdayInTimezone(timeZone)
+
+  // The Dashboard's Today widget stays global (aggregates every workspace);
+  // the Lists section's Today page is scoped to the active workspace only.
+  const workspaceFilter =
+    scope === 'workspace' ? [workspaceWhereClause(await getCurrentWorkspaceId())] : []
 
   const dueTodayTasks = await payload.find({
     collection: 'tasks',
@@ -548,6 +561,7 @@ export const listTasksToday = async () => {
         { planArchivedAt: { exists: false } },
         { dueDate: { greater_than_equal: today.toISOString() } },
         { dueDate: { less_than: tomorrow.toISOString() } },
+        ...workspaceFilter,
       ],
     },
   })
@@ -562,6 +576,7 @@ export const listTasksToday = async () => {
         { type: { equals: 'recurring' } },
         { status: { in: ['active', 'completed'] } },
         { planArchivedAt: { exists: false } },
+        ...workspaceFilter,
       ],
     },
   })
@@ -583,6 +598,7 @@ export const listTasksRecurring = async () => {
   if (!userId) return { docs: [] }
 
   const payload = await getPayload({ config })
+  const workspaceId = await getCurrentWorkspaceId()
 
   return await payload.find({
     collection: 'tasks',
@@ -593,6 +609,7 @@ export const listTasksRecurring = async () => {
         { userId: { equals: userId } },
         { type: { equals: 'recurring' } },
         { planArchivedAt: { exists: false } },
+        workspaceWhereClause(workspaceId),
       ],
     },
   })
@@ -807,6 +824,19 @@ export const editTask = async (id: number, draft: EditTaskInput) => {
           : (originalSubtasks[i]?.assignedTo ?? []),
     }))
 
+    // Moving a task to a different list (or detaching it) changes which
+    // workspace it belongs to — keep it in sync with the target list's
+    // workspace, or the mover's current active workspace if detached.
+    let workspaceUpdate: { workspace?: string | null } = {}
+    if (draft.listId !== undefined) {
+      if (draft.listId !== null) {
+        const newList = await payload.findByID({ collection: 'lists', id: draft.listId })
+        workspaceUpdate = { workspace: (newList as any).workspace ?? null }
+      } else {
+        workspaceUpdate = { workspace: await getCurrentWorkspaceId() }
+      }
+    }
+
     const updatedTask = await payload.update({
       collection: 'tasks',
       id,
@@ -824,6 +854,7 @@ export const editTask = async (id: number, draft: EditTaskInput) => {
           autoDeleteOnDueDate: draft.autoDeleteOnDueDate,
         }),
         ...(draft.listId !== undefined && { list: draft.listId }),
+        ...workspaceUpdate,
       },
     })
 

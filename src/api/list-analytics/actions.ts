@@ -5,6 +5,7 @@ import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { Pool } from 'pg'
 import { getSession } from '@/lib/get-session'
+import { getCurrentWorkspaceId, workspaceWhereClause } from '@/lib/get-current-workspace'
 import { getUserPlanLimits } from '@/lib/get-user-plan'
 import { getAnalyticsWindowStart, clampToAnalyticsWindow } from '@/lib/analytics-window'
 
@@ -233,6 +234,8 @@ export const getListAnalytics = async (
   const fetchStartUTC = donutStartUTC < clampedSeriesStartUTC ? donutStartUTC : clampedSeriesStartUTC
   const fetchEndUTC = donutEndUTC > seriesEndUTC ? donutEndUTC : seriesEndUTC
 
+  const workspaceId = await getCurrentWorkspaceId()
+
   const { docs: completions } = await payload.find({
     collection: 'task-completions',
     limit: 0,
@@ -241,6 +244,7 @@ export const getListAnalytics = async (
         { userId: { equals: userId } },
         { completedAt: { greater_than_equal: fetchStartUTC.toISOString() } },
         { completedAt: { less_than_equal: fetchEndUTC.toISOString() } },
+        workspaceWhereClause(workspaceId),
       ],
     },
   })
@@ -254,6 +258,7 @@ export const getListAnalytics = async (
         { status: { equals: 'completed' } },
         { completedAt: { greater_than_equal: fetchStartUTC.toISOString() } },
         { completedAt: { less_than_equal: fetchEndUTC.toISOString() } },
+        workspaceWhereClause(workspaceId),
       ],
     },
   })

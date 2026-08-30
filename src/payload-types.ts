@@ -203,6 +203,10 @@ export interface Task {
   userId: string;
   list?: (number | null) | List;
   /**
+   * Better Auth organization id this task belongs to. Empty means the Personal workspace. Kept in sync with the parent list's workspace when one is set.
+   */
+  workspace?: string | null;
+  /**
    * userIds of shared-list members this task is assigned to. Only the list admin may set this.
    */
   assignedTo?: string[] | null;
@@ -324,6 +328,10 @@ export interface TaskCompletion {
     | null;
   listId?: number | null;
   listName?: string | null;
+  /**
+   * Snapshot of the task's Better Auth organization id at completion time. Empty means the Personal workspace.
+   */
+  workspace?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -898,6 +906,7 @@ export interface TasksSelect<T extends boolean = true> {
   status?: T;
   userId?: T;
   list?: T;
+  workspace?: T;
   assignedTo?: T;
   type?: T;
   tags?: T;
@@ -941,6 +950,7 @@ export interface TaskCompletionsSelect<T extends boolean = true> {
   customTagsSnapshot?: T;
   listId?: T;
   listName?: T;
+  workspace?: T;
   updatedAt?: T;
   createdAt?: T;
 }

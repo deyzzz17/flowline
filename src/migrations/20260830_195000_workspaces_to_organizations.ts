@@ -27,6 +27,21 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
 
   DROP TABLE "workspaces";
 
+  -- The cast above preserves old "workspaces" row ids literally (e.g. "1",
+  -- "2") as text, but those ids never match a real Better Auth organization
+  -- (organization ids are random strings, never small integers) — every one
+  -- of them is now orphaned. Reset them to NULL (Personal), which is what
+  -- they represented before this migration in every observed case (each
+  -- user's own single pre-organizations "Personal" workspace row).
+  -- Requires the Better Auth "organization" table to already exist (applied
+  -- separately via @better-auth/cli's own migration) — run that first.
+  UPDATE "lists" SET "workspace" = NULL WHERE "workspace" IS NOT NULL AND "workspace" NOT IN (SELECT id FROM "organization");
+  UPDATE "timer_categories" SET "workspace" = NULL WHERE "workspace" IS NOT NULL AND "workspace" NOT IN (SELECT id FROM "organization");
+  UPDATE "timer_sessions" SET "workspace" = NULL WHERE "workspace" IS NOT NULL AND "workspace" NOT IN (SELECT id FROM "organization");
+  UPDATE "timer_configs" SET "workspace" = NULL WHERE "workspace" IS NOT NULL AND "workspace" NOT IN (SELECT id FROM "organization");
+  UPDATE "calendar_categories" SET "workspace" = NULL WHERE "workspace" IS NOT NULL AND "workspace" NOT IN (SELECT id FROM "organization");
+  UPDATE "calendar_events" SET "workspace" = NULL WHERE "workspace" IS NOT NULL AND "workspace" NOT IN (SELECT id FROM "organization");
+
   CREATE UNIQUE INDEX "personal_list_user_slug_idx" ON "lists" USING btree ("user_id","slug") WHERE "workspace" IS NULL;`)
 }
 

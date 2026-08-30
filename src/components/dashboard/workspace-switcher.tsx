@@ -40,6 +40,8 @@ import { cn } from '@/lib/utils'
 // full page reload) when switching, so the switch feels instant.
 const WORKSPACE_SCOPED_QUERY_KEYS = [
   'lists',
+  'tasks',
+  'list-analytics',
   'timer-configs',
   'timer-categories',
   'timer-analytics',

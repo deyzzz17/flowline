@@ -21,6 +21,16 @@ export const Tasks: CollectionConfig = {
     { name: 'userId', type: 'text', required: true, index: true },
     { name: 'list', type: 'relationship', relationTo: 'lists', required: false, index: true },
     {
+      name: 'workspace',
+      type: 'text',
+      required: false,
+      index: true,
+      admin: {
+        description:
+          'Better Auth organization id this task belongs to. Empty means the Personal workspace. Kept in sync with the parent list\'s workspace when one is set.',
+      },
+    },
+    {
       name: 'assignedTo',
       type: 'text',
       hasMany: true,
