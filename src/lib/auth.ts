@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth'
 import { organization } from 'better-auth/plugins'
+import { nextCookies } from 'better-auth/next-js'
 import { Pool } from 'pg'
 import { sendEmail } from './send-email'
 
@@ -150,5 +151,10 @@ export const auth = betterAuth({
     // Personal). Default roles (owner/admin/member) for now; per-role access
     // to workspace-scoped data (lists/timer/calendar) is a follow-up.
     organization(),
+    // Must be last: forwards Set-Cookie headers from direct `auth.api.*()`
+    // calls (e.g. in server actions) into Next.js's real cookies() API —
+    // without it, mutations like setActiveOrganization update the DB but
+    // never actually reach the browser's session cookie.
+    nextCookies(),
   ],
 })
