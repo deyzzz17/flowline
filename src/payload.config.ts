@@ -10,7 +10,6 @@ import { Media } from './collections/Media'
 import { Tasks } from './collections/Tasks'
 import { UserTags } from './collections/UserTags'
 import { Lists } from './collections/Lists'
-import { Workspaces } from './collections/Workspaces'
 import { TimerCategories } from './collections/TimerCategories'
 import { TimerSessions } from './collections/TimerSessions'
 import { CalendarEvents } from './collections/CalendarEvents'
@@ -41,7 +40,6 @@ export default buildConfig({
     TaskCompletions,
     UserTags,
     Lists,
-    Workspaces,
     TimerCategories,
     TimerSessions,
     TimerConfigs,
@@ -63,7 +61,15 @@ export default buildConfig({
     pool: {
       connectionString: process.env.DATABASE_URL || '',
     },
-    tablesFilter: ['!user', '!session', '!account', '!verification'],
+    tablesFilter: [
+      '!user',
+      '!session',
+      '!account',
+      '!verification',
+      '!organization',
+      '!member',
+      '!invitation',
+    ],
   }),
   sharp,
   plugins: [],

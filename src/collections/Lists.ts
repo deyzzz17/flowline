@@ -5,6 +5,11 @@ export const Lists: CollectionConfig = {
   admin: {
     useAsTitle: 'name',
   },
+  // Postgres treats every NULL as distinct in a unique index, so this index
+  // alone doesn't protect Personal (workspace IS NULL) lists from duplicate
+  // names under concurrency. That guarantee is restored by a hand-applied
+  // partial index Payload's declarative config can't express:
+  //   CREATE UNIQUE INDEX personal_list_user_slug_idx ON lists (user_id, slug) WHERE workspace IS NULL
   indexes: [
     {
       fields: ['workspace', 'slug'],
@@ -35,12 +40,12 @@ export const Lists: CollectionConfig = {
     },
     {
       name: 'workspace',
-      type: 'relationship',
-      relationTo: 'workspaces',
+      type: 'text',
       required: false,
       index: true,
       admin: {
-        description: 'Workspace this list belongs to.',
+        description:
+          'Better Auth organization id this list belongs to. Empty means the Personal workspace (which is not an organization).',
       },
     },
     {
@@ -97,15 +102,21 @@ export const Lists: CollectionConfig = {
       async ({ data, req, operation, originalDoc }) => {
         const { payload } = req
         const userId = data.userId ?? originalDoc?.userId
-        const workspaceRaw = data.workspace ?? originalDoc?.workspace
-        const workspaceId =
-          typeof workspaceRaw === 'object' && workspaceRaw !== null ? workspaceRaw.id : workspaceRaw
+        const workspaceId = data.workspace ?? originalDoc?.workspace ?? null
         const name = data.name
-        if (workspaceId && name) {
+        // The (workspace, slug) unique index only protects organization workspaces —
+        // Postgres treats every NULL workspace as distinct, so Personal lists (no
+        // organization) are de-duplicated here by (userId, slug) instead.
+        if (userId && name) {
           const existing = await payload.find({
             collection: 'lists',
             where: {
-              and: [{ workspace: { equals: workspaceId } }, { name: { equals: name } }],
+              and: [
+                workspaceId
+                  ? { workspace: { equals: workspaceId } }
+                  : { and: [{ userId: { equals: userId } }, { workspace: { exists: false } }] },
+                { name: { equals: name } },
+              ],
             },
             limit: 1,
           })

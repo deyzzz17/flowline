@@ -7,7 +7,7 @@ import { ok, err } from '@/types/result'
 import { Pool } from 'pg'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
-import { getCurrentWorkspace, getCurrentWorkspaceId } from '@/lib/get-current-workspace'
+import { getCurrentWorkspaceId, workspaceWhereClause } from '@/lib/get-current-workspace'
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 
@@ -104,12 +104,11 @@ export const listCalendarCategories = async (scope: CalendarScope = 'workspace')
     })
   }
 
-  const workspace = await getCurrentWorkspace(payload, userId)
-  const workspaceId = workspace.id
+  const workspaceId = await getCurrentWorkspaceId()
   const existing = await payload.find({
     collection: 'calendar-categories',
     where: {
-      and: [{ workspace: { equals: workspaceId } }, { planArchivedAt: { exists: false } }],
+      and: [workspaceWhereClause(workspaceId), { planArchivedAt: { exists: false } }],
     },
     limit: 0,
     sort: 'createdAt',
@@ -117,7 +116,7 @@ export const listCalendarCategories = async (scope: CalendarScope = 'workspace')
 
   // Only the Personal workspace gets seeded with default categories — other
   // workspaces start empty (no data on creation).
-  if (existing.docs.length === 0 && workspace.isPersonal) {
+  if (existing.docs.length === 0 && workspaceId === null) {
     for (const cat of DEFAULT_CALENDAR_CATEGORIES) {
       await payload.create({
         collection: 'calendar-categories',
@@ -127,7 +126,7 @@ export const listCalendarCategories = async (scope: CalendarScope = 'workspace')
     return payload.find({
       collection: 'calendar-categories',
       where: {
-        and: [{ workspace: { equals: workspaceId } }, { planArchivedAt: { exists: false } }],
+        and: [workspaceWhereClause(workspaceId), { planArchivedAt: { exists: false } }],
       },
       limit: 0,
       sort: 'createdAt',
@@ -156,7 +155,7 @@ export const createCalendarCategory = async (data: CalendarCategoryData) => {
     if (!userId) return err('Not authenticated')
 
     const payload = await getPayload({ config })
-    const workspaceId = await getCurrentWorkspaceId(payload, userId)
+    const workspaceId = await getCurrentWorkspaceId()
 
     const { plan, limits } = await getUserPlanLimits()
     const totalDocs = await countActiveCalendarCategories(payload, userId)
@@ -527,7 +526,7 @@ export const listFlowlineCalendarEvents = async (
   if (!userId) return { docs: [] }
   const payload = await getPayload({ config })
   const workspaceFilter =
-    scope === 'global' ? [] : [{ workspace: { equals: await getCurrentWorkspaceId(payload, userId) } }]
+    scope === 'global' ? [] : [workspaceWhereClause(await getCurrentWorkspaceId())]
   const { docs } = await payload.find({
     collection: 'calendar-events',
     limit: 500,
@@ -562,8 +561,8 @@ export const listGoogleCalendarEvents = async (
   // the aggregated workspaces; the workspace-scoped view only includes it
   // when Personal itself is the active workspace.
   if (scope === 'workspace') {
-    const workspace = await getCurrentWorkspace(payload, userId)
-    if (!workspace.isPersonal) return { docs: [] }
+    const workspaceId = await getCurrentWorkspaceId()
+    if (workspaceId !== null) return { docs: [] }
   }
 
   const docs = await fetchGoogleCalendarEvents(userId, from, to, payload)
@@ -580,7 +579,7 @@ export const createCalendarEvent = async (data: CalendarEventData) => {
     }
 
     const payload = await getPayload({ config })
-    const workspaceId = await getCurrentWorkspaceId(payload, userId)
+    const workspaceId = await getCurrentWorkspaceId()
     const event = await payload.create({
       collection: 'calendar-events',
       data: {
@@ -767,10 +766,7 @@ export const updateCalendarEvent = async (
           newEnd = new Date(new Date(newStart).getTime() + originalDuration).toISOString()
         }
 
-        const parentWorkspace =
-          typeof (parent as any).workspace === 'object' && (parent as any).workspace !== null
-            ? (parent as any).workspace.id
-            : (parent as any).workspace
+        const parentWorkspace = (parent as any).workspace ?? null
 
         const created = await payload.create({
           collection: 'calendar-events',

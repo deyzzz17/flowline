@@ -25,12 +25,12 @@ export const TimerCategories: CollectionConfig = {
     },
     {
       name: 'workspace',
-      type: 'relationship',
-      relationTo: 'workspaces',
+      type: 'text',
       required: false,
       index: true,
       admin: {
-        description: 'Workspace this category belongs to.',
+        description:
+          'Better Auth organization id this category belongs to. Empty means the Personal workspace.',
       },
     },
     {

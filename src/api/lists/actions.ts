@@ -11,8 +11,7 @@ import { getSession } from '@/lib/get-session'
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 import { resolveListRole } from '@/lib/list-roles'
-import { getOrCreatePersonalWorkspace } from '@/lib/get-or-create-workspace'
-import { getCurrentWorkspaceId } from '@/lib/get-current-workspace'
+import { getCurrentWorkspaceId, workspaceWhereClause } from '@/lib/get-current-workspace'
 import { deleteCommentsForTaskIds } from '@/api/task-comments/actions'
 
 type CreateListInput = {
@@ -64,7 +63,7 @@ export const createList = async (input: CreateListInput) => {
     }
 
     const payload = await getPayload({ config })
-    const workspaceId = await getCurrentWorkspaceId(payload, userId)
+    const workspaceId = await getCurrentWorkspaceId()
 
     const { plan, limits } = await getUserPlanLimits()
 
@@ -79,7 +78,7 @@ export const createList = async (input: CreateListInput) => {
     const { docs: existing } = await payload.find({
       collection: 'lists',
       where: {
-        and: [{ workspace: { equals: workspaceId } }, { name: { equals: input.name.trim() } }],
+        and: [workspaceWhereClause(workspaceId), { name: { equals: input.name.trim() } }],
       },
       limit: 1,
     })
@@ -111,7 +110,7 @@ export const listLists = async () => {
   if (!userId) return { docs: [] }
 
   const payload = await getPayload({ config })
-  const workspaceId = await getCurrentWorkspaceId(payload, userId)
+  const workspaceId = await getCurrentWorkspaceId()
 
   return await payload.find({
     collection: 'lists',
@@ -120,7 +119,7 @@ export const listLists = async () => {
     where: {
       and: [
         { userId: { equals: userId } },
-        { workspace: { equals: workspaceId } },
+        workspaceWhereClause(workspaceId),
         { planArchivedAt: { exists: false } },
       ],
     },
@@ -350,16 +349,13 @@ export const editList = async (id: number, input: EditListInput) => {
 
     if (input.name !== undefined) {
       const current = await payload.findByID({ collection: 'lists', id })
-      const workspaceId =
-        typeof current.workspace === 'object' && current.workspace !== null
-          ? current.workspace.id
-          : current.workspace
+      const workspaceId = current.workspace ?? null
 
       const { docs: existing } = await payload.find({
         collection: 'lists',
         where: {
           and: [
-            { workspace: { equals: workspaceId } },
+            workspaceWhereClause(workspaceId),
             { name: { equals: input.name.trim() } },
             { id: { not_equals: id } },
           ],
@@ -450,14 +446,13 @@ export const createDefaultList = async () => {
     let defaultList = existing.docs[0]
 
     if (!defaultList) {
-      const workspace = await getOrCreatePersonalWorkspace(payload, userId)
       try {
         defaultList = await payload.create({
           collection: 'lists',
           data: {
             name: 'Todo',
             userId,
-            workspace: workspace.id,
+            workspace: null,
             isDefault: true,
             category: { name: 'Personal', color: '#8b5cf6' },
           },

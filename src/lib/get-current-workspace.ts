@@ -1,44 +1,21 @@
 import 'server-only'
 
-import { cookies } from 'next/headers'
-import type { Payload } from 'payload'
-import type { Workspace } from '@/payload-types'
-import { getOrCreatePersonalWorkspace } from './get-or-create-workspace'
-
-export const ACTIVE_WORKSPACE_COOKIE = 'active_workspace'
+import { getSession } from './get-session'
 
 /**
- * Resolves the active workspace. Pass `knownWorkspaces` (e.g. from a prior
- * `payload.find`) when the caller already has the user's full workspace list in
- * memory, to skip an extra `findByID`/create round trip.
+ * The active workspace, as a Better Auth organization id. `null` means the
+ * Personal workspace — Personal is not an organization, it has no id.
  */
-export async function getCurrentWorkspace(
-  payload: Payload,
-  userId: string,
-  knownWorkspaces?: Workspace[],
-): Promise<Workspace> {
-  const cookieStore = await cookies()
-  const raw = cookieStore.get(ACTIVE_WORKSPACE_COOKIE)?.value
-  const candidateId = raw ? Number(raw) : null
-
-  if (candidateId) {
-    if (knownWorkspaces) {
-      const match = knownWorkspaces.find((w) => w.id === candidateId && w.userId === userId)
-      if (match) return match
-    } else {
-      const workspace = await payload
-        .findByID({ collection: 'workspaces', id: candidateId })
-        .catch(() => null)
-      if (workspace && workspace.userId === userId) return workspace
-    }
-  }
-
-  const personalFromKnown = knownWorkspaces?.find((w) => w.isPersonal)
-  if (personalFromKnown) return personalFromKnown
-
-  return getOrCreatePersonalWorkspace(payload, userId)
+export async function getCurrentWorkspaceId(): Promise<string | null> {
+  const session = await getSession()
+  return session?.session.activeOrganizationId ?? null
 }
 
-export async function getCurrentWorkspaceId(payload: Payload, userId: string): Promise<number> {
-  return (await getCurrentWorkspace(payload, userId)).id
+/**
+ * Payload `where` fragment matching documents in the given workspace. Use
+ * this instead of `{ workspace: { equals: workspaceId } }` directly, since a
+ * `null` (Personal) workspace must match on absence of the field instead.
+ */
+export function workspaceWhereClause(workspaceId: string | null) {
+  return workspaceId ? { workspace: { equals: workspaceId } } : { workspace: { exists: false } }
 }

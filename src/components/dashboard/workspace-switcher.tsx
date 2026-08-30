@@ -33,7 +33,7 @@ import {
 import { SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
 import { PlanLimitDialog } from '@/components/ui/plan-limit-dialog'
 import { SafetyCapDialog } from '@/components/ui/safety-cap-dialog'
-import type { Workspace } from '@/payload-types'
+import type { WorkspaceSummary } from '@/api/workspaces/actions'
 import { cn } from '@/lib/utils'
 
 // Query keys whose data depends on the active workspace — invalidated (not a
@@ -60,7 +60,7 @@ function WorkspaceAvatar({ className }: { className?: string }) {
   )
 }
 
-export type WorkspacesData = { docs: Workspace[]; activeId: number | null }
+export type WorkspacesData = { docs: WorkspaceSummary[]; activeId: string | null }
 
 /** Reads the same `['workspaces']` query cache as the switcher — no extra fetch. */
 export function useActiveWorkspace(initialData?: WorkspacesData) {
@@ -69,7 +69,7 @@ export function useActiveWorkspace(initialData?: WorkspacesData) {
     queryFn: () => api.workspaces.list(),
     ...(initialData && { initialData }),
   })
-  const workspaces = (data?.docs ?? []) as Workspace[]
+  const workspaces = data?.docs ?? []
   const activeId = data?.activeId ?? null
   return workspaces.find((w) => w.id === activeId) ?? null
 }
@@ -85,7 +85,7 @@ function useWorkspaceSwitcher(initialData?: WorkspacesData) {
     ...(initialData && { initialData }),
   })
 
-  const workspaces = (data?.docs ?? []) as Workspace[]
+  const workspaces = data?.docs ?? []
   const activeId = data?.activeId ?? null
   const activeWorkspace = workspaces.find((w) => w.id === activeId) ?? workspaces[0]
   const extraCount = workspaces.filter((w) => !w.isPersonal).length
@@ -97,7 +97,7 @@ function useWorkspaceSwitcher(initialData?: WorkspacesData) {
   const [capDialog, setCapDialog] = useState<SafetyCapError | null>(null)
 
   const switchMutation = useMutation({
-    mutationFn: (id: number) => api.workspaces.switch(id),
+    mutationFn: (id: string | null) => api.workspaces.switch(id),
     onSuccess: (result) => {
       if (!result.ok) return
       queryClient.invalidateQueries({ queryKey: ['workspaces'] })
@@ -159,7 +159,7 @@ function useWorkspaceSwitcher(initialData?: WorkspacesData) {
     activeId,
     activeWorkspace,
     atLimit,
-    switchTo: (id: number) => switchMutation.mutate(id),
+    switchTo: (id: string | null) => switchMutation.mutate(id),
     switchingId: switchMutation.isPending ? switchMutation.variables : null,
     openCreateDialog,
     handleLockedClick,
@@ -188,10 +188,10 @@ function WorkspaceMenuContent({
   onLockedClick,
 }: {
   align?: 'start' | 'center' | 'end'
-  workspaces: Workspace[]
-  activeId: number | null
-  switchingId: number | null
-  onSwitch: (id: number) => void
+  workspaces: WorkspaceSummary[]
+  activeId: string | null
+  switchingId: string | null
+  onSwitch: (id: string | null) => void
   atLimit: boolean
   onCreateClick: () => void
   onLockedClick: () => void
@@ -203,7 +203,7 @@ function WorkspaceMenuContent({
       </DropdownMenuLabel>
       {workspaces.map((w) => (
         <DropdownMenuItem
-          key={w.id}
+          key={w.id ?? 'personal'}
           disabled={switchingId !== null}
           onClick={() => w.id !== activeId && onSwitch(w.id)}
           className="gap-2 text-sm cursor-pointer"

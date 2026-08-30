@@ -5,7 +5,7 @@ import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { ok, err } from '@/types/result'
 import { getSession } from '@/lib/get-session'
-import { getCurrentWorkspace, getCurrentWorkspaceId } from '@/lib/get-current-workspace'
+import { getCurrentWorkspaceId, workspaceWhereClause } from '@/lib/get-current-workspace'
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 
@@ -27,19 +27,18 @@ export const listTimerCategories = async () => {
   if (!userId) return { docs: [] }
 
   const payload = await getPayload({ config })
-  const workspace = await getCurrentWorkspace(payload, userId)
-  const workspaceId = workspace.id
+  const workspaceId = await getCurrentWorkspaceId()
   const existing = await payload.find({
     collection: 'timer-categories',
     where: {
-      and: [{ workspace: { equals: workspaceId } }, { planArchivedAt: { exists: false } }],
+      and: [workspaceWhereClause(workspaceId), { planArchivedAt: { exists: false } }],
     },
     limit: 0,
   })
 
   // Only the Personal workspace gets seeded with default categories — other
   // workspaces start empty (no data on creation).
-  if (existing.docs.length === 0 && workspace.isPersonal) {
+  if (existing.docs.length === 0 && workspaceId === null) {
     for (const cat of DEFAULT_CATEGORIES) {
       await payload.create({
         collection: 'timer-categories',
@@ -49,7 +48,7 @@ export const listTimerCategories = async () => {
     return await payload.find({
       collection: 'timer-categories',
       where: {
-        and: [{ workspace: { equals: workspaceId } }, { planArchivedAt: { exists: false } }],
+        and: [workspaceWhereClause(workspaceId), { planArchivedAt: { exists: false } }],
       },
       limit: 0,
     })
@@ -93,7 +92,7 @@ export const createTimerCategory = async (data: { name: string; color: string })
       )
     }
 
-    const workspaceId = await getCurrentWorkspaceId(payload, userId)
+    const workspaceId = await getCurrentWorkspaceId()
     const category = await payload.create({
       collection: 'timer-categories',
       data: { ...data, userId, workspace: workspaceId, isDefault: false },
@@ -289,7 +288,7 @@ export const createTimerSession = async (data: CreateSessionData) => {
     if (!userId) return err('Not authenticated')
 
     const payload = await getPayload({ config })
-    const workspaceId = await getCurrentWorkspaceId(payload, userId)
+    const workspaceId = await getCurrentWorkspaceId()
     const session = await payload.create({
       collection: 'timer-sessions',
       data: {
@@ -349,11 +348,11 @@ export const listTimerConfigs = async () => {
   if (!userId) return { docs: [] }
 
   const payload = await getPayload({ config })
-  const workspaceId = await getCurrentWorkspaceId(payload, userId)
+  const workspaceId = await getCurrentWorkspaceId()
   return payload.find({
     collection: 'timer-configs',
     where: {
-      and: [{ workspace: { equals: workspaceId } }, { planArchivedAt: { exists: false } }],
+      and: [workspaceWhereClause(workspaceId), { planArchivedAt: { exists: false } }],
     },
     sort: '-createdAt',
     limit: 50,
@@ -391,7 +390,7 @@ export const saveTimerConfig = async (data: Omit<SavedTimerConfig, 'id'>) => {
       )
     }
 
-    const workspaceId = await getCurrentWorkspaceId(payload, userId)
+    const workspaceId = await getCurrentWorkspaceId()
     const saved = await payload.create({
       collection: 'timer-configs',
       data: { ...data, userId, workspace: workspaceId },

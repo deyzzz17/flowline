@@ -14,12 +14,12 @@ export const TimerConfigs: CollectionConfig = {
     },
     {
       name: 'workspace',
-      type: 'relationship',
-      relationTo: 'workspaces',
+      type: 'text',
       required: false,
       index: true,
       admin: {
-        description: 'Workspace this preset belongs to.',
+        description:
+          'Better Auth organization id this preset belongs to. Empty means the Personal workspace.',
       },
     },
     {

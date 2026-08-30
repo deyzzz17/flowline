@@ -2,15 +2,20 @@
 
 import 'server-only'
 
-import { cookies } from 'next/headers'
-import { getPayload } from 'payload'
-import config from '@/payload.config'
+import { headers } from 'next/headers'
+import { Pool } from 'pg'
+import { auth } from '@/lib/auth'
 import { ok, err } from '@/types/result'
 import { getSession } from '@/lib/get-session'
 import { getUserPlanLimits } from '@/lib/get-user-plan'
-import { getOrCreatePersonalWorkspace } from '@/lib/get-or-create-workspace'
-import { getCurrentWorkspace, ACTIVE_WORKSPACE_COOKIE } from '@/lib/get-current-workspace'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
+
+export interface WorkspaceSummary {
+  /** Better Auth organization id, or `null` for the Personal workspace. */
+  id: string | null
+  name: string
+  isPersonal: boolean
+}
 
 const getUserId = async () => {
   const session = await getSession()
@@ -18,44 +23,44 @@ const getUserId = async () => {
 }
 
 export const listWorkspaces = async () => {
-  const userId = await getUserId()
-  if (!userId) return { docs: [], activeId: null }
+  const session = await getSession()
+  const userId = session?.user?.id
+  if (!userId) return { docs: [] as WorkspaceSummary[], activeId: null as string | null }
 
-  const payload = await getPayload({ config })
+  const orgs = await auth.api.listOrganizations({ headers: await headers() })
 
-  const { docs } = await payload.find({
-    collection: 'workspaces',
-    where: { userId: { equals: userId } },
-    sort: 'createdAt',
-    limit: 0,
-  })
+  const docs: WorkspaceSummary[] = [
+    { id: null, name: 'Personal', isPersonal: true },
+    ...orgs.map((o) => ({ id: o.id, name: o.name, isPersonal: false })),
+  ]
 
-  // Almost always already there — only ever missing for a brand-new account,
-  // so this extra round trip is skipped in the common case.
-  const allDocs = docs.some((w) => w.isPersonal)
-    ? docs
-    : [...docs, await getOrCreatePersonalWorkspace(payload, userId)]
+  return { docs, activeId: session.session.activeOrganizationId ?? null }
+}
 
-  const activeWorkspace = await getCurrentWorkspace(payload, userId, allDocs)
-
-  return {
-    docs: [...allDocs].sort((a, b) => Number(b.isPersonal) - Number(a.isPersonal)),
-    activeId: activeWorkspace.id,
+// Only organizations this user OWNS count against their plan's workspace limit —
+// being invited into someone else's workspace shouldn't use up your own quota.
+async function countOwnedWorkspaces(userId: string): Promise<number> {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+  try {
+    const result = await pool.query(
+      `SELECT COUNT(*)::int AS count FROM member WHERE "userId" = $1 AND role = 'owner'`,
+      [userId],
+    )
+    return result.rows[0]?.count ?? 0
+  } finally {
+    await pool.end()
   }
 }
 
-async function countExtraWorkspaces(
-  payload: Awaited<ReturnType<typeof getPayload>>,
-  userId: string,
-): Promise<number> {
-  const { totalDocs } = await payload.find({
-    collection: 'workspaces',
-    where: {
-      and: [{ userId: { equals: userId } }, { isPersonal: { equals: false } }],
-    },
-    limit: 0,
-  })
-  return totalDocs
+function slugify(name: string): string {
+  return (
+    name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(new RegExp('[\\u0300-\\u036f]', 'g'), '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'workspace'
+  )
 }
 
 export const createWorkspace = async (name: string) => {
@@ -66,11 +71,9 @@ export const createWorkspace = async (name: string) => {
     const trimmed = name.trim()
     if (!trimmed) return err('Name is required')
 
-    const payload = await getPayload({ config })
     const { plan, limits } = await getUserPlanLimits()
-
-    const extraCount = await countExtraWorkspaces(payload, userId)
-    if (isAtLimit(extraCount, limits.workspaces)) {
+    const ownedCount = await countOwnedWorkspaces(userId)
+    if (isAtLimit(ownedCount, limits.workspaces)) {
       return err(
         isPlanUnlimited(plan, 'workspaces')
           ? SAFETY_CAP_ERRORS.WORKSPACES_CAP
@@ -78,31 +81,29 @@ export const createWorkspace = async (name: string) => {
       )
     }
 
-    const workspace = await payload.create({
-      collection: 'workspaces',
-      data: { name: trimmed, userId, isPersonal: false },
+    const slug = `${slugify(trimmed)}-${Math.random().toString(36).slice(2, 8)}`
+
+    const org = await auth.api.createOrganization({
+      headers: await headers(),
+      body: { name: trimmed, slug },
     })
 
-    return ok(workspace)
+    if (!org) return err('Error while creating the workspace')
+
+    return ok<WorkspaceSummary>({ id: org.id, name: org.name, isPersonal: false })
   } catch {
     return err('Error while creating the workspace')
   }
 }
 
-export const switchWorkspace = async (workspaceId: number) => {
+export const switchWorkspace = async (workspaceId: string | null) => {
   try {
     const userId = await getUserId()
     if (!userId) return err('Not authenticated')
 
-    const payload = await getPayload({ config })
-    const workspace = await payload.findByID({ collection: 'workspaces', id: workspaceId })
-    if (!workspace || workspace.userId !== userId) return err('Not authorized')
-
-    const cookieStore = await cookies()
-    cookieStore.set(ACTIVE_WORKSPACE_COOKIE, String(workspaceId), {
-      path: '/',
-      maxAge: 60 * 60 * 24 * 365,
-      sameSite: 'lax',
+    await auth.api.setActiveOrganization({
+      headers: await headers(),
+      body: { organizationId: workspaceId },
     })
 
     return ok(true)

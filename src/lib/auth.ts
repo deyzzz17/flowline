@@ -1,4 +1,5 @@
 import { betterAuth } from 'better-auth'
+import { organization } from 'better-auth/plugins'
 import { Pool } from 'pg'
 import { sendEmail } from './send-email'
 
@@ -143,4 +144,11 @@ export const auth = betterAuth({
       ],
     },
   },
+  plugins: [
+    // Non-Personal workspaces are Better Auth organizations — Personal itself
+    // is not an organization (it's implicit: no active organization means
+    // Personal). Default roles (owner/admin/member) for now; per-role access
+    // to workspace-scoped data (lists/timer/calendar) is a follow-up.
+    organization(),
+  ],
 })

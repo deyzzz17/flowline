@@ -7,12 +7,12 @@ export const CalendarEvents: CollectionConfig = {
     { name: 'userId', type: 'text', required: true, index: true },
     {
       name: 'workspace',
-      type: 'relationship',
-      relationTo: 'workspaces',
+      type: 'text',
       required: false,
       index: true,
       admin: {
-        description: 'Workspace this event belongs to.',
+        description:
+          'Better Auth organization id this event belongs to. Empty means the Personal workspace.',
       },
     },
     { name: 'title', type: 'text', required: true },

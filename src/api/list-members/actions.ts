@@ -8,7 +8,7 @@ import { revalidatePath } from 'next/cache'
 import { ok, err } from '@/types/result'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
-import { getCurrentWorkspaceId } from '@/lib/get-current-workspace'
+import { getCurrentWorkspaceId, workspaceWhereClause } from '@/lib/get-current-workspace'
 import { getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 import { resolveListRole, getListMemberIds, canViewList } from '@/lib/list-roles'
@@ -141,12 +141,12 @@ export const createSharedList = async (input: CreateSharedListInput) => {
       }
     }
 
-    const workspaceId = await getCurrentWorkspaceId(payload, userId)
+    const workspaceId = await getCurrentWorkspaceId()
 
     const { docs: existing } = await payload.find({
       collection: 'lists',
       where: {
-        and: [{ workspace: { equals: workspaceId } }, { name: { equals: input.name.trim() } }],
+        and: [workspaceWhereClause(workspaceId), { name: { equals: input.name.trim() } }],
       },
       limit: 1,
     })
