@@ -160,7 +160,9 @@ function useWorkspaceSwitcher(initialData?: WorkspacesData) {
     activeWorkspace,
     atLimit,
     switchTo: (id: string | null) => switchMutation.mutate(id),
-    switchingId: switchMutation.isPending ? switchMutation.variables : null,
+    // `undefined` means "not switching" — `null` is Personal's real id, so it
+    // can't double as the sentinel or Personal would always show as pending.
+    switchingId: switchMutation.isPending ? switchMutation.variables : undefined,
     openCreateDialog,
     handleLockedClick,
     createOpen,
@@ -190,7 +192,7 @@ function WorkspaceMenuContent({
   align?: 'start' | 'center' | 'end'
   workspaces: WorkspaceSummary[]
   activeId: string | null
-  switchingId: string | null
+  switchingId: string | null | undefined
   onSwitch: (id: string | null) => void
   atLimit: boolean
   onCreateClick: () => void
@@ -204,7 +206,7 @@ function WorkspaceMenuContent({
       {workspaces.map((w) => (
         <DropdownMenuItem
           key={w.id ?? 'personal'}
-          disabled={switchingId !== null}
+          disabled={switchingId !== undefined}
           onClick={() => w.id !== activeId && onSwitch(w.id)}
           className="gap-2 text-sm cursor-pointer"
         >
