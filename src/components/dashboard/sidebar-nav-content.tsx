@@ -242,6 +242,48 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
             )}
           </div>
 
+          <div>
+            <button
+              type="button"
+              onClick={() => setTimerOpen((v) => !v)}
+              className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <Timer className="h-4 w-4 shrink-0" />
+                Timer
+              </div>
+              <SubChevron open={timerOpen} />
+            </button>
+            {timerOpen && (
+              <div className="mt-0.5 ml-3 space-y-0.5 border-l border-border/50 pl-3">
+                <Link
+                  {...navLink('/timer')}
+                  className={cn(
+                    'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
+                    isActive('/timer')
+                      ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  )}
+                >
+                  <Timer className="h-3.5 w-3.5 shrink-0" />
+                  Timer
+                </Link>
+                <Link
+                  {...navLink('/timer-analytics')}
+                  className={cn(
+                    'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
+                    isActive('/timer-analytics')
+                      ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  )}
+                >
+                  <BarChart2 className="h-3.5 w-3.5 shrink-0" />
+                  Analytics
+                </Link>
+              </div>
+            )}
+          </div>
+
           <div className="my-2 border-t border-border/60" />
 
           <WorkspaceSwitcher initialData={initialWorkspaces} />
@@ -398,48 +440,6 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
                     New shared list
                   </Link>
                 )}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <button
-              type="button"
-              onClick={() => setTimerOpen((v) => !v)}
-              className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
-            >
-              <div className="flex items-center gap-3">
-                <Timer className="h-4 w-4 shrink-0" />
-                Timer
-              </div>
-              <SubChevron open={timerOpen} />
-            </button>
-            {timerOpen && (
-              <div className="mt-0.5 ml-3 space-y-0.5 border-l border-border/50 pl-3">
-                <Link
-                  {...navLink('/timer')}
-                  className={cn(
-                    'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
-                    isActive('/timer')
-                      ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                  )}
-                >
-                  <Timer className="h-3.5 w-3.5 shrink-0" />
-                  Timer
-                </Link>
-                <Link
-                  {...navLink('/timer-analytics')}
-                  className={cn(
-                    'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
-                    isActive('/timer-analytics')
-                      ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                  )}
-                >
-                  <BarChart2 className="h-3.5 w-3.5 shrink-0" />
-                  Analytics
-                </Link>
               </div>
             )}
           </div>

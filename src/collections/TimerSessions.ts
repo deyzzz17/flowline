@@ -13,16 +13,6 @@ export const TimerSessions: CollectionConfig = {
       index: true,
     },
     {
-      name: 'workspace',
-      type: 'text',
-      required: false,
-      index: true,
-      admin: {
-        description:
-          'Better Auth organization id this session belongs to. Empty means the Personal workspace.',
-      },
-    },
-    {
       name: 'startedAt',
       type: 'date',
       required: true,

@@ -345,10 +345,6 @@ export interface TimerCategory {
   color: string;
   userId: string;
   /**
-   * Better Auth organization id this category belongs to. Empty means the Personal workspace.
-   */
-  workspace?: string | null;
-  /**
    * Default categories provided by the app
    */
   isDefault?: boolean | null;
@@ -366,10 +362,6 @@ export interface TimerCategory {
 export interface TimerSession {
   id: number;
   userId: string;
-  /**
-   * Better Auth organization id this session belongs to. Empty means the Personal workspace.
-   */
-  workspace?: string | null;
   startedAt: string;
   /**
    * Duration in seconds
@@ -397,10 +389,6 @@ export interface TimerSession {
 export interface TimerConfig {
   id: number;
   userId: string;
-  /**
-   * Better Auth organization id this preset belongs to. Empty means the Personal workspace.
-   */
-  workspace?: string | null;
   /**
    * Auto-generated or user-defined label
    */
@@ -995,7 +983,6 @@ export interface TimerCategoriesSelect<T extends boolean = true> {
   name?: T;
   color?: T;
   userId?: T;
-  workspace?: T;
   isDefault?: T;
   planArchivedAt?: T;
   updatedAt?: T;
@@ -1007,7 +994,6 @@ export interface TimerCategoriesSelect<T extends boolean = true> {
  */
 export interface TimerSessionsSelect<T extends boolean = true> {
   userId?: T;
-  workspace?: T;
   startedAt?: T;
   duration?: T;
   categoryName?: T;
@@ -1028,7 +1014,6 @@ export interface TimerSessionsSelect<T extends boolean = true> {
  */
 export interface TimerConfigsSelect<T extends boolean = true> {
   userId?: T;
-  workspace?: T;
   name?: T;
   sessionDuration?: T;
   workDuration?: T;

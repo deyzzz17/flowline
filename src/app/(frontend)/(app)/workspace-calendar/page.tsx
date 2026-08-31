@@ -8,7 +8,7 @@ import { Suspense } from 'react'
 export default async function WorkspaceCalendarPage() {
   await requireAuth()
 
-  // Personal has no workspace calendar — only Lists and Timer.
+  // Personal has no workspace calendar — only Lists is workspace-scoped there.
   const workspaceId = await getCurrentWorkspaceId()
   if (workspaceId === null) redirect('/lists/today')
 

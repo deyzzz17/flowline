@@ -13,16 +13,6 @@ export const TimerConfigs: CollectionConfig = {
       index: true,
     },
     {
-      name: 'workspace',
-      type: 'text',
-      required: false,
-      index: true,
-      admin: {
-        description:
-          'Better Auth organization id this preset belongs to. Empty means the Personal workspace.',
-      },
-    },
-    {
       name: 'name',
       type: 'text',
       required: true,

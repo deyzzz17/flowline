@@ -247,6 +247,41 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                     </CollapsibleContent>
                   </SidebarMenuItem>
                 </Collapsible>
+
+                <Collapsible asChild className="group/timer" disabled={isCollapsed}>
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton
+                        tooltip="Timer"
+                        className={cn(isCollapsed && 'pointer-events-none')}
+                      >
+                        <Timer className="h-4 w-4 shrink-0" />
+                        <span>Timer</span>
+                        <ChevronDown className="ml-auto h-3.5 w-3.5 transition-transform group-data-[state=closed]/timer:-rotate-90" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={isActive('/timer')}>
+                            <Link href={nav('/timer')}>
+                              <Timer className="h-3.5 w-3.5" />
+                              Timer
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={isActive('/timer-analytics')}>
+                            <Link href={nav('/timer-analytics')}>
+                              <BarChart2 className="h-3.5 w-3.5" />
+                              Analytics
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -404,41 +439,6 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                               </Link>
                             </SidebarMenuSubButton>
                           )}
-                        </SidebarMenuSubItem>
-                      </SidebarMenuSub>
-                    </CollapsibleContent>
-                  </SidebarMenuItem>
-                </Collapsible>
-
-                <Collapsible asChild className="group/timer" disabled={isCollapsed}>
-                  <SidebarMenuItem>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuButton
-                        tooltip="Timer"
-                        className={cn(isCollapsed && 'pointer-events-none')}
-                      >
-                        <Timer className="h-4 w-4 shrink-0" />
-                        <span>Timer</span>
-                        <ChevronDown className="ml-auto h-3.5 w-3.5 transition-transform group-data-[state=closed]/timer:-rotate-90" />
-                      </SidebarMenuButton>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <SidebarMenuSub>
-                        <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={isActive('/timer')}>
-                            <Link href={nav('/timer')}>
-                              <Timer className="h-3.5 w-3.5" />
-                              Timer
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                        <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={isActive('/timer-analytics')}>
-                            <Link href={nav('/timer-analytics')}>
-                              <BarChart2 className="h-3.5 w-3.5" />
-                              Analytics
-                            </Link>
-                          </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                       </SidebarMenuSub>
                     </CollapsibleContent>

@@ -43,9 +43,6 @@ const WORKSPACE_SCOPED_QUERY_KEYS = [
   'lists',
   'tasks',
   'list-analytics',
-  'timer-configs',
-  'timer-categories',
-  'timer-analytics',
   'calendar-categories',
   'workspace-calendar-events',
 ]
