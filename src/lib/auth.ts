@@ -150,7 +150,19 @@ export const auth = betterAuth({
     // is not an organization (it's implicit: no active organization means
     // Personal). Default roles (owner/admin/member) for now; per-role access
     // to workspace-scoped data (lists/timer/calendar) is a follow-up.
-    organization(),
+    organization({
+      schema: {
+        member: {
+          additionalFields: {
+            // A per-workspace display-name override — a member can set their
+            // own, distinct from their global account name. Self-editable
+            // only (enforced in updateMyWorkspaceNickname, not by Better Auth
+            // itself — it has no concept of this field beyond storing it).
+            nickname: { type: 'string', required: false },
+          },
+        },
+      },
+    }),
     // Must be last: forwards Set-Cookie headers from direct `auth.api.*()`
     // calls (e.g. in server actions) into Next.js's real cookies() API —
     // without it, mutations like setActiveOrganization update the DB but

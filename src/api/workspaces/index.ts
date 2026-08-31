@@ -9,6 +9,10 @@ import {
   listMyWorkspaceInvites,
   acceptWorkspaceInvite,
   declineWorkspaceInvite,
+  inviteWorkspaceMember,
+  updateWorkspaceMemberRole,
+  removeWorkspaceMember,
+  updateMyWorkspaceNickname,
 } from './actions'
 
 export const workspacesAPI = {
@@ -22,4 +26,8 @@ export const workspacesAPI = {
   listMyInvites: listMyWorkspaceInvites,
   acceptInvite: acceptWorkspaceInvite,
   declineInvite: declineWorkspaceInvite,
+  inviteMember: inviteWorkspaceMember,
+  updateMemberRole: updateWorkspaceMemberRole,
+  removeMember: removeWorkspaceMember,
+  updateMyNickname: updateMyWorkspaceNickname,
 }

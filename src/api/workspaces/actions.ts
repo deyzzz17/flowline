@@ -229,6 +229,7 @@ export interface WorkspaceMember {
   name: string
   email: string
   image: string | null
+  nickname: string | null
 }
 
 // Personal has no members (it's not an organization) — callers should only
@@ -250,9 +251,99 @@ export const listWorkspaceMembers = async () => {
     name: m.user.name,
     email: m.user.email,
     image: m.user.image ?? null,
+    nickname: m.nickname ?? null,
   }))
 
   return { docs }
+}
+
+// Adding, changing roles, and removing all happen from the Members page.
+// Better Auth's own permission checks already implement exactly the model
+// requested: member:['update'|'delete'] is granted to both owner and admin
+// by default (but NOT the base "member"/Editor role), and
+// updateMemberRole's own internal logic additionally refuses to let anyone
+// but an owner touch a member who IS an owner, or promote someone TO owner.
+// We don't duplicate that logic here — just surface whatever error it throws.
+export const inviteWorkspaceMember = async (email: string, role: WorkspaceInviteRole) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const session = await getSession()
+    const workspaceId = session?.session.activeOrganizationId
+    if (!workspaceId) return err('No active workspace')
+
+    await auth.api.createInvitation({
+      headers: await headers(),
+      body: { organizationId: workspaceId, email: email.trim(), role },
+    })
+
+    return ok(true)
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Error inviting member'
+    return err(message)
+  }
+}
+
+export const updateWorkspaceMemberRole = async (memberId: string, role: WorkspaceInviteRole) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    await auth.api.updateMemberRole({
+      headers: await headers(),
+      body: { memberId, role },
+    })
+
+    return ok(true)
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Error updating member role'
+    return err(message)
+  }
+}
+
+export const removeWorkspaceMember = async (memberId: string) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    await auth.api.removeMember({
+      headers: await headers(),
+      body: { memberIdOrEmail: memberId },
+    })
+
+    return ok(true)
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Error removing member'
+    return err(message)
+  }
+}
+
+// The one member-editing action Better Auth has no endpoint for at all — a
+// per-workspace nickname is our own addition (additionalFields on `member`).
+// Self-only: the WHERE clause enforces it even if the memberId passed in
+// belonged to someone else.
+export const updateMyWorkspaceNickname = async (memberId: string, nickname: string) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const trimmed = nickname.trim()
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+    try {
+      const result = await pool.query(
+        `UPDATE member SET nickname = $1 WHERE id = $2 AND "userId" = $3`,
+        [trimmed || null, memberId, userId],
+      )
+      if (result.rowCount === 0) return err('Not authorized')
+    } finally {
+      await pool.end()
+    }
+
+    return ok(true)
+  } catch {
+    return err('Error updating your name')
+  }
 }
 
 // Search for a registered user by email to invite to a workspace — not
