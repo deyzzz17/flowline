@@ -6,6 +6,16 @@ import { Users, UserPlus, X, Search, Loader2, Check, Pencil } from 'lucide-react
 import { toast } from 'sonner'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 import { api } from '@/api'
 import { useSession } from '@/lib/auth-client'
@@ -83,6 +93,7 @@ export function WorkspaceMembersClient() {
   const [nicknameDraft, setNicknameDraft] = useState('')
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<WorkspaceInviteRole>('member')
+  const [removeTarget, setRemoveTarget] = useState<WorkspaceMember | null>(null)
 
   const isValidInviteEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail.trim())
   const { data: inviteSearchResult, isFetching: isSearchingInvite } = useQuery({
@@ -124,6 +135,7 @@ export function WorkspaceMembersClient() {
   const removeMutation = useMutation({
     mutationFn: (memberId: string) => api.workspaces.removeMember(memberId),
     onSuccess: (result) => {
+      setRemoveTarget(null)
       if (!result.ok) {
         toast.error(result.error || 'Error removing member')
         return
@@ -131,7 +143,10 @@ export function WorkspaceMembersClient() {
       toast.info('Member removed')
       queryClient.invalidateQueries({ queryKey: ['workspace-members'] })
     },
-    onError: () => toast.error('Error removing member'),
+    onError: () => {
+      setRemoveTarget(null)
+      toast.error('Error removing member')
+    },
   })
 
   const nicknameMutation = useMutation({
@@ -155,6 +170,29 @@ export function WorkspaceMembersClient() {
 
   return (
     <>
+      <AlertDialog open={!!removeTarget} onOpenChange={(v) => !v && setRemoveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this member?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{removeTarget?.nickname || removeTarget?.name}</strong> will lose access to
+              this workspace and everything in it. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => removeTarget && removeMutation.mutate(removeTarget.id)}
+              disabled={removeMutation.isPending}
+              className="gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {removeMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <section className="mb-8 mt-10">
         <p className="mb-1 text-xl font-semibold uppercase text-violet-500 dark:text-violet-400">
           Workspace
@@ -327,7 +365,7 @@ export function WorkspaceMembersClient() {
                         />
                         <button
                           type="button"
-                          onClick={() => removeMutation.mutate(m.id)}
+                          onClick={() => setRemoveTarget(m)}
                           disabled={removeMutation.isPending}
                           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
                         >
