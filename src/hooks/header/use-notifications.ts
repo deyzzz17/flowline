@@ -22,6 +22,12 @@ import {
   listMyCommentMentionNotifications,
   type CommentMentionNotification,
 } from '@/api/task-comments/actions'
+import {
+  listMyWorkspaceInvites,
+  acceptWorkspaceInvite,
+  declineWorkspaceInvite,
+  type WorkspaceInvite,
+} from '@/api/workspaces/actions'
 import type { Task } from '@/payload-types'
 import type { HabitWithStats } from '@/api/habits/actions'
 
@@ -34,6 +40,7 @@ export type NotificationLevel =
   | 'connection_accepted'
   | 'list_invite'
   | 'comment_mention'
+  | 'workspace_invite'
 
 export interface TaskNotification {
   id: string
@@ -50,6 +57,7 @@ export interface TaskNotification {
   connectionId?: number
   userImage?: string | null
   inviteId?: number
+  workspaceInviteId?: string
 }
 
 const ACCEPTED_DISMISSED_KEY = 'connection_accepted_dismissed'
@@ -58,6 +66,7 @@ const PENDING_RECEIVED_KEY = ['connections', 'pending-received']
 const PAGE_DATA_KEY = ['contacts', 'page-data']
 const LIST_INVITES_KEY = ['list-invites', 'mine']
 const COMMENT_MENTIONS_KEY = ['task-comments', 'my-mentions']
+const WORKSPACE_INVITES_KEY = ['workspace-invites', 'mine']
 
 function getDismissedIdsFromStorage(key: string): Set<string> {
   if (typeof window === 'undefined') return new Set()
@@ -154,6 +163,7 @@ function buildNotifications(tasks: Task[]): TaskNotification[] {
     connection_request: -1,
     connection_accepted: -1,
     list_invite: -1,
+    workspace_invite: -1,
     comment_mention: -1,
     today: 0,
     urgent: 1,
@@ -221,6 +231,23 @@ function buildListInviteNotifications(invites: ListInvite[]): TaskNotification[]
     dueDate: i.invitedAt,
     inviteId: i.id,
     userImage: i.invitedBy?.image ?? null,
+  }))
+}
+
+function buildWorkspaceInviteNotifications(invites: WorkspaceInvite[]): TaskNotification[] {
+  return invites.map((i) => ({
+    id: `workspace-invite-${i.id}`,
+    taskId: 0,
+    taskTitle: i.organizationName,
+    listName: i.inviterName
+      ? `${i.inviterName} invited you to join as ${i.role === 'admin' ? 'Admin' : 'Editor'}`
+      : `You were invited to join as ${i.role === 'admin' ? 'Admin' : 'Editor'}`,
+    listSlug: '',
+    listColor: '#8b5cf6',
+    level: 'workspace_invite' as const,
+    message: 'Workspace invite',
+    dueDate: i.createdAt,
+    workspaceInviteId: i.id,
   }))
 }
 
@@ -327,6 +354,14 @@ export const useNotifications = () => {
     refetchInterval: 30_000,
   })
 
+  const { data: workspaceInvitesData } = useQuery({
+    queryKey: WORKSPACE_INVITES_KEY,
+    queryFn: () => listMyWorkspaceInvites(),
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 30_000,
+  })
+
   const allNotifications = useMemo(() => {
     const taskNotifs = buildNotifications((data?.docs ?? []) as Task[])
     const goalNotifs = buildGoalClaimNotifications(habitsData ?? [])
@@ -340,9 +375,11 @@ export const useNotifications = () => {
       commentMentionsData ?? [],
       dismissedMentionIds,
     )
+    const workspaceInviteNotifs = buildWorkspaceInviteNotifications(workspaceInvitesData ?? [])
     return [
       ...requestNotifs,
       ...listInviteNotifs,
+      ...workspaceInviteNotifs,
       ...acceptedNotifs,
       ...commentMentionNotifs,
       ...taskNotifs,
@@ -357,6 +394,7 @@ export const useNotifications = () => {
     dismissedAcceptedIds,
     commentMentionsData,
     dismissedMentionIds,
+    workspaceInvitesData,
   ])
 
   const notifications = useMemo(
@@ -538,6 +576,47 @@ export const useNotifications = () => {
     },
   })
 
+  const acceptWorkspaceInviteMutation = useMutation({
+    mutationFn: (invitationId: string) => acceptWorkspaceInvite(invitationId),
+    onMutate: async (invitationId) => {
+      await queryClient.cancelQueries({ queryKey: WORKSPACE_INVITES_KEY })
+      const previousInvites = queryClient.getQueryData<WorkspaceInvite[]>(WORKSPACE_INVITES_KEY)
+      queryClient.setQueryData<WorkspaceInvite[]>(
+        WORKSPACE_INVITES_KEY,
+        (old) => old?.filter((i) => i.id !== invitationId) ?? [],
+      )
+      return { previousInvites }
+    },
+    onError: (_err, _invitationId, context) => {
+      if (context?.previousInvites) {
+        queryClient.setQueryData(WORKSPACE_INVITES_KEY, context.previousInvites)
+      }
+    },
+    onSuccess: (result) => {
+      if (!result.ok) return
+      // Accepting sets the new organization as the active workspace server-side.
+      queryClient.invalidateQueries({ queryKey: ['workspaces'] })
+    },
+  })
+
+  const declineWorkspaceInviteMutation = useMutation({
+    mutationFn: (invitationId: string) => declineWorkspaceInvite(invitationId),
+    onMutate: async (invitationId) => {
+      await queryClient.cancelQueries({ queryKey: WORKSPACE_INVITES_KEY })
+      const previousInvites = queryClient.getQueryData<WorkspaceInvite[]>(WORKSPACE_INVITES_KEY)
+      queryClient.setQueryData<WorkspaceInvite[]>(
+        WORKSPACE_INVITES_KEY,
+        (old) => old?.filter((i) => i.id !== invitationId) ?? [],
+      )
+      return { previousInvites }
+    },
+    onError: (_err, _invitationId, context) => {
+      if (context?.previousInvites) {
+        queryClient.setQueryData(WORKSPACE_INVITES_KEY, context.previousInvites)
+      }
+    },
+  })
+
   return {
     open,
     setOpen: handleOpen,
@@ -554,5 +633,9 @@ export const useNotifications = () => {
     isAcceptingListInvite: acceptListInviteMutation.isPending,
     declineListInvite: declineListInviteMutation.mutate,
     isDecliningListInvite: declineListInviteMutation.isPending,
+    acceptWorkspaceInvite: acceptWorkspaceInviteMutation.mutate,
+    isAcceptingWorkspaceInvite: acceptWorkspaceInviteMutation.isPending,
+    declineWorkspaceInvite: declineWorkspaceInviteMutation.mutate,
+    isDecliningWorkspaceInvite: declineWorkspaceInviteMutation.isPending,
   }
 }

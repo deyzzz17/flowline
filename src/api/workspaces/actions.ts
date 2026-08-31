@@ -9,17 +9,46 @@ import { ok, err } from '@/types/result'
 import { getSession } from '@/lib/get-session'
 import { getUserPlanLimits } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
+import { checkRateLimit } from '@/lib/rate-limit'
+import { findUserByEmail, findUsersByIds, type ContactProfile } from '@/api/contacts/actions'
+
+// Better Auth's org plugin ships 3 default roles: owner (auto-assigned to the
+// creator, not invitable), admin, and member. We only ever invite as one of
+// the latter two — "member" is displayed as "Editor" in the UI.
+export type WorkspaceInviteRole = 'admin' | 'member'
+
+const DEFAULT_ICON = 'Building2'
+const DEFAULT_COLOR = '#8b5cf6'
 
 export interface WorkspaceSummary {
   /** Better Auth organization id, or `null` for the Personal workspace. */
   id: string | null
   name: string
   isPersonal: boolean
+  icon: string
+  color: string
 }
 
 const getUserId = async () => {
   const session = await getSession()
   return session?.user?.id ?? null
+}
+
+function parseMetadata(metadata: unknown): { icon: string; color: string } {
+  const parsed: unknown =
+    typeof metadata === 'string'
+      ? (() => {
+          try {
+            return JSON.parse(metadata)
+          } catch {
+            return null
+          }
+        })()
+      : metadata
+  const data = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {}
+  const icon = typeof data.icon === 'string' ? data.icon : DEFAULT_ICON
+  const color = typeof data.color === 'string' ? data.color : DEFAULT_COLOR
+  return { icon, color }
 }
 
 export const listWorkspaces = async () => {
@@ -30,8 +59,13 @@ export const listWorkspaces = async () => {
   const orgs = await auth.api.listOrganizations({ headers: await headers() })
 
   const docs: WorkspaceSummary[] = [
-    { id: null, name: 'Personal', isPersonal: true },
-    ...orgs.map((o) => ({ id: o.id, name: o.name, isPersonal: false })),
+    { id: null, name: 'Personal', isPersonal: true, icon: 'User', color: '#8b5cf6' },
+    ...orgs.map((o) => ({
+      id: o.id,
+      name: o.name,
+      isPersonal: false,
+      ...parseMetadata(o.metadata),
+    })),
   ]
 
   return { docs, activeId: session.session.activeOrganizationId ?? null }
@@ -63,12 +97,24 @@ function slugify(name: string): string {
   )
 }
 
-export const createWorkspace = async (name: string) => {
+export interface CreateWorkspaceInvite {
+  email: string
+  role: WorkspaceInviteRole
+}
+
+export interface CreateWorkspaceInput {
+  name: string
+  icon: string
+  color: string
+  invites?: CreateWorkspaceInvite[]
+}
+
+export const createWorkspace = async (input: CreateWorkspaceInput) => {
   try {
     const userId = await getUserId()
     if (!userId) return err('Not authenticated')
 
-    const trimmed = name.trim()
+    const trimmed = input.name.trim()
     if (!trimmed) return err('Name is required')
 
     const { plan, limits } = await getUserPlanLimits()
@@ -82,15 +128,44 @@ export const createWorkspace = async (name: string) => {
     }
 
     const slug = `${slugify(trimmed)}-${Math.random().toString(36).slice(2, 8)}`
+    const requestHeaders = await headers()
 
     const org = await auth.api.createOrganization({
-      headers: await headers(),
-      body: { name: trimmed, slug },
+      headers: requestHeaders,
+      body: {
+        name: trimmed,
+        slug,
+        metadata: { icon: input.icon || DEFAULT_ICON, color: input.color || DEFAULT_COLOR },
+      },
     })
 
     if (!org) return err('Error while creating the workspace')
 
-    return ok<WorkspaceSummary>({ id: org.id, name: org.name, isPersonal: false })
+    // Invite failures (rate limit, duplicate, etc.) don't roll back the
+    // workspace itself — they're reported back so the UI can inform the user
+    // which invites, if any, didn't go through.
+    const failedInvites: string[] = []
+    for (const invite of input.invites ?? []) {
+      try {
+        await auth.api.createInvitation({
+          headers: requestHeaders,
+          body: { organizationId: org.id, email: invite.email, role: invite.role },
+        })
+      } catch {
+        failedInvites.push(invite.email)
+      }
+    }
+
+    return ok({
+      workspace: {
+        id: org.id,
+        name: org.name,
+        isPersonal: false,
+        icon: input.icon || DEFAULT_ICON,
+        color: input.color || DEFAULT_COLOR,
+      } as WorkspaceSummary,
+      failedInvites,
+    })
   } catch {
     return err('Error while creating the workspace')
   }
@@ -109,6 +184,41 @@ export const switchWorkspace = async (workspaceId: string | null) => {
     return ok(true)
   } catch {
     return err('Error while switching workspace')
+  }
+}
+
+export const updateWorkspaceName = async (workspaceId: string, name: string) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const trimmed = name.trim()
+    if (!trimmed) return err('Name is required')
+
+    await auth.api.updateOrganization({
+      headers: await headers(),
+      body: { organizationId: workspaceId, data: { name: trimmed } },
+    })
+
+    return ok(true)
+  } catch {
+    return err('Error while renaming the workspace')
+  }
+}
+
+export const deleteWorkspace = async (workspaceId: string) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    await auth.api.deleteOrganization({
+      headers: await headers(),
+      body: { organizationId: workspaceId },
+    })
+
+    return ok(true)
+  } catch {
+    return err('Error while deleting the workspace')
   }
 }
 
@@ -143,4 +253,91 @@ export const listWorkspaceMembers = async () => {
   }))
 
   return { docs }
+}
+
+// Search for a registered user by email to invite to a workspace — not
+// restricted to contacts, unlike list sharing: workspaces are for teams,
+// which may include people you haven't connected with personally.
+export const searchUserForWorkspaceInvite = async (
+  email: string,
+): Promise<{ ok: true; value: ContactProfile | null } | { ok: false; error: string }> => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    if (!checkRateLimit(`search-workspace-invite:${userId}`, 5, 1000)) {
+      return err('Too many requests. Please wait a moment.')
+    }
+
+    const session = await getSession()
+    const normalizedEmail = email.trim().toLowerCase()
+    if (!normalizedEmail) return ok(null)
+    if (session?.user?.email?.toLowerCase() === normalizedEmail) return ok(null)
+
+    const foundUser = await findUserByEmail(normalizedEmail)
+    return ok(foundUser)
+  } catch {
+    return err('Error searching for that email')
+  }
+}
+
+export interface WorkspaceInvite {
+  id: string
+  organizationId: string
+  organizationName: string
+  role: string
+  inviterName: string | null
+  createdAt: string
+}
+
+export const listMyWorkspaceInvites = async (): Promise<WorkspaceInvite[]> => {
+  const session = await getSession()
+  if (!session?.user) return []
+
+  const invitations = await auth.api.listUserInvitations({ headers: await headers() })
+  if (invitations.length === 0) return []
+
+  const inviterIds = Array.from(new Set(invitations.map((i) => i.inviterId)))
+  const invitersMap = await findUsersByIds(inviterIds)
+
+  return invitations.map((i) => ({
+    id: i.id,
+    organizationId: i.organizationId,
+    organizationName: i.organizationName,
+    role: i.role,
+    inviterName: invitersMap.get(i.inviterId)?.name ?? null,
+    createdAt: i.createdAt as unknown as string,
+  }))
+}
+
+export const acceptWorkspaceInvite = async (invitationId: string) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    await auth.api.acceptInvitation({
+      headers: await headers(),
+      body: { invitationId },
+    })
+
+    return ok(true)
+  } catch {
+    return err('Error while accepting the invitation')
+  }
+}
+
+export const declineWorkspaceInvite = async (invitationId: string) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    await auth.api.rejectInvitation({
+      headers: await headers(),
+      body: { invitationId },
+    })
+
+    return ok(true)
+  } catch {
+    return err('Error while declining the invitation')
+  }
 }

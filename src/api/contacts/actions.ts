@@ -54,7 +54,7 @@ export interface RecentItem {
   at: string
 }
 
-async function findUserByEmail(email: string): Promise<ContactProfile | null> {
+export async function findUserByEmail(email: string): Promise<ContactProfile | null> {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL })
   try {
     const result = await pool.query(
