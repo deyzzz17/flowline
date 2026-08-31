@@ -615,6 +615,33 @@ export const listTasksRecurring = async () => {
   })
 }
 
+// Tasks overlaid on the workspace-scoped calendar — unlike the plain
+// listTasks() (shared by the global calendar, notifications, mention search,
+// etc. and deliberately left unscoped), this one is scoped to the active
+// workspace so a task due today in workspace A doesn't bleed onto workspace
+// B's calendar.
+export const listTasksForWorkspaceCalendar = async () => {
+  const userId = await getUserId()
+  if (!userId) return { docs: [] }
+
+  const payload = await getPayload({ config })
+  const workspaceId = await getCurrentWorkspaceId()
+
+  return await payload.find({
+    collection: 'tasks',
+    limit: 0,
+    where: {
+      and: [
+        { userId: { equals: userId } },
+        { status: { equals: 'active' } },
+        { dueDate: { exists: true } },
+        { planArchivedAt: { exists: false } },
+        workspaceWhereClause(workspaceId),
+      ],
+    },
+  })
+}
+
 export const updateTaskStatus = async (
   id: number,
   newStatus: 'active' | 'completed' | 'deleted' | 'inactive',

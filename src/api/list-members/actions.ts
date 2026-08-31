@@ -3,6 +3,7 @@
 import 'server-only'
 
 import { getPayload } from 'payload'
+import { Pool } from 'pg'
 import config from '@/payload.config'
 import { revalidatePath } from 'next/cache'
 import { ok, err } from '@/types/result'
@@ -60,6 +61,21 @@ async function getAcceptedContactIds(
   return docs.map((d) =>
     d.requesterId === userId ? (d.recipientId as string) : (d.requesterId as string),
   )
+}
+
+// Every user id with an ACCEPTED membership in this Better Auth organization
+// (pending invites don't count — you can't add someone to a list who hasn't
+// actually joined the workspace yet).
+async function getWorkspaceMemberUserIds(workspaceId: string): Promise<string[]> {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+  try {
+    const result = await pool.query(`SELECT "userId" FROM member WHERE "organizationId" = $1`, [
+      workspaceId,
+    ])
+    return result.rows.map((r) => r.userId as string)
+  } finally {
+    await pool.end()
+  }
 }
 
 async function countListMembers(
@@ -133,15 +149,26 @@ export const createSharedList = async (input: CreateSharedListInput) => {
       )
     }
 
+    const workspaceId = await getCurrentWorkspaceId()
+
     if (uniqueInvites.length > 0) {
-      const acceptedContactIds = await getAcceptedContactIds(payload, userId)
-      const invalidInvite = uniqueInvites.find((i) => !acceptedContactIds.includes(i.userId))
-      if (invalidInvite) {
-        return err('You can only invite people from your contacts.')
+      if (workspaceId !== null) {
+        // Inside a workspace, you can only add actual (accepted) members of
+        // that workspace — not your personal contacts, and not people who
+        // were invited to the workspace but haven't accepted yet.
+        const memberUserIds = await getWorkspaceMemberUserIds(workspaceId)
+        const invalidInvite = uniqueInvites.find((i) => !memberUserIds.includes(i.userId))
+        if (invalidInvite) {
+          return err('You can only add members of this workspace.')
+        }
+      } else {
+        const acceptedContactIds = await getAcceptedContactIds(payload, userId)
+        const invalidInvite = uniqueInvites.find((i) => !acceptedContactIds.includes(i.userId))
+        if (invalidInvite) {
+          return err('You can only invite people from your contacts.')
+        }
       }
     }
-
-    const workspaceId = await getCurrentWorkspaceId()
 
     const { docs: existing } = await payload.find({
       collection: 'lists',
@@ -162,10 +189,14 @@ export const createSharedList = async (input: CreateSharedListInput) => {
         workspace: workspaceId,
         ...(input.category && { category: input.category }),
         isDefault: false,
-        isShared: true,
+        isShared: uniqueInvites.length > 0,
       },
     })
 
+    // Workspace teammates are already trusted members of the org, so adding
+    // them to a list is immediate — no separate pending/accept step, unlike
+    // Personal contacts (who aren't otherwise connected to this resource).
+    const initialStatus = workspaceId !== null ? 'accepted' : 'pending'
     for (const invite of uniqueInvites) {
       await payload.create({
         collection: 'list-members',
@@ -174,7 +205,8 @@ export const createSharedList = async (input: CreateSharedListInput) => {
           userId: invite.userId,
           invitedBy: userId,
           role: invite.role,
-          status: 'pending',
+          status: initialStatus,
+          ...(initialStatus === 'accepted' && { respondedAt: new Date().toISOString() }),
         },
       })
     }
@@ -209,9 +241,17 @@ export const inviteListMember = async (
 
     if (inviteeUserId === userId) return err('You cannot invite yourself.')
 
-    const acceptedContactIds = await getAcceptedContactIds(payload, userId)
-    if (!acceptedContactIds.includes(inviteeUserId)) {
-      return err('You can only invite people from your contacts.')
+    const listWorkspaceId = (list as any).workspace ?? null
+    if (listWorkspaceId !== null) {
+      const memberUserIds = await getWorkspaceMemberUserIds(listWorkspaceId)
+      if (!memberUserIds.includes(inviteeUserId)) {
+        return err('You can only add members of this workspace.')
+      }
+    } else {
+      const acceptedContactIds = await getAcceptedContactIds(payload, userId)
+      if (!acceptedContactIds.includes(inviteeUserId)) {
+        return err('You can only invite people from your contacts.')
+      }
     }
 
     const { plan, limits } = await getPlanLimitsForUserId(userId)
@@ -236,6 +276,7 @@ export const inviteListMember = async (
       )
     }
 
+    const initialStatus = listWorkspaceId !== null ? 'accepted' : 'pending'
     const created = await payload.create({
       collection: 'list-members',
       data: {
@@ -243,7 +284,8 @@ export const inviteListMember = async (
         userId: inviteeUserId,
         invitedBy: userId,
         role,
-        status: 'pending',
+        status: initialStatus,
+        ...(initialStatus === 'accepted' && { respondedAt: new Date().toISOString() }),
       },
     })
 

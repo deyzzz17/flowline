@@ -26,6 +26,7 @@ import { useSidebarFooter } from '@/hooks/sidebar/use-sidebar-footer'
 import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
 import { useSharedLists } from '@/hooks/lists/use-shared-lists'
 import { useListUrgency } from '@/hooks/tasks/use-list-urgency'
+import { SHARED_LIST_POLL_INTERVAL_MS } from '@/lib/realtime'
 import { cn } from '@/lib/utils'
 import type { Task, List } from '@/payload-types'
 import {
@@ -109,7 +110,15 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
   const [limitDialog, setLimitDialog] = useState<LimitError | null>(null)
   const [capDialog, setCapDialog] = useState<SafetyCapError | null>(null)
 
-  const { data: listsData } = useQuery({ queryKey: ['lists'], queryFn: () => api.lists.list() })
+  // Inside a workspace, other members can add/remove lists at any time — poll
+  // at the same cadence as the rest of the app's shared/collaborative data
+  // (see src/lib/realtime.ts) so they show up here without a manual refresh.
+  const isPersonalActive = !activeWorkspace || activeWorkspace.isPersonal
+  const { data: listsData } = useQuery({
+    queryKey: ['lists'],
+    queryFn: () => api.lists.list(),
+    refetchInterval: isPersonalActive ? false : SHARED_LIST_POLL_INTERVAL_MS,
+  })
   const { data: tasksData } = useQuery({
     queryKey: ['tasks'],
     queryFn: () => api.tasks.list(),
@@ -123,8 +132,13 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
   const ownSharedLists = lists.filter((l: List) => l.isShared)
   // Lists shared WITH us aren't workspace-scoped yet — for now they only show
   // up under the Personal workspace.
-  const isPersonalActive = !activeWorkspace || activeWorkspace.isPersonal
   const invitedSharedLists = isPersonalActive ? sharedLists : []
+  // Inside a workspace, owned + shared lists are shown together in one flat,
+  // alphabetized section instead of being split into "Lists" and "Shared" —
+  // listLists() already only returns lists you're actually part of there.
+  const workspaceLists = isPersonalActive
+    ? []
+    : [...customLists, ...ownSharedLists].sort((a, b) => a.name.localeCompare(b.name))
 
   const tasksByList = allTasks.reduce<Record<number, Task[]>>((acc, task) => {
     const listId =
@@ -366,79 +380,130 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
                     )}
                   </Link>
                 )}
-                {customLists.map((list: List) => (
-                  <Link
-                    key={list.id}
-                    {...navLink(`/lists/${list.slug}`)}
-                    className={cn(
-                      'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
-                      isActive(`/lists/${list.slug}`)
-                        ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                    )}
-                  >
-                    <span
-                      className="h-2 w-2 rounded-full shrink-0"
-                      style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
-                    />
-                    <span className="flex-1 truncate">{list.name}</span>
-                    {getListUrgency(tasksByList[list.id] ?? []) && (
-                      <span
+                {isPersonalActive ? (
+                  <>
+                    {customLists.map((list: List) => (
+                      <Link
+                        key={list.id}
+                        {...navLink(`/lists/${list.slug}`)}
                         className={cn(
-                          'size-1.5 shrink-0 rounded-full',
-                          getListUrgency(tasksByList[list.id] ?? []) === 'red'
-                            ? 'bg-destructive'
-                            : 'bg-orange-500',
+                          'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
+                          isActive(`/lists/${list.slug}`)
+                            ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                            : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                         )}
-                      />
-                    )}
-                  </Link>
-                ))}
-                <Link
-                  {...navLink('/lists/new-list')}
-                  className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/60 hover:bg-muted hover:text-foreground transition-all"
-                >
-                  <Plus className="h-3.5 w-3.5 shrink-0" />
-                  New list
-                </Link>
-
-                <div className="my-1.5 border-t border-border/40" />
-
-                <div className="mt-1 mb-1 flex items-center gap-1.5 px-3">
-                  <Users className="h-3 w-3 text-violet-500/70" />
-                  <span className="text-[10px] font-semibold uppercase tracking-widest text-violet-500/70">
-                    Shared
-                  </span>
-                </div>
-                {[...ownSharedLists, ...invitedSharedLists].map((list) => (
-                  <SharedListLink
-                    key={list.id}
-                    list={list}
-                    isActive={isActive(`/lists/${list.slug}`)}
-                    navLink={navLink(`/lists/${list.slug}`)}
-                  />
-                ))}
-                {planLimits?.plan === 'free' ? (
-                  <div className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/40">
-                    <UserPlus className="h-3.5 w-3.5 shrink-0" />
-                    <span className="flex-1 truncate">New shared list</span>
-                    <button
-                      type="button"
-                      onClick={() => setLimitDialog(LIMIT_ERRORS.SHARED_LISTS_LIMIT)}
-                      className="shrink-0 text-violet-500/70 transition-colors hover:text-violet-500"
-                      title="Upgrade to Plus or Pro to create shared lists"
+                      >
+                        <span
+                          className="h-2 w-2 rounded-full shrink-0"
+                          style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
+                        />
+                        <span className="flex-1 truncate">{list.name}</span>
+                        {getListUrgency(tasksByList[list.id] ?? []) && (
+                          <span
+                            className={cn(
+                              'size-1.5 shrink-0 rounded-full',
+                              getListUrgency(tasksByList[list.id] ?? []) === 'red'
+                                ? 'bg-destructive'
+                                : 'bg-orange-500',
+                            )}
+                          />
+                        )}
+                      </Link>
+                    ))}
+                    <Link
+                      {...navLink('/lists/new-list')}
+                      className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/60 hover:bg-muted hover:text-foreground transition-all"
                     >
-                      <Zap className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
+                      <Plus className="h-3.5 w-3.5 shrink-0" />
+                      New list
+                    </Link>
+
+                    <div className="my-1.5 border-t border-border/40" />
+
+                    <div className="mt-1 mb-1 flex items-center gap-1.5 px-3">
+                      <Users className="h-3 w-3 text-violet-500/70" />
+                      <span className="text-[10px] font-semibold uppercase tracking-widest text-violet-500/70">
+                        Shared
+                      </span>
+                    </div>
+                    {[...ownSharedLists, ...invitedSharedLists].map((list) => (
+                      <SharedListLink
+                        key={list.id}
+                        list={list}
+                        isActive={isActive(`/lists/${list.slug}`)}
+                        navLink={navLink(`/lists/${list.slug}`)}
+                      />
+                    ))}
+                    {planLimits?.plan === 'free' ? (
+                      <div className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/40">
+                        <UserPlus className="h-3.5 w-3.5 shrink-0" />
+                        <span className="flex-1 truncate">New shared list</span>
+                        <button
+                          type="button"
+                          onClick={() => setLimitDialog(LIMIT_ERRORS.SHARED_LISTS_LIMIT)}
+                          className="shrink-0 text-violet-500/70 transition-colors hover:text-violet-500"
+                          title="Upgrade to Plus or Pro to create shared lists"
+                        >
+                          <Zap className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <Link
+                        {...navLink('/lists/new-shared-list')}
+                        className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/60 hover:bg-muted hover:text-foreground transition-all"
+                      >
+                        <UserPlus className="h-3.5 w-3.5 shrink-0" />
+                        New shared list
+                      </Link>
+                    )}
+                  </>
                 ) : (
-                  <Link
-                    {...navLink('/lists/new-shared-list')}
-                    className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/60 hover:bg-muted hover:text-foreground transition-all"
-                  >
-                    <UserPlus className="h-3.5 w-3.5 shrink-0" />
-                    New shared list
-                  </Link>
+                  <>
+                    {workspaceLists.map((list) =>
+                      list.isShared ? (
+                        <SharedListLink
+                          key={list.id}
+                          list={list}
+                          isActive={isActive(`/lists/${list.slug}`)}
+                          navLink={navLink(`/lists/${list.slug}`)}
+                        />
+                      ) : (
+                        <Link
+                          key={list.id}
+                          {...navLink(`/lists/${list.slug}`)}
+                          className={cn(
+                            'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
+                            isActive(`/lists/${list.slug}`)
+                              ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                              : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                          )}
+                        >
+                          <span
+                            className="h-2 w-2 rounded-full shrink-0"
+                            style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
+                          />
+                          <span className="flex-1 truncate">{list.name}</span>
+                          {getListUrgency(tasksByList[list.id] ?? []) && (
+                            <span
+                              className={cn(
+                                'size-1.5 shrink-0 rounded-full',
+                                getListUrgency(tasksByList[list.id] ?? []) === 'red'
+                                  ? 'bg-destructive'
+                                  : 'bg-orange-500',
+                              )}
+                            />
+                          )}
+                        </Link>
+                      ),
+                    )}
+                    <Link
+                      {...navLink('/lists/new-list')}
+                      className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/60 hover:bg-muted hover:text-foreground transition-all"
+                    >
+                      <Plus className="h-3.5 w-3.5 shrink-0" />
+                      New list
+                    </Link>
+                  </>
                 )}
               </div>
             )}

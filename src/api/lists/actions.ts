@@ -112,15 +112,49 @@ export const listLists = async () => {
   const payload = await getPayload({ config })
   const workspaceId = await getCurrentWorkspaceId()
 
+  // Personal keeps the old split: only your own lists here, lists shared
+  // WITH you are fetched separately (listListsSharedWithMe) and shown in
+  // their own sidebar section. Inside a real workspace, everyone only sees
+  // lists they're actually part of anyway, so owned + shared-with-you are
+  // merged into one query/section instead.
+  if (workspaceId === null) {
+    return await payload.find({
+      collection: 'lists',
+      sort: 'createdAt',
+      limit: 0,
+      where: {
+        and: [
+          { userId: { equals: userId } },
+          workspaceWhereClause(null),
+          { planArchivedAt: { exists: false } },
+        ],
+      },
+    })
+  }
+
+  const { docs: memberDocs } = await payload.find({
+    collection: 'list-members',
+    where: { and: [{ userId: { equals: userId } }, { status: { equals: 'accepted' } }] },
+    limit: 0,
+  })
+  const sharedListIds = memberDocs
+    .map((d) => (typeof d.list === 'object' ? d.list?.id : d.list))
+    .filter((id): id is number => typeof id === 'number')
+
   return await payload.find({
     collection: 'lists',
     sort: 'createdAt',
     limit: 0,
     where: {
       and: [
-        { userId: { equals: userId } },
         workspaceWhereClause(workspaceId),
         { planArchivedAt: { exists: false } },
+        {
+          or: [
+            { userId: { equals: userId } },
+            ...(sharedListIds.length > 0 ? [{ id: { in: sharedListIds } }] : []),
+          ],
+        },
       ],
     },
   })

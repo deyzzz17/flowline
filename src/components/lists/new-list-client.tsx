@@ -1,19 +1,25 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
+import { useSession } from '@/lib/auth-client'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { AlertCircle, Check, Loader2 } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { AlertCircle, Check, Loader2, Users, UserPlus, Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCreateList } from '@/hooks/lists/use-create-list'
 import { toast } from 'sonner'
-import { LIMIT_ERRORS, SAFETY_CAP_ERRORS, type SafetyCapError } from '@/lib/plan-limits'
+import { LIMIT_ERRORS, SAFETY_CAP_ERRORS, type LimitError, type SafetyCapError } from '@/lib/plan-limits'
 import { PlanLimitDialog } from '../ui/plan-limit-dialog'
 import { SafetyCapDialog } from '../ui/safety-cap-dialog'
+import { useActiveWorkspace } from '@/components/dashboard/workspace-switcher'
+import type { WorkspaceMember } from '@/api/workspaces/actions'
+import type { ListMemberRole } from '@/api/list-members/actions'
+import { RoleToggle, RolePermissionsHint } from './role-toggle'
 
 function hexToRgba(hex: string, alpha: number) {
   try {
@@ -41,9 +47,32 @@ const PRESET_COLORS = [
   '#64748b',
 ]
 
+function getInitials(name?: string | null): string {
+  if (!name) return '?'
+  const parts = name.trim().split(' ')
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+  return parts[0][0].toUpperCase()
+}
+
+function MemberRowAvatar({ name, image }: { name: string; image?: string | null }) {
+  return (
+    <Avatar className="h-9 w-9 shrink-0">
+      <AvatarImage src={image ?? undefined} alt={name} />
+      <AvatarFallback className="bg-violet-500/10 text-xs font-semibold text-violet-600 dark:text-violet-400">
+        {getInitials(name)}
+      </AvatarFallback>
+    </Avatar>
+  )
+}
+
 export const NewListClient = () => {
   const router = useRouter()
   const queryClient = useQueryClient()
+  const { data: session } = useSession()
+  const currentUserId = session?.user?.id
+
+  const activeWorkspace = useActiveWorkspace()
+  const isWorkspaceActive = !!activeWorkspace && !activeWorkspace.isPersonal
 
   const {
     name,
@@ -59,24 +88,70 @@ export const NewListClient = () => {
   } = useCreateList()
 
   const [capError, setCapError] = useState<SafetyCapError | null>(null)
+  const [limitErrorType, setLimitErrorType] = useState<LimitError>(LIMIT_ERRORS.LISTS_LIMIT)
+  const [memberLimitError, setMemberLimitError] = useState<LimitError | null>(null)
+  const [memberSearch, setMemberSearch] = useState('')
+  const [invitees, setInvitees] = useState<{ user: WorkspaceMember; role: ListMemberRole }[]>([])
+
+  const { data: workspaceMembersData } = useQuery({
+    queryKey: ['workspace-members'],
+    queryFn: () => api.workspaces.listMembers(),
+    enabled: isWorkspaceActive,
+  })
+
+  const invitedUserIds = useMemo(() => new Set(invitees.map((i) => i.user.userId)), [invitees])
+
+  const invitableMembers = useMemo(() => {
+    const members = workspaceMembersData?.docs ?? []
+    const q = memberSearch.trim().toLowerCase()
+    return members.filter((m) => {
+      if (m.userId === currentUserId) return false
+      if (invitedUserIds.has(m.userId)) return false
+      if (!q) return true
+      return m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q)
+    })
+  }, [workspaceMembersData, invitedUserIds, memberSearch, currentUserId])
+
+  const addInvitee = (user: WorkspaceMember) => {
+    setInvitees((prev) => [...prev, { user, role: 'editor' }])
+  }
+
+  const removeInvitee = (userId: string) => {
+    setInvitees((prev) => prev.filter((i) => i.user.userId !== userId))
+  }
+
+  const setInviteeRole = (userId: string, role: ListMemberRole) => {
+    setInvitees((prev) => prev.map((i) => (i.user.userId === userId ? { ...i, role } : i)))
+  }
 
   const mutation = useMutation({
     mutationFn: () =>
-      api.lists.create({
-        name: name.trim(),
-        category: {
-          name: categoryName.trim() || undefined,
-          color,
-        },
-      }),
+      isWorkspaceActive
+        ? api.listMembers.createShared({
+            name: name.trim(),
+            category: { name: categoryName.trim() || undefined, color },
+            invites: invitees.map((i) => ({ userId: i.user.userId, role: i.role })),
+          })
+        : api.lists.create({
+            name: name.trim(),
+            category: { name: categoryName.trim() || undefined, color },
+          }),
     onSuccess: (result) => {
       if (!result.ok) {
-        if (result.error === LIMIT_ERRORS.LISTS_LIMIT) {
+        if (result.error === LIMIT_ERRORS.LISTS_LIMIT || result.error === LIMIT_ERRORS.SHARED_LISTS_LIMIT) {
+          setLimitErrorType(result.error)
           setLimitOpen(true)
           return
         }
-        if (result.error === SAFETY_CAP_ERRORS.LISTS_CAP) {
+        if (
+          result.error === SAFETY_CAP_ERRORS.LISTS_CAP ||
+          result.error === SAFETY_CAP_ERRORS.SHARED_LISTS_CAP
+        ) {
           setCapError(SAFETY_CAP_ERRORS.LISTS_CAP)
+          return
+        }
+        if (result.error === LIMIT_ERRORS.SHARED_LIST_MEMBERS_LIMIT) {
+          setMemberLimitError(LIMIT_ERRORS.SHARED_LIST_MEMBERS_LIMIT)
           return
         }
         setError(
@@ -89,7 +164,10 @@ export const NewListClient = () => {
         return
       }
       toast.info('List created', {
-        description: `Your list is successfully created.`,
+        description:
+          invitees.length > 0
+            ? `${invitees.length} ${invitees.length === 1 ? 'member has' : 'members have'} been added.`
+            : 'Your list is successfully created.',
       })
       queryClient.invalidateQueries({ queryKey: ['lists'] })
       router.push(`/lists/${result.value.slug}`)
@@ -218,6 +296,90 @@ export const NewListClient = () => {
           </div>
         </div>
 
+        {isWorkspaceActive && (
+          <div className="rounded-2xl border border-border/60 bg-card/40 p-6 backdrop-blur-sm space-y-4">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-violet-500" />
+              <p className="text-sm font-medium text-foreground">Add members</p>
+              <span className="text-xs font-normal text-muted-foreground">Optional</span>
+            </div>
+            <p className="text-xs text-muted-foreground/70">
+              Only members of <strong>{activeWorkspace?.name}</strong> can be added to a list.
+            </p>
+
+            {invitees.length > 0 && (
+              <div className="space-y-2">
+                {invitees.map((i) => (
+                  <div key={i.user.userId} className="rounded-xl bg-muted/40 px-2 py-1.5">
+                    <div className="flex items-center gap-2.5">
+                      <MemberRowAvatar name={i.user.name} image={i.user.image} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-foreground">
+                          {i.user.name}
+                        </p>
+                      </div>
+                      <RoleToggle
+                        role={i.role}
+                        onChange={(role) => setInviteeRole(i.user.userId, role)}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeInvitee(i.user.userId)}
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <RolePermissionsHint role={i.role} className="pl-11 pt-1.5" />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
+              <Input
+                value={memberSearch}
+                onChange={(e) => setMemberSearch(e.target.value)}
+                placeholder="Search workspace members..."
+                className="h-9 pl-9 text-sm"
+              />
+            </div>
+            <div className="max-h-40 space-y-1 overflow-y-auto">
+              {invitableMembers.length === 0 ? (
+                <p className="py-3 text-center text-xs text-muted-foreground/60">
+                  {memberSearch
+                    ? 'No members match your search.'
+                    : workspaceMembersData
+                      ? 'No more members to add.'
+                      : 'Loading workspace members...'}
+                </p>
+              ) : (
+                invitableMembers.map((m) => (
+                  <div
+                    key={m.userId}
+                    className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 hover:bg-muted/40 transition-colors"
+                  >
+                    <MemberRowAvatar name={m.name} image={m.image} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-foreground">{m.name}</p>
+                      <p className="truncate text-xs text-muted-foreground/60">{m.email}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => addInvitee(m)}
+                      className="flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-violet-500"
+                    >
+                      <UserPlus className="h-3 w-3" />
+                      Add
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-end gap-3">
           <Button type="button" variant="ghost" onClick={() => router.back()}>
             Cancel
@@ -242,10 +404,13 @@ export const NewListClient = () => {
         </div>
       </form>
 
+      <PlanLimitDialog open={limitOpen} onOpenChange={setLimitOpen} limitError={limitErrorType} />
       <PlanLimitDialog
-        open={limitOpen}
-        onOpenChange={setLimitOpen}
-        limitError={LIMIT_ERRORS.LISTS_LIMIT}
+        open={!!memberLimitError}
+        onOpenChange={(v) => {
+          if (!v) setMemberLimitError(null)
+        }}
+        limitError={memberLimitError}
       />
       <SafetyCapDialog
         open={!!capError}

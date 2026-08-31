@@ -7,6 +7,7 @@ import { api } from '@/api'
 import { type CalendarEventData, type EditScope, type SeriesAdjustment } from '@/api/calendar/actions'
 import { generateOccurrences } from '@/api/calendar/calendar-recurrence'
 import { useCalendarFilter } from '@/components/calendar/calendar-filter-context'
+import { SHARED_LIST_POLL_INTERVAL_MS } from '@/lib/realtime'
 import type { Task } from '@/payload-types'
 import { toast } from 'sonner'
 import {
@@ -83,13 +84,20 @@ export const useWorkspaceCalendar = () => {
   const { data: eventsData } = useQuery({
     queryKey: [EVENTS_QUERY_KEY, from.toISOString(), to.toISOString()],
     queryFn: () => api.calendar.listFlowline(from.toISOString(), to.toISOString(), 'workspace'),
-    staleTime: Infinity,
+    staleTime: SHARED_LIST_POLL_INTERVAL_MS,
+    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
   })
 
+  // Scoped to the active workspace — unlike the plain api.tasks.list() (used
+  // by the global calendar, notifications, etc.), so a task due today in a
+  // different workspace doesn't show up here. Polls at the same cadence as
+  // the rest of the app's shared/collaborative data (see src/lib/realtime.ts)
+  // so other members' changes show up here too.
   const { data: tasksData } = useQuery({
-    queryKey: ['tasks'],
-    queryFn: () => api.tasks.list(),
-    staleTime: Infinity,
+    queryKey: ['tasks', 'workspace-calendar'],
+    queryFn: () => api.tasks.listForWorkspaceCalendar(),
+    staleTime: SHARED_LIST_POLL_INTERVAL_MS,
+    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
   })
 
   const rawEvents = useMemo(() => (eventsData?.docs ?? []).map(mapEvent), [eventsData])

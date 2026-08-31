@@ -26,6 +26,7 @@ import { useSidebarFooter } from '@/hooks/sidebar/use-sidebar-footer'
 import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
 import { useSharedLists } from '@/hooks/lists/use-shared-lists'
 import { useListUrgency } from '@/hooks/tasks/use-list-urgency'
+import { SHARED_LIST_POLL_INTERVAL_MS } from '@/lib/realtime'
 import { cn } from '@/lib/utils'
 import type { Task, List } from '@/payload-types'
 import {
@@ -118,7 +119,15 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
   const [limitDialog, setLimitDialog] = useState<LimitError | null>(null)
   const [capDialog, setCapDialog] = useState<SafetyCapError | null>(null)
 
-  const { data: listsData } = useQuery({ queryKey: ['lists'], queryFn: () => api.lists.list() })
+  // Inside a workspace, other members can add/remove lists at any time — poll
+  // at the same cadence as the rest of the app's shared/collaborative data
+  // (see src/lib/realtime.ts) so they show up here without a manual refresh.
+  const isPersonalActive = !activeWorkspace || activeWorkspace.isPersonal
+  const { data: listsData } = useQuery({
+    queryKey: ['lists'],
+    queryFn: () => api.lists.list(),
+    refetchInterval: isPersonalActive ? false : SHARED_LIST_POLL_INTERVAL_MS,
+  })
   const { data: tasksData } = useQuery({
     queryKey: ['tasks'],
     queryFn: () => api.tasks.list(),
@@ -132,8 +141,13 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
   const ownSharedLists = lists.filter((l: List) => l.isShared)
   // Lists shared WITH us aren't workspace-scoped yet — for now they only show
   // up under the Personal workspace.
-  const isPersonalActive = !activeWorkspace || activeWorkspace.isPersonal
   const invitedSharedLists = isPersonalActive ? sharedLists : []
+  // Inside a workspace, owned + shared lists are shown together in one flat,
+  // alphabetized section instead of being split into "Lists" and "Shared" —
+  // listLists() already only returns lists you're actually part of there.
+  const workspaceLists = isPersonalActive
+    ? []
+    : [...customLists, ...ownSharedLists].sort((a, b) => a.name.localeCompare(b.name))
 
   const tasksByList = allTasks.reduce<Record<number, Task[]>>((acc, task) => {
     const listId =
@@ -360,86 +374,143 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
                         )}
-                        {customLists.map((list: List) => (
-                          <SidebarMenuSubItem key={list.id}>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={isActive(`/lists/${list.slug}`)}
-                            >
-                              <Link href={nav(`/lists/${list.slug}`)}>
-                                <span
-                                  className="h-2 w-2 rounded-full shrink-0"
-                                  style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
-                                />
-                                <span className="flex-1 truncate">{list.name}</span>
-                                {getListUrgency(tasksByList[list.id] ?? []) && (
-                                  <span
-                                    className={cn(
-                                      'size-1.5 shrink-0 rounded-full',
-                                      getListUrgency(tasksByList[list.id] ?? []) === 'red'
-                                        ? 'bg-destructive'
-                                        : 'bg-orange-500',
+                        {isPersonalActive ? (
+                          <>
+                            {customLists.map((list: List) => (
+                              <SidebarMenuSubItem key={list.id}>
+                                <SidebarMenuSubButton
+                                  asChild
+                                  isActive={isActive(`/lists/${list.slug}`)}
+                                >
+                                  <Link href={nav(`/lists/${list.slug}`)}>
+                                    <span
+                                      className="h-2 w-2 rounded-full shrink-0"
+                                      style={{
+                                        backgroundColor: list.category?.color ?? '#8b5cf6',
+                                      }}
+                                    />
+                                    <span className="flex-1 truncate">{list.name}</span>
+                                    {getListUrgency(tasksByList[list.id] ?? []) && (
+                                      <span
+                                        className={cn(
+                                          'size-1.5 shrink-0 rounded-full',
+                                          getListUrgency(tasksByList[list.id] ?? []) === 'red'
+                                            ? 'bg-destructive'
+                                            : 'bg-orange-500',
+                                        )}
+                                      />
                                     )}
-                                  />
-                                )}
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
-                        <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild>
-                            <Link
-                              href={nav('/lists/new-list')}
-                              className="text-muted-foreground/60"
-                            >
-                              <Plus className="h-3.5 w-3.5" />
-                              New list
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            ))}
+                            <SidebarMenuSubItem>
+                              <SidebarMenuSubButton asChild>
+                                <Link
+                                  href={nav('/lists/new-list')}
+                                  className="text-muted-foreground/60"
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                  New list
+                                </Link>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
 
-                        <div className="my-1.5 border-t border-border/40 mx-2" />
+                            <div className="my-1.5 border-t border-border/40 mx-2" />
 
-                        <div className="mt-1 mb-1 flex items-center gap-1.5 px-2">
-                          <Users className="h-3 w-3 text-violet-500/70" />
-                          <span className="text-[10px] font-semibold uppercase tracking-widest text-violet-500/70">
-                            Shared
-                          </span>
-                        </div>
-                        {[...ownSharedLists, ...invitedSharedLists].map((list) => (
-                          <SharedListMenuItem
-                            key={list.id}
-                            list={list}
-                            isActive={isActive(`/lists/${list.slug}`)}
-                            href={nav(`/lists/${list.slug}`)}
-                          />
-                        ))}
-                        <SidebarMenuSubItem>
-                          {planLimits?.plan === 'free' ? (
-                            <div className="flex h-7 items-center gap-2 rounded-md px-2 text-xs text-muted-foreground/40">
-                              <UserPlus className="h-3.5 w-3.5 shrink-0" />
-                              <span className="flex-1 truncate">New shared list</span>
-                              <button
-                                type="button"
-                                onClick={() => setLimitDialog(LIMIT_ERRORS.SHARED_LISTS_LIMIT)}
-                                className="shrink-0 text-violet-500/70 transition-colors hover:text-violet-500"
-                                title="Upgrade to Plus or Pro to create shared lists"
-                              >
-                                <Zap className="h-3.5 w-3.5" />
-                              </button>
+                            <div className="mt-1 mb-1 flex items-center gap-1.5 px-2">
+                              <Users className="h-3 w-3 text-violet-500/70" />
+                              <span className="text-[10px] font-semibold uppercase tracking-widest text-violet-500/70">
+                                Shared
+                              </span>
                             </div>
-                          ) : (
-                            <SidebarMenuSubButton asChild>
-                              <Link
-                                href={nav('/lists/new-shared-list')}
-                                className="text-muted-foreground/60"
-                              >
-                                <UserPlus className="h-3.5 w-3.5" />
-                                New shared list
-                              </Link>
-                            </SidebarMenuSubButton>
-                          )}
-                        </SidebarMenuSubItem>
+                            {[...ownSharedLists, ...invitedSharedLists].map((list) => (
+                              <SharedListMenuItem
+                                key={list.id}
+                                list={list}
+                                isActive={isActive(`/lists/${list.slug}`)}
+                                href={nav(`/lists/${list.slug}`)}
+                              />
+                            ))}
+                            <SidebarMenuSubItem>
+                              {planLimits?.plan === 'free' ? (
+                                <div className="flex h-7 items-center gap-2 rounded-md px-2 text-xs text-muted-foreground/40">
+                                  <UserPlus className="h-3.5 w-3.5 shrink-0" />
+                                  <span className="flex-1 truncate">New shared list</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setLimitDialog(LIMIT_ERRORS.SHARED_LISTS_LIMIT)}
+                                    className="shrink-0 text-violet-500/70 transition-colors hover:text-violet-500"
+                                    title="Upgrade to Plus or Pro to create shared lists"
+                                  >
+                                    <Zap className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <SidebarMenuSubButton asChild>
+                                  <Link
+                                    href={nav('/lists/new-shared-list')}
+                                    className="text-muted-foreground/60"
+                                  >
+                                    <UserPlus className="h-3.5 w-3.5" />
+                                    New shared list
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              )}
+                            </SidebarMenuSubItem>
+                          </>
+                        ) : (
+                          <>
+                            {workspaceLists.map((list) =>
+                              list.isShared ? (
+                                <SharedListMenuItem
+                                  key={list.id}
+                                  list={list}
+                                  isActive={isActive(`/lists/${list.slug}`)}
+                                  href={nav(`/lists/${list.slug}`)}
+                                />
+                              ) : (
+                                <SidebarMenuSubItem key={list.id}>
+                                  <SidebarMenuSubButton
+                                    asChild
+                                    isActive={isActive(`/lists/${list.slug}`)}
+                                  >
+                                    <Link href={nav(`/lists/${list.slug}`)}>
+                                      <span
+                                        className="h-2 w-2 rounded-full shrink-0"
+                                        style={{
+                                          backgroundColor: list.category?.color ?? '#8b5cf6',
+                                        }}
+                                      />
+                                      <span className="flex-1 truncate">{list.name}</span>
+                                      {getListUrgency(tasksByList[list.id] ?? []) && (
+                                        <span
+                                          className={cn(
+                                            'size-1.5 shrink-0 rounded-full',
+                                            getListUrgency(tasksByList[list.id] ?? []) === 'red'
+                                              ? 'bg-destructive'
+                                              : 'bg-orange-500',
+                                          )}
+                                        />
+                                      )}
+                                    </Link>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              ),
+                            )}
+                            <SidebarMenuSubItem>
+                              <SidebarMenuSubButton asChild>
+                                <Link
+                                  href={nav('/lists/new-list')}
+                                  className="text-muted-foreground/60"
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                  New list
+                                </Link>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          </>
+                        )}
                       </SidebarMenuSub>
                     </CollapsibleContent>
                   </SidebarMenuItem>
