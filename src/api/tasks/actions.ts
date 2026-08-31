@@ -535,7 +535,14 @@ function getWeekdayInTimezone(timeZone: string): (typeof DAYS)[number] {
     .toLowerCase() as (typeof DAYS)[number]
 }
 
-export const listTasksToday = async (scope: 'workspace' | 'global' = 'workspace') => {
+export const listTasksToday = async (
+  scope: 'workspace' | 'global' = 'workspace',
+  // Explicit override for callers that just changed the active workspace in
+  // the same request (e.g. switchWorkspaceAndGetToday): getCurrentWorkspaceId()
+  // reads the cached/memoized session for this request, which still reflects
+  // the PRE-switch value even after the switch has already been applied.
+  workspaceOverride?: string | null,
+) => {
   const userId = await getUserId()
   if (!userId) return { docs: [] }
 
@@ -548,7 +555,13 @@ export const listTasksToday = async (scope: 'workspace' | 'global' = 'workspace'
   // The Dashboard's Today widget stays global (aggregates every workspace);
   // the Lists section's Today page is scoped to the active workspace only.
   const workspaceFilter =
-    scope === 'workspace' ? [workspaceWhereClause(await getCurrentWorkspaceId())] : []
+    scope === 'workspace'
+      ? [
+          workspaceWhereClause(
+            workspaceOverride !== undefined ? workspaceOverride : await getCurrentWorkspaceId(),
+          ),
+        ]
+      : []
 
   const dueTodayTasks = await payload.find({
     collection: 'tasks',
