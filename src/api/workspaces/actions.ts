@@ -9,7 +9,6 @@ import { ok, err } from '@/types/result'
 import { getSession } from '@/lib/get-session'
 import { getUserPlanLimits } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
-import { listTasksToday } from '@/api/tasks/actions'
 
 export interface WorkspaceSummary {
   /** Better Auth organization id, or `null` for the Personal workspace. */
@@ -111,19 +110,4 @@ export const switchWorkspace = async (workspaceId: string | null) => {
   } catch {
     return err('Error while switching workspace')
   }
-}
-
-// Combines the switch with fetching the new workspace's Today tasks in one
-// round trip (instead of two sequential ones from the client) — the biggest
-// remaining latency in making the switcher feel instant. Must pass
-// workspaceId explicitly to listTasksToday rather than letting it read the
-// session: within this same request, the session is memoized from before
-// the switch above, so a plain getCurrentWorkspaceId() call here would still
-// return the OLD active workspace.
-export const switchWorkspaceAndGetToday = async (workspaceId: string | null) => {
-  const switchResult = await switchWorkspace(workspaceId)
-  if (!switchResult.ok) return { switchResult, today: null }
-
-  const today = await listTasksToday('workspace', workspaceId)
-  return { switchResult, today }
 }

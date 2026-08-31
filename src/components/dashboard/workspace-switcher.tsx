@@ -99,43 +99,22 @@ function useWorkspaceSwitcher(initialData?: WorkspacesData) {
   const [limitDialog, setLimitDialog] = useState<LimitError | null>(null)
   const [capDialog, setCapDialog] = useState<SafetyCapError | null>(null)
 
-  // Warms Today's data for a workspace the user is merely hovering over, not
-  // yet switching to. Safe to call for any workspace at any time — it's a
-  // plain read keyed by an explicit workspace id, independent of the actual
-  // active session. Skipped for the already-active workspace (nothing to warm).
-  const prefetchTodayPreview = (id: string | null) => {
-    if (id === activeId) return
-    queryClient.prefetchQuery({
-      queryKey: ['tasks', 'today-preview', id],
-      queryFn: () => api.tasks.listToday('workspace', id),
-      staleTime: 30_000,
-    })
-  }
-
   const switchMutation = useMutation({
     mutationFn: async (id: string | null) => {
-      const preview = queryClient.getQueryData(['tasks', 'today-preview', id])
-
-      if (preview) {
-        // Today's data for this workspace is already warm from hovering over
-        // it — only the session itself still needs switching, so this skips
-        // straight to the lighter single-purpose call instead of the
-        // combined one.
-        const switchResult = await api.workspaces.switch(id)
-        if (switchResult.ok) queryClient.setQueryData(['tasks', 'today'], preview)
-        return switchResult
+      const result = await api.workspaces.switch(id)
+      if (result.ok) {
+        // The server's active-organization cookie is only correct once this
+        // resolves, so Today can only be prefetched (with the RIGHT data)
+        // after — not in parallel with — the switch itself. Best-effort: if
+        // it fails, Today just fetches normally once we land on it.
+        try {
+          await queryClient.prefetchQuery({
+            queryKey: ['tasks', 'today'],
+            queryFn: () => api.tasks.listToday(),
+          })
+        } catch {}
       }
-
-      // Cold path (no hover warm-up, or it expired): one combined round trip
-      // instead of two sequential ones — the server switches the active
-      // workspace and fetches its Today tasks in the same request, since it
-      // can pass the new workspace id directly instead of relying on the
-      // session (which wouldn't reflect the switch until a follow-up request).
-      const { switchResult, today } = await api.workspaces.switchAndGetToday(id)
-      if (switchResult.ok && today) {
-        queryClient.setQueryData(['tasks', 'today'], today)
-      }
-      return switchResult
+      return result
     },
     onMutate: async (id) => {
       // Optimistic: flip the active workspace in the cache immediately so the
@@ -221,7 +200,6 @@ function useWorkspaceSwitcher(initialData?: WorkspacesData) {
     // `undefined` means "not switching" — `null` is Personal's real id, so it
     // can't double as the sentinel or Personal would always show as pending.
     switchingId: switchMutation.isPending ? switchMutation.variables : undefined,
-    prefetchTodayPreview,
     openCreateDialog,
     handleLockedClick,
     createOpen,
@@ -244,7 +222,6 @@ function WorkspaceMenuContent({
   activeId,
   switchingId,
   onSwitch,
-  onHoverPrefetch,
   atLimit,
   onCreateClick,
   onLockedClick,
@@ -254,7 +231,6 @@ function WorkspaceMenuContent({
   activeId: string | null
   switchingId: string | null | undefined
   onSwitch: (id: string | null) => void
-  onHoverPrefetch: (id: string | null) => void
   atLimit: boolean
   onCreateClick: () => void
   onLockedClick: () => void
@@ -269,7 +245,6 @@ function WorkspaceMenuContent({
           key={w.id ?? 'personal'}
           disabled={switchingId !== undefined}
           onClick={() => w.id !== activeId && onSwitch(w.id)}
-          onMouseEnter={() => onHoverPrefetch(w.id)}
           className="gap-2 text-sm cursor-pointer"
         >
           <WorkspaceAvatar className="size-6" />
@@ -395,7 +370,6 @@ export function WorkspaceSwitcher({ initialData }: WorkspaceSwitcherProps) {
           activeId={s.activeId}
           switchingId={s.switchingId}
           onSwitch={s.switchTo}
-          onHoverPrefetch={s.prefetchTodayPreview}
           atLimit={s.atLimit}
           onCreateClick={s.openCreateDialog}
           onLockedClick={s.handleLockedClick}
@@ -445,7 +419,6 @@ export function SidebarWorkspaceSwitcher({ initialData }: WorkspaceSwitcherProps
           activeId={s.activeId}
           switchingId={s.switchingId}
           onSwitch={s.switchTo}
-          onHoverPrefetch={s.prefetchTodayPreview}
           atLimit={s.atLimit}
           onCreateClick={s.openCreateDialog}
           onLockedClick={s.handleLockedClick}
