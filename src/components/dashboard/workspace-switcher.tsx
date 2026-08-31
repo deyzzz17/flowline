@@ -133,10 +133,19 @@ function useWorkspaceSwitcher(initialData?: WorkspacesData) {
         toast.error(result.error || 'Error while switching workspace.')
         return
       }
-      queryClient.invalidateQueries({ queryKey: ['workspaces'] })
-      for (const key of WORKSPACE_SCOPED_QUERY_KEYS) {
-        queryClient.invalidateQueries({ queryKey: [key] })
-      }
+      // No need to re-fetch ['workspaces'] — the optimistic activeId set in
+      // onMutate is already confirmed correct by the mutation succeeding.
+      // For the rest, invalidate everything EXCEPT ['tasks', 'today']: that
+      // one was just re-fetched with the right data above, so marking it
+      // stale again here would only cause a redundant refetch the instant
+      // Today mounts.
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const [primary, secondary] = query.queryKey
+          if (primary === 'tasks' && secondary === 'today') return false
+          return WORKSPACE_SCOPED_QUERY_KEYS.includes(primary as string)
+        },
+      })
       router.push('/lists/today')
     },
     onError: (_error, _id, context) => {
