@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Building2, Check, ChevronsUpDown, Loader2, Plus, Zap } from 'lucide-react'
+import { toast } from 'sonner'
 import { api } from '@/api'
 import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
 import {
@@ -99,14 +100,48 @@ function useWorkspaceSwitcher(initialData?: WorkspacesData) {
   const [capDialog, setCapDialog] = useState<SafetyCapError | null>(null)
 
   const switchMutation = useMutation({
-    mutationFn: (id: string | null) => api.workspaces.switch(id),
-    onSuccess: (result) => {
-      if (!result.ok) return
+    mutationFn: async (id: string | null) => {
+      const result = await api.workspaces.switch(id)
+      if (result.ok) {
+        // The server's active-organization cookie is only correct once this
+        // resolves, so Today can only be prefetched (with the RIGHT data)
+        // after — not in parallel with — the switch itself. Best-effort: if
+        // it fails, Today just fetches normally once we land on it.
+        try {
+          await queryClient.prefetchQuery({
+            queryKey: ['tasks', 'today'],
+            queryFn: () => api.tasks.listToday(),
+          })
+        } catch {}
+      }
+      return result
+    },
+    onMutate: async (id) => {
+      // Optimistic: flip the active workspace in the cache immediately so the
+      // switcher's checkmark/label update the instant you click, instead of
+      // waiting on the round trip.
+      await queryClient.cancelQueries({ queryKey: ['workspaces'] })
+      const previous = queryClient.getQueryData<WorkspacesData>(['workspaces'])
+      queryClient.setQueryData<WorkspacesData>(['workspaces'], (old) =>
+        old ? { ...old, activeId: id } : old,
+      )
+      return { previous }
+    },
+    onSuccess: (result, _id, context) => {
+      if (!result.ok) {
+        if (context?.previous) queryClient.setQueryData(['workspaces'], context.previous)
+        toast.error(result.error || 'Error while switching workspace.')
+        return
+      }
       queryClient.invalidateQueries({ queryKey: ['workspaces'] })
       for (const key of WORKSPACE_SCOPED_QUERY_KEYS) {
         queryClient.invalidateQueries({ queryKey: [key] })
       }
       router.push('/lists/today')
+    },
+    onError: (_error, _id, context) => {
+      if (context?.previous) queryClient.setQueryData(['workspaces'], context.previous)
+      toast.error('Error while switching workspace.')
     },
   })
 
