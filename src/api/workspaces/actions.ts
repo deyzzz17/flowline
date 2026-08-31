@@ -111,3 +111,36 @@ export const switchWorkspace = async (workspaceId: string | null) => {
     return err('Error while switching workspace')
   }
 }
+
+export interface WorkspaceMember {
+  id: string
+  userId: string
+  role: string
+  name: string
+  email: string
+  image: string | null
+}
+
+// Personal has no members (it's not an organization) — callers should only
+// use this for a real (non-Personal) active workspace.
+export const listWorkspaceMembers = async () => {
+  const session = await getSession()
+  const workspaceId = session?.session.activeOrganizationId
+  if (!workspaceId) return { docs: [] as WorkspaceMember[] }
+
+  const { members } = await auth.api.listMembers({
+    headers: await headers(),
+    query: { organizationId: workspaceId },
+  })
+
+  const docs: WorkspaceMember[] = members.map((m) => ({
+    id: m.id,
+    userId: m.userId,
+    role: m.role,
+    name: m.user.name,
+    email: m.user.email,
+    image: m.user.image ?? null,
+  }))
+
+  return { docs }
+}

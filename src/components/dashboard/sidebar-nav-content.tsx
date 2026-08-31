@@ -445,12 +445,26 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
           </div>
 
           {activeWorkspace && !activeWorkspace.isPersonal && (
-            <CalendarNavSection
-              scope="workspace"
-              href="/workspace-calendar"
-              label="Workspace Calendar"
-              onNavigate={onNavigate}
-            />
+            <>
+              <CalendarNavSection
+                scope="workspace"
+                href="/workspace-calendar"
+                label="Workspace Calendar"
+                onNavigate={onNavigate}
+              />
+              <Link
+                {...navLink('/workspace-members')}
+                className={cn(
+                  'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
+                  isActive('/workspace-members')
+                    ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                )}
+              >
+                <Users className="h-4 w-4 shrink-0" />
+                Members
+              </Link>
+            </>
           )}
         </nav>
 

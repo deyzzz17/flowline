@@ -446,11 +446,25 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                 </Collapsible>
 
                 {activeWorkspace && !activeWorkspace.isPersonal && (
-                  <SidebarCalendarNavSection
-                    scope="workspace"
-                    href="/workspace-calendar"
-                    label="Workspace Calendar"
-                  />
+                  <>
+                    <SidebarCalendarNavSection
+                      scope="workspace"
+                      href="/workspace-calendar"
+                      label="Workspace Calendar"
+                    />
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive('/workspace-members')}
+                        tooltip="Members"
+                      >
+                        <Link href={nav('/workspace-members')}>
+                          <Users className="h-4 w-4 shrink-0" />
+                          <span>Members</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  </>
                 )}
               </SidebarMenu>
             </SidebarGroupContent>
