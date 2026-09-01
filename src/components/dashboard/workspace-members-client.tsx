@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Users, UserPlus, X, Search, Loader2, Check, Pencil } from 'lucide-react'
+import { Users, UserPlus, Trash2, Search, Loader2, Check, Pencil, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
@@ -15,6 +15,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 import { api } from '@/api'
@@ -71,6 +72,12 @@ function RoleToggle({
   )
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  owner: 'Owner',
+  admin: 'Admin',
+  member: 'Editor',
+}
+
 export function WorkspaceMembersClient() {
   const queryClient = useQueryClient()
   const { data: session } = useSession()
@@ -88,12 +95,19 @@ export function WorkspaceMembersClient() {
   const canManage = myRole === 'owner' || myRole === 'admin'
   const canManageTarget = (target: WorkspaceMember) =>
     myRole === 'owner' || (myRole === 'admin' && target.role !== 'owner')
+  const canEditName = (target: WorkspaceMember) =>
+    target.userId === currentUserId || myRole === 'owner'
+  const canEditRole = (target: WorkspaceMember) =>
+    canManageTarget(target) && target.userId !== currentUserId
+  const canEditRow = (target: WorkspaceMember) => canEditName(target) || canEditRole(target)
+  const canRemoveRow = (target: WorkspaceMember) =>
+    canManageTarget(target) && target.userId !== currentUserId
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [nicknameDraft, setNicknameDraft] = useState('')
+  const [roleDraft, setRoleDraft] = useState<WorkspaceInviteRole>('member')
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<WorkspaceInviteRole>('member')
-  const [removeTarget, setRemoveTarget] = useState<WorkspaceMember | null>(null)
 
   const isValidInviteEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail.trim())
   const { data: inviteSearchResult, isFetching: isSearchingInvite } = useQuery({
@@ -119,23 +133,9 @@ export function WorkspaceMembersClient() {
     onError: () => toast.error('Error sending invitation'),
   })
 
-  const roleMutation = useMutation({
-    mutationFn: ({ memberId, role }: { memberId: string; role: WorkspaceInviteRole }) =>
-      api.workspaces.updateMemberRole(memberId, role),
-    onSuccess: (result) => {
-      if (!result.ok) {
-        toast.error(result.error || 'Error updating role')
-        return
-      }
-      queryClient.invalidateQueries({ queryKey: ['workspace-members'] })
-    },
-    onError: () => toast.error('Error updating role'),
-  })
-
   const removeMutation = useMutation({
     mutationFn: (memberId: string) => api.workspaces.removeMember(memberId),
     onSuccess: (result) => {
-      setRemoveTarget(null)
       if (!result.ok) {
         toast.error(result.error || 'Error removing member')
         return
@@ -143,56 +143,37 @@ export function WorkspaceMembersClient() {
       toast.info('Member removed')
       queryClient.invalidateQueries({ queryKey: ['workspace-members'] })
     },
-    onError: () => {
-      setRemoveTarget(null)
-      toast.error('Error removing member')
-    },
+    onError: () => toast.error('Error removing member'),
   })
 
-  const nicknameMutation = useMutation({
-    mutationFn: ({ memberId, nickname }: { memberId: string; nickname: string }) =>
-      api.workspaces.updateMyNickname(memberId, nickname),
-    onSuccess: (result) => {
-      if (!result.ok) {
-        toast.error(result.error || 'Error updating your name')
+  const saveEditMutation = useMutation({
+    mutationFn: async (m: WorkspaceMember) => {
+      const results = await Promise.all([
+        canEditName(m) ? api.workspaces.updateMemberNickname(m.id, nicknameDraft) : null,
+        canEditRole(m) ? api.workspaces.updateMemberRole(m.id, roleDraft) : null,
+      ])
+      return results.filter((r): r is NonNullable<typeof r> => r !== null)
+    },
+    onSuccess: (results) => {
+      const failed = results.find((r) => !r.ok)
+      if (failed) {
+        toast.error((!failed.ok && failed.error) || 'Error saving changes')
         return
       }
       setEditingId(null)
       queryClient.invalidateQueries({ queryKey: ['workspace-members'] })
     },
-    onError: () => toast.error('Error updating your name'),
+    onError: () => toast.error('Error saving changes'),
   })
 
-  const startEditingNickname = (m: WorkspaceMember) => {
+  const startEditing = (m: WorkspaceMember) => {
     setEditingId(m.id)
-    setNicknameDraft(m.nickname ?? '')
+    setNicknameDraft(m.nickname ?? m.name)
+    setRoleDraft(m.role === 'admin' ? 'admin' : 'member')
   }
 
   return (
     <>
-      <AlertDialog open={!!removeTarget} onOpenChange={(v) => !v && setRemoveTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove this member?</AlertDialogTitle>
-            <AlertDialogDescription>
-              <strong>{removeTarget?.nickname || removeTarget?.name}</strong> will lose access to
-              this workspace and everything in it. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => removeTarget && removeMutation.mutate(removeTarget.id)}
-              disabled={removeMutation.isPending}
-              className="gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {removeMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       <section className="mb-8 mt-10">
         <p className="mb-1 text-xl font-semibold uppercase text-violet-500 dark:text-violet-400">
           Workspace
@@ -291,9 +272,9 @@ export function WorkspaceMembersClient() {
           ) : (
             <div className="space-y-1">
               {members.map((m) => {
-                const isSelf = m.userId === currentUserId
                 const isEditingThis = editingId === m.id
-                const manageable = canManageTarget(m) && !isSelf
+                const showEdit = canEditRow(m)
+                const showRemove = canRemoveRow(m)
 
                 return (
                   <div
@@ -301,81 +282,104 @@ export function WorkspaceMembersClient() {
                     className="flex items-center gap-2.5 rounded-xl px-2 py-2 transition-colors hover:bg-muted/40"
                   >
                     <MemberAvatar name={m.name} image={m.image} />
-                    <div className="min-w-0 flex-1">
-                      {isEditingThis ? (
-                        <form
-                          onSubmit={(e) => {
-                            e.preventDefault()
-                            nicknameMutation.mutate({ memberId: m.id, nickname: nicknameDraft })
-                          }}
-                          className="flex items-center gap-1.5"
-                        >
+
+                    {isEditingThis ? (
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault()
+                          saveEditMutation.mutate(m)
+                        }}
+                        className="flex flex-1 items-center gap-2"
+                      >
+                        {canEditName(m) ? (
                           <Input
                             autoFocus
                             value={nicknameDraft}
                             onChange={(e) => setNicknameDraft(e.target.value)}
                             placeholder={m.name}
-                            className="h-7 text-sm"
+                            className="h-8 flex-1 text-sm"
                           />
-                          <button
-                            type="submit"
-                            disabled={nicknameMutation.isPending}
-                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-violet-600 transition-colors hover:bg-violet-500/10 disabled:opacity-50"
-                          >
-                            {nicknameMutation.isPending ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <Check className="h-3.5 w-3.5" />
-                            )}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setEditingId(null)}
-                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-muted"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </form>
-                      ) : (
-                        <div className="flex items-center gap-1.5">
-                          <p className="truncate text-sm font-medium text-foreground">
+                        ) : (
+                          <p className="flex-1 truncate text-sm font-medium text-foreground">
                             {m.nickname || m.name}
                           </p>
-                          {isSelf && (
-                            <button
-                              type="button"
-                              onClick={() => startEditingNickname(m)}
-                              className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground/40 transition-colors hover:bg-muted hover:text-foreground"
-                              title="Edit your name in this workspace"
-                            >
-                              <Pencil className="h-3 w-3" />
-                            </button>
+                        )}
+                        {canEditRole(m) && <RoleToggle role={roleDraft} onChange={setRoleDraft} />}
+                        <button
+                          type="submit"
+                          disabled={saveEditMutation.isPending}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-violet-600 transition-colors hover:bg-violet-500/10 disabled:opacity-50"
+                        >
+                          {saveEditMutation.isPending ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Check className="h-3.5 w-3.5" />
                           )}
-                        </div>
-                      )}
-                      <p className="truncate text-xs text-muted-foreground/60">{m.email}</p>
-                    </div>
-
-                    {manageable ? (
-                      <>
-                        <RoleToggle
-                          role={m.role === 'admin' ? 'admin' : 'member'}
-                          disabled={roleMutation.isPending}
-                          onChange={(role) => roleMutation.mutate({ memberId: m.id, role })}
-                        />
+                        </button>
                         <button
                           type="button"
-                          onClick={() => setRemoveTarget(m)}
-                          disabled={removeMutation.isPending}
-                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                          onClick={() => setEditingId(null)}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-muted"
                         >
                           <X className="h-3.5 w-3.5" />
                         </button>
-                      </>
+                      </form>
                     ) : (
-                      <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
-                        {m.role === 'owner' ? 'Owner' : m.role === 'admin' ? 'Admin' : 'Editor'}
-                      </span>
+                      <>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-foreground">
+                            {m.nickname || m.name}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground/60">{m.email}</p>
+                        </div>
+
+                        <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
+                          {ROLE_LABELS[m.role] ?? m.role}
+                        </span>
+
+                        {showEdit && (
+                          <button
+                            type="button"
+                            onClick={() => startEditing(m)}
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+
+                        {showRemove && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <button
+                                type="button"
+                                disabled={removeMutation.isPending}
+                                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Remove this member?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will remove <strong>{m.nickname || m.name}</strong> from
+                                  this workspace. This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => removeMutation.mutate(m.id)}
+                                  variant="destructive"
+                                  disabled={removeMutation.isPending}
+                                >
+                                  Remove member
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </>
                     )}
                   </div>
                 )

@@ -321,28 +321,42 @@ export const removeWorkspaceMember = async (memberId: string) => {
 
 // The one member-editing action Better Auth has no endpoint for at all — a
 // per-workspace nickname is our own addition (additionalFields on `member`).
-// Self-only: the WHERE clause enforces it even if the memberId passed in
-// belonged to someone else.
-export const updateMyWorkspaceNickname = async (memberId: string, nickname: string) => {
+// Anyone can rename themselves; only the owner can rename someone else.
+export const updateMemberNickname = async (memberId: string, nickname: string) => {
   try {
     const userId = await getUserId()
     if (!userId) return err('Not authenticated')
 
+    const session = await getSession()
+    const workspaceId = session?.session.activeOrganizationId
+    if (!workspaceId) return err('No active workspace')
+
     const trimmed = nickname.trim()
     const pool = new Pool({ connectionString: process.env.DATABASE_URL })
     try {
-      const result = await pool.query(
-        `UPDATE member SET nickname = $1 WHERE id = $2 AND "userId" = $3`,
-        [trimmed || null, memberId, userId],
+      const targetResult = await pool.query(
+        `SELECT "userId" FROM member WHERE id = $1 AND "organizationId" = $2`,
+        [memberId, workspaceId],
       )
-      if (result.rowCount === 0) return err('Not authorized')
+      const targetUserId = targetResult.rows[0]?.userId
+      if (!targetUserId) return err('Member not found')
+
+      if (targetUserId !== userId) {
+        const callerResult = await pool.query(
+          `SELECT role FROM member WHERE "organizationId" = $1 AND "userId" = $2`,
+          [workspaceId, userId],
+        )
+        if (callerResult.rows[0]?.role !== 'owner') return err('Not authorized')
+      }
+
+      await pool.query(`UPDATE member SET nickname = $1 WHERE id = $2`, [trimmed || null, memberId])
     } finally {
       await pool.end()
     }
 
     return ok(true)
   } catch {
-    return err('Error updating your name')
+    return err('Error updating name')
   }
 }
 

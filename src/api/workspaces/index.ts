@@ -12,7 +12,7 @@ import {
   inviteWorkspaceMember,
   updateWorkspaceMemberRole,
   removeWorkspaceMember,
-  updateMyWorkspaceNickname,
+  updateMemberNickname,
 } from './actions'
 
 export const workspacesAPI = {
@@ -29,5 +29,5 @@ export const workspacesAPI = {
   inviteMember: inviteWorkspaceMember,
   updateMemberRole: updateWorkspaceMemberRole,
   removeMember: removeWorkspaceMember,
-  updateMyNickname: updateMyWorkspaceNickname,
+  updateMemberNickname,
 }

@@ -859,13 +859,9 @@ function DeleteWorkspaceAlertDialog({ s }: { s: WorkspaceSwitcherState }) {
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={s.confirmDelete}
-            disabled={s.isDeleting}
-            className="gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          >
+          <AlertDialogAction onClick={s.confirmDelete} variant="destructive" disabled={s.isDeleting}>
             {s.isDeleting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            Delete
+            Delete workspace
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
