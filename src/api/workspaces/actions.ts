@@ -4,6 +4,8 @@ import 'server-only'
 
 import { headers } from 'next/headers'
 import { Pool } from 'pg'
+import { getPayload } from 'payload'
+import config from '@/payload.config'
 import { auth } from '@/lib/auth'
 import { ok, err } from '@/types/result'
 import { getSession } from '@/lib/get-session'
@@ -11,6 +13,7 @@ import { getUserPlanLimits } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { findUserByEmail, findUsersByIds, type ContactProfile } from '@/api/contacts/actions'
+import { deleteCommentsForTaskIds } from '@/api/task-comments/actions'
 
 // Better Auth's org plugin ships 3 default roles: owner (auto-assigned to the
 // creator, not invitable), admin, and member. We only ever invite as one of
@@ -211,10 +214,74 @@ export const deleteWorkspace = async (workspaceId: string) => {
     const userId = await getUserId()
     if (!userId) return err('Not authenticated')
 
+    // Deletes the organization itself and, via Better Auth's own cascading
+    // FKs, its member/invitation rows — but "workspace" on our own
+    // collections is a plain text column, not a real relation to the
+    // organization table, so it never cascades. Clean those up ourselves,
+    // and only after the org deletion actually succeeds (permission-checked
+    // by Better Auth itself), so a rejected delete can't destroy content
+    // while leaving the workspace/membership intact.
     await auth.api.deleteOrganization({
       headers: await headers(),
       body: { organizationId: workspaceId },
     })
+
+    const payload = await getPayload({ config })
+
+    const { docs: lists } = await payload.find({
+      collection: 'lists',
+      where: { workspace: { equals: workspaceId } },
+      limit: 0,
+    })
+    for (const list of lists) {
+      const { docs: tasks } = await payload.find({
+        collection: 'tasks',
+        where: { list: { equals: list.id } },
+        limit: 0,
+      })
+      if (tasks.length > 0) {
+        await deleteCommentsForTaskIds(tasks.map((t) => t.id))
+      }
+      for (const task of tasks) {
+        await payload.delete({ collection: 'tasks', id: task.id })
+      }
+      const { docs: listMembers } = await payload.find({
+        collection: 'list-members',
+        where: { list: { equals: list.id } },
+        limit: 0,
+      })
+      for (const member of listMembers) {
+        await payload.delete({ collection: 'list-members', id: member.id })
+      }
+      await payload.delete({ collection: 'lists', id: list.id })
+    }
+
+    const { docs: taskCompletions } = await payload.find({
+      collection: 'task-completions',
+      where: { workspace: { equals: workspaceId } },
+      limit: 0,
+    })
+    for (const completion of taskCompletions) {
+      await payload.delete({ collection: 'task-completions', id: completion.id })
+    }
+
+    const { docs: calendarEvents } = await payload.find({
+      collection: 'calendar-events',
+      where: { workspace: { equals: workspaceId } },
+      limit: 0,
+    })
+    for (const event of calendarEvents) {
+      await payload.delete({ collection: 'calendar-events', id: event.id })
+    }
+
+    const { docs: calendarCategories } = await payload.find({
+      collection: 'calendar-categories',
+      where: { workspace: { equals: workspaceId } },
+      limit: 0,
+    })
+    for (const category of calendarCategories) {
+      await payload.delete({ collection: 'calendar-categories', id: category.id })
+    }
 
     return ok(true)
   } catch {
