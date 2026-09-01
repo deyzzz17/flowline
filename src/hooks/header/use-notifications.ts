@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useRef, useMemo, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
+import { WORKSPACE_SCOPED_QUERY_KEYS } from '@/components/dashboard/workspace-switcher'
 import { listHabits } from '@/api/habits/actions'
 import {
   listPendingRequests,
@@ -294,6 +296,7 @@ function buildCommentMentionNotifications(
 
 export const useNotifications = () => {
   const queryClient = useQueryClient()
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const readIdsRef = useRef<Set<string>>(new Set())
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
@@ -594,8 +597,15 @@ export const useNotifications = () => {
     },
     onSuccess: (result) => {
       if (!result.ok) return
-      // Accepting sets the new organization as the active workspace server-side.
+      // Accepting sets the new organization as the active workspace
+      // server-side — mirror what the switcher itself does on a manual
+      // switch, or you'd stay wherever you were with stale data on screen.
       queryClient.invalidateQueries({ queryKey: ['workspaces'] })
+      for (const key of WORKSPACE_SCOPED_QUERY_KEYS) {
+        queryClient.invalidateQueries({ queryKey: [key] })
+      }
+      setOpen(false)
+      router.push('/lists/today')
     },
   })
 

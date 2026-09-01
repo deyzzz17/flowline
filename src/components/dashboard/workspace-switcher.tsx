@@ -76,8 +76,10 @@ import type { ContactProfile } from '@/api/contacts/actions'
 import { cn } from '@/lib/utils'
 
 // Query keys whose data depends on the active workspace — invalidated (not a
-// full page reload) when switching, so the switch feels instant.
-const WORKSPACE_SCOPED_QUERY_KEYS = [
+// full page reload) when switching, so the switch feels instant. Exported
+// since accepting a workspace invite (use-notifications.ts) also switches
+// the active workspace under the hood and needs the same invalidation.
+export const WORKSPACE_SCOPED_QUERY_KEYS = [
   'lists',
   'tasks',
   'list-analytics',
