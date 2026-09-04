@@ -138,6 +138,25 @@ export const listLists = async () => {
     })
   }
 
+  // The workspace's own owner/admin can see (and, per resolveListRole, fully
+  // manage) every list in the workspace, not just their own or ones they
+  // were personally added to — matches the owner/admin "peut tout faire"
+  // role matrix (see workspace-permissions.ts / resolveListRole). Without
+  // this, the delete/edit rights resolveListRole now grants them over
+  // other members' lists would be unreachable — they'd never see the list
+  // in the sidebar to begin with.
+  const workspaceRole = await getWorkspaceRoleForUser(workspaceId, userId)
+  if (workspaceRole === 'owner' || workspaceRole === 'admin') {
+    return await payload.find({
+      collection: 'lists',
+      sort: 'createdAt',
+      limit: 0,
+      where: {
+        and: [workspaceWhereClause(workspaceId), { planArchivedAt: { exists: false } }],
+      },
+    })
+  }
+
   const { docs: memberDocs } = await payload.find({
     collection: 'list-members',
     where: { and: [{ userId: { equals: userId } }, { status: { equals: 'accepted' } }] },
