@@ -189,7 +189,7 @@ export function DashboardFocusNow({
                 </p>
               </div>
               <Link
-                href="/calendar"
+                href="/calendar?view=day"
                 className="shrink-0 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
               >
                 View

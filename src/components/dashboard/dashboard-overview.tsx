@@ -216,7 +216,7 @@ export function DashboardOverview({
           </Link>
 
           <Link
-            href="/calendar"
+            href="/calendar?view=day"
             className="group rounded-xl border border-border/50 bg-background/40 p-4 transition-colors hover:border-violet-500/40 hover:bg-violet-500/5"
           >
             <div className="mb-3 flex items-center justify-between">
