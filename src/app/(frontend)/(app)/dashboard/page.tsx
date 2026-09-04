@@ -46,10 +46,28 @@ export default async function DashboardPage() {
   const now = new Date()
 
   // Genuinely overdue — any active task whose due date has passed, not just
-  // ones due earlier today. Computed once here and reused everywhere so the
-  // "What needs you next" banner, the Today overview tile, and "What
-  // Flowline noticed" always agree on the same number.
+  // ones due earlier today. Computed once here and reused everywhere so
+  // "What needs you next" and "What Flowline noticed" always agree on the
+  // same number. Overdue is deliberately NOT shown on the Today overview
+  // tile — only in "What needs you next", to avoid a second, competing
+  // "0 vs 1 remaining" style read on the same number.
   const overdueTasks = allActiveTasks.filter((t) => t.dueDate && new Date(t.dueDate) < now)
+
+  // "Review" always jumps straight to where the oldest overdue task actually
+  // lives — its own list — rather than the generic Today smart list, since
+  // an old overdue task (due days ago) won't even show up there.
+  const oldestOverdueTask =
+    overdueTasks.length > 0
+      ? [...overdueTasks].sort(
+          (a, b) => new Date(a.dueDate as string).getTime() - new Date(b.dueDate as string).getTime(),
+        )[0]
+      : null
+  type ListSlugObj = { slug?: string | null }
+  const oldestOverdueListSlug =
+    oldestOverdueTask?.list && typeof oldestOverdueTask.list === 'object'
+      ? ((oldestOverdueTask.list as ListSlugObj).slug ?? null)
+      : null
+  const overdueReviewHref = oldestOverdueListSlug ? `/lists/${oldestOverdueListSlug}` : '/lists/today'
 
   const atRiskHabit =
     habits
@@ -72,6 +90,7 @@ export default async function DashboardPage() {
       <DashboardFocusNow
         priorityTask={priorityTask}
         overdueCount={overdueTasks.length}
+        overdueReviewHref={overdueReviewHref}
         atRiskHabit={atRiskHabit}
         nextEvent={nextEvent}
         isNewAccount={isNewAccount}
@@ -80,7 +99,6 @@ export default async function DashboardPage() {
         activeTasks={activeTodayTasks.length}
         completedTasks={completedTodayTasks.length}
         totalTasks={todayTasks.length}
-        overdueTasks={overdueTasks.length}
         habitsCompletedToday={habitAnalytics.todayCompleted}
         habitsTotal={habitAnalytics.todayTotal}
         habitWeekRate={habitAnalytics.avgCompletionRate}
@@ -100,6 +118,7 @@ export default async function DashboardPage() {
         completedTasks={allCompletedTasks}
         completedTodayCount={completedTodayTasks.length}
         priorityTask={priorityTask}
+        overdueReviewHref={overdueReviewHref}
       />
       <DashboardTimeAndCalendar timerWeek={timerWeek} todayEvents={todayEvents} />
       <DashboardGoals habits={habits} />

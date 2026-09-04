@@ -29,6 +29,7 @@ function computeInsights(params: {
   completedTasks: Task[]
   completedTodayCount: number
   priorityTask: Task | null
+  overdueReviewHref: string
 }): Insight[] {
   const {
     habits,
@@ -40,6 +41,7 @@ function computeInsights(params: {
     completedTasks,
     completedTodayCount,
     priorityTask,
+    overdueReviewHref,
   } = params
   const insights: Insight[] = []
 
@@ -269,7 +271,7 @@ function computeInsights(params: {
           before adding new ones.
         </>
       ),
-      href: '/lists/today',
+      href: overdueReviewHref,
       linkLabel: 'Review',
     })
   } else if (overdue.length === 1) {
@@ -280,7 +282,7 @@ function computeInsights(params: {
           <strong>{overdue[0].title}</strong> is overdue. It might be worth tackling it first.
         </>
       ),
-      href: '/lists/today',
+      href: overdueReviewHref,
       linkLabel: 'Review',
     })
   }
@@ -316,6 +318,7 @@ interface DashboardInsightsProps {
   completedTasks: Task[]
   completedTodayCount: number
   priorityTask: Task | null
+  overdueReviewHref: string
 }
 
 export function DashboardInsights({
@@ -328,6 +331,7 @@ export function DashboardInsights({
   completedTasks,
   completedTodayCount,
   priorityTask,
+  overdueReviewHref,
 }: DashboardInsightsProps) {
   const insights = computeInsights({
     habits,
@@ -339,6 +343,7 @@ export function DashboardInsights({
     completedTasks,
     completedTodayCount,
     priorityTask,
+    overdueReviewHref,
   })
 
   if (insights.length === 0) return null

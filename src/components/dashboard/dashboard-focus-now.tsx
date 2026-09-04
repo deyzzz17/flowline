@@ -24,6 +24,7 @@ function formatEventTime(iso: string): string {
 interface DashboardFocusNowProps {
   priorityTask: Task | null
   overdueCount: number
+  overdueReviewHref: string
   atRiskHabit: HabitWithStats | null
   nextEvent: DashboardTodayEvent | null
   isNewAccount: boolean
@@ -32,6 +33,7 @@ interface DashboardFocusNowProps {
 export function DashboardFocusNow({
   priorityTask,
   overdueCount,
+  overdueReviewHref,
   atRiskHabit,
   nextEvent,
   isNewAccount,
@@ -120,7 +122,7 @@ export function DashboardFocusNow({
                 <p className="text-xs text-muted-foreground">Worth reviewing before adding more</p>
               </div>
               <Link
-                href="/lists/today"
+                href={overdueReviewHref}
                 className="shrink-0 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
               >
                 Review

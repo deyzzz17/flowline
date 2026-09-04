@@ -35,7 +35,6 @@ interface DashboardOverviewProps {
   activeTasks: number
   completedTasks: number
   totalTasks: number
-  overdueTasks: number
   habitsCompletedToday: number
   habitsTotal: number
   habitWeekRate: number
@@ -50,7 +49,6 @@ export function DashboardOverview({
   activeTasks,
   completedTasks,
   totalTasks,
-  overdueTasks,
   habitsCompletedToday,
   habitsTotal,
   habitWeekRate,
@@ -130,13 +128,7 @@ export function DashboardOverview({
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500/10">
                 <Target className="h-4 w-4 text-orange-500" />
               </div>
-              {overdueTasks > 0 ? (
-                <span className="rounded-full bg-red-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-red-500">
-                  {overdueTasks} overdue
-                </span>
-              ) : (
-                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/0 transition-colors group-hover:text-orange-500" />
-              )}
+              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/0 transition-colors group-hover:text-orange-500" />
             </div>
             <p className="text-xl font-bold text-foreground">{activeTasks}</p>
             <p className="mb-2 text-xs text-muted-foreground">tasks remaining</p>
