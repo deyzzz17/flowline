@@ -155,7 +155,7 @@ export function SubscriptionSection({ billing }: { billing?: BillingInfo | null 
                 Upgrade to Pro
               </>
             )}
-            <ArrowRight className="h-3.5 w-3.5 ml-auto" />
+            <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         )}
 
@@ -165,7 +165,7 @@ export function SubscriptionSection({ billing }: { billing?: BillingInfo | null 
             className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border/60 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             View plans
-            <ArrowRight className="h-3.5 w-3.5 ml-auto" />
+            <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         )}
 
