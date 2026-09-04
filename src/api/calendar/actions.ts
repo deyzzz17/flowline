@@ -12,7 +12,7 @@ import {
   workspaceWhereClause,
   getWorkspaceRoleForUser,
 } from '@/lib/get-current-workspace'
-import { canDeleteCalendarCategory } from '@/lib/workspace-permissions'
+import { canDeleteCalendarCategory, canModifyWorkspaceContent } from '@/lib/workspace-permissions'
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 
@@ -161,6 +161,9 @@ export const createCalendarCategory = async (data: CalendarCategoryData) => {
 
     const payload = await getPayload({ config })
     const workspaceId = await getCurrentWorkspaceId()
+
+    const workspaceRole = await getWorkspaceRoleForUser(workspaceId, userId)
+    if (!canModifyWorkspaceContent(workspaceRole)) return err('Not authorized')
 
     const { plan, limits } = await getUserPlanLimits()
     const totalDocs = await countActiveCalendarCategories(payload, userId)
@@ -332,6 +335,10 @@ export const updateCalendarCategory = async (id: number, data: Partial<CalendarC
     const payload = await getPayload({ config })
     const category = await payload.findByID({ collection: 'calendar-categories', id })
     if ((category as any).userId !== userId) return err('Not authorized')
+
+    const workspaceId = (category as any).workspace ?? null
+    const workspaceRole = await getWorkspaceRoleForUser(workspaceId, userId)
+    if (!canModifyWorkspaceContent(workspaceRole)) return err('Not authorized')
 
     return ok(await payload.update({ collection: 'calendar-categories', id, data }))
   } catch {
@@ -598,6 +605,10 @@ export const createCalendarEvent = async (data: CalendarEventData) => {
 
     const payload = await getPayload({ config })
     const workspaceId = await getCurrentWorkspaceId()
+
+    const workspaceRole = await getWorkspaceRoleForUser(workspaceId, userId)
+    if (!canModifyWorkspaceContent(workspaceRole)) return err('Not authorized')
+
     const event = await payload.create({
       collection: 'calendar-events',
       data: {
@@ -634,6 +645,11 @@ export const updateCalendarEvent = async (
 
     const payload = await getPayload({ config })
     const existing = await payload.findByID({ collection: 'calendar-events', id })
+
+    const eventWorkspaceId = (existing as any).workspace ?? null
+    const workspaceRole = await getWorkspaceRoleForUser(eventWorkspaceId, userId)
+    if (!canModifyWorkspaceContent(workspaceRole)) return err('Not authorized')
+
     const isRecurring = !!(existing as any).recurrence?.frequency
     const isOverride = !!(existing as any).recurrenceId
 
@@ -895,8 +911,16 @@ export const deleteCalendarEvent = async (
   originalOccurrenceDate?: string,
 ) => {
   try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
     const payload = await getPayload({ config })
     const existing = await payload.findByID({ collection: 'calendar-events', id })
+
+    const eventWorkspaceId = (existing as any).workspace ?? null
+    const workspaceRole = await getWorkspaceRoleForUser(eventWorkspaceId, userId)
+    if (!canModifyWorkspaceContent(workspaceRole)) return err('Not authorized')
+
     const isRecurring = !!(existing as any).recurrence?.frequency
     const isOverride = !!(existing as any).recurrenceId
 

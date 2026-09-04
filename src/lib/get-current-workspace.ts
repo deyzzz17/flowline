@@ -43,7 +43,9 @@ export async function getWorkspaceRoleForUser(
       [workspaceId, userId],
     )
     const role = result.rows[0]?.role
-    return role === 'owner' || role === 'admin' || role === 'member' ? role : null
+    return role === 'owner' || role === 'admin' || role === 'member' || role === 'viewer'
+      ? role
+      : null
   } finally {
     await pool.end()
   }

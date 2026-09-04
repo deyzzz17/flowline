@@ -15,7 +15,7 @@ import {
   workspaceWhereClause,
   getWorkspaceRoleForUser,
 } from '@/lib/get-current-workspace'
-import { canPermanentlyDeleteTask } from '@/lib/workspace-permissions'
+import { canPermanentlyDeleteTask, canModifyWorkspaceContent } from '@/lib/workspace-permissions'
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 import {
@@ -225,6 +225,9 @@ export const createTask = async (task: CreateTaskInput) => {
       plan = own.plan
       limits = own.limits
       taskWorkspace = await getCurrentWorkspaceId()
+
+      const workspaceRole = await getWorkspaceRoleForUser(taskWorkspace, userId)
+      if (!canModifyWorkspaceContent(workspaceRole)) return err('Not authorized')
     }
 
     if (task.listId) {

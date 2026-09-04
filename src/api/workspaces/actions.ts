@@ -16,10 +16,11 @@ import { findUserByEmail, findUsersByIds, type ContactProfile } from '@/api/cont
 import { deleteCommentsForTaskIds } from '@/api/task-comments/actions'
 import type { WorkspaceRole } from '@/lib/workspace-permissions'
 
-// Better Auth's org plugin ships 3 default roles: owner (auto-assigned to the
-// creator, not invitable), admin, and member. We only ever invite as one of
-// the latter two — "member" is displayed as "Editor" in the UI.
-export type WorkspaceInviteRole = 'admin' | 'member'
+// Better Auth's org plugin ships owner (auto-assigned to the creator, not
+// invitable), admin, and member; "viewer" is a custom 4th read-only role.
+// We only ever invite as one of these three — "member" is displayed as
+// "Editor" in the UI.
+export type WorkspaceInviteRole = 'admin' | 'member' | 'viewer'
 
 const DEFAULT_ICON = 'Building2'
 const DEFAULT_COLOR = '#8b5cf6'
@@ -65,7 +66,10 @@ async function getMyRolesByOrgId(userId: string): Promise<Map<string, WorkspaceR
     ])
     const map = new Map<string, WorkspaceRole>()
     for (const row of result.rows) {
-      const role = row.role === 'owner' || row.role === 'admin' || row.role === 'member' ? row.role : null
+      const role =
+        row.role === 'owner' || row.role === 'admin' || row.role === 'member' || row.role === 'viewer'
+          ? row.role
+          : null
       map.set(row.organizationId, role)
     }
     return map

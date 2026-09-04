@@ -11,7 +11,8 @@ import { getSession } from '@/lib/get-session'
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 import { resolveListRole } from '@/lib/list-roles'
-import { getCurrentWorkspaceId, workspaceWhereClause } from '@/lib/get-current-workspace'
+import { getCurrentWorkspaceId, getWorkspaceRoleForUser, workspaceWhereClause } from '@/lib/get-current-workspace'
+import { canModifyWorkspaceContent } from '@/lib/workspace-permissions'
 import { deleteCommentsForTaskIds } from '@/api/task-comments/actions'
 
 type CreateListInput = {
@@ -64,6 +65,11 @@ export const createList = async (input: CreateListInput) => {
 
     const payload = await getPayload({ config })
     const workspaceId = await getCurrentWorkspaceId()
+
+    const workspaceRole = await getWorkspaceRoleForUser(workspaceId, userId)
+    if (!canModifyWorkspaceContent(workspaceRole)) {
+      return err('You do not have permission to create lists in this workspace')
+    }
 
     const { plan, limits } = await getUserPlanLimits()
 

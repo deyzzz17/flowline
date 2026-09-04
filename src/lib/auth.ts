@@ -1,8 +1,29 @@
 import { betterAuth } from 'better-auth'
 import { organization } from 'better-auth/plugins'
 import { nextCookies } from 'better-auth/next-js'
+import { createAccessControl } from 'better-auth/plugins/access'
+import {
+  defaultStatements,
+  ownerAc,
+  adminAc,
+  memberAc,
+} from 'better-auth/plugins/organization/access'
 import { Pool } from 'pg'
 import { sendEmail } from './send-email'
+
+// Custom 4th role: a hard read-only ceiling. Reuses the exact same
+// owner/admin/member access-control objects Better Auth ships by default —
+// passing a `roles` option at all REPLACES the plugin's internal default
+// role map rather than merging into it, so all 3 must be re-declared
+// alongside "viewer" or owner/admin would silently lose their permissions.
+const workspaceAc = createAccessControl(defaultStatements)
+const viewerAc = workspaceAc.newRole({
+  organization: [],
+  member: [],
+  invitation: [],
+  team: [],
+  ac: [],
+})
 
 export const auth = betterAuth({
   database: new Pool({
@@ -148,8 +169,10 @@ export const auth = betterAuth({
   plugins: [
     // Non-Personal workspaces are Better Auth organizations — Personal itself
     // is not an organization (it's implicit: no active organization means
-    // Personal). Default roles (owner/admin/member) for now; per-role access
-    // to workspace-scoped data (lists/timer/calendar) is a follow-up.
+    // Personal). owner/admin/member are Better Auth's defaults; viewer is a
+    // custom read-only role. Passing `roles` here REPLACES Better Auth's
+    // internal default role map rather than merging into it, so owner/admin/
+    // member must be re-declared alongside viewer or they'd lose their ACs.
     organization({
       schema: {
         member: {
@@ -161,6 +184,12 @@ export const auth = betterAuth({
             nickname: { type: 'string', required: false },
           },
         },
+      },
+      roles: {
+        owner: ownerAc,
+        admin: adminAc,
+        member: memberAc,
+        viewer: viewerAc,
       },
     }),
     // Must be last: forwards Set-Cookie headers from direct `auth.api.*()`

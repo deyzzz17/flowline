@@ -1,4 +1,5 @@
 import type { BasePayload } from 'payload'
+import { getWorkspaceRoleForUser } from './get-current-workspace'
 
 export type ListRole = 'admin' | 'editor' | 'reader' | null
 
@@ -15,23 +16,38 @@ export async function resolveListRole(
   // and members alike — until it's restored, so it must resolve to no role
   // rather than leaking access to whoever is still viewing/polling it.
   if (!list || list.planArchivedAt) return null
-  if (list.userId === userId) return 'admin'
-  if (!list.isShared) return null
 
-  const { docs } = await payload.find({
-    collection: 'list-members',
-    where: {
-      and: [
-        { list: { equals: listId } },
-        { userId: { equals: userId } },
-        { status: { equals: 'accepted' } },
-      ],
-    },
-    limit: 1,
-  })
+  const role = await (async (): Promise<ListRole> => {
+    if (list.userId === userId) return 'admin'
+    if (!list.isShared) return null
 
-  const role = docs[0]?.role
-  return role === 'editor' || role === 'reader' ? role : null
+    const { docs } = await payload.find({
+      collection: 'list-members',
+      where: {
+        and: [
+          { list: { equals: listId } },
+          { userId: { equals: userId } },
+          { status: { equals: 'accepted' } },
+        ],
+      },
+      limit: 1,
+    })
+
+    const memberRole = docs[0]?.role
+    return memberRole === 'editor' || memberRole === 'reader' ? memberRole : null
+  })()
+
+  if (!role) return null
+
+  // A workspace Viewer is a hard read-only ceiling — even on a list they own
+  // or are an editor on, they can never do more than view/toggle/like. Never
+  // upgrades a role, only ever caps it down to 'reader'.
+  if (list.workspace) {
+    const workspaceRole = await getWorkspaceRoleForUser(list.workspace, userId)
+    if (workspaceRole === 'viewer') return 'reader'
+  }
+
+  return role
 }
 
 export async function resolveListRoleForTask(

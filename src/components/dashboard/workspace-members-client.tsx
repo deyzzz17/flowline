@@ -52,7 +52,7 @@ function RoleToggle({
 }) {
   return (
     <div className="flex items-center gap-0.5 rounded-lg border border-border/60 bg-muted/30 p-0.5">
-      {(['admin', 'member'] as WorkspaceInviteRole[]).map((r) => (
+      {(['admin', 'member', 'viewer'] as WorkspaceInviteRole[]).map((r) => (
         <button
           key={r}
           type="button"
@@ -65,7 +65,7 @@ function RoleToggle({
               : 'text-muted-foreground hover:text-foreground',
           )}
         >
-          {r === 'admin' ? 'Admin' : 'Editor'}
+          {r === 'admin' ? 'Admin' : r === 'member' ? 'Editor' : 'Viewer'}
         </button>
       ))}
     </div>
@@ -76,6 +76,7 @@ const ROLE_LABELS: Record<string, string> = {
   owner: 'Owner',
   admin: 'Admin',
   member: 'Editor',
+  viewer: 'Viewer',
 }
 
 export function WorkspaceMembersClient() {
