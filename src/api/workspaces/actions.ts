@@ -14,6 +14,7 @@ import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/l
 import { checkRateLimit } from '@/lib/rate-limit'
 import { findUserByEmail, findUsersByIds, type ContactProfile } from '@/api/contacts/actions'
 import { deleteCommentsForTaskIds } from '@/api/task-comments/actions'
+import type { WorkspaceRole } from '@/lib/workspace-permissions'
 
 // Better Auth's org plugin ships 3 default roles: owner (auto-assigned to the
 // creator, not invitable), admin, and member. We only ever invite as one of
@@ -30,6 +31,8 @@ export interface WorkspaceSummary {
   isPersonal: boolean
   icon: string
   color: string
+  /** The caller's own role in this workspace — `null` for Personal. */
+  myRole: WorkspaceRole
 }
 
 const getUserId = async () => {
@@ -54,20 +57,39 @@ function parseMetadata(metadata: unknown): { icon: string; color: string } {
   return { icon, color }
 }
 
+async function getMyRolesByOrgId(userId: string): Promise<Map<string, WorkspaceRole>> {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+  try {
+    const result = await pool.query(`SELECT "organizationId", role FROM member WHERE "userId" = $1`, [
+      userId,
+    ])
+    const map = new Map<string, WorkspaceRole>()
+    for (const row of result.rows) {
+      const role = row.role === 'owner' || row.role === 'admin' || row.role === 'member' ? row.role : null
+      map.set(row.organizationId, role)
+    }
+    return map
+  } finally {
+    await pool.end()
+  }
+}
+
 export const listWorkspaces = async () => {
   const session = await getSession()
   const userId = session?.user?.id
   if (!userId) return { docs: [] as WorkspaceSummary[], activeId: null as string | null }
 
   const orgs = await auth.api.listOrganizations({ headers: await headers() })
+  const rolesByOrgId = await getMyRolesByOrgId(userId)
 
   const docs: WorkspaceSummary[] = [
-    { id: null, name: 'Personal', isPersonal: true, icon: 'User', color: '#8b5cf6' },
+    { id: null, name: 'Personal', isPersonal: true, icon: 'User', color: '#8b5cf6', myRole: null },
     ...orgs.map((o) => ({
       id: o.id,
       name: o.name,
       isPersonal: false,
       ...parseMetadata(o.metadata),
+      myRole: rolesByOrgId.get(o.id) ?? null,
     })),
   ]
 
@@ -166,6 +188,7 @@ export const createWorkspace = async (input: CreateWorkspaceInput) => {
         isPersonal: false,
         icon: input.icon || DEFAULT_ICON,
         color: input.color || DEFAULT_COLOR,
+        myRole: 'owner',
       } as WorkspaceSummary,
       failedInvites,
     })

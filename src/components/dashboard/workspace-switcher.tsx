@@ -191,6 +191,25 @@ export function useActiveWorkspace(initialData?: WorkspacesData) {
   return workspaces.find((w) => w.id === activeId) ?? null
 }
 
+/**
+ * The caller's role in a specific workspace (not necessarily the active
+ * one — e.g. a bookmarked list/category could belong to a workspace you're
+ * not currently switched into). Reads the same shared `['workspaces']`
+ * cache, no extra fetch. `null` for Personal (`workspaceId === null`) or if
+ * the workspace hasn't loaded yet — both read as "unrestricted" to
+ * src/lib/workspace-permissions.ts, so callers needing a hard "are they
+ * even a member" check should gate separately.
+ */
+export function useWorkspaceRole(workspaceId: string | null) {
+  const { data } = useQuery({
+    queryKey: ['workspaces'],
+    queryFn: () => api.workspaces.list(),
+  })
+  if (workspaceId === null) return null
+  const workspaces = data?.docs ?? []
+  return workspaces.find((w) => w.id === workspaceId)?.myRole ?? null
+}
+
 interface StagedInvite {
   user: ContactProfile
   role: WorkspaceInviteRole

@@ -8,6 +8,8 @@ import { useRestoreTask } from '@/hooks/tasks/use-restore-task'
 import { useToggleSubtask, useCompleteTaskWithSubtasks } from '@/hooks/tasks/use-toggle-subtasks'
 import { useDeleteSubtask } from '@/hooks/tasks/use-delete-subtask'
 import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
+import { useWorkspaceRole } from '@/components/dashboard/workspace-switcher'
+import { canPermanentlyDeleteTask } from '@/lib/workspace-permissions'
 import type { Task } from '@/payload-types'
 import { Button } from '../ui/button'
 import { Textarea } from '../ui/textarea'
@@ -191,6 +193,8 @@ export const TaskCard = ({
   const toggleSubtask = useToggleSubtask()
   const completeWithSubtasks = useCompleteTaskWithSubtasks()
   const deleteSubtask = useDeleteSubtask()
+  const workspaceRole = useWorkspaceRole(task.workspace ?? null)
+  const canDeleteSubtask = canPermanentlyDeleteTask(workspaceRole)
   const queryClient = useQueryClient()
   const planLimits = usePlanLimits()
   const subtasksLimit = planLimits?.limits.subtasksPerTask ?? FALLBACK_SUBTASKS_LIMIT
@@ -1435,7 +1439,7 @@ export const TaskCard = ({
                                     />
                                   )
                                 })()}
-                              {!isDeleted && !isCompleted && !readOnly && (
+                              {!isDeleted && !isCompleted && !readOnly && canDeleteSubtask && (
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
                                     <button

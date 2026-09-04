@@ -10,7 +10,12 @@ import { cookies } from 'next/headers'
 import { Task } from '@/payload-types'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
-import { getCurrentWorkspaceId, workspaceWhereClause } from '@/lib/get-current-workspace'
+import {
+  getCurrentWorkspaceId,
+  workspaceWhereClause,
+  getWorkspaceRoleForUser,
+} from '@/lib/get-current-workspace'
+import { canPermanentlyDeleteTask } from '@/lib/workspace-permissions'
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 import {
@@ -673,6 +678,11 @@ export const deleteTask = async (id: number) => {
     const authError = await assertIsListAdminForTask(payload, task, userId)
     if (authError) return err(authError)
 
+    const workspaceRole = await getWorkspaceRoleForUser((task as any).workspace ?? null, userId)
+    if (!canPermanentlyDeleteTask(workspaceRole)) {
+      return err('Only the workspace owner or an admin can permanently delete tasks.')
+    }
+
     await deleteCommentsForTaskIds([id])
     await payload.delete({ collection: 'tasks', id })
     return ok(true)
@@ -951,6 +961,11 @@ export const deleteSubtask = async (taskId: number, subtaskIndex: number) => {
 
     const authError = await assertCanEditTask(payload, task, userId)
     if (authError) return err(authError)
+
+    const workspaceRole = await getWorkspaceRoleForUser((task as any).workspace ?? null, userId)
+    if (!canPermanentlyDeleteTask(workspaceRole)) {
+      return err('Only the workspace owner or an admin can permanently delete subtasks.')
+    }
 
     type Subtask = NonNullable<Task['subtasks']>[number]
     const subtasks = (task.subtasks ?? []) as Subtask[]

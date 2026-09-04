@@ -50,6 +50,8 @@ import { useDeleteList } from '@/hooks/lists/use-delete-list'
 import { cn } from '@/lib/utils'
 import type { List } from '@/payload-types'
 import type { ListRole } from '@/lib/list-roles'
+import { useWorkspaceRole } from '@/components/dashboard/workspace-switcher'
+import { canPermanentlyDeleteTask } from '@/lib/workspace-permissions'
 import { ListMembersPanel } from './list-members-panel'
 import { useSession } from '@/lib/auth-client'
 import { TaskSortControl } from '@/components/tasks/task-sort-control'
@@ -101,7 +103,8 @@ export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
   const role = useListRole(list.id, initialRole, !!list.isShared)
   const isAdmin = role === 'admin'
   const isReadOnly = role === 'reader'
-  const canHardDelete = role === 'admin'
+  const workspaceRole = useWorkspaceRole(list.workspace ?? null)
+  const canHardDelete = role === 'admin' && canPermanentlyDeleteTask(workspaceRole)
   const canAssign = isAdmin && !!list.isShared
   const [membersOpen, setMembersOpen] = useState(false)
 

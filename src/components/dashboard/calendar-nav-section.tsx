@@ -27,6 +27,8 @@ import {
   type CalendarScope,
 } from '@/api/calendar/actions'
 import { cn } from '@/lib/utils'
+import { useActiveWorkspace } from '@/components/dashboard/workspace-switcher'
+import { canDeleteCalendarCategory } from '@/lib/workspace-permissions'
 import {
   LIMIT_ERRORS,
   SAFETY_CAP_ERRORS,
@@ -361,6 +363,8 @@ export function CalendarNavSection({ scope, href, label, onNavigate }: CalendarN
   const navLink = (h: string) => ({ href: h, onClick: onNavigate })
   const [open, setOpen] = useState(false)
   const s = useCalendarNavState(scope)
+  const activeWorkspace = useActiveWorkspace()
+  const canDeleteCategory = canDeleteCalendarCategory(activeWorkspace?.myRole ?? null)
 
   return (
     <>
@@ -472,13 +476,15 @@ export function CalendarNavSection({ scope, href, label, onNavigate }: CalendarN
                         <Pencil className="h-3.5 w-3.5" />
                         Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => s.setDeleteTarget({ id: cat.id, name: cat.name })}
-                        className="gap-2 text-xs cursor-pointer text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        Delete
-                      </DropdownMenuItem>
+                      {canDeleteCategory && (
+                        <DropdownMenuItem
+                          onClick={() => s.setDeleteTarget({ id: cat.id, name: cat.name })}
+                          className="gap-2 text-xs cursor-pointer text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -569,6 +575,8 @@ export function SidebarCalendarNavSection({ scope, href, label }: CalendarNavSec
   }
   const [open, setOpen] = useState(false)
   const s = useCalendarNavState(scope)
+  const activeWorkspace = useActiveWorkspace()
+  const canDeleteCategory = canDeleteCalendarCategory(activeWorkspace?.myRole ?? null)
 
   return (
     <>
@@ -681,13 +689,15 @@ export function SidebarCalendarNavSection({ scope, href, label }: CalendarNavSec
                             <Pencil className="h-3.5 w-3.5" />
                             Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => s.setDeleteTarget({ id: cat.id, name: cat.name })}
-                            className="gap-2 text-xs cursor-pointer text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            Delete
-                          </DropdownMenuItem>
+                          {canDeleteCategory && (
+                            <DropdownMenuItem
+                              onClick={() => s.setDeleteTarget({ id: cat.id, name: cat.name })}
+                              className="gap-2 text-xs cursor-pointer text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Delete
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>

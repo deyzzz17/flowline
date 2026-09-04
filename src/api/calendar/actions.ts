@@ -7,7 +7,12 @@ import { ok, err } from '@/types/result'
 import { Pool } from 'pg'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
-import { getCurrentWorkspaceId, workspaceWhereClause } from '@/lib/get-current-workspace'
+import {
+  getCurrentWorkspaceId,
+  workspaceWhereClause,
+  getWorkspaceRoleForUser,
+} from '@/lib/get-current-workspace'
+import { canDeleteCalendarCategory } from '@/lib/workspace-permissions'
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 
@@ -342,7 +347,20 @@ export const deleteCalendarCategory = async (id: number) => {
     const payload = await getPayload({ config })
 
     const category = await payload.findByID({ collection: 'calendar-categories', id })
-    if ((category as any).userId !== userId) return err('Not authorized')
+    const workspaceId = (category as any).workspace ?? null
+
+    if (workspaceId === null) {
+      if ((category as any).userId !== userId) return err('Not authorized')
+    } else {
+      // Inside a workspace, deleting a category is owner/admin territory
+      // regardless of who created it — editors can't delete any category,
+      // even one of their own.
+      const workspaceRole = await getWorkspaceRoleForUser(workspaceId, userId)
+      if (!workspaceRole) return err('Not authorized')
+      if (!canDeleteCalendarCategory(workspaceRole)) {
+        return err('Only the workspace owner or an admin can delete calendar categories.')
+      }
+    }
 
     const { docs: relatedEvents } = await payload.find({
       collection: 'calendar-events',
