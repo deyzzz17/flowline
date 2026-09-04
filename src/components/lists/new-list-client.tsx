@@ -19,7 +19,6 @@ import { SafetyCapDialog } from '../ui/safety-cap-dialog'
 import { useActiveWorkspace } from '@/components/dashboard/workspace-switcher'
 import type { WorkspaceMember } from '@/api/workspaces/actions'
 import type { ListMemberRole } from '@/api/list-members/actions'
-import { RoleToggle, RolePermissionsHint } from './role-toggle'
 
 function hexToRgba(hex: string, alpha: number) {
   try {
@@ -91,7 +90,10 @@ export const NewListClient = () => {
   const [limitErrorType, setLimitErrorType] = useState<LimitError>(LIMIT_ERRORS.LISTS_LIMIT)
   const [memberLimitError, setMemberLimitError] = useState<LimitError | null>(null)
   const [memberSearch, setMemberSearch] = useState('')
-  const [invitees, setInvitees] = useState<{ user: WorkspaceMember; role: ListMemberRole }[]>([])
+  // Inside a workspace, a list member's role is no longer picked here — it
+  // always mirrors their workspace role (see list-members/actions.ts), so
+  // invitees only need to track who, not what role.
+  const [invitees, setInvitees] = useState<WorkspaceMember[]>([])
 
   const { data: workspaceMembersData } = useQuery({
     queryKey: ['workspace-members'],
@@ -99,7 +101,7 @@ export const NewListClient = () => {
     enabled: isWorkspaceActive,
   })
 
-  const invitedUserIds = useMemo(() => new Set(invitees.map((i) => i.user.userId)), [invitees])
+  const invitedUserIds = useMemo(() => new Set(invitees.map((u) => u.userId)), [invitees])
 
   const invitableMembers = useMemo(() => {
     const members = workspaceMembersData?.docs ?? []
@@ -113,15 +115,11 @@ export const NewListClient = () => {
   }, [workspaceMembersData, invitedUserIds, memberSearch, currentUserId])
 
   const addInvitee = (user: WorkspaceMember) => {
-    setInvitees((prev) => [...prev, { user, role: 'editor' }])
+    setInvitees((prev) => [...prev, user])
   }
 
   const removeInvitee = (userId: string) => {
-    setInvitees((prev) => prev.filter((i) => i.user.userId !== userId))
-  }
-
-  const setInviteeRole = (userId: string, role: ListMemberRole) => {
-    setInvitees((prev) => prev.map((i) => (i.user.userId === userId ? { ...i, role } : i)))
+    setInvitees((prev) => prev.filter((u) => u.userId !== userId))
   }
 
   const mutation = useMutation({
@@ -130,7 +128,9 @@ export const NewListClient = () => {
         ? api.listMembers.createShared({
             name: name.trim(),
             category: { name: categoryName.trim() || undefined, color },
-            invites: invitees.map((i) => ({ userId: i.user.userId, role: i.role })),
+            // The role here is a placeholder — createSharedList() derives
+            // the real role from each invitee's current workspace role.
+            invites: invitees.map((u) => ({ userId: u.userId, role: 'editor' as ListMemberRole })),
           })
         : api.lists.create({
             name: name.trim(),
@@ -304,33 +304,30 @@ export const NewListClient = () => {
               <span className="text-xs font-normal text-muted-foreground">Optional</span>
             </div>
             <p className="text-xs text-muted-foreground/70">
-              Only members of <strong>{activeWorkspace?.name}</strong> can be added to a list.
+              Only members of <strong>{activeWorkspace?.name}</strong> can be added to a list —
+              their access here follows their role in the workspace.
             </p>
 
             {invitees.length > 0 && (
               <div className="space-y-2">
-                {invitees.map((i) => (
-                  <div key={i.user.userId} className="rounded-xl bg-muted/40 px-2 py-1.5">
+                {invitees.map((u) => (
+                  <div key={u.userId} className="rounded-xl bg-muted/40 px-2 py-1.5">
                     <div className="flex items-center gap-2.5">
-                      <MemberRowAvatar name={i.user.name} image={i.user.image} />
+                      <MemberRowAvatar name={u.name} image={u.image} />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-foreground">
-                          {i.user.name}
-                        </p>
+                        <p className="truncate text-sm font-medium text-foreground">{u.name}</p>
                       </div>
-                      <RoleToggle
-                        role={i.role}
-                        onChange={(role) => setInviteeRole(i.user.userId, role)}
-                      />
+                      <span className="rounded-md bg-muted/50 px-2 py-1 text-[10px] font-medium text-muted-foreground">
+                        {u.role === 'viewer' ? 'Viewer' : 'Editor'}
+                      </span>
                       <button
                         type="button"
-                        onClick={() => removeInvitee(i.user.userId)}
+                        onClick={() => removeInvitee(u.userId)}
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>
                     </div>
-                    <RolePermissionsHint role={i.role} className="pl-11 pt-1.5" />
                   </div>
                 ))}
               </div>

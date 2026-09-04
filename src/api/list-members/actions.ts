@@ -9,10 +9,15 @@ import { revalidatePath } from 'next/cache'
 import { ok, err } from '@/types/result'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
-import { getCurrentWorkspaceId, workspaceWhereClause } from '@/lib/get-current-workspace'
+import {
+  getCurrentWorkspaceId,
+  getWorkspaceRoleForUser,
+  workspaceWhereClause,
+} from '@/lib/get-current-workspace'
 import { getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 import { resolveListRole, getListMemberIds, canViewList } from '@/lib/list-roles'
+import type { WorkspaceRole } from '@/lib/workspace-permissions'
 import { findUsersByIds, type ContactProfile } from '@/api/contacts/actions'
 import type { List } from '@/payload-types'
 
@@ -22,6 +27,16 @@ const getUserId = async () => {
 }
 
 export type ListMemberRole = 'editor' | 'reader'
+
+// Inside a workspace, a list member's role is no longer picked manually — it
+// just mirrors their workspace role. Everyone except a workspace Viewer gets
+// full editor access to lists they're added to; a Viewer is always read-only.
+// resolveListRole() derives this live from the CURRENT workspace role for
+// actual enforcement — this is only used to store a best-effort value at
+// invite time and to compute what to display right after inviting.
+function deriveListRoleFromWorkspaceRole(role: WorkspaceRole): ListMemberRole {
+  return role === 'viewer' ? 'reader' : 'editor'
+}
 
 export interface ListMemberEntry {
   id: number
@@ -63,16 +78,24 @@ async function getAcceptedContactIds(
   )
 }
 
-// Every user id with an ACCEPTED membership in this Better Auth organization
-// (pending invites don't count — you can't add someone to a list who hasn't
-// actually joined the workspace yet).
-async function getWorkspaceMemberUserIds(workspaceId: string): Promise<string[]> {
+// Every user id with an ACCEPTED membership in this Better Auth organization,
+// mapped to their workspace role (pending invites don't count — you can't add
+// someone to a list who hasn't actually joined the workspace yet).
+async function getWorkspaceMemberRoles(workspaceId: string): Promise<Map<string, WorkspaceRole>> {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL })
   try {
-    const result = await pool.query(`SELECT "userId" FROM member WHERE "organizationId" = $1`, [
+    const result = await pool.query(`SELECT "userId", role FROM member WHERE "organizationId" = $1`, [
       workspaceId,
     ])
-    return result.rows.map((r) => r.userId as string)
+    const map = new Map<string, WorkspaceRole>()
+    for (const row of result.rows) {
+      const role =
+        row.role === 'owner' || row.role === 'admin' || row.role === 'member' || row.role === 'viewer'
+          ? row.role
+          : null
+      map.set(row.userId, role)
+    }
+    return map
   } finally {
     await pool.end()
   }
@@ -155,11 +178,16 @@ export const createSharedList = async (input: CreateSharedListInput) => {
       if (workspaceId !== null) {
         // Inside a workspace, you can only add actual (accepted) members of
         // that workspace — not your personal contacts, and not people who
-        // were invited to the workspace but haven't accepted yet.
-        const memberUserIds = await getWorkspaceMemberUserIds(workspaceId)
-        const invalidInvite = uniqueInvites.find((i) => !memberUserIds.includes(i.userId))
+        // were invited to the workspace but haven't accepted yet. Their list
+        // role is no longer picked manually here either — it always mirrors
+        // their workspace role, so whatever role the client sent is ignored.
+        const memberRoles = await getWorkspaceMemberRoles(workspaceId)
+        const invalidInvite = uniqueInvites.find((i) => !memberRoles.has(i.userId))
         if (invalidInvite) {
           return err('You can only add members of this workspace.')
+        }
+        for (const invite of uniqueInvites) {
+          invite.role = deriveListRoleFromWorkspaceRole(memberRoles.get(invite.userId) ?? null)
         }
       } else {
         const acceptedContactIds = await getAcceptedContactIds(payload, userId)
@@ -242,11 +270,16 @@ export const inviteListMember = async (
     if (inviteeUserId === userId) return err('You cannot invite yourself.')
 
     const listWorkspaceId = (list as any).workspace ?? null
+    // Inside a workspace, the invitee's list role is no longer picked
+    // manually — it always mirrors their workspace role, so the caller-
+    // supplied `role` argument is only honored for Personal lists.
+    let effectiveRole = role
     if (listWorkspaceId !== null) {
-      const memberUserIds = await getWorkspaceMemberUserIds(listWorkspaceId)
-      if (!memberUserIds.includes(inviteeUserId)) {
+      const workspaceRole = await getWorkspaceRoleForUser(listWorkspaceId, inviteeUserId)
+      if (!workspaceRole) {
         return err('You can only add members of this workspace.')
       }
+      effectiveRole = deriveListRoleFromWorkspaceRole(workspaceRole)
     } else {
       const acceptedContactIds = await getAcceptedContactIds(payload, userId)
       if (!acceptedContactIds.includes(inviteeUserId)) {
@@ -283,7 +316,7 @@ export const inviteListMember = async (
         list: listId,
         userId: inviteeUserId,
         invitedBy: userId,
-        role,
+        role: effectiveRole,
         status: initialStatus,
         ...(initialStatus === 'accepted' && { respondedAt: new Date().toISOString() }),
       },
@@ -400,6 +433,15 @@ export const changeListMemberRole = async (
     const callerRole = await resolveListRole(payload, listId, userId)
     if (callerRole !== 'admin') return err('Not authorized')
 
+    const list = await payload.findByID({ collection: 'lists', id: listId }).catch(() => null)
+    if (!list) return err('List not found')
+    // Inside a workspace, a member's list role always mirrors their
+    // workspace role — it's no longer something the list admin can set
+    // independently (see inviteListMember/createSharedList).
+    if ((list as any).workspace) {
+      return err('This member’s role follows their workspace role and cannot be changed here.')
+    }
+
     const member = await payload
       .findByID({ collection: 'list-members', id: memberId })
       .catch(() => null)
@@ -428,6 +470,9 @@ export const listMembersForList = async (listId: number): Promise<ListMemberEntr
   const role = await resolveListRole(payload, listId, userId)
   if (role !== 'admin') return []
 
+  const list = await payload.findByID({ collection: 'lists', id: listId }).catch(() => null)
+  const listWorkspaceId = (list as any)?.workspace ?? null
+
   const { docs } = await payload.find({
     collection: 'list-members',
     where: { list: { equals: listId } },
@@ -439,13 +484,23 @@ export const listMembersForList = async (listId: number): Promise<ListMemberEntr
 
   const usersMap = await findUsersByIds(docs.map((d) => d.userId as string))
 
+  // Inside a workspace, always show the role currently derived from each
+  // member's workspace role rather than the (possibly stale) value stored on
+  // the list-members row — resolveListRole() enforces the same live value.
+  const workspaceRoles = listWorkspaceId
+    ? await getWorkspaceMemberRoles(listWorkspaceId)
+    : new Map<string, WorkspaceRole>()
+
   return docs
     .map((d) => {
       const user = usersMap.get(d.userId as string)
       if (!user) return null
+      const displayRole = listWorkspaceId
+        ? deriveListRoleFromWorkspaceRole(workspaceRoles.get(d.userId as string) ?? null)
+        : (d.role as ListMemberRole)
       return {
         id: d.id,
-        role: d.role as ListMemberRole,
+        role: displayRole,
         status: d.status as 'pending' | 'accepted',
         user,
         invitedAt: d.createdAt as string,

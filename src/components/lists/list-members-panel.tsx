@@ -194,9 +194,16 @@ export function ListMembersPanel({ list, open, onOpenChange }: ListMembersPanelP
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/70">
                   {isWorkspaceList ? 'Add workspace members' : 'Invite from contacts'}
                 </p>
-                <RoleToggle role={inviteRole} onChange={setInviteRole} />
+                {!isWorkspaceList && <RoleToggle role={inviteRole} onChange={setInviteRole} />}
               </div>
-              <RolePermissionsHint role={inviteRole} />
+              {isWorkspaceList ? (
+                <p className="text-[11px] text-muted-foreground/70">
+                  Their access here follows their role in this workspace — Owners, Admins and
+                  Editors get full access, Viewers get read-only access.
+                </p>
+              ) : (
+                <RolePermissionsHint role={inviteRole} />
+              )}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
                 <Input
@@ -299,12 +306,18 @@ export function ListMembersPanel({ list, open, onOpenChange }: ListMembersPanelP
                               )}
                             </div>
                           </div>
-                          <RoleToggle
-                            role={effectiveRole}
-                            onChange={(role) =>
-                              setPendingRoles((prev) => ({ ...prev, [m.id]: role }))
-                            }
-                          />
+                          {isWorkspaceList ? (
+                            <span className="rounded-md bg-muted/50 px-2 py-1 text-[10px] font-medium capitalize text-muted-foreground">
+                              {effectiveRole}
+                            </span>
+                          ) : (
+                            <RoleToggle
+                              role={effectiveRole}
+                              onChange={(role) =>
+                                setPendingRoles((prev) => ({ ...prev, [m.id]: role }))
+                              }
+                            />
+                          )}
                           <button
                             type="button"
                             onClick={() => removeMutation.mutate(m.id)}

@@ -17,10 +17,29 @@ export async function resolveListRole(
   // rather than leaking access to whoever is still viewing/polling it.
   if (!list || list.planArchivedAt) return null
 
-  const role = await (async (): Promise<ListRole> => {
-    if (list.userId === userId) return 'admin'
-    if (!list.isShared) return null
+  const isOwner = list.userId === userId
 
+  // Being granted access to the list at all still comes from ownership or an
+  // accepted list-members row — that part is unchanged and identical for
+  // Personal and workspace lists alike.
+  if (!isOwner) {
+    if (!list.isShared) return null
+    const { totalDocs } = await payload.find({
+      collection: 'list-members',
+      where: {
+        and: [
+          { list: { equals: listId } },
+          { userId: { equals: userId } },
+          { status: { equals: 'accepted' } },
+        ],
+      },
+      limit: 0,
+    })
+    if (totalDocs === 0) return null
+  }
+
+  if (!list.workspace) {
+    if (isOwner) return 'admin'
     const { docs } = await payload.find({
       collection: 'list-members',
       where: {
@@ -32,22 +51,19 @@ export async function resolveListRole(
       },
       limit: 1,
     })
-
     const memberRole = docs[0]?.role
     return memberRole === 'editor' || memberRole === 'reader' ? memberRole : null
-  })()
-
-  if (!role) return null
-
-  // A workspace Viewer is a hard read-only ceiling — even on a list they own
-  // or are an editor on, they can never do more than view/toggle/like. Never
-  // upgrades a role, only ever caps it down to 'reader'.
-  if (list.workspace) {
-    const workspaceRole = await getWorkspaceRoleForUser(list.workspace, userId)
-    if (workspaceRole === 'viewer') return 'reader'
   }
 
-  return role
+  // Inside a workspace, the STRENGTH of the role (editor vs. reader, or a
+  // hard cap for the owner too) is always derived live from the caller's
+  // CURRENT workspace role, never from whatever was stored on the
+  // list-members row at invite time — so it stays correct automatically as
+  // workspace roles change later, instead of the stored value going stale.
+  const workspaceRole = await getWorkspaceRoleForUser(list.workspace, userId)
+  if (!workspaceRole) return null // no longer part of this workspace at all
+  if (workspaceRole === 'viewer') return 'reader'
+  return isOwner ? 'admin' : 'editor'
 }
 
 export async function resolveListRoleForTask(
