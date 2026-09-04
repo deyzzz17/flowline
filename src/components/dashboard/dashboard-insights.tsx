@@ -1,4 +1,5 @@
-import { Sparkles } from 'lucide-react'
+import Link from 'next/link'
+import { Sparkles, ArrowRight } from 'lucide-react'
 import type { HabitWithStats } from '@/api/habits/actions'
 import type { SessionAnalytics } from '@/api/timer-analytics/actions'
 import type { Task } from '@/payload-types'
@@ -14,6 +15,8 @@ function formatSeconds(s: number): string {
 export interface Insight {
   type: 'good' | 'warn' | 'neutral'
   text: React.ReactNode
+  href?: string
+  linkLabel?: string
 }
 
 function computeInsights(params: {
@@ -24,6 +27,8 @@ function computeInsights(params: {
   timerYesterday: SessionAnalytics
   activeTasks: Task[]
   completedTasks: Task[]
+  completedTodayCount: number
+  priorityTask: Task | null
 }): Insight[] {
   const {
     habits,
@@ -33,6 +38,8 @@ function computeInsights(params: {
     timerYesterday,
     activeTasks,
     completedTasks,
+    completedTodayCount,
+    priorityTask,
   } = params
   const insights: Insight[] = []
 
@@ -54,6 +61,8 @@ function computeInsights(params: {
           it.
         </>
       ),
+      href: '/habits/habits-view',
+      linkLabel: 'Complete it',
     })
   }
 
@@ -71,6 +80,8 @@ function computeInsights(params: {
           <strong>personal record of {newRecord.currentStreak} days</strong>. Keep going.
         </>
       ),
+      href: '/habits/habits-view',
+      linkLabel: 'View habit',
     })
   }
 
@@ -86,6 +97,8 @@ function computeInsights(params: {
           completion over 30 days. That&apos;s a strong routine.
         </>
       ),
+      href: '/habits/habits-view',
+      linkLabel: 'View habit',
     })
   }
 
@@ -102,6 +115,8 @@ function computeInsights(params: {
           need a smaller, more achievable target.
         </>
       ),
+      href: '/habits/habits-view',
+      linkLabel: 'View habit',
     })
   }
 
@@ -118,6 +133,8 @@ function computeInsights(params: {
               of focus today — <strong>+{pct}% more</strong> than yesterday.
             </>
           ),
+          href: '/timer-analytics',
+          linkLabel: 'View stats',
         })
       } else {
         insights.push({
@@ -129,6 +146,8 @@ function computeInsights(params: {
               ). Still time to catch up.
             </>
           ),
+          href: '/timer',
+          linkLabel: 'Start focusing',
         })
       }
     }
@@ -147,6 +166,8 @@ function computeInsights(params: {
               <strong>+{pct}%</strong> vs last week ({formatSeconds(timerLastWeek.totalSeconds)}).
             </>
           ),
+          href: '/timer-analytics',
+          linkLabel: 'View stats',
         })
       } else {
         insights.push({
@@ -157,6 +178,8 @@ function computeInsights(params: {
               <strong>−{pct}%</strong> vs last week ({formatSeconds(timerLastWeek.totalSeconds)}).
             </>
           ),
+          href: '/timer-analytics',
+          linkLabel: 'View stats',
         })
       }
     }
@@ -172,6 +195,8 @@ function computeInsights(params: {
           block.
         </>
       ),
+      href: '/timer-analytics',
+      linkLabel: 'View stats',
     })
   }
 
@@ -187,6 +212,8 @@ function computeInsights(params: {
             week ({formatSeconds(topCat.seconds)}). Is that intentional?
           </>
         ),
+        href: '/timer-analytics',
+        linkLabel: 'View stats',
       })
     }
   }
@@ -205,27 +232,30 @@ function computeInsights(params: {
               last ({formatSeconds(last.seconds)} → {formatSeconds(currSec)}).
             </>
           ),
+          href: '/timer-analytics',
+          linkLabel: 'View stats',
         })
         break
       }
     }
   }
 
-  if (timerToday.totalSeconds === 0 && activeTasks.length > 0) {
-    const topTask = activeTasks[0]
+  if (timerToday.totalSeconds === 0 && priorityTask) {
     type ListObj = { name?: string | null }
     const listName =
-      topTask.list && typeof topTask.list === 'object'
-        ? ((topTask.list as ListObj).name ?? null)
+      priorityTask.list && typeof priorityTask.list === 'object'
+        ? ((priorityTask.list as ListObj).name ?? null)
         : null
     insights.push({
       type: 'neutral',
       text: (
         <>
-          No focus sessions today yet. <strong>{topTask.title}</strong>
+          No focus sessions today yet. <strong>{priorityTask.title}</strong>
           {listName ? <> ({listName})</> : null} is your next task.
         </>
       ),
+      href: '/timer',
+      linkLabel: 'Start focusing',
     })
   }
 
@@ -239,6 +269,8 @@ function computeInsights(params: {
           before adding new ones.
         </>
       ),
+      href: '/lists/today',
+      linkLabel: 'Review',
     })
   } else if (overdue.length === 1) {
     insights.push({
@@ -248,18 +280,22 @@ function computeInsights(params: {
           <strong>{overdue[0].title}</strong> is overdue. It might be worth tackling it first.
         </>
       ),
+      href: '/lists/today',
+      linkLabel: 'Review',
     })
   }
 
-  if (completedTasks.length >= 3) {
+  if (completedTodayCount >= 3) {
     insights.push({
       type: 'good',
       text: (
         <>
-          <strong>{completedTasks.length} tasks</strong> completed today. You&apos;re on a
+          <strong>{completedTodayCount} tasks</strong> completed today. You&apos;re on a
           productive streak.
         </>
       ),
+      href: '/lists/today',
+      linkLabel: 'View tasks',
     })
   }
 
@@ -278,6 +314,8 @@ interface DashboardInsightsProps {
   timerYesterday: SessionAnalytics
   activeTasks: Task[]
   completedTasks: Task[]
+  completedTodayCount: number
+  priorityTask: Task | null
 }
 
 export function DashboardInsights({
@@ -288,6 +326,8 @@ export function DashboardInsights({
   timerYesterday,
   activeTasks,
   completedTasks,
+  completedTodayCount,
+  priorityTask,
 }: DashboardInsightsProps) {
   const insights = computeInsights({
     habits,
@@ -297,6 +337,8 @@ export function DashboardInsights({
     timerYesterday,
     activeTasks,
     completedTasks,
+    completedTodayCount,
+    priorityTask,
   })
 
   if (insights.length === 0) return null
@@ -323,9 +365,18 @@ export function DashboardInsights({
         </div>
         <div className="divide-y divide-border/40">
           {insights.map((insight, i) => (
-            <div key={i} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
-              <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dotColor[insight.type]}`} />
-              <p className="text-sm text-muted-foreground leading-relaxed">{insight.text}</p>
+            <div key={i} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+              <div className={`mt-1.5 h-2 w-2 shrink-0 self-start rounded-full ${dotColor[insight.type]}`} />
+              <p className="flex-1 text-sm text-muted-foreground leading-relaxed">{insight.text}</p>
+              {insight.href && (
+                <Link
+                  href={insight.href}
+                  className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs font-medium text-violet-600 transition-colors hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300"
+                >
+                  {insight.linkLabel ?? 'View'}
+                  <ArrowRight className="h-3 w-3" />
+                </Link>
+              )}
             </div>
           ))}
         </div>

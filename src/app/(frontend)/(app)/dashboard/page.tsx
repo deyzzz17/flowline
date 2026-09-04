@@ -39,12 +39,17 @@ export default async function DashboardPage() {
   const todayTasks = todayTasksResult.docs
   const activeTodayTasks = todayTasks.filter((t) => t.status === 'active')
   const completedTodayTasks = todayTasks.filter((t) => t.status === 'completed')
-  const overdueTodayTasks = activeTodayTasks.filter(
-    (t) => t.dueDate && new Date(t.dueDate) < new Date(),
-  )
   const allActiveTasks = allTasksResult.docs.filter((t) => t.status === 'active')
   const allCompletedTasks = allTasksResult.docs.filter((t) => t.status === 'completed')
   const priorityTask = activeTodayTasks[0] ?? null
+
+  const now = new Date()
+
+  // Genuinely overdue — any active task whose due date has passed, not just
+  // ones due earlier today. Computed once here and reused everywhere so the
+  // "What needs you next" banner, the Today overview tile, and "What
+  // Flowline noticed" always agree on the same number.
+  const overdueTasks = allActiveTasks.filter((t) => t.dueDate && new Date(t.dueDate) < now)
 
   const atRiskHabit =
     habits
@@ -52,7 +57,6 @@ export default async function DashboardPage() {
       .sort((a, b) => b.currentStreak - a.currentStreak || a.completionRate30d - b.completionRate30d)[0] ??
     null
 
-  const now = new Date()
   const nextEvent = todayEvents.find((e) => new Date(e.endDate) >= now) ?? null
 
   const isNewAccount =
@@ -67,7 +71,7 @@ export default async function DashboardPage() {
       <DashboardHeader />
       <DashboardFocusNow
         priorityTask={priorityTask}
-        overdueCount={overdueTodayTasks.length}
+        overdueCount={overdueTasks.length}
         atRiskHabit={atRiskHabit}
         nextEvent={nextEvent}
         isNewAccount={isNewAccount}
@@ -76,7 +80,7 @@ export default async function DashboardPage() {
         activeTasks={activeTodayTasks.length}
         completedTasks={completedTodayTasks.length}
         totalTasks={todayTasks.length}
-        overdueTasks={overdueTodayTasks.length}
+        overdueTasks={overdueTasks.length}
         habitsCompletedToday={habitAnalytics.todayCompleted}
         habitsTotal={habitAnalytics.todayTotal}
         habitWeekRate={habitAnalytics.avgCompletionRate}
@@ -94,6 +98,8 @@ export default async function DashboardPage() {
         timerYesterday={timerYesterday}
         activeTasks={allActiveTasks}
         completedTasks={allCompletedTasks}
+        completedTodayCount={completedTodayTasks.length}
+        priorityTask={priorityTask}
       />
       <DashboardTimeAndCalendar timerWeek={timerWeek} todayEvents={todayEvents} />
       <DashboardGoals habits={habits} />

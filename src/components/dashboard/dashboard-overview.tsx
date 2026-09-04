@@ -1,4 +1,5 @@
-import { Target, Flame, Calendar, Timer, TrendingUp, TrendingDown } from 'lucide-react'
+import Link from 'next/link'
+import { Target, Flame, Calendar, Timer, TrendingUp, TrendingDown, ArrowRight } from 'lucide-react'
 import type { DashboardTodayEvent } from '@/api/dashboard/actions'
 import type { SessionAnalytics } from '@/api/timer-analytics/actions'
 import { FocusWeeklyBars } from '@/components/dashboard/focus-weekly-bar'
@@ -121,15 +122,20 @@ export function DashboardOverview({
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-border/50 bg-background/40 p-4">
+          <Link
+            href="/lists/today"
+            className="group rounded-xl border border-border/50 bg-background/40 p-4 transition-colors hover:border-orange-500/40 hover:bg-orange-500/5"
+          >
             <div className="mb-3 flex items-center justify-between">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500/10">
                 <Target className="h-4 w-4 text-orange-500" />
               </div>
-              {overdueTasks > 0 && (
+              {overdueTasks > 0 ? (
                 <span className="rounded-full bg-red-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-red-500">
                   {overdueTasks} overdue
                 </span>
+              ) : (
+                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/0 transition-colors group-hover:text-orange-500" />
               )}
             </div>
             <p className="text-xl font-bold text-foreground">{activeTasks}</p>
@@ -143,11 +149,17 @@ export function DashboardOverview({
             <p className="mt-1.5 text-[11px] text-muted-foreground">
               {completedTasks} completed today · {taskPct}%
             </p>
-          </div>
+          </Link>
 
-          <div className="rounded-xl border border-border/50 bg-background/40 p-4">
-            <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-teal-500/10">
-              <Flame className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+          <Link
+            href="/habits/habits-view"
+            className="group rounded-xl border border-border/50 bg-background/40 p-4 transition-colors hover:border-teal-500/40 hover:bg-teal-500/5"
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-500/10">
+                <Flame className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+              </div>
+              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/0 transition-colors group-hover:text-teal-500" />
             </div>
             <p className="text-xl font-bold text-foreground">
               {habitsTotal > 0 ? `${habitsCompletedToday}/${habitsTotal}` : '—'}
@@ -169,14 +181,17 @@ export function DashboardOverview({
             ) : (
               <p className="text-[11px] text-muted-foreground">Add a habit to track it here</p>
             )}
-          </div>
+          </Link>
 
-          <div className="rounded-xl border border-border/50 bg-background/40 p-4">
+          <Link
+            href="/timer"
+            className="group rounded-xl border border-border/50 bg-background/40 p-4 transition-colors hover:border-pink-500/40 hover:bg-pink-500/5"
+          >
             <div className="mb-3 flex items-center justify-between">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-pink-500/10">
                 <Timer className="h-4 w-4 text-pink-600 dark:text-pink-400" />
               </div>
-              {focusDiffPct !== null && focusTodaySeconds > 0 && (
+              {focusDiffPct !== null && focusTodaySeconds > 0 ? (
                 <span
                   className={`flex items-center gap-0.5 text-[11px] font-semibold ${
                     focusDiff >= 0
@@ -191,6 +206,8 @@ export function DashboardOverview({
                   )}
                   {focusDiffPct}%
                 </span>
+              ) : (
+                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/0 transition-colors group-hover:text-pink-500" />
               )}
             </div>
             <p className="text-xl font-bold text-foreground">
@@ -204,18 +221,24 @@ export function DashboardOverview({
                 Start the timer to track focus
               </p>
             )}
-          </div>
+          </Link>
 
-          <div className="rounded-xl border border-border/50 bg-background/40 p-4">
-            <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/10">
-              <Calendar className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+          <Link
+            href="/calendar"
+            className="group rounded-xl border border-border/50 bg-background/40 p-4 transition-colors hover:border-violet-500/40 hover:bg-violet-500/5"
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/10">
+                <Calendar className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+              </div>
+              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/0 transition-colors group-hover:text-violet-500" />
             </div>
             <p className="text-xl font-bold text-foreground">{todayEvents.length}</p>
             <p className="mb-2 text-xs text-muted-foreground">
               event{todayEvents.length !== 1 ? 's' : ''} today
             </p>
             <p className="text-[11px] text-muted-foreground truncate">{calendarSub}</p>
-          </div>
+          </Link>
         </div>
       </div>
     </section>
