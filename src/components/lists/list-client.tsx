@@ -14,6 +14,7 @@ import { CreateTask } from '@/components/tasks/create-task'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   Dialog,
   DialogContent,
@@ -44,9 +45,13 @@ import {
   Trash2,
   PauseCircle,
   Users,
+  UserPlus,
+  Search,
 } from 'lucide-react'
 import { useEditList } from '@/hooks/lists/use-edit-list'
 import { useDeleteList } from '@/hooks/lists/use-delete-list'
+import { useListIsShared } from '@/hooks/lists/use-list-is-shared'
+import { useInviteMember } from '@/hooks/list-members/use-invite-member'
 import { cn } from '@/lib/utils'
 import type { List } from '@/payload-types'
 import type { ListRole } from '@/lib/list-roles'
@@ -100,12 +105,16 @@ interface ListClientProps {
 
 export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
   const router = useRouter()
-  const role = useListRole(list.id, initialRole, !!list.isShared)
+  // Live, not the SSR-static `list` prop — flips to true immediately after
+  // adding the first member to a solo workspace list from the edit dialog
+  // below, without needing a page reload.
+  const isShared = useListIsShared(list.id, !!list.isShared)
+  const role = useListRole(list.id, initialRole, isShared)
   const isAdmin = role === 'admin'
   const isReadOnly = role === 'reader'
   const workspaceRole = useWorkspaceRole(list.workspace ?? null)
   const canHardDelete = role === 'admin' && canPermanentlyDeleteTask(workspaceRole)
-  const canAssign = isAdmin && !!list.isShared
+  const canAssign = isAdmin && isShared
   const [membersOpen, setMembersOpen] = useState(false)
 
   useEffect(() => {
@@ -129,11 +138,11 @@ export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
   const { data } = useQuery({
     queryKey: ['tasks', list.id],
     queryFn: () => api.tasks.list(1, list.id),
-    refetchInterval: list.isShared ? SHARED_LIST_POLL_INTERVAL_MS : false,
+    refetchInterval: isShared ? SHARED_LIST_POLL_INTERVAL_MS : false,
   })
 
   const rawTasks = data?.docs ?? []
-  const assigneeScopedTasks = list.isShared
+  const assigneeScopedTasks = isShared
     ? filterTasksByAssignee(rawTasks, assigneeFilter, currentUserId)
     : rawTasks
   const tagScopedTasks =
@@ -165,6 +174,25 @@ export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
 
   const { handleDelete, isPending: isDeleting } = useDeleteList(list)
 
+  // While a workspace list is still solo (no members yet), there's no
+  // "Manage members" icon to add from — offer a quick add section right
+  // inside the edit dialog instead. It disappears once the list becomes
+  // shared, at which point the Users icon + full panel take over.
+  const isSoloWorkspaceList = !!list.workspace && !isShared
+  const [memberSearch, setMemberSearch] = useState('')
+  const { data: workspaceMembersData } = useQuery({
+    queryKey: ['workspace-members'],
+    queryFn: () => api.workspaces.listMembers(),
+    enabled: editOpen && isSoloWorkspaceList,
+  })
+  const inviteMutation = useInviteMember(list.id)
+  const invitableMembers = (workspaceMembersData?.docs ?? []).filter((m) => {
+    if (m.userId === currentUserId) return false
+    const q = memberSearch.trim().toLowerCase()
+    if (!q) return true
+    return m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q)
+  })
+
   const displayColor = optimisticColor
   const displayName = optimisticName
   const displayCategoryName = optimisticCategoryName
@@ -194,7 +222,7 @@ export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
           {isAdmin && (
             <div className="flex flex-col items-end gap-2">
               <div className="flex items-center gap-0.5">
-                {(list.isShared || !!list.workspace) && (
+                {isShared && (
                   <Button
                     variant="ghost"
                     size="icon"
@@ -253,7 +281,7 @@ export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
         </div>
       </section>
 
-      {isAdmin && list.isShared && (
+      {isAdmin && isShared && (
         <ListMembersPanel list={list} open={membersOpen} onOpenChange={setMembersOpen} />
       )}
 
@@ -341,6 +369,70 @@ export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
                 {categoryName && <span className="text-xs opacity-70">· {categoryName}</span>}
               </div>
             </div>
+
+            {isSoloWorkspaceList && (
+              <div className="space-y-2 border-t border-border/60 pt-4">
+                <div className="flex items-center gap-2">
+                  <Users className="h-3.5 w-3.5 text-violet-500" />
+                  <Label className="text-sm font-medium">Add members</Label>
+                  <span className="text-xs font-normal text-muted-foreground">Optional</span>
+                </div>
+                <p className="text-xs text-muted-foreground/70">
+                  Add other members of this workspace to share this list — their access follows
+                  their role in the workspace.
+                </p>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
+                  <Input
+                    value={memberSearch}
+                    onChange={(e) => setMemberSearch(e.target.value)}
+                    placeholder="Search workspace members..."
+                    className="h-9 pl-9 text-sm"
+                  />
+                </div>
+                <div className="max-h-40 space-y-1 overflow-y-auto">
+                  {invitableMembers.length === 0 ? (
+                    <p className="py-3 text-center text-xs text-muted-foreground/60">
+                      {memberSearch
+                        ? 'No members match your search.'
+                        : 'No other members in this workspace yet.'}
+                    </p>
+                  ) : (
+                    invitableMembers.map((m) => (
+                      <div
+                        key={m.userId}
+                        className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 hover:bg-muted/40 transition-colors"
+                      >
+                        <Avatar className="h-8 w-8 shrink-0">
+                          <AvatarImage src={m.image ?? undefined} alt={m.name} />
+                          <AvatarFallback className="bg-violet-500/10 text-xs font-semibold text-violet-600 dark:text-violet-400">
+                            {m.name.slice(0, 1).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-foreground">
+                            {m.nickname || m.name}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground/60">{m.email}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            inviteMutation.mutate({ userId: m.userId, role: 'editor' })
+                          }
+                          disabled={inviteMutation.isPending}
+                          className="flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-violet-500 disabled:opacity-50"
+                        >
+                          <UserPlus className="h-3 w-3" />
+                          Add
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
             <DialogFooter className="pt-2">
               <Button type="button" variant="ghost" onClick={() => setEditOpen(false)}>
                 Cancel
