@@ -194,7 +194,7 @@ export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
           {isAdmin && (
             <div className="flex flex-col items-end gap-2">
               <div className="flex items-center gap-0.5">
-                {list.isShared && (
+                {(list.isShared || !!list.workspace) && (
                   <Button
                     variant="ghost"
                     size="icon"

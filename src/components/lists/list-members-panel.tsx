@@ -15,6 +15,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { listContacts } from '@/api/contacts/actions'
+import { api } from '@/api'
 import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
 import { useListMembers } from '@/hooks/list-members/use-list-members'
 import { useInviteMember } from '@/hooks/list-members/use-invite-member'
@@ -58,6 +59,7 @@ interface ListMembersPanelProps {
 }
 
 export function ListMembersPanel({ list, open, onOpenChange }: ListMembersPanelProps) {
+  const isWorkspaceList = !!list.workspace
   const [search, setSearch] = useState('')
   const [inviteRole, setInviteRole] = useState<ListMemberRole>('editor')
   const [limitDialog, setLimitDialog] = useState<LimitError | null>(null)
@@ -99,20 +101,33 @@ export function ListMembersPanel({ list, open, onOpenChange }: ListMembersPanelP
   const { data: contactsData } = useQuery({
     queryKey: ['contacts', 'list', 'for-invite'],
     queryFn: () => listContacts(1, 200),
-    enabled: open,
+    enabled: open && !isWorkspaceList,
+  })
+
+  // Inside a workspace, you can only add actual workspace members — not
+  // contacts, and not people who were invited to the workspace but haven't
+  // accepted yet (listWorkspaceMembers only returns accepted members).
+  const { data: workspaceMembersData } = useQuery({
+    queryKey: ['workspace-members'],
+    queryFn: () => api.workspaces.listMembers(),
+    enabled: open && isWorkspaceList,
   })
 
   const memberUserIds = useMemo(() => new Set(members.map((m) => m.user.id)), [members])
 
-  const invitableContacts = useMemo(() => {
-    const contacts = contactsData?.docs ?? []
+  const invitableCandidates = useMemo(() => {
+    const candidates = isWorkspaceList
+      ? (workspaceMembersData?.docs ?? []).map((m) => ({
+          user: { id: m.userId, name: m.nickname || m.name, email: m.email, image: m.image },
+        }))
+      : (contactsData?.docs ?? [])
     const q = search.trim().toLowerCase()
-    return contacts.filter((c) => {
+    return candidates.filter((c) => {
       if (memberUserIds.has(c.user.id)) return false
       if (!q) return true
       return c.user.name.toLowerCase().includes(q) || c.user.email.toLowerCase().includes(q)
     })
-  }, [contactsData, memberUserIds, search])
+  }, [isWorkspaceList, workspaceMembersData, contactsData, memberUserIds, search])
 
   const memberCountLabel = planLimits
     ? planLimits.limits.sharedListMembers === Infinity
@@ -165,7 +180,9 @@ export function ListMembersPanel({ list, open, onOpenChange }: ListMembersPanelP
               Manage members
             </DialogTitle>
             <DialogDescription>
-              Invite people from your contacts to collaborate on{' '}
+              {isWorkspaceList
+                ? 'Add members of this workspace to collaborate on '
+                : 'Invite people from your contacts to collaborate on '}
               <strong className="text-foreground">{list.name}</strong>.
               {memberCountLabel && <span className="ml-1 text-xs">({memberCountLabel})</span>}
             </DialogDescription>
@@ -175,7 +192,7 @@ export function ListMembersPanel({ list, open, onOpenChange }: ListMembersPanelP
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/70">
-                  Invite from contacts
+                  {isWorkspaceList ? 'Add workspace members' : 'Invite from contacts'}
                 </p>
                 <RoleToggle role={inviteRole} onChange={setInviteRole} />
               </div>
@@ -185,21 +202,23 @@ export function ListMembersPanel({ list, open, onOpenChange }: ListMembersPanelP
                 <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search your contacts..."
+                  placeholder={isWorkspaceList ? 'Search workspace members...' : 'Search your contacts...'}
                   className="h-9 pl-9 text-sm"
                 />
               </div>
               <div className="max-h-40 space-y-1 overflow-y-auto">
-                {invitableContacts.length === 0 ? (
+                {invitableCandidates.length === 0 ? (
                   <p className="py-3 text-center text-xs text-muted-foreground/60">
                     {search
-                      ? 'No contacts match your search.'
-                      : 'No contacts available to invite — everyone is already a member, or you have no contacts yet.'}
+                      ? `No ${isWorkspaceList ? 'members' : 'contacts'} match your search.`
+                      : isWorkspaceList
+                        ? 'No more workspace members to add — everyone is already on this list.'
+                        : 'No contacts available to invite — everyone is already a member, or you have no contacts yet.'}
                   </p>
                 ) : (
-                  invitableContacts.map((c) => (
+                  invitableCandidates.map((c) => (
                     <div
-                      key={c.connectionId}
+                      key={c.user.id}
                       className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 hover:bg-muted/40 transition-colors"
                     >
                       <MemberAvatar name={c.user.name} image={c.user.image} />
@@ -216,7 +235,7 @@ export function ListMembersPanel({ list, open, onOpenChange }: ListMembersPanelP
                         className="flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-violet-500 disabled:opacity-50"
                       >
                         <UserPlus className="h-3 w-3" />
-                        Invite
+                        {isWorkspaceList ? 'Add' : 'Invite'}
                       </button>
                     </div>
                   ))
