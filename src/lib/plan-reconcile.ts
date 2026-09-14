@@ -8,9 +8,18 @@ import {
   restoreAllArchivedTimerCategoriesForUserId,
   restoreAllArchivedTimerConfigsForUserId,
 } from '@/api/timer/actions'
-import { restoreAllArchivedWorkspaceMembersForUserId } from '@/api/workspaces/actions'
+import {
+  restoreAllArchivedWorkspaceMembersForUserId,
+  restoreAllArchivedWorkspacesForUserId,
+} from '@/api/workspaces/actions'
 
 export async function reconcilePlanArchivedEntities(userId: string): Promise<void> {
+  // Workspaces first — restoring one frees no member seats by itself (the
+  // organization was never touched while archived), but running it before
+  // the per-workspace member restore keeps the ordering intuitive: the
+  // workspace itself comes back, then its members fill back in.
+  await restoreAllArchivedWorkspacesForUserId(userId)
+
   await Promise.all([
     restoreAllArchivedListsForUserId(userId),
     restoreAllArchivedSharedListsForUserId(userId),

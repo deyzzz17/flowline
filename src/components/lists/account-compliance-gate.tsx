@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -8,7 +8,9 @@ import { chooseListsToKeep } from '@/api/lists/actions'
 import { chooseSharedListsToKeep } from '@/api/list-members/actions'
 import { chooseTagsToKeep } from '@/api/tags/actions'
 import {
+  chooseWorkspacesToKeep,
   chooseWorkspaceMembersToKeep,
+  type WorkspacesComplianceInfo,
   type WorkspaceMembersComplianceInfo,
 } from '@/api/workspaces/actions'
 import { PlanSelectionDialog } from '@/components/ui/plan-selection-dialog'
@@ -44,6 +46,7 @@ type Step =
   | { kind: 'lists'; info: ListsComplianceInfo }
   | { kind: 'sharedLists'; info: SharedListsComplianceInfo }
   | { kind: 'tags'; info: TagsComplianceInfo }
+  | { kind: 'workspaces'; info: WorkspacesComplianceInfo }
   // A user can own several workspaces at once, each independently over its
   // new member limit — queue holds the ones not yet resolved, current one
   // first.
@@ -53,6 +56,7 @@ interface AccountComplianceGateProps {
   initialListsCompliance: ListsComplianceInfo | null
   initialSharedListsCompliance: SharedListsComplianceInfo | null
   initialTagsCompliance: TagsComplianceInfo | null
+  initialWorkspacesCompliance: WorkspacesComplianceInfo | null
   initialWorkspaceMembersCompliance: WorkspaceMembersComplianceInfo[]
 }
 
@@ -60,6 +64,7 @@ export function AccountComplianceGate({
   initialListsCompliance,
   initialSharedListsCompliance,
   initialTagsCompliance,
+  initialWorkspacesCompliance,
   initialWorkspaceMembersCompliance,
 }: AccountComplianceGateProps) {
   const queryClient = useQueryClient()
@@ -72,6 +77,7 @@ export function AccountComplianceGate({
     if (initialSharedListsCompliance)
       return { kind: 'sharedLists', info: initialSharedListsCompliance }
     if (initialTagsCompliance) return { kind: 'tags', info: initialTagsCompliance }
+    if (initialWorkspacesCompliance) return { kind: 'workspaces', info: initialWorkspacesCompliance }
     if (initialWorkspaceMembersCompliance.length > 0)
       return { kind: 'workspaceMembers', queue: initialWorkspaceMembersCompliance }
     return { kind: 'idle' }
@@ -79,13 +85,27 @@ export function AccountComplianceGate({
 
   const [pendingSharedLists] = useState(initialSharedListsCompliance)
   const [pendingTags] = useState(initialTagsCompliance)
-  const [pendingWorkspaceMembers] = useState(initialWorkspaceMembersCompliance)
+  const [pendingWorkspaces] = useState(initialWorkspacesCompliance)
+  // Mutable, unlike the others above — resolving the `workspaces` step can
+  // remove entries from this queue (a workspace that just got archived has
+  // nothing left to ask "who stays" about).
+  const [pendingWorkspaceMembers, setPendingWorkspaceMembers] = useState(
+    initialWorkspaceMembersCompliance,
+  )
 
-  const advanceToWorkspaceMembersOrIdle = () => {
-    if (pendingWorkspaceMembers.length > 0) {
-      setStep({ kind: 'workspaceMembers', queue: pendingWorkspaceMembers })
+  const advanceToWorkspaceMembersOrIdle = (queue: WorkspaceMembersComplianceInfo[]) => {
+    if (queue.length > 0) {
+      setStep({ kind: 'workspaceMembers', queue })
     } else {
       setStep({ kind: 'idle' })
+    }
+  }
+
+  const advanceToWorkspacesOrMembers = () => {
+    if (pendingWorkspaces) {
+      setStep({ kind: 'workspaces', info: pendingWorkspaces })
+    } else {
+      advanceToWorkspaceMembersOrIdle(pendingWorkspaceMembers)
     }
   }
 
@@ -95,7 +115,7 @@ export function AccountComplianceGate({
     } else if (pendingTags) {
       setStep({ kind: 'tags', info: pendingTags })
     } else {
-      advanceToWorkspaceMembersOrIdle()
+      advanceToWorkspacesOrMembers()
     }
   }
 
@@ -126,7 +146,7 @@ export function AccountComplianceGate({
         if (pendingTags) {
           setStep({ kind: 'tags', info: pendingTags })
         } else {
-          advanceToWorkspaceMembersOrIdle()
+          advanceToWorkspacesOrMembers()
         }
       })
       .finally(() => {
@@ -250,7 +270,7 @@ export function AccountComplianceGate({
             if (pendingTags) {
               setStep({ kind: 'tags', info: pendingTags })
             } else {
-              advanceToWorkspaceMembersOrIdle()
+              advanceToWorkspacesOrMembers()
             }
           } catch {
             toast.error('Something went wrong. Please try again.')
@@ -295,7 +315,73 @@ export function AccountComplianceGate({
               description: `${info.tags.length - info.limit} tag${info.tags.length - info.limit !== 1 ? 's' : ''} archived. You can restore any of them later from Settings.`,
             })
             queryClient.invalidateQueries({ queryKey: ['user-tags'] })
-            advanceToWorkspaceMembersOrIdle()
+            advanceToWorkspacesOrMembers()
+          } catch {
+            toast.error('Something went wrong. Please try again.')
+          } finally {
+            setIsSubmitting(false)
+          }
+        }}
+      />
+    )
+  }
+
+  if (step.kind === 'workspaces') {
+    const { info } = step
+
+    return (
+      <PlanSelectionDialog<string>
+        key="workspaces"
+        icon={<Building2 className="h-4 w-4 text-violet-500" />}
+        title="Choose which workspaces to keep"
+        description={
+          <>
+            Your current plan allows <strong>{info.limit}</strong> workspace
+            {info.limit !== 1 ? 's' : ''} beyond Personal, but you own{' '}
+            <strong>{info.workspaces.length}</strong>. Choose which ones to keep — the rest will be
+            archived, not deleted. Everyone in an archived workspace, you included, loses access to
+            it until it&apos;s restored — its lists, tasks and members come back exactly as you left
+            them.
+          </>
+        }
+        items={info.workspaces.map((w) => ({ id: w.id, label: w.name, color: w.color }))}
+        limit={info.limit}
+        isSubmitting={isSubmitting}
+        confirmLabel="Confirm selection"
+        onConfirm={async (keepIds) => {
+          setIsSubmitting(true)
+          try {
+            const result = await chooseWorkspacesToKeep(keepIds)
+            if (!result.ok) {
+              toast.error('Something went wrong. Please try again.')
+              return
+            }
+
+            const archivedIds = info.workspaces
+              .filter((w) => !keepIds.includes(w.id))
+              .map((w) => w.id)
+
+            toast.info('Workspaces updated', {
+              description: `${info.workspaces.length - info.limit} workspace${info.workspaces.length - info.limit !== 1 ? 's' : ''} archived. Restore them anytime from the workspace switcher.`,
+            })
+            queryClient.invalidateQueries({ queryKey: ['workspaces'] })
+
+            // The dialog is modal and blocks the whole app while open, so
+            // whatever page is underneath was rendered before this — safest
+            // to just land somewhere known-good rather than risk showing a
+            // page still scoped to a workspace that's now inaccessible.
+            if (archivedIds.length > 0) {
+              router.push('/lists/today')
+            }
+
+            // A workspace-members compliance step already queued for one of
+            // these is moot now — nothing left to ask "who stays" about in a
+            // workspace nobody can open anymore.
+            const filteredMembersQueue = pendingWorkspaceMembers.filter(
+              (m) => !archivedIds.includes(m.workspaceId),
+            )
+            setPendingWorkspaceMembers(filteredMembersQueue)
+            advanceToWorkspaceMembersOrIdle(filteredMembersQueue)
           } catch {
             toast.error('Something went wrong. Please try again.')
           } finally {
@@ -346,11 +432,7 @@ export function AccountComplianceGate({
           queryClient.invalidateQueries({ queryKey: ['workspaces'] })
 
           const rest = queue.slice(1)
-          if (rest.length > 0) {
-            setStep({ kind: 'workspaceMembers', queue: rest })
-          } else {
-            setStep({ kind: 'idle' })
-          }
+          advanceToWorkspaceMembersOrIdle(rest)
         } catch {
           toast.error('Something went wrong. Please try again.')
         } finally {

@@ -85,6 +85,7 @@ export interface Config {
     'list-members': ListMember;
     'task-comments': TaskComment;
     'workspace-member-archive': WorkspaceMemberArchive;
+    'workspace-archive': WorkspaceArchive;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -110,6 +111,7 @@ export interface Config {
     'list-members': ListMembersSelect<false> | ListMembersSelect<true>;
     'task-comments': TaskCommentsSelect<false> | TaskCommentsSelect<true>;
     'workspace-member-archive': WorkspaceMemberArchiveSelect<false> | WorkspaceMemberArchiveSelect<true>;
+    'workspace-archive': WorkspaceArchiveSelect<false> | WorkspaceArchiveSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -732,6 +734,20 @@ export interface WorkspaceMemberArchive {
   createdAt: string;
 }
 /**
+ * Workspaces removed from view because a plan downgrade put their owner over the workspace-count limit. The organization itself is untouched — restoring just deletes this row.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "workspace-archive".
+ */
+export interface WorkspaceArchive {
+  id: number;
+  organizationId: string;
+  ownerId: string;
+  archivedAt: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -826,6 +842,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'workspace-member-archive';
         value: number | WorkspaceMemberArchive;
+      } | null)
+    | ({
+        relationTo: 'workspace-archive';
+        value: number | WorkspaceArchive;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1233,6 +1253,17 @@ export interface WorkspaceMemberArchiveSelect<T extends boolean = true> {
   userId?: T;
   role?: T;
   removedBy?: T;
+  archivedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "workspace-archive_select".
+ */
+export interface WorkspaceArchiveSelect<T extends boolean = true> {
+  organizationId?: T;
+  ownerId?: T;
   archivedAt?: T;
   updatedAt?: T;
   createdAt?: T;

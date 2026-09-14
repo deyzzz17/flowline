@@ -17,6 +17,10 @@ import {
   chooseWorkspaceMembersToKeep,
   listArchivedWorkspaceMembers,
   restoreWorkspaceMember,
+  checkWorkspacesCompliance,
+  chooseWorkspacesToKeep,
+  listArchivedWorkspaces,
+  restoreWorkspace,
 } from './actions'
 
 export const workspacesAPI = {
@@ -38,4 +42,8 @@ export const workspacesAPI = {
   chooseMembersToKeep: chooseWorkspaceMembersToKeep,
   listArchivedMembers: listArchivedWorkspaceMembers,
   restoreMember: restoreWorkspaceMember,
+  checkCompliance: checkWorkspacesCompliance,
+  chooseToKeep: chooseWorkspacesToKeep,
+  listArchived: listArchivedWorkspaces,
+  restore: restoreWorkspace,
 }

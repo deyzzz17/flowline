@@ -242,6 +242,37 @@ function useWorkspaceSwitcher(initialData?: WorkspacesData) {
   const [limitDialog, setLimitDialog] = useState<LimitError | null>(null)
   const [capDialog, setCapDialog] = useState<SafetyCapError | null>(null)
 
+  // An archived workspace is invisible in `workspaces` above (the whole
+  // point of archiving it), so restoring one can only ever be reachable
+  // from somewhere that doesn't require already being inside it — the
+  // switcher itself, always open regardless of which workspace is active.
+  const { data: archivedData } = useQuery({
+    queryKey: ['workspaces', 'archived'],
+    queryFn: () => api.workspaces.listArchived(),
+  })
+  const archivedWorkspaces = archivedData?.docs ?? []
+
+  const restoreMutation = useMutation({
+    mutationFn: (archiveId: number) => api.workspaces.restore(archiveId),
+    onSuccess: (result) => {
+      if (!result.ok) {
+        if (result.error === LIMIT_ERRORS.WORKSPACES_LIMIT) {
+          setLimitDialog(LIMIT_ERRORS.WORKSPACES_LIMIT)
+          return
+        }
+        if (result.error === SAFETY_CAP_ERRORS.WORKSPACES_CAP) {
+          setCapDialog(SAFETY_CAP_ERRORS.WORKSPACES_CAP)
+          return
+        }
+        toast.error(result.error || 'Error restoring workspace')
+        return
+      }
+      toast.info('Workspace restored')
+      queryClient.invalidateQueries({ queryKey: ['workspaces'] })
+    },
+    onError: () => toast.error('Error restoring workspace'),
+  })
+
   const [editTarget, setEditTarget] = useState<WorkspaceSummary | null>(null)
   const [editName, setEditName] = useState('')
   const [editError, setEditError] = useState<string | null>(null)
@@ -458,6 +489,9 @@ function useWorkspaceSwitcher(initialData?: WorkspacesData) {
     // `undefined` means "not switching" — `null` is Personal's real id, so it
     // can't double as the sentinel or Personal would always show as pending.
     switchingId: switchMutation.isPending ? switchMutation.variables : undefined,
+    archivedWorkspaces,
+    restoreWorkspace: (archiveId: number) => restoreMutation.mutate(archiveId),
+    restoringId: restoreMutation.isPending ? restoreMutation.variables : undefined,
     openCreateDialog,
     handleLockedClick,
     createOpen,
@@ -570,6 +604,39 @@ function WorkspaceMenuContent({
           )}
         </div>
       ))}
+      {s.archivedWorkspaces.length > 0 && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Archived
+          </DropdownMenuLabel>
+          {s.archivedWorkspaces.map((w) => (
+            <div
+              key={w.id}
+              role="menuitem"
+              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm opacity-70"
+            >
+              <WorkspaceAvatar icon={w.icon} color={w.color} className="size-6" />
+              <span className="flex-1 truncate">{w.name}</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  s.restoreWorkspace(w.id)
+                }}
+                disabled={s.restoringId === w.id}
+                className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium text-violet-600 transition-colors hover:bg-violet-500/10 disabled:opacity-50 dark:text-violet-400"
+              >
+                {s.restoringId === w.id ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  'Restore'
+                )}
+              </button>
+            </div>
+          ))}
+        </>
+      )}
       <DropdownMenuSeparator />
       {s.atLimit ? (
         <div className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm text-muted-foreground/50">

@@ -75,6 +75,18 @@ async function getMyRolesByOrgId(userId: string): Promise<Map<string, WorkspaceR
   return map
 }
 
+// Batched version of isWorkspaceArchived for a whole list of orgs at once —
+// used wherever we're about to render/count a set of workspaces, instead of
+// N separate lookups.
+async function getArchivedOrgIdSet(orgIds: string[]): Promise<Set<string>> {
+  if (orgIds.length === 0) return new Set()
+  const result = await pool.query(
+    `SELECT organization_id FROM workspace_archive WHERE organization_id = ANY($1)`,
+    [orgIds],
+  )
+  return new Set(result.rows.map((r) => r.organization_id as string))
+}
+
 export const listWorkspaces = async () => {
   const session = await getSession()
   const userId = session?.user?.id
@@ -82,10 +94,15 @@ export const listWorkspaces = async () => {
 
   const orgs = await auth.api.listOrganizations({ headers: await headers() })
   const rolesByOrgId = await getMyRolesByOrgId(userId)
+  // Archived workspaces are invisible to every member, owner included — not
+  // just hidden from whoever archived them — so this filters the same way
+  // regardless of which member's session called listWorkspaces().
+  const archivedIds = await getArchivedOrgIdSet(orgs.map((o) => o.id))
+  const visibleOrgs = orgs.filter((o) => !archivedIds.has(o.id))
 
   const docs: WorkspaceSummary[] = [
     { id: null, name: 'Personal', isPersonal: true, icon: 'User', color: '#8b5cf6', myRole: null },
-    ...orgs.map((o) => ({
+    ...visibleOrgs.map((o) => ({
       id: o.id,
       name: o.name,
       isPersonal: false,
@@ -94,17 +111,25 @@ export const listWorkspaces = async () => {
     })),
   ]
 
-  return { docs, activeId: session.session.activeOrganizationId ?? null }
+  const rawActiveId = session.session.activeOrganizationId ?? null
+  const activeId = rawActiveId && !archivedIds.has(rawActiveId) ? rawActiveId : null
+
+  return { docs, activeId }
 }
 
-// Only organizations this user OWNS count against their plan's workspace limit —
-// being invited into someone else's workspace shouldn't use up your own quota.
+// Only organizations this user OWNS count against their plan's workspace
+// limit — being invited into someone else's workspace shouldn't use up your
+// own quota. Archived workspaces don't count either — that's the entire
+// point of archiving one: it frees up the slot for a new (or restored) one.
 async function countOwnedWorkspaces(userId: string): Promise<number> {
   const result = await pool.query(
-    `SELECT COUNT(*)::int AS count FROM member WHERE "userId" = $1 AND role = 'owner'`,
+    `SELECT m."organizationId" FROM member m WHERE m."userId" = $1 AND m.role = 'owner'`,
     [userId],
   )
-  return result.rows[0]?.count ?? 0
+  const ownedIds: string[] = result.rows.map((r) => r.organizationId)
+  if (ownedIds.length === 0) return 0
+  const archivedIds = await getArchivedOrgIdSet(ownedIds)
+  return ownedIds.filter((id) => !archivedIds.has(id)).length
 }
 
 function slugify(name: string): string {
@@ -190,6 +215,199 @@ export const createWorkspace = async (input: CreateWorkspaceInput) => {
     })
   } catch {
     return err('Error while creating the workspace')
+  }
+}
+
+export interface WorkspacesComplianceInfo {
+  overBy: number
+  limit: number
+  workspaces: { id: string; name: string; icon: string; color: string }[]
+}
+
+// Checked for the current user — only ownership counts against the
+// workspace-count limit, same rule as countOwnedWorkspaces/createWorkspace.
+export const checkWorkspacesCompliance = async (): Promise<WorkspacesComplianceInfo | null> => {
+  const userId = await getUserId()
+  if (!userId) return null
+
+  const { limits } = await getUserPlanLimits()
+  if (limits.workspaces === Infinity) return null
+
+  const ownedResult = await pool.query(
+    `SELECT m."organizationId", o.name, o.metadata
+     FROM member m
+     JOIN organization o ON o.id = m."organizationId"
+     WHERE m."userId" = $1 AND m.role = 'owner'`,
+    [userId],
+  )
+  if (ownedResult.rows.length === 0) return null
+
+  const archivedIds = await getArchivedOrgIdSet(ownedResult.rows.map((r) => r.organizationId))
+  const activeOwned = ownedResult.rows.filter((r) => !archivedIds.has(r.organizationId))
+
+  if (activeOwned.length <= limits.workspaces) return null
+
+  return {
+    overBy: activeOwned.length - limits.workspaces,
+    limit: limits.workspaces,
+    workspaces: activeOwned.map((r) => ({
+      id: r.organizationId,
+      name: r.name,
+      ...parseMetadata(r.metadata),
+    })),
+  }
+}
+
+export const chooseWorkspacesToKeep = async (keepIds: string[]) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const { limits } = await getUserPlanLimits()
+    if (keepIds.length > limits.workspaces) return err('TOO_MANY_SELECTED')
+
+    const ownedResult = await pool.query(
+      `SELECT "organizationId" FROM member WHERE "userId" = $1 AND role = 'owner'`,
+      [userId],
+    )
+    const ownedIds: string[] = ownedResult.rows.map((r) => r.organizationId)
+    const archivedIds = await getArchivedOrgIdSet(ownedIds)
+    const activeOwnedIds = ownedIds.filter((id) => !archivedIds.has(id))
+
+    const keepSet = new Set(keepIds)
+    const toArchive = activeOwnedIds.filter((id) => !keepSet.has(id))
+
+    const payload = await getPayload({ config })
+    const now = new Date().toISOString()
+    for (const orgId of toArchive) {
+      await payload.create({
+        collection: 'workspace-archive',
+        data: { organizationId: orgId, ownerId: userId, archivedAt: now },
+      })
+    }
+
+    // If the caller's own active workspace is one of the ones just
+    // archived, switch them back to Personal — otherwise they'd be left
+    // pointed at a workspace that has, from this moment on, quietly
+    // disappeared from their own switcher.
+    const session = await getSession()
+    const activeId = session?.session.activeOrganizationId ?? null
+    if (activeId && toArchive.includes(activeId)) {
+      await auth.api.setActiveOrganization({
+        headers: await headers(),
+        body: { organizationId: null },
+      })
+    }
+
+    revalidatePath('/')
+    return ok(true)
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Error updating workspaces'
+    return err(message)
+  }
+}
+
+export interface ArchivedWorkspace {
+  id: number
+  organizationId: string
+  name: string
+  icon: string
+  color: string
+  archivedAt: string
+}
+
+// Only the owner sees this — matches chooseWorkspacesToKeep, which only the
+// owner can act on in the first place.
+export const listArchivedWorkspaces = async (): Promise<{ docs: ArchivedWorkspace[] }> => {
+  const userId = await getUserId()
+  if (!userId) return { docs: [] }
+
+  const payload = await getPayload({ config })
+  const { docs } = await payload.find({
+    collection: 'workspace-archive',
+    where: { ownerId: { equals: userId } },
+    sort: '-archivedAt',
+    limit: 0,
+  })
+  if (docs.length === 0) return { docs: [] }
+
+  const orgResult = await pool.query(`SELECT id, name, metadata FROM organization WHERE id = ANY($1)`, [
+    docs.map((d) => d.organizationId),
+  ])
+  const orgById = new Map(orgResult.rows.map((r) => [r.id as string, r]))
+
+  return {
+    docs: docs.map((d) => {
+      const org = orgById.get(d.organizationId)
+      return {
+        id: d.id,
+        organizationId: d.organizationId,
+        name: org?.name ?? 'Workspace',
+        ...parseMetadata(org?.metadata),
+        archivedAt: d.archivedAt as unknown as string,
+      }
+    }),
+  }
+}
+
+export const restoreWorkspace = async (archiveId: number) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const payload = await getPayload({ config })
+    const archived = await payload
+      .findByID({ collection: 'workspace-archive', id: archiveId })
+      .catch(() => null)
+    if (!archived || archived.ownerId !== userId) return err('Not authorized')
+
+    const { plan, limits } = await getUserPlanLimits()
+    const ownedCount = await countOwnedWorkspaces(userId)
+    if (isAtLimit(ownedCount, limits.workspaces)) {
+      return err(
+        isPlanUnlimited(plan, 'workspaces')
+          ? SAFETY_CAP_ERRORS.WORKSPACES_CAP
+          : LIMIT_ERRORS.WORKSPACES_LIMIT,
+      )
+    }
+
+    await payload.delete({ collection: 'workspace-archive', id: archiveId })
+
+    revalidatePath('/')
+    return ok(true)
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Error restoring workspace'
+    return err(message)
+  }
+}
+
+// Mirrors restoreAllArchivedListsForUserId — called on a plan upgrade,
+// restoring as many archived workspaces as now fit (oldest-archived first).
+// Since the organization itself was never touched, "restoring" is just
+// deleting the archive row — everything about the workspace (its lists,
+// tasks, members) was exactly as the owner left it the whole time.
+export async function restoreAllArchivedWorkspacesForUserId(userId: string): Promise<void> {
+  try {
+    const { limits } = await getPlanLimitsForUserId(userId)
+
+    const ownedCount = await countOwnedWorkspaces(userId)
+    const room =
+      limits.workspaces === Infinity ? Infinity : Math.max(0, limits.workspaces - ownedCount)
+    if (room <= 0) return
+
+    const payload = await getPayload({ config })
+    const { docs: archived } = await payload.find({
+      collection: 'workspace-archive',
+      where: { ownerId: { equals: userId } },
+      sort: 'archivedAt',
+      limit: room === Infinity ? 0 : room,
+    })
+
+    for (const a of archived) {
+      await payload.delete({ collection: 'workspace-archive', id: a.id })
+    }
+  } catch (e) {
+    console.error('restoreAllArchivedWorkspacesForUserId error:', e)
   }
 }
 
@@ -476,7 +694,14 @@ export const checkWorkspaceMembersCompliance = async (): Promise<
     `SELECT "organizationId" FROM member WHERE "userId" = $1 AND role = 'owner'`,
     [userId],
   )
-  const ownedOrgIds: string[] = ownedResult.rows.map((r) => r.organizationId)
+  const allOwnedOrgIds: string[] = ownedResult.rows.map((r) => r.organizationId)
+  if (allOwnedOrgIds.length === 0) return []
+
+  // An already-archived workspace is inaccessible to everyone regardless of
+  // its member count — no point asking who should stay in a workspace
+  // nobody can open.
+  const archivedIds = await getArchivedOrgIdSet(allOwnedOrgIds)
+  const ownedOrgIds = allOwnedOrgIds.filter((id) => !archivedIds.has(id))
   if (ownedOrgIds.length === 0) return []
 
   const requestHeaders = await headers()

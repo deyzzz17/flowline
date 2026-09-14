@@ -14,7 +14,11 @@ import { syncRecurringTasksForUser } from '@/api/tasks/actions'
 import { checkListsCompliance } from '@/api/lists/actions'
 import { checkSharedListsCompliance } from '@/api/list-members/actions'
 import { checkTagsCompliance } from '@/api/tags/actions'
-import { listWorkspaces, checkWorkspaceMembersCompliance } from '@/api/workspaces/actions'
+import {
+  listWorkspaces,
+  checkWorkspaceMembersCompliance,
+  checkWorkspacesCompliance,
+} from '@/api/workspaces/actions'
 import type { WorkspacesData } from '@/components/dashboard/workspace-switcher'
 import { Toaster } from '@/components/ui/sonner'
 import { NotificationsMenu } from '@/components/header/notifications-menu'
@@ -33,6 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   let listsCompliance = null
   let sharedListsCompliance = null
   let tagsCompliance = null
+  let workspacesCompliance: Awaited<ReturnType<typeof checkWorkspacesCompliance>> = null
   let workspaceMembersCompliance: Awaited<ReturnType<typeof checkWorkspaceMembersCompliance>> = []
   let initialWorkspaces: WorkspacesData | undefined
 
@@ -43,14 +48,21 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     // was `await`ed here, ahead of the Promise.all below, so it added a full
     // extra sequential DB round trip to every single navigation.
     after(() => syncRecurringTasksForUser())
-    ;[listsCompliance, sharedListsCompliance, tagsCompliance, workspaceMembersCompliance, initialWorkspaces] =
-      await Promise.all([
-        checkListsCompliance(),
-        checkSharedListsCompliance(),
-        checkTagsCompliance(),
-        checkWorkspaceMembersCompliance(),
-        listWorkspaces(),
-      ])
+    ;[
+      listsCompliance,
+      sharedListsCompliance,
+      tagsCompliance,
+      workspacesCompliance,
+      workspaceMembersCompliance,
+      initialWorkspaces,
+    ] = await Promise.all([
+      checkListsCompliance(),
+      checkSharedListsCompliance(),
+      checkTagsCompliance(),
+      checkWorkspacesCompliance(),
+      checkWorkspaceMembersCompliance(),
+      listWorkspaces(),
+    ])
   }
 
   return (
@@ -72,6 +84,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 initialListsCompliance={listsCompliance}
                 initialSharedListsCompliance={sharedListsCompliance}
                 initialTagsCompliance={tagsCompliance}
+                initialWorkspacesCompliance={workspacesCompliance}
                 initialWorkspaceMembersCompliance={workspaceMembersCompliance}
               />
               <div
