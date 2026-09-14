@@ -26,7 +26,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { RefreshCw, Plus, X, ChevronDown, ChevronUp, Tag, Check, Loader2 } from 'lucide-react'
+import { RefreshCw, Plus, X, ChevronDown, ChevronUp, Tag, Check, Loader2, Timer } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
@@ -56,6 +56,7 @@ import { AssigneePicker } from './assignee-picker'
 import { AssigneeBadges } from './assignee-badges'
 import { useListMemberProfiles } from '@/hooks/list-members/use-member-profiles'
 import { TaskCommentsSection } from './task-comments-section'
+import { useTimerContext } from '@/components/timer/timer-context'
 
 function hexToRgba(hex: string, alpha: number) {
   try {
@@ -195,6 +196,7 @@ export const TaskCard = ({
   const deleteSubtask = useDeleteSubtask()
   const workspaceRole = useWorkspaceRole(task.workspace ?? null)
   const canDeleteSubtask = canPermanentlyDeleteTask(workspaceRole)
+  const { setPendingTaskId, setCustomizeOpen } = useTimerContext()
   const queryClient = useQueryClient()
   const planLimits = usePlanLimits()
   const subtasksLimit = planLimits?.limits.subtasksPerTask ?? FALLBACK_SUBTASKS_LIMIT
@@ -1548,6 +1550,23 @@ export const TaskCard = ({
 
         {!isEditing && !readOnly && (
           <div className="flex items-center self-start gap-1 shrink-0 mt-0.5">
+            {isActive && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground hover:text-violet-500"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setPendingTaskId(task.id)
+                  setCustomizeOpen(true)
+                }}
+                disabled={isDisabled}
+                aria-label="Start timer for this task"
+                title="Start timer for this task"
+              >
+                <Timer className="h-4 w-4" />
+              </Button>
+            )}
             {(isActive || isInactive) && !noEdit && (
               <Button
                 variant="ghost"

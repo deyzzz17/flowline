@@ -213,6 +213,10 @@ export const useTimer = () => {
   const [config, setConfig] = useState<SessionConfig | null>(init.config)
   const [customizeOpen, setCustomizeOpen] = useState(false)
   const [ratingOpen, setRatingOpen] = useState(false)
+  // Set right before opening the customize dialog for a specific task (e.g.
+  // from the timer icon on a task card) so the dialog can pre-select it —
+  // null for a plain "Customize" open with no task attached.
+  const [pendingTaskId, setPendingTaskId] = useState<number | null>(null)
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const ratingTriggeredRef = useRef(false)
@@ -430,5 +434,7 @@ export const useTimer = () => {
     setCustomizeOpen,
     ratingOpen,
     setRatingOpen,
+    pendingTaskId,
+    setPendingTaskId,
   }
 }

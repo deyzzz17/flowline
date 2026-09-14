@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -61,12 +62,18 @@ interface TimerCustomizeDialogProps {
   open: boolean
   onOpenChange: (v: boolean) => void
   onStart: (config: SessionConfig) => void
+  // Set when the dialog is opened for a specific task (e.g. from the timer
+  // icon on a task card) — pre-selects it in "Linked task" and expands the
+  // Analytics section so it's visible immediately instead of hidden behind
+  // the collapsed toggle.
+  initialTaskId?: number | null
 }
 
 export const TimerCustomizeDialog = ({
   open,
   onOpenChange,
   onStart,
+  initialTaskId,
 }: TimerCustomizeDialogProps) => {
   const {
     session,
@@ -103,6 +110,16 @@ export const TimerCustomizeDialog = ({
     staleTime: 30_000,
   })
   const activeTasks = (tasksData?.docs ?? []).filter((t) => t.status === 'active')
+
+  useEffect(() => {
+    if (open && initialTaskId != null) {
+      update('taskId', initialTaskId)
+      setAnalyticsOpen(true)
+    }
+    // Only re-run when the dialog opens (or opens for a different task) —
+    // `update`/`setAnalyticsOpen` are stable setters from useTimerCustomize.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialTaskId])
 
   const toDur = (val: number | '') => {
     const s = val === '' ? 0 : Number(val)

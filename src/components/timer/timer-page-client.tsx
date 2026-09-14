@@ -5,7 +5,6 @@ import { BarChart2, LayoutList } from 'lucide-react'
 import { TimerRing } from './timer-ring'
 import { TimerDisplay } from './timer-display'
 import { TimerControls } from './timer-controls'
-import { TimerCustomizeDialog } from './timer-customize-dialog'
 import { SessionRatingDialog } from './session-rating-dialog'
 import { TimerConfigsSidebar } from './timer-configs-sidebar'
 import { useTimerContext } from './timer-context'
@@ -14,8 +13,6 @@ import { useTodayStats } from '@/hooks/timer/use-today-stats'
 import { useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import type { SessionConfig } from '@/hooks/timer/use-timer'
-import { PlanLimitDialog } from '../ui/plan-limit-dialog'
-import { SafetyCapDialog } from '../ui/safety-cap-dialog'
 
 export function TimerPageClient() {
   const queryClient = useQueryClient()
@@ -36,7 +33,6 @@ export function TimerPageClient() {
     forceReset,
     startWithConfig,
     config,
-    customizeOpen,
     setCustomizeOpen,
     ratingOpen,
     setRatingOpen,
@@ -47,21 +43,10 @@ export function TimerPageClient() {
     setSidebarOpen,
     configs,
     isLoading: configsLoading,
-    saveConfig,
     deleteMutation,
-    limitError,
-    clearLimitError,
-    capError,
-    clearCapError,
   } = useTimerConfigs()
 
   const { stats, isLoading: statsLoading } = useTodayStats()
-
-  const handleStartSession = (sessionConfig: SessionConfig) => {
-    setCustomizeOpen(false)
-    saveConfig(sessionConfig)
-    startWithConfig(sessionConfig)
-  }
 
   const handleStartFromConfig = (sessionConfig: SessionConfig) => {
     setSidebarOpen(false)
@@ -83,32 +68,11 @@ export function TimerPageClient() {
   return (
     <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
       <div className="relative flex flex-1 flex-col overflow-hidden transition-all duration-300">
-        <TimerCustomizeDialog
-          open={customizeOpen}
-          onOpenChange={setCustomizeOpen}
-          onStart={handleStartSession}
-        />
-
         <SessionRatingDialog
           open={ratingOpen}
           onClose={handleRatingClose}
           config={config}
           totalElapsed={totalElapsed}
-        />
-
-        <PlanLimitDialog
-          open={!!limitError}
-          onOpenChange={(v) => {
-            if (!v) clearLimitError()
-          }}
-          limitError={limitError}
-        />
-        <SafetyCapDialog
-          open={!!capError}
-          onOpenChange={(v) => {
-            if (!v) clearCapError()
-          }}
-          capError={capError}
         />
 
         <div className="pointer-events-none absolute inset-0">

@@ -21,6 +21,8 @@ interface TimerContextValue {
   setCustomizeOpen: (v: boolean) => void
   ratingOpen: boolean
   setRatingOpen: (v: boolean) => void
+  pendingTaskId: number | null
+  setPendingTaskId: (v: number | null) => void
   toggle: () => void
   reset: () => void
   forceReset: () => void

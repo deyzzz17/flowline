@@ -22,6 +22,7 @@ import { CalendarFilterProvider } from '@/components/calendar/calendar-filter-co
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { TimerProvider } from '@/components/timer/timer-context'
+import { GlobalTimerDialog } from '@/components/timer/global-timer-dialog'
 import { AccountComplianceGate } from '@/components/lists/account-compliance-gate'
 import { RestorePromptProvider } from '@/components/ui/restore-prompt-context'
 
@@ -64,6 +65,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <TimerProvider>
             <RestorePromptProvider>
               <Toaster position="bottom-right" />
+              <GlobalTimerDialog />
               <AccountComplianceGate
                 initialListsCompliance={listsCompliance}
                 initialSharedListsCompliance={sharedListsCompliance}
