@@ -7,10 +7,19 @@ import {
   type CookieConsentStatus,
 } from '@/lib/cookie-consent'
 
+// A single state machine instead of two independent booleans (one for the
+// banner, one for the dialog) — 'closed' is the only state where nothing
+// renders, so there's exactly one flag to check anywhere, and no way for
+// the banner and the dialog to disagree about whether saving should close
+// both of them.
+export type CookieConsentView = 'closed' | 'banner' | 'customize'
+
 interface CookieConsentContextType {
   status: CookieConsentStatus | null
-  isBannerOpen: boolean
+  view: CookieConsentView
   decide: (status: CookieConsentStatus) => void
+  openCustomize: () => void
+  backToBanner: () => void
   openPreferences: () => void
 }
 
@@ -18,24 +27,28 @@ const CookieConsentContext = createContext<CookieConsentContextType | null>(null
 
 export function CookieConsentProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<CookieConsentStatus | null>(null)
-  const [isBannerOpen, setIsBannerOpen] = useState(false)
+  const [view, setView] = useState<CookieConsentView>('closed')
 
   useEffect(() => {
     const stored = getStoredCookieConsent()
     setStatus(stored?.status ?? null)
-    setIsBannerOpen(!stored)
+    setView(stored ? 'closed' : 'banner')
   }, [])
 
   const decide = (next: CookieConsentStatus) => {
     storeCookieConsent(next)
     setStatus(next)
-    setIsBannerOpen(false)
+    setView('closed')
   }
 
-  const openPreferences = () => setIsBannerOpen(true)
+  const openCustomize = () => setView('customize')
+  const backToBanner = () => setView('banner')
+  const openPreferences = () => setView('banner')
 
   return (
-    <CookieConsentContext.Provider value={{ status, isBannerOpen, decide, openPreferences }}>
+    <CookieConsentContext.Provider
+      value={{ status, view, decide, openCustomize, backToBanner, openPreferences }}
+    >
       {children}
     </CookieConsentContext.Provider>
   )

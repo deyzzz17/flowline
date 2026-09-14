@@ -102,10 +102,12 @@ export function CookiePreferencesDialog({ open, onOpenChange }: CookiePreference
         <DialogFooter className="pt-2">
           <button
             type="button"
-            onClick={() => {
-              decide('essential_only')
-              onOpenChange(false)
-            }}
+            // `decide()` alone drives the shared view state to 'closed',
+            // which closes both this dialog and the banner behind it — no
+            // separate onOpenChange(false) call needed (and deliberately
+            // avoided: it would route through "cancelled, go back to
+            // banner" instead of "done, close everything").
+            onClick={() => decide('essential_only')}
             className="w-full rounded-xl bg-violet-600 px-3 py-2 text-sm font-semibold text-white transition-all hover:bg-violet-500"
           >
             Save preferences

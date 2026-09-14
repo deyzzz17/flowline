@@ -1,16 +1,14 @@
 'use client'
 
-import { useState } from 'react'
 import { Cookie } from 'lucide-react'
 import Link from 'next/link'
 import { useCookieConsent } from '@/contexts/cookie-consent-context'
 import { CookiePreferencesDialog } from './cookie-preferences-dialog'
 
 export function CookieConsentBanner() {
-  const { isBannerOpen, decide } = useCookieConsent()
-  const [customizeOpen, setCustomizeOpen] = useState(false)
+  const { view, decide, openCustomize, backToBanner } = useCookieConsent()
 
-  if (!isBannerOpen) return null
+  if (view === 'closed') return null
 
   return (
     <>
@@ -19,7 +17,7 @@ export function CookieConsentBanner() {
           the taller itemized dialog can extend down into the banner's
           fixed bottom-4 area, the banner would otherwise intercept clicks
           on "Save preferences" before they ever reach the dialog. */}
-      {!customizeOpen && (
+      {view === 'banner' && (
         <div
           role="dialog"
           aria-live="polite"
@@ -56,7 +54,7 @@ export function CookieConsentBanner() {
               </button>
               <button
                 type="button"
-                onClick={() => setCustomizeOpen(true)}
+                onClick={openCustomize}
                 className="w-full rounded-xl border border-border/60 bg-background px-3 py-2 text-xs font-semibold text-foreground transition-all hover:bg-muted"
               >
                 Customize
@@ -73,7 +71,15 @@ export function CookieConsentBanner() {
         </div>
       )}
 
-      <CookiePreferencesDialog open={customizeOpen} onOpenChange={setCustomizeOpen} />
+      <CookiePreferencesDialog
+        open={view === 'customize'}
+        onOpenChange={(next) => {
+          // Only fires for a user-initiated dismiss (Esc, outside click, the
+          // X button) — Save calls `decide()` directly, which drives `view`
+          // to 'closed' on its own, so this never fights that transition.
+          if (!next) backToBanner()
+        }}
+      />
     </>
   )
 }
