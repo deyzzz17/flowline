@@ -1,4 +1,8 @@
 import Link from 'next/link'
+import { CookiePreferencesLink } from '@/components/marketing/cookie-preferences-link'
+
+const FOOTER_LINK_CLASSES =
+  'text-xs text-slate-400 transition-colors hover:text-slate-600 dark:text-white/30 dark:hover:text-white/60'
 
 export function Footer() {
   return (
@@ -15,31 +19,22 @@ export function Footer() {
             </span>
           </div>
 
-          <nav className="flex items-center gap-6">
-            <Link
-              href="/pricing"
-              className="text-xs text-slate-400 transition-colors hover:text-slate-600 dark:text-white/30 dark:hover:text-white/60"
-            >
+          <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+            <Link href="/pricing" className={FOOTER_LINK_CLASSES}>
               Pricing
             </Link>
-            <Link
-              href="/privacy"
-              className="text-xs text-slate-400 transition-colors hover:text-slate-600 dark:text-white/30 dark:hover:text-white/60"
-            >
+            <Link href="/privacy" className={FOOTER_LINK_CLASSES}>
               Privacy Policy
             </Link>
-            <Link
-              href="/terms"
-              className="text-xs text-slate-400 transition-colors hover:text-slate-600 dark:text-white/30 dark:hover:text-white/60"
-            >
+            <Link href="/terms" className={FOOTER_LINK_CLASSES}>
               Terms
             </Link>
-            <Link
-              href="/cookies"
-              className="text-xs text-slate-400 transition-colors hover:text-slate-600 dark:text-white/30 dark:hover:text-white/60"
-            >
+            <Link href="/cookies" className={FOOTER_LINK_CLASSES}>
               Cookies
             </Link>
+            <CookiePreferencesLink className={FOOTER_LINK_CLASSES}>
+              Cookie preferences
+            </CookiePreferencesLink>
           </nav>
         </div>
       </div>

@@ -1,32 +1,14 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { CookiePreferencesLink } from '@/components/marketing/cookie-preferences-link'
+import { COOKIE_CATALOG, COOKIE_CATEGORIES } from '@/lib/cookie-catalog'
 
 export const metadata: Metadata = {
   title: 'Cookie Policy — Flowline',
   description: 'Learn which cookies Flowline uses, why, and how to manage your preferences.',
 }
 
-const cookieTable = [
-  {
-    name: 'better-auth.session_token',
-    purpose: 'Keeps you signed in to your account.',
-    duration: '7 days',
-    type: 'Strictly necessary',
-  },
-  {
-    name: 'better-auth.session_data',
-    purpose: 'Short-lived cache of your session, to avoid re-checking it on every request.',
-    duration: '5 minutes',
-    type: 'Strictly necessary',
-  },
-  {
-    name: 'sidebar_state',
-    purpose: 'Remembers whether the app sidebar is expanded or collapsed. Only set once you are signed in and using the app.',
-    duration: '7 days',
-    type: 'Strictly necessary',
-  },
-]
+const categoryLabels = Object.fromEntries(COOKIE_CATEGORIES.map((c) => [c.key, c.label]))
 
 export default function CookiesPage() {
   return (
@@ -93,10 +75,10 @@ export default function CookiesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {cookieTable.map((row, i) => (
+                  {COOKIE_CATALOG.map((row, i) => (
                     <tr
                       key={row.name}
-                      className={i !== cookieTable.length - 1 ? 'border-b border-border/40' : ''}
+                      className={i !== COOKIE_CATALOG.length - 1 ? 'border-b border-border/40' : ''}
                     >
                       <td className="px-4 py-3 align-top font-mono text-xs text-foreground">
                         {row.name}
@@ -106,7 +88,7 @@ export default function CookiesPage() {
                         {row.duration}
                       </td>
                       <td className="px-4 py-3 align-top whitespace-nowrap text-muted-foreground">
-                        {row.type}
+                        {categoryLabels[row.category]}
                       </td>
                     </tr>
                   ))}
