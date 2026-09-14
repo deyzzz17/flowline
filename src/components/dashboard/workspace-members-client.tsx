@@ -82,6 +82,44 @@ const ROLE_LABELS: Record<string, string> = {
   viewer: 'Viewer',
 }
 
+type RoleFilterValue = 'all' | 'owner' | WorkspaceInviteRole
+const ROLE_FILTER_OPTIONS: RoleFilterValue[] = ['all', 'owner', 'admin', 'member', 'viewer']
+const ROLE_FILTER_LABELS: Record<RoleFilterValue, string> = {
+  all: 'All',
+  owner: 'Owner',
+  admin: 'Admin',
+  member: 'Editor',
+  viewer: 'Viewer',
+}
+
+function RoleFilterControl({
+  value,
+  onChange,
+}: {
+  value: RoleFilterValue
+  onChange: (v: RoleFilterValue) => void
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-0.5 rounded-lg border border-border/60 bg-muted/30 p-0.5">
+      {ROLE_FILTER_OPTIONS.map((r) => (
+        <button
+          key={r}
+          type="button"
+          onClick={() => onChange(r)}
+          className={cn(
+            'rounded-md px-2 py-1 text-[10px] font-medium transition-all',
+            value === r
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          {ROLE_FILTER_LABELS[r]}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export function WorkspaceMembersClient() {
   const queryClient = useQueryClient()
   const { data: session } = useSession()
@@ -112,6 +150,9 @@ export function WorkspaceMembersClient() {
   const canEditRow = (target: WorkspaceMember) => canEditName(target) || canEditRole(target)
   const canRemoveRow = (target: WorkspaceMember) =>
     canManageTarget(target) && target.userId !== currentUserId
+
+  const [roleFilter, setRoleFilter] = useState<RoleFilterValue>('all')
+  const filteredMembers = roleFilter === 'all' ? members : members.filter((m) => m.role === roleFilter)
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [nicknameDraft, setNicknameDraft] = useState('')
@@ -294,13 +335,16 @@ export function WorkspaceMembersClient() {
       )}
 
       <div className="rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm">
-        <div className="flex items-center justify-between border-b border-border/50 px-5 py-3.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 px-5 py-3.5">
           <div className="flex items-center gap-2">
             <Users className="h-3.5 w-3.5 text-violet-500 dark:text-violet-400" />
             <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
               Members
             </span>
           </div>
+          {members.length > 0 && (
+            <RoleFilterControl value={roleFilter} onChange={setRoleFilter} />
+          )}
         </div>
         <div className="p-3 sm:p-5">
           {members.length === 0 ? (
@@ -310,9 +354,18 @@ export function WorkspaceMembersClient() {
               </div>
               <p className="text-sm font-medium text-muted-foreground">No members yet</p>
             </div>
+          ) : filteredMembers.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
+                <Users className="h-5 w-5 text-muted-foreground/40" />
+              </div>
+              <p className="text-sm font-medium text-muted-foreground">
+                No {ROLE_FILTER_LABELS[roleFilter].toLowerCase()} in this workspace
+              </p>
+            </div>
           ) : (
             <div className="space-y-1">
-              {members.map((m) => {
+              {filteredMembers.map((m) => {
                 const isEditingThis = editingId === m.id
                 const showEdit = canEditRow(m)
                 const showRemove = canRemoveRow(m)
