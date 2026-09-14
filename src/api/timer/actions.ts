@@ -31,8 +31,36 @@ export const listTimerCategories = async () => {
     where: {
       and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: false } }],
     },
+    sort: 'createdAt',
     limit: 0,
   })
+
+  // Self-heals accounts hit by a past race: two concurrent first-loads of
+  // this page could each see an empty list below and both seed the same 5
+  // defaults, leaving every default category duplicated. Only ever collapses
+  // `isDefault` rows that share a name — a user's own custom category is
+  // never touched even if its name happens to collide with a default's.
+  const defaultsByName = new Map<string, typeof existing.docs>()
+  for (const doc of existing.docs) {
+    if (!doc.isDefault) continue
+    const group = defaultsByName.get(doc.name) ?? []
+    group.push(doc)
+    defaultsByName.set(doc.name, group)
+  }
+  const duplicateIds = Array.from(defaultsByName.values())
+    .filter((docs) => docs.length > 1)
+    .flatMap((docs) => docs.slice(1).map((d) => d.id)) // oldest survives (sorted by createdAt)
+
+  if (duplicateIds.length > 0) {
+    await Promise.all(duplicateIds.map((id) => payload.delete({ collection: 'timer-categories', id })))
+    return await payload.find({
+      collection: 'timer-categories',
+      where: {
+        and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: false } }],
+      },
+      limit: 0,
+    })
+  }
 
   if (existing.docs.length === 0) {
     for (const cat of DEFAULT_CATEGORIES) {
