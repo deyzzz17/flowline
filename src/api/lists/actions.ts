@@ -185,11 +185,15 @@ export const listLists = async () => {
   })
 }
 
+// Scoped to the active workspace — an archived Personal list must never show
+// up as restorable while browsing a workspace, and vice versa, even though
+// both live in the same `lists` collection for the same user.
 export const listPlanArchivedLists = async () => {
   const userId = await getUserId()
   if (!userId) return { docs: [] }
 
   const payload = await getPayload({ config })
+  const workspaceId = await getCurrentWorkspaceId()
 
   return await payload.find({
     collection: 'lists',
@@ -200,6 +204,7 @@ export const listPlanArchivedLists = async () => {
         { userId: { equals: userId } },
         { planArchivedAt: { exists: true } },
         { isShared: { not_equals: true } },
+        workspaceWhereClause(workspaceId),
       ],
     },
   })
@@ -299,6 +304,12 @@ export const restoreArchivedList = async (id: number) => {
     if (!list.planArchivedAt) return err('List is not archived')
     if (list.isShared) return err('This is a shared list')
 
+    // A Personal list can only be restored while on Personal, and a
+    // workspace list only while that same workspace is active — restoring
+    // it elsewhere would silently move it, which isn't what "restore" means.
+    const workspaceId = await getCurrentWorkspaceId()
+    if ((list.workspace ?? null) !== workspaceId) return err('Not authorized')
+
     const { limits } = await getUserPlanLimits()
     const currentCount = await countActiveLists(payload, userId)
 
@@ -341,7 +352,13 @@ export async function restoreAllArchivedListsForUserId(userId: string): Promise<
     const room = limits.lists === Infinity ? Infinity : Math.max(0, limits.lists - activeCount)
     if (room <= 0) return
 
-    const { docs: archived } = await payload.find({
+    // No single "current workspace" here — this runs from a plan-upgrade
+    // webhook, not a page request — so instead of scoping to one workspace,
+    // every candidate is checked against the workspaces this user is still
+    // actually a member of. Otherwise a list archived while on a workspace
+    // the user has since left (or that got deleted) would silently come
+    // back on upgrade, counting against their quota with no way to reach it.
+    const { docs: allArchived } = await payload.find({
       collection: 'lists',
       where: {
         and: [
@@ -351,8 +368,20 @@ export async function restoreAllArchivedListsForUserId(userId: string): Promise<
         ],
       },
       sort: 'planArchivedAt',
-      limit: room === Infinity ? 0 : room,
+      limit: 0,
     })
+
+    const restorable: typeof allArchived = []
+    for (const list of allArchived) {
+      if (room !== Infinity && restorable.length >= room) break
+      if (!list.workspace) {
+        restorable.push(list)
+        continue
+      }
+      const role = await getWorkspaceRoleForUser(list.workspace, userId)
+      if (role) restorable.push(list)
+    }
+    const archived = restorable
 
     for (const list of archived) {
       await payload.update({

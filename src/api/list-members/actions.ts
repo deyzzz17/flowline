@@ -672,11 +672,15 @@ export const chooseSharedListsToKeep = async (keepIds: number[]) => {
   }
 }
 
+// Scoped to the active workspace — same reasoning as listPlanArchivedLists:
+// an archived shared list must only be offered for restore under the
+// workspace it actually belonged to.
 export const listPlanArchivedSharedLists = async () => {
   const userId = await getUserId()
   if (!userId) return { docs: [] }
 
   const payload = await getPayload({ config })
+  const workspaceId = await getCurrentWorkspaceId()
 
   return await payload.find({
     collection: 'lists',
@@ -687,6 +691,7 @@ export const listPlanArchivedSharedLists = async () => {
         { userId: { equals: userId } },
         { isShared: { equals: true } },
         { planArchivedAt: { exists: true } },
+        workspaceWhereClause(workspaceId),
       ],
     },
   })
@@ -702,6 +707,11 @@ export const restoreArchivedSharedList = async (id: number) => {
     if (!list || list.userId !== userId) return err('Not authorized')
     if (!list.planArchivedAt) return err('List is not archived')
     if (!list.isShared) return err('This is not a shared list')
+
+    // Same rule as restoreArchivedList: only restorable into the workspace
+    // it was actually archived from.
+    const workspaceId = await getCurrentWorkspaceId()
+    if ((list.workspace ?? null) !== workspaceId) return err('Not authorized')
 
     const { limits } = await getPlanLimitsForUserId(userId)
     const currentCount = await countSharedLists(payload, userId)
@@ -746,7 +756,10 @@ export async function restoreAllArchivedSharedListsForUserId(userId: string): Pr
       limits.sharedLists === Infinity ? Infinity : Math.max(0, limits.sharedLists - activeCount)
     if (room <= 0) return
 
-    const { docs: archived } = await payload.find({
+    // Same reasoning as restoreAllArchivedListsForUserId: no "current
+    // workspace" in a webhook context, so each candidate is checked against
+    // the workspaces this user is still actually a member of instead.
+    const { docs: allArchived } = await payload.find({
       collection: 'lists',
       where: {
         and: [
@@ -756,8 +769,20 @@ export async function restoreAllArchivedSharedListsForUserId(userId: string): Pr
         ],
       },
       sort: 'planArchivedAt',
-      limit: room === Infinity ? 0 : room,
+      limit: 0,
     })
+
+    const restorable: typeof allArchived = []
+    for (const list of allArchived) {
+      if (room !== Infinity && restorable.length >= room) break
+      if (!list.workspace) {
+        restorable.push(list)
+        continue
+      }
+      const role = await getWorkspaceRoleForUser(list.workspace, userId)
+      if (role) restorable.push(list)
+    }
+    const archived = restorable
 
     for (const list of archived) {
       await payload.update({
