@@ -1,6 +1,7 @@
 import { DashboardHeader } from '@/components/dashboard/dashboard-header'
 import { DashboardFocusNow } from '@/components/dashboard/dashboard-focus-now'
 import { DashboardOverview } from '@/components/dashboard/dashboard-overview'
+import { DashboardStreaks } from '@/components/dashboard/dashboard-streaks'
 import { DashboardInsights } from '@/components/dashboard/dashboard-insights'
 import { DashboardTimeAndCalendar } from '@/components/dashboard/dashboard-time-and-calendar'
 import { DashboardGoals } from '@/components/dashboard/dashboard-goals'
@@ -108,6 +109,7 @@ export default async function DashboardPage() {
         timerWeek={timerWeek}
         todayEvents={todayEvents}
       />
+      <DashboardStreaks habits={habits} />
       <DashboardInsights
         habits={habits}
         timerToday={timerToday}
