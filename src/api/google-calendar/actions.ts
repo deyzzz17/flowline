@@ -5,6 +5,7 @@ import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { ok, err } from '@/types/result'
 import { getSession } from '@/lib/get-session'
+import { pool } from '@/lib/db-pool'
 
 const getUserId = async () => {
   const session = await getSession()
@@ -13,13 +14,10 @@ const getUserId = async () => {
 
 const getGoogleAccessToken = async (userId: string): Promise<string | null> => {
   try {
-    const { Pool } = await import('pg')
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL })
     const result = await pool.query(
       `SELECT "accessToken" FROM account WHERE "userId" = $1 AND "providerId" = 'google' LIMIT 1`,
       [userId],
     )
-    await pool.end()
     return result.rows[0]?.accessToken ?? null
   } catch {
     return null
@@ -171,13 +169,10 @@ export const refreshGoogleCalendars = async () => {
     })
     if (docs.length === 0) return err('Not connected')
 
-    const { Pool } = await import('pg')
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL })
     const result = await pool.query(
       `SELECT "accessToken" FROM account WHERE "userId" = $1 AND "providerId" = 'google' LIMIT 1`,
       [userId],
     )
-    await pool.end()
     const accessToken = result.rows[0]?.accessToken
     if (!accessToken) return err('No access token')
 

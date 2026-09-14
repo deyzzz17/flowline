@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { stripe, PLANS, type Plan, type BillingInterval } from '@/lib/stripe'
 import { getSession } from '@/lib/get-session'
-import { Pool } from 'pg'
+import { pool } from '@/lib/db-pool'
 import { ok, err } from '@/types/result'
 
 const getUserId = async () => {
@@ -41,75 +41,70 @@ export const getBillingInfo = async (): Promise<BillingInfo | null> => {
   const userId = await getUserId()
   if (!userId) return null
 
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-  try {
-    const result = await pool.query(
-      `SELECT plan, "subscriptionStatus", "subscriptionId", "stripeCustomerId",
-              "trialEndsAt", "hadPlusTrial", "hadProTrial"
-       FROM "user" WHERE id = $1 LIMIT 1`,
-      [userId],
-    )
-    if (result.rows.length === 0) return null
-    const row = result.rows[0]
+  const result = await pool.query(
+    `SELECT plan, "subscriptionStatus", "subscriptionId", "stripeCustomerId",
+            "trialEndsAt", "hadPlusTrial", "hadProTrial"
+     FROM "user" WHERE id = $1 LIMIT 1`,
+    [userId],
+  )
+  if (result.rows.length === 0) return null
+  const row = result.rows[0]
 
-    let billingInterval: BillingInterval | null = null
-    let periodEnd: Date | null = null
-    let cancelAtPeriodEnd = false
+  let billingInterval: BillingInterval | null = null
+  let periodEnd: Date | null = null
+  let cancelAtPeriodEnd = false
 
-    if (row.subscriptionId) {
-      try {
-        const sub = await stripe.subscriptions.retrieve(row.subscriptionId)
-        const priceId = sub.items.data[0]?.price.id
-        if (priceId) {
-          const price = await stripe.prices.retrieve(priceId)
-          billingInterval = price.recurring?.interval === 'year' ? 'annual' : 'monthly'
+  if (row.subscriptionId) {
+    try {
+      const sub = await stripe.subscriptions.retrieve(row.subscriptionId)
+      const priceId = sub.items.data[0]?.price.id
+      if (priceId) {
+        const price = await stripe.prices.retrieve(priceId)
+        billingInterval = price.recurring?.interval === 'year' ? 'annual' : 'monthly'
+      }
+      const itemPeriodEnd = sub.items.data[0]?.current_period_end
+      if (itemPeriodEnd) {
+        periodEnd = new Date(itemPeriodEnd * 1000)
+      }
+      cancelAtPeriodEnd = sub.cancel_at_period_end ?? false
+
+      // Trust Stripe's live status over the DB cache: a failed/missed webhook
+      // delivery can leave "subscriptionStatus" stale (e.g. still "active"
+      // long after the subscription was actually canceled in Stripe), which
+      // would otherwise make the UI try to "update" a dead subscription.
+      if (sub.status !== row.subscriptionStatus) {
+        if (INACTIVE_STATUSES.has(sub.status)) {
+          await pool.query(
+            `UPDATE "user" SET plan = 'free', "subscriptionStatus" = $1, "subscriptionId" = NULL, "trialEndsAt" = NULL WHERE id = $2`,
+            [sub.status, userId],
+          )
+          row.plan = 'free'
+          row.subscriptionId = null
+          row.trialEndsAt = null
+        } else {
+          await pool.query(`UPDATE "user" SET "subscriptionStatus" = $1 WHERE id = $2`, [
+            sub.status,
+            userId,
+          ])
         }
-        const itemPeriodEnd = sub.items.data[0]?.current_period_end
-        if (itemPeriodEnd) {
-          periodEnd = new Date(itemPeriodEnd * 1000)
-        }
-        cancelAtPeriodEnd = sub.cancel_at_period_end ?? false
+        row.subscriptionStatus = sub.status
+      }
+    } catch {}
+  }
 
-        // Trust Stripe's live status over the DB cache: a failed/missed webhook
-        // delivery can leave "subscriptionStatus" stale (e.g. still "active"
-        // long after the subscription was actually canceled in Stripe), which
-        // would otherwise make the UI try to "update" a dead subscription.
-        if (sub.status !== row.subscriptionStatus) {
-          if (INACTIVE_STATUSES.has(sub.status)) {
-            await pool.query(
-              `UPDATE "user" SET plan = 'free', "subscriptionStatus" = $1, "subscriptionId" = NULL, "trialEndsAt" = NULL WHERE id = $2`,
-              [sub.status, userId],
-            )
-            row.plan = 'free'
-            row.subscriptionId = null
-            row.trialEndsAt = null
-          } else {
-            await pool.query(`UPDATE "user" SET "subscriptionStatus" = $1 WHERE id = $2`, [
-              sub.status,
-              userId,
-            ])
-          }
-          row.subscriptionStatus = sub.status
-        }
-      } catch {}
-    }
-
-    return {
-      plan: (row.plan ?? 'free') as Plan,
-      billingInterval,
-      subscriptionStatus: row.subscriptionStatus,
-      subscriptionId: row.subscriptionId,
-      stripeCustomerId: row.stripeCustomerId,
-      isActive: row.subscriptionStatus === 'active' || row.subscriptionStatus === 'trialing',
-      isTrial: row.subscriptionStatus === 'trialing',
-      trialEndsAt: row.trialEndsAt ? new Date(row.trialEndsAt) : null,
-      periodEnd,
-      cancelAtPeriodEnd,
-      hadPlusTrial: row.hadPlusTrial ?? false,
-      hadProTrial: row.hadProTrial ?? false,
-    }
-  } finally {
-    await pool.end()
+  return {
+    plan: (row.plan ?? 'free') as Plan,
+    billingInterval,
+    subscriptionStatus: row.subscriptionStatus,
+    subscriptionId: row.subscriptionId,
+    stripeCustomerId: row.stripeCustomerId,
+    isActive: row.subscriptionStatus === 'active' || row.subscriptionStatus === 'trialing',
+    isTrial: row.subscriptionStatus === 'trialing',
+    trialEndsAt: row.trialEndsAt ? new Date(row.trialEndsAt) : null,
+    periodEnd,
+    cancelAtPeriodEnd,
+    hadPlusTrial: row.hadPlusTrial ?? false,
+    hadProTrial: row.hadProTrial ?? false,
   }
 }
 
@@ -118,50 +113,32 @@ async function getOrCreateStripeCustomer(
   email: string,
   name: string,
 ): Promise<string> {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-  try {
-    const result = await pool.query(`SELECT "stripeCustomerId" FROM "user" WHERE id = $1 LIMIT 1`, [
-      userId,
-    ])
-    const existingId = result.rows[0]?.stripeCustomerId
-    if (existingId) return existingId
+  const result = await pool.query(`SELECT "stripeCustomerId" FROM "user" WHERE id = $1 LIMIT 1`, [
+    userId,
+  ])
+  const existingId = result.rows[0]?.stripeCustomerId
+  if (existingId) return existingId
 
-    const customer = await stripe.customers.create({
-      email,
-      name,
-      metadata: { userId },
-    })
+  const customer = await stripe.customers.create({
+    email,
+    name,
+    metadata: { userId },
+  })
 
-    await pool.query(`UPDATE "user" SET "stripeCustomerId" = $1 WHERE id = $2`, [
-      customer.id,
-      userId,
-    ])
+  await pool.query(`UPDATE "user" SET "stripeCustomerId" = $1 WHERE id = $2`, [customer.id, userId])
 
-    return customer.id
-  } finally {
-    await pool.end()
-  }
+  return customer.id
 }
 
 async function hasUsedTrial(userId: string, plan: Plan): Promise<boolean> {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-  try {
-    const field = plan === 'plus' ? 'hadPlusTrial' : 'hadProTrial'
-    const result = await pool.query(`SELECT "${field}" FROM "user" WHERE id = $1 LIMIT 1`, [userId])
-    return result.rows[0]?.[field] ?? false
-  } finally {
-    await pool.end()
-  }
+  const field = plan === 'plus' ? 'hadPlusTrial' : 'hadProTrial'
+  const result = await pool.query(`SELECT "${field}" FROM "user" WHERE id = $1 LIMIT 1`, [userId])
+  return result.rows[0]?.[field] ?? false
 }
 
 export async function markTrialUsed(userId: string, plan: Plan) {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-  try {
-    const field = plan === 'plus' ? '"hadPlusTrial"' : '"hadProTrial"'
-    await pool.query(`UPDATE "user" SET ${field} = TRUE WHERE id = $1`, [userId])
-  } finally {
-    await pool.end()
-  }
+  const field = plan === 'plus' ? '"hadPlusTrial"' : '"hadProTrial"'
+  await pool.query(`UPDATE "user" SET ${field} = TRUE WHERE id = $1`, [userId])
 }
 
 export const createCheckoutSession = async (plan: Plan, interval: BillingInterval) => {

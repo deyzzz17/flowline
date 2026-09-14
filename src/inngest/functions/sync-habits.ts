@@ -1,7 +1,7 @@
 import { inngest } from '@/lib/inngest'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
-import { Pool } from 'pg'
+import { pool } from '@/lib/db-pool'
 
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
 
@@ -99,17 +99,12 @@ export const syncHabits = inngest.createFunction(
       const userIds = [...new Set(habits.map((h) => (h as any).userId as string))]
       const userTimezones: Record<string, string> = {}
 
-      const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-      try {
-        const { rows } = await pool.query('SELECT id, timezone FROM "user" WHERE id = ANY($1)', [
-          userIds,
-        ])
-        rows.forEach((row: { id: string; timezone: string | null }) => {
-          userTimezones[row.id] = row.timezone ?? 'UTC'
-        })
-      } finally {
-        await pool.end()
-      }
+      const { rows } = await pool.query('SELECT id, timezone FROM "user" WHERE id = ANY($1)', [
+        userIds,
+      ])
+      rows.forEach((row: { id: string; timezone: string | null }) => {
+        userTimezones[row.id] = row.timezone ?? 'UTC'
+      })
 
       const midnightUsers = new Set<string>()
       for (const userId of userIds) {

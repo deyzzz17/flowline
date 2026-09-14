@@ -1,6 +1,6 @@
 'use server'
 
-import { Pool } from 'pg'
+import { pool } from '@/lib/db-pool'
 import bcrypt from 'bcryptjs'
 
 export async function doResetPassword(
@@ -8,8 +8,6 @@ export async function doResetPassword(
   token: string,
   newPassword: string,
 ): Promise<{ ok: boolean; error?: 'expired' | 'invalid' | 'unknown' }> {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-
   try {
     const identifier = `reset-password:${email}`
 
@@ -53,7 +51,5 @@ export async function doResetPassword(
   } catch (e) {
     console.error('doResetPassword error:', e)
     return { ok: false, error: 'unknown' }
-  } finally {
-    await pool.end()
   }
 }

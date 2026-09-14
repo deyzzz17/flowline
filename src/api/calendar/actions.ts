@@ -4,7 +4,7 @@ import 'server-only'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { ok, err } from '@/types/result'
-import { Pool } from 'pg'
+import { pool } from '@/lib/db-pool'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
 import {
@@ -390,39 +390,34 @@ export const deleteCalendarCategory = async (id: number) => {
 }
 
 async function getGoogleAccessToken(userId: string): Promise<string | null> {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-  try {
-    const result = await pool.query(
-      `SELECT "accessToken", "accessTokenExpiresAt", "refreshToken"
-       FROM account WHERE "userId" = $1 AND "providerId" = 'google' LIMIT 1`,
-      [userId],
+  const result = await pool.query(
+    `SELECT "accessToken", "accessTokenExpiresAt", "refreshToken"
+     FROM account WHERE "userId" = $1 AND "providerId" = 'google' LIMIT 1`,
+    [userId],
+  )
+  if (result.rows.length === 0) return null
+  const account = result.rows[0]
+  if (account.accessTokenExpiresAt && new Date(account.accessTokenExpiresAt) < new Date()) {
+    const res = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: process.env.GOOGLE_CLIENT_ID!,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+        refresh_token: account.refreshToken,
+        grant_type: 'refresh_token',
+      }),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    const expiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString()
+    await pool.query(
+      `UPDATE account SET "accessToken" = $1, "accessTokenExpiresAt" = $2 WHERE "userId" = $3 AND "providerId" = 'google'`,
+      [data.access_token, expiresAt, userId],
     )
-    if (result.rows.length === 0) return null
-    const account = result.rows[0]
-    if (account.accessTokenExpiresAt && new Date(account.accessTokenExpiresAt) < new Date()) {
-      const res = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          client_id: process.env.GOOGLE_CLIENT_ID!,
-          client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-          refresh_token: account.refreshToken,
-          grant_type: 'refresh_token',
-        }),
-      })
-      if (!res.ok) return null
-      const data = await res.json()
-      const expiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString()
-      await pool.query(
-        `UPDATE account SET "accessToken" = $1, "accessTokenExpiresAt" = $2 WHERE "userId" = $3 AND "providerId" = 'google'`,
-        [data.access_token, expiresAt, userId],
-      )
-      return data.access_token
-    }
-    return account.accessToken
-  } finally {
-    await pool.end()
+    return data.access_token
   }
+  return account.accessToken
 }
 
 async function fetchGoogleCalendarEvents(

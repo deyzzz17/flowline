@@ -1,4 +1,5 @@
 import React from 'react'
+import { after } from 'next/server'
 import { ModeToggle } from '@/components/theme/mode-toggle'
 import { FlowlineLogo } from '@/components/header/flowline-logo'
 import { AppSidebar } from '@/components/dashboard/app-sidebar'
@@ -34,7 +35,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   let initialWorkspaces: WorkspacesData | undefined
 
   if (user?.id) {
-    await syncRecurringTasksForUser()
+    // Runs after the response is sent instead of blocking this render — it
+    // only flips recurring tasks active/inactive for a day-of-week change,
+    // which doesn't need to finish before the page paints. Previously this
+    // was `await`ed here, ahead of the Promise.all below, so it added a full
+    // extra sequential DB round trip to every single navigation.
+    after(() => syncRecurringTasksForUser())
     ;[listsCompliance, sharedListsCompliance, tagsCompliance, initialWorkspaces] =
       await Promise.all([
         checkListsCompliance(),

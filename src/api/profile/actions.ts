@@ -5,7 +5,7 @@ import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { auth } from '@/lib/auth'
 import { v2 as cloudinary } from 'cloudinary'
-import { Pool } from 'pg'
+import { pool } from '@/lib/db-pool'
 import { ok, err } from '@/types/result'
 import { revalidatePath } from 'next/cache'
 import { Resend } from 'resend'
@@ -113,14 +113,9 @@ export const deleteAccount = async () => {
     }
 
     if (userEmail) {
-      const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-      try {
-        await pool.query(`DELETE FROM verification WHERE identifier = $1`, [
-          `reset-password:${userEmail}`,
-        ])
-      } finally {
-        await pool.end()
-      }
+      await pool.query(`DELETE FROM verification WHERE identifier = $1`, [
+        `reset-password:${userEmail}`,
+      ])
     }
 
     await auth.api.deleteUser({

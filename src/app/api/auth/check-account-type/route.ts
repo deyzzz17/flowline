@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Pool } from 'pg'
+import { pool } from '@/lib/db-pool'
 import { checkRateLimit } from '@/lib/rate-limit'
 
 export async function POST(req: NextRequest) {
@@ -20,31 +20,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid email' }, { status: 400 })
   }
 
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-  try {
-    const googleResult = await pool.query(
+  const googleResult = await pool.query(
+    `SELECT u.id FROM "user" u
+     INNER JOIN account a ON a."userId" = u.id
+     WHERE u.email = $1 AND a."providerId" = 'google'
+     LIMIT 1`,
+    [email],
+  )
+
+  if (googleResult.rows.length > 0) {
+    const credResult = await pool.query(
       `SELECT u.id FROM "user" u
        INNER JOIN account a ON a."userId" = u.id
-       WHERE u.email = $1 AND a."providerId" = 'google'
+       WHERE u.email = $1 AND a."providerId" = 'credential'
        LIMIT 1`,
       [email],
     )
-
-    if (googleResult.rows.length > 0) {
-      const credResult = await pool.query(
-        `SELECT u.id FROM "user" u
-         INNER JOIN account a ON a."userId" = u.id
-         WHERE u.email = $1 AND a."providerId" = 'credential'
-         LIMIT 1`,
-        [email],
-      )
-      if (credResult.rows.length === 0) {
-        return NextResponse.json({ type: 'google' })
-      }
+    if (credResult.rows.length === 0) {
+      return NextResponse.json({ type: 'google' })
     }
-
-    return NextResponse.json({ type: 'password' })
-  } finally {
-    await pool.end()
   }
+
+  return NextResponse.json({ type: 'password' })
 }

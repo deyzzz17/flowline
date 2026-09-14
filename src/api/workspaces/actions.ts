@@ -3,7 +3,7 @@
 import 'server-only'
 
 import { headers } from 'next/headers'
-import { Pool } from 'pg'
+import { pool } from '@/lib/db-pool'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { auth } from '@/lib/auth'
@@ -59,23 +59,18 @@ function parseMetadata(metadata: unknown): { icon: string; color: string } {
 }
 
 async function getMyRolesByOrgId(userId: string): Promise<Map<string, WorkspaceRole>> {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-  try {
-    const result = await pool.query(`SELECT "organizationId", role FROM member WHERE "userId" = $1`, [
-      userId,
-    ])
-    const map = new Map<string, WorkspaceRole>()
-    for (const row of result.rows) {
-      const role =
-        row.role === 'owner' || row.role === 'admin' || row.role === 'member' || row.role === 'viewer'
-          ? row.role
-          : null
-      map.set(row.organizationId, role)
-    }
-    return map
-  } finally {
-    await pool.end()
+  const result = await pool.query(`SELECT "organizationId", role FROM member WHERE "userId" = $1`, [
+    userId,
+  ])
+  const map = new Map<string, WorkspaceRole>()
+  for (const row of result.rows) {
+    const role =
+      row.role === 'owner' || row.role === 'admin' || row.role === 'member' || row.role === 'viewer'
+        ? row.role
+        : null
+    map.set(row.organizationId, role)
   }
+  return map
 }
 
 export const listWorkspaces = async () => {
@@ -103,16 +98,11 @@ export const listWorkspaces = async () => {
 // Only organizations this user OWNS count against their plan's workspace limit —
 // being invited into someone else's workspace shouldn't use up your own quota.
 async function countOwnedWorkspaces(userId: string): Promise<number> {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-  try {
-    const result = await pool.query(
-      `SELECT COUNT(*)::int AS count FROM member WHERE "userId" = $1 AND role = 'owner'`,
-      [userId],
-    )
-    return result.rows[0]?.count ?? 0
-  } finally {
-    await pool.end()
-  }
+  const result = await pool.query(
+    `SELECT COUNT(*)::int AS count FROM member WHERE "userId" = $1 AND role = 'owner'`,
+    [userId],
+  )
+  return result.rows[0]?.count ?? 0
 }
 
 function slugify(name: string): string {
@@ -426,27 +416,22 @@ export const updateMemberNickname = async (memberId: string, nickname: string) =
     if (!workspaceId) return err('No active workspace')
 
     const trimmed = nickname.trim()
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-    try {
-      const targetResult = await pool.query(
-        `SELECT "userId" FROM member WHERE id = $1 AND "organizationId" = $2`,
-        [memberId, workspaceId],
+    const targetResult = await pool.query(
+      `SELECT "userId" FROM member WHERE id = $1 AND "organizationId" = $2`,
+      [memberId, workspaceId],
+    )
+    const targetUserId = targetResult.rows[0]?.userId
+    if (!targetUserId) return err('Member not found')
+
+    if (targetUserId !== userId) {
+      const callerResult = await pool.query(
+        `SELECT role FROM member WHERE "organizationId" = $1 AND "userId" = $2`,
+        [workspaceId, userId],
       )
-      const targetUserId = targetResult.rows[0]?.userId
-      if (!targetUserId) return err('Member not found')
-
-      if (targetUserId !== userId) {
-        const callerResult = await pool.query(
-          `SELECT role FROM member WHERE "organizationId" = $1 AND "userId" = $2`,
-          [workspaceId, userId],
-        )
-        if (callerResult.rows[0]?.role !== 'owner') return err('Not authorized')
-      }
-
-      await pool.query(`UPDATE member SET nickname = $1 WHERE id = $2`, [trimmed || null, memberId])
-    } finally {
-      await pool.end()
+      if (callerResult.rows[0]?.role !== 'owner') return err('Not authorized')
     }
+
+    await pool.query(`UPDATE member SET nickname = $1 WHERE id = $2`, [trimmed || null, memberId])
 
     return ok(true)
   } catch {

@@ -1,6 +1,7 @@
 import 'server-only'
 
-import { Pool } from 'pg'
+import { cache } from 'react'
+import { pool } from './db-pool'
 import { getSession } from './get-session'
 import type { WorkspaceRole } from './workspace-permissions'
 
@@ -30,14 +31,15 @@ export function workspaceWhereClause(workspaceId: string | null) {
  * which is correct for Personal but callers should still gate access
  * separately (e.g. via resolveListRole) since this alone doesn't confirm
  * the user belongs to the workspace at all.
+ *
+ * Wrapped in React's `cache()` — this gets called once per list per render
+ * (sidebar, list pages, workspace-scoped queries all resolve it independently
+ * for the same workspaceId/userId pair), so deduping within a single request
+ * avoids repeat round trips for a value that can't change mid-render.
  */
-export async function getWorkspaceRoleForUser(
-  workspaceId: string | null,
-  userId: string,
-): Promise<WorkspaceRole> {
-  if (!workspaceId) return null
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-  try {
+export const getWorkspaceRoleForUser = cache(
+  async (workspaceId: string | null, userId: string): Promise<WorkspaceRole> => {
+    if (!workspaceId) return null
     const result = await pool.query(
       `SELECT role FROM member WHERE "organizationId" = $1 AND "userId" = $2`,
       [workspaceId, userId],
@@ -46,7 +48,5 @@ export async function getWorkspaceRoleForUser(
     return role === 'owner' || role === 'admin' || role === 'member' || role === 'viewer'
       ? role
       : null
-  } finally {
-    await pool.end()
-  }
-}
+  },
+)

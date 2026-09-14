@@ -4,7 +4,7 @@ import 'server-only'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { ok, err } from '@/types/result'
-import { Pool } from 'pg'
+import { pool } from '@/lib/db-pool'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
 import { getUserPlanLimits } from '@/lib/get-user-plan'
@@ -55,36 +55,25 @@ export interface RecentItem {
 }
 
 export async function findUserByEmail(email: string): Promise<ContactProfile | null> {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-  try {
-    const result = await pool.query(
-      `SELECT id, name, email, image FROM "user" WHERE email = $1 LIMIT 1`,
-      [email.trim().toLowerCase()],
-    )
-    if (result.rows.length === 0) return null
-    const row = result.rows[0]
-    return { id: row.id, name: row.name, email: row.email, image: row.image ?? null }
-  } finally {
-    await pool.end()
-  }
+  const result = await pool.query(`SELECT id, name, email, image FROM "user" WHERE email = $1 LIMIT 1`, [
+    email.trim().toLowerCase(),
+  ])
+  if (result.rows.length === 0) return null
+  const row = result.rows[0]
+  return { id: row.id, name: row.name, email: row.email, image: row.image ?? null }
 }
 
 export async function findUsersByIds(ids: string[]): Promise<Map<string, ContactProfile>> {
   const map = new Map<string, ContactProfile>()
   if (ids.length === 0) return map
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-  try {
-    const result = await pool.query(
-      `SELECT id, name, email, image FROM "user" WHERE id = ANY($1::text[])`,
-      [ids],
-    )
-    for (const row of result.rows) {
-      map.set(row.id, { id: row.id, name: row.name, email: row.email, image: row.image ?? null })
-    }
-    return map
-  } finally {
-    await pool.end()
+  const result = await pool.query(
+    `SELECT id, name, email, image FROM "user" WHERE id = ANY($1::text[])`,
+    [ids],
+  )
+  for (const row of result.rows) {
+    map.set(row.id, { id: row.id, name: row.name, email: row.email, image: row.image ?? null })
   }
+  return map
 }
 
 async function countAcceptedConnections(

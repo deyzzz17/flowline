@@ -3,7 +3,7 @@
 import 'server-only'
 
 import { getPayload } from 'payload'
-import { Pool } from 'pg'
+import { pool } from '@/lib/db-pool'
 import config from '@/payload.config'
 import { revalidatePath } from 'next/cache'
 import { ok, err } from '@/types/result'
@@ -82,23 +82,18 @@ async function getAcceptedContactIds(
 // mapped to their workspace role (pending invites don't count — you can't add
 // someone to a list who hasn't actually joined the workspace yet).
 async function getWorkspaceMemberRoles(workspaceId: string): Promise<Map<string, WorkspaceRole>> {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-  try {
-    const result = await pool.query(`SELECT "userId", role FROM member WHERE "organizationId" = $1`, [
-      workspaceId,
-    ])
-    const map = new Map<string, WorkspaceRole>()
-    for (const row of result.rows) {
-      const role =
-        row.role === 'owner' || row.role === 'admin' || row.role === 'member' || row.role === 'viewer'
-          ? row.role
-          : null
-      map.set(row.userId, role)
-    }
-    return map
-  } finally {
-    await pool.end()
+  const result = await pool.query(`SELECT "userId", role FROM member WHERE "organizationId" = $1`, [
+    workspaceId,
+  ])
+  const map = new Map<string, WorkspaceRole>()
+  for (const row of result.rows) {
+    const role =
+      row.role === 'owner' || row.role === 'admin' || row.role === 'member' || row.role === 'viewer'
+        ? row.role
+        : null
+    map.set(row.userId, role)
   }
+  return map
 }
 
 async function countListMembers(

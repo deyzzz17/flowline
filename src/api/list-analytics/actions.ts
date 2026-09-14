@@ -3,7 +3,7 @@
 import 'server-only'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
-import { Pool } from 'pg'
+import { pool } from '@/lib/db-pool'
 import { getSession } from '@/lib/get-session'
 import { getCurrentWorkspaceId, workspaceWhereClause } from '@/lib/get-current-workspace'
 import { getUserPlanLimits } from '@/lib/get-user-plan'
@@ -128,13 +128,8 @@ export const getListAnalytics = async (
 
   let userTimezone = 'UTC'
   try {
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-    try {
-      const { rows } = await pool.query('SELECT timezone FROM "user" WHERE id = $1', [userId])
-      userTimezone = rows[0]?.timezone ?? 'UTC'
-    } finally {
-      await pool.end()
-    }
+    const { rows } = await pool.query('SELECT timezone FROM "user" WHERE id = $1', [userId])
+    userTimezone = rows[0]?.timezone ?? 'UTC'
   } catch {}
 
   const payload = await getPayload({ config })

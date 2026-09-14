@@ -13,7 +13,7 @@ import {
   sendTrialEndingSoonEmail,
   sendPaymentReceiptEmail,
 } from '@/lib/billing-emails'
-import { Pool } from 'pg'
+import { pool } from '@/lib/db-pool'
 import type Stripe from 'stripe'
 
 export const runtime = 'nodejs'
@@ -28,35 +28,30 @@ async function updateUserBilling(
     trialEndsAt?: Date | null
   },
 ) {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-  try {
-    const sets: string[] = []
-    const values: (string | Date | null)[] = []
-    let idx = 1
+  const sets: string[] = []
+  const values: (string | Date | null)[] = []
+  let idx = 1
 
-    if (data.plan !== undefined) {
-      sets.push(`"plan" = $${idx++}`)
-      values.push(data.plan)
-    }
-    if (data.subscriptionStatus !== undefined) {
-      sets.push(`"subscriptionStatus" = $${idx++}`)
-      values.push(data.subscriptionStatus)
-    }
-    if (data.subscriptionId !== undefined) {
-      sets.push(`"subscriptionId" = $${idx++}`)
-      values.push(data.subscriptionId)
-    }
-    if (data.trialEndsAt !== undefined) {
-      sets.push(`"trialEndsAt" = $${idx++}`)
-      values.push(data.trialEndsAt)
-    }
-
-    if (sets.length === 0) return
-    values.push(userId)
-    await pool.query(`UPDATE "user" SET ${sets.join(', ')} WHERE id = $${idx}`, values)
-  } finally {
-    await pool.end()
+  if (data.plan !== undefined) {
+    sets.push(`"plan" = $${idx++}`)
+    values.push(data.plan)
   }
+  if (data.subscriptionStatus !== undefined) {
+    sets.push(`"subscriptionStatus" = $${idx++}`)
+    values.push(data.subscriptionStatus)
+  }
+  if (data.subscriptionId !== undefined) {
+    sets.push(`"subscriptionId" = $${idx++}`)
+    values.push(data.subscriptionId)
+  }
+  if (data.trialEndsAt !== undefined) {
+    sets.push(`"trialEndsAt" = $${idx++}`)
+    values.push(data.trialEndsAt)
+  }
+
+  if (sets.length === 0) return
+  values.push(userId)
+  await pool.query(`UPDATE "user" SET ${sets.join(', ')} WHERE id = $${idx}`, values)
 }
 
 async function getUserIdFromCustomer(customerId: string): Promise<string | null> {
@@ -68,17 +63,12 @@ async function getUserIdFromCustomer(customerId: string): Promise<string | null>
 async function getUserBillingSnapshot(
   userId: string,
 ): Promise<{ email: string; name: string; plan: Plan } | null> {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-  try {
-    const result = await pool.query(`SELECT email, name, plan FROM "user" WHERE id = $1 LIMIT 1`, [
-      userId,
-    ])
-    const row = result.rows[0]
-    if (!row) return null
-    return { email: row.email, name: row.name, plan: (row.plan ?? 'free') as Plan }
-  } finally {
-    await pool.end()
-  }
+  const result = await pool.query(`SELECT email, name, plan FROM "user" WHERE id = $1 LIMIT 1`, [
+    userId,
+  ])
+  const row = result.rows[0]
+  if (!row) return null
+  return { email: row.email, name: row.name, plan: (row.plan ?? 'free') as Plan }
 }
 
 const INACTIVE_STATUSES = new Set([
