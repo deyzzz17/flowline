@@ -542,13 +542,24 @@ export const listWorkspaceMembers = async () => {
   const session = await getSession()
   const workspaceId = session?.session.activeOrganizationId
   if (!workspaceId) return { docs: [] as WorkspaceMember[] }
+  const currentUserId = session?.user?.id ?? null
 
   const { members } = await auth.api.listMembers({
     headers: await headers(),
     query: { organizationId: workspaceId },
   })
 
-  const docs: WorkspaceMember[] = members.map((m) => ({
+  // Owner first, then the caller themselves (unless they already are the
+  // owner), then everyone else in the order they joined.
+  const sortedMembers = [...members].sort((a, b) => {
+    if (a.role === 'owner' && b.role !== 'owner') return -1
+    if (b.role === 'owner' && a.role !== 'owner') return 1
+    if (a.userId === currentUserId && b.userId !== currentUserId) return -1
+    if (b.userId === currentUserId && a.userId !== currentUserId) return 1
+    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  })
+
+  const docs: WorkspaceMember[] = sortedMembers.map((m) => ({
     id: m.id,
     userId: m.userId,
     role: m.role,
