@@ -5,7 +5,7 @@ import { Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './dialog'
 
-export function PlanSelectionDialog({
+export function PlanSelectionDialog<TId extends string | number = number>({
   icon,
   title,
   description,
@@ -18,19 +18,19 @@ export function PlanSelectionDialog({
   icon: React.ReactNode
   title: string
   description: React.ReactNode
-  items: { id: number; label: string; color?: string; badge?: string }[]
+  items: { id: TId; label: string; color?: string; badge?: string }[]
   limit: number
   isSubmitting: boolean
   confirmLabel: string
-  onConfirm: (keepIds: number[]) => void
+  onConfirm: (keepIds: TId[]) => void
 }) {
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(
+  const [selectedIds, setSelectedIds] = useState<Set<TId>>(
     () => new Set(items.slice(0, limit).map((i) => i.id)),
   )
   const selectedCount = selectedIds.size
   const isValid = selectedCount === limit
 
-  const toggle = (id: number) => {
+  const toggle = (id: TId) => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) {

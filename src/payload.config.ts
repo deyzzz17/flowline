@@ -22,6 +22,7 @@ import { TaskCompletions } from './collections/TaskCompletion'
 import { Connections } from './collections/Connections'
 import { ListMembers } from './collections/ListMembers'
 import { TaskComments } from './collections/TaskComments'
+import { WorkspaceMemberArchive } from './collections/WorkspaceMemberArchive'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -51,6 +52,7 @@ export default buildConfig({
     Connections,
     ListMembers,
     TaskComments,
+    WorkspaceMemberArchive,
   ],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',

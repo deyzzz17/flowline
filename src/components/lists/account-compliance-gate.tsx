@@ -3,10 +3,14 @@
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { usePathname, useRouter } from 'next/navigation'
-import { ClipboardList, Tag, Users } from 'lucide-react'
+import { ClipboardList, Tag, Users, Building2 } from 'lucide-react'
 import { chooseListsToKeep } from '@/api/lists/actions'
 import { chooseSharedListsToKeep } from '@/api/list-members/actions'
 import { chooseTagsToKeep } from '@/api/tags/actions'
+import {
+  chooseWorkspaceMembersToKeep,
+  type WorkspaceMembersComplianceInfo,
+} from '@/api/workspaces/actions'
 import { PlanSelectionDialog } from '@/components/ui/plan-selection-dialog'
 import { toast } from 'sonner'
 import type { List } from '@/payload-types'
@@ -40,17 +44,23 @@ type Step =
   | { kind: 'lists'; info: ListsComplianceInfo }
   | { kind: 'sharedLists'; info: SharedListsComplianceInfo }
   | { kind: 'tags'; info: TagsComplianceInfo }
+  // A user can own several workspaces at once, each independently over its
+  // new member limit — queue holds the ones not yet resolved, current one
+  // first.
+  | { kind: 'workspaceMembers'; queue: WorkspaceMembersComplianceInfo[] }
 
 interface AccountComplianceGateProps {
   initialListsCompliance: ListsComplianceInfo | null
   initialSharedListsCompliance: SharedListsComplianceInfo | null
   initialTagsCompliance: TagsComplianceInfo | null
+  initialWorkspaceMembersCompliance: WorkspaceMembersComplianceInfo[]
 }
 
 export function AccountComplianceGate({
   initialListsCompliance,
   initialSharedListsCompliance,
   initialTagsCompliance,
+  initialWorkspaceMembersCompliance,
 }: AccountComplianceGateProps) {
   const queryClient = useQueryClient()
   const router = useRouter()
@@ -62,11 +72,22 @@ export function AccountComplianceGate({
     if (initialSharedListsCompliance)
       return { kind: 'sharedLists', info: initialSharedListsCompliance }
     if (initialTagsCompliance) return { kind: 'tags', info: initialTagsCompliance }
+    if (initialWorkspaceMembersCompliance.length > 0)
+      return { kind: 'workspaceMembers', queue: initialWorkspaceMembersCompliance }
     return { kind: 'idle' }
   })
 
   const [pendingSharedLists] = useState(initialSharedListsCompliance)
   const [pendingTags] = useState(initialTagsCompliance)
+  const [pendingWorkspaceMembers] = useState(initialWorkspaceMembersCompliance)
+
+  const advanceToWorkspaceMembersOrIdle = () => {
+    if (pendingWorkspaceMembers.length > 0) {
+      setStep({ kind: 'workspaceMembers', queue: pendingWorkspaceMembers })
+    } else {
+      setStep({ kind: 'idle' })
+    }
+  }
 
   const advanceAfterLists = () => {
     if (pendingSharedLists) {
@@ -74,7 +95,7 @@ export function AccountComplianceGate({
     } else if (pendingTags) {
       setStep({ kind: 'tags', info: pendingTags })
     } else {
-      setStep({ kind: 'idle' })
+      advanceToWorkspaceMembersOrIdle()
     }
   }
 
@@ -105,7 +126,7 @@ export function AccountComplianceGate({
         if (pendingTags) {
           setStep({ kind: 'tags', info: pendingTags })
         } else {
-          setStep({ kind: 'idle' })
+          advanceToWorkspaceMembersOrIdle()
         }
       })
       .finally(() => {
@@ -229,7 +250,7 @@ export function AccountComplianceGate({
             if (pendingTags) {
               setStep({ kind: 'tags', info: pendingTags })
             } else {
-              setStep({ kind: 'idle' })
+              advanceToWorkspaceMembersOrIdle()
             }
           } catch {
             toast.error('Something went wrong. Please try again.')
@@ -241,39 +262,95 @@ export function AccountComplianceGate({
     )
   }
 
-  const { info } = step
+  if (step.kind === 'tags') {
+    const { info } = step
+
+    return (
+      <PlanSelectionDialog
+        key="tags"
+        icon={<Tag className="h-4 w-4 text-violet-500" />}
+        title="Choose which tags to keep"
+        description={
+          <>
+            Your current plan allows <strong>{info.limit}</strong> custom tag
+            {info.limit !== 1 ? 's' : ''}, but you have <strong>{info.tags.length}</strong>. Choose
+            which ones to keep — the rest will be archived, not deleted. Tasks already using an
+            archived tag keep it; you just won&apos;t be able to assign it to new tasks until
+            it&apos;s restored.
+          </>
+        }
+        items={info.tags.map((t) => ({ id: t.id, label: t.name, color: t.color }))}
+        limit={info.limit}
+        isSubmitting={isSubmitting}
+        confirmLabel="Confirm selection"
+        onConfirm={async (keepIds) => {
+          setIsSubmitting(true)
+          try {
+            const result = await chooseTagsToKeep(keepIds)
+            if (!result.ok) {
+              toast.error('Something went wrong. Please try again.')
+              return
+            }
+            toast.info('Tags updated', {
+              description: `${info.tags.length - info.limit} tag${info.tags.length - info.limit !== 1 ? 's' : ''} archived. You can restore any of them later from Settings.`,
+            })
+            queryClient.invalidateQueries({ queryKey: ['user-tags'] })
+            advanceToWorkspaceMembersOrIdle()
+          } catch {
+            toast.error('Something went wrong. Please try again.')
+          } finally {
+            setIsSubmitting(false)
+          }
+        }}
+      />
+    )
+  }
+
+  const { queue } = step
+  const info = queue[0]
 
   return (
-    <PlanSelectionDialog
-      key="tags"
-      icon={<Tag className="h-4 w-4 text-violet-500" />}
-      title="Choose which tags to keep"
+    <PlanSelectionDialog<string>
+      key={`workspaceMembers-${info.workspaceId}`}
+      icon={<Building2 className="h-4 w-4 text-violet-500" />}
+      title={`Choose who stays in ${info.workspaceName}`}
       description={
         <>
-          Your current plan allows <strong>{info.limit}</strong> custom tag
-          {info.limit !== 1 ? 's' : ''}, but you have <strong>{info.tags.length}</strong>. Choose
-          which ones to keep — the rest will be archived, not deleted. Tasks already using an
-          archived tag keep it; you just won&apos;t be able to assign it to new tasks until
-          it&apos;s restored.
+          Your current plan allows <strong>{info.limit}</strong> other member
+          {info.limit !== 1 ? 's' : ''} in this workspace (plus you, the owner), but it has{' '}
+          <strong>{info.members.length}</strong>. Choose who stays — the rest will be removed from
+          the workspace, not deleted from Flowline. You can bring them back anytime you have room
+          again, from the workspace&apos;s Members page.
         </>
       }
-      items={info.tags.map((t) => ({ id: t.id, label: t.name, color: t.color }))}
+      items={info.members.map((m) => ({
+        id: m.userId,
+        label: m.label,
+        badge: m.role === 'admin' ? 'Admin' : m.role === 'viewer' ? 'Viewer' : undefined,
+      }))}
       limit={info.limit}
       isSubmitting={isSubmitting}
       confirmLabel="Confirm selection"
-      onConfirm={async (keepIds) => {
+      onConfirm={async (keepUserIds) => {
         setIsSubmitting(true)
         try {
-          const result = await chooseTagsToKeep(keepIds)
+          const result = await chooseWorkspaceMembersToKeep(info.workspaceId, keepUserIds)
           if (!result.ok) {
             toast.error('Something went wrong. Please try again.')
             return
           }
-          toast.info('Tags updated', {
-            description: `${info.tags.length - info.limit} tag${info.tags.length - info.limit !== 1 ? 's' : ''} archived. You can restore any of them later from Settings.`,
+          toast.info('Workspace members updated', {
+            description: `${info.members.length - info.limit} member${info.members.length - info.limit !== 1 ? 's' : ''} removed from ${info.workspaceName}. You can add them back once there's room.`,
           })
-          queryClient.invalidateQueries({ queryKey: ['user-tags'] })
-          setStep({ kind: 'idle' })
+          queryClient.invalidateQueries({ queryKey: ['workspace-members'] })
+          queryClient.invalidateQueries({ queryKey: ['workspaces'] })
+
+          const rest = queue.slice(1)
+          if (rest.length > 0) {
+            setStep({ kind: 'workspaceMembers', queue: rest })
+          } else {
+            setStep({ kind: 'idle' })
+          }
         } catch {
           toast.error('Something went wrong. Please try again.')
         } finally {

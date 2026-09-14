@@ -13,6 +13,10 @@ import {
   updateWorkspaceMemberRole,
   removeWorkspaceMember,
   updateMemberNickname,
+  checkWorkspaceMembersCompliance,
+  chooseWorkspaceMembersToKeep,
+  listArchivedWorkspaceMembers,
+  restoreWorkspaceMember,
 } from './actions'
 
 export const workspacesAPI = {
@@ -30,4 +34,8 @@ export const workspacesAPI = {
   updateMemberRole: updateWorkspaceMemberRole,
   removeMember: removeWorkspaceMember,
   updateMemberNickname,
+  checkMembersCompliance: checkWorkspaceMembersCompliance,
+  chooseMembersToKeep: chooseWorkspaceMembersToKeep,
+  listArchivedMembers: listArchivedWorkspaceMembers,
+  restoreMember: restoreWorkspaceMember,
 }

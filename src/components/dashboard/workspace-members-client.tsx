@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Users, UserPlus, Trash2, Search, Loader2, Check, Pencil, X } from 'lucide-react'
+import { Users, UserPlus, Trash2, Search, Loader2, Check, Pencil, X, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
@@ -22,6 +22,9 @@ import { api } from '@/api'
 import { useSession } from '@/lib/auth-client'
 import { SHARED_LIST_POLL_INTERVAL_MS } from '@/lib/realtime'
 import type { WorkspaceInviteRole, WorkspaceMember } from '@/api/workspaces/actions'
+import { LIMIT_ERRORS, SAFETY_CAP_ERRORS, type LimitError, type SafetyCapError } from '@/lib/plan-limits'
+import { PlanLimitDialog } from '@/components/ui/plan-limit-dialog'
+import { SafetyCapDialog } from '@/components/ui/safety-cap-dialog'
 
 function getInitials(name?: string | null): string {
   if (!name) return '?'
@@ -91,6 +94,12 @@ export function WorkspaceMembersClient() {
   })
 
   const members = data?.docs ?? []
+  const { data: archivedData } = useQuery({
+    queryKey: ['workspace-members', 'archived'],
+    queryFn: () => api.workspaces.listArchivedMembers(),
+    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
+  })
+  const archivedMembers = archivedData?.docs ?? []
   const myMember = members.find((m) => m.userId === currentUserId)
   const myRole = myMember?.role ?? null
   const canManage = myRole === 'owner' || myRole === 'admin'
@@ -109,6 +118,8 @@ export function WorkspaceMembersClient() {
   const [roleDraft, setRoleDraft] = useState<WorkspaceInviteRole>('member')
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<WorkspaceInviteRole>('member')
+  const [limitDialog, setLimitDialog] = useState<LimitError | null>(null)
+  const [capDialog, setCapDialog] = useState<SafetyCapError | null>(null)
 
   const isValidInviteEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail.trim())
   const { data: inviteSearchResult, isFetching: isSearchingInvite } = useQuery({
@@ -125,6 +136,14 @@ export function WorkspaceMembersClient() {
     mutationFn: () => api.workspaces.inviteMember(inviteEmail.trim(), inviteRole),
     onSuccess: (result) => {
       if (!result.ok) {
+        if (result.error === LIMIT_ERRORS.WORKSPACE_MEMBERS_LIMIT) {
+          setLimitDialog(LIMIT_ERRORS.WORKSPACE_MEMBERS_LIMIT)
+          return
+        }
+        if (result.error === SAFETY_CAP_ERRORS.WORKSPACE_MEMBERS_CAP) {
+          setCapDialog(SAFETY_CAP_ERRORS.WORKSPACE_MEMBERS_CAP)
+          return
+        }
         toast.error(result.error || 'Error sending invitation')
         return
       }
@@ -145,6 +164,27 @@ export function WorkspaceMembersClient() {
       queryClient.invalidateQueries({ queryKey: ['workspace-members'] })
     },
     onError: () => toast.error('Error removing member'),
+  })
+
+  const restoreMutation = useMutation({
+    mutationFn: (archiveId: number) => api.workspaces.restoreMember(archiveId),
+    onSuccess: (result) => {
+      if (!result.ok) {
+        if (result.error === LIMIT_ERRORS.WORKSPACE_MEMBERS_LIMIT) {
+          setLimitDialog(LIMIT_ERRORS.WORKSPACE_MEMBERS_LIMIT)
+          return
+        }
+        if (result.error === SAFETY_CAP_ERRORS.WORKSPACE_MEMBERS_CAP) {
+          setCapDialog(SAFETY_CAP_ERRORS.WORKSPACE_MEMBERS_CAP)
+          return
+        }
+        toast.error(result.error || 'Error restoring member')
+        return
+      }
+      toast.info('Member restored')
+      queryClient.invalidateQueries({ queryKey: ['workspace-members'] })
+    },
+    onError: () => toast.error('Error restoring member'),
   })
 
   const saveEditMutation = useMutation({
@@ -389,6 +429,70 @@ export function WorkspaceMembersClient() {
           )}
         </div>
       </div>
+
+      {canManage && archivedMembers.length > 0 && (
+        <div className="mt-6 rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm">
+          <div className="flex items-center justify-between border-b border-border/50 px-5 py-3.5">
+            <div className="flex items-center gap-2">
+              <RotateCcw className="h-3.5 w-3.5 text-muted-foreground/60" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
+                Removed members
+              </span>
+            </div>
+          </div>
+          <div className="p-3 sm:p-5">
+            <p className="mb-3 text-xs text-muted-foreground">
+              Removed when a plan downgrade put this workspace over its member limit. Bring them
+              back anytime you have room — either by upgrading, or by removing someone else first.
+            </p>
+            <div className="space-y-1">
+              {archivedMembers.map((m) => (
+                <div
+                  key={m.id}
+                  className="flex items-center gap-2.5 rounded-xl px-2 py-2 transition-colors hover:bg-muted/40"
+                >
+                  <MemberAvatar name={m.name} image={m.image} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{m.name}</p>
+                    <p className="truncate text-xs text-muted-foreground/60">{m.email}</p>
+                  </div>
+                  <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
+                    {ROLE_LABELS[m.role] ?? m.role}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => restoreMutation.mutate(m.id)}
+                    disabled={restoreMutation.isPending}
+                    className="flex shrink-0 items-center gap-1 rounded-lg border border-border/60 px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                  >
+                    {restoreMutation.isPending && restoreMutation.variables === m.id ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <RotateCcw className="h-3 w-3" />
+                    )}
+                    Restore
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <PlanLimitDialog
+        open={!!limitDialog}
+        onOpenChange={(v) => {
+          if (!v) setLimitDialog(null)
+        }}
+        limitError={limitDialog}
+      />
+      <SafetyCapDialog
+        open={!!capDialog}
+        onOpenChange={(v) => {
+          if (!v) setCapDialog(null)
+        }}
+        capError={capDialog}
+      />
     </>
   )
 }

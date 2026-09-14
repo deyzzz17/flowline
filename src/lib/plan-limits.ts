@@ -16,6 +16,8 @@ export interface PlanLimits {
   sharedListMembers: number
   /** Extra workspaces beyond the auto-created Personal one — Personal never counts against this. */
   workspaces: number
+  /** Members (accepted + pending invites) allowed per workspace. Personal has no members at all — it isn't an organization. */
+  workspaceMembers: number
 }
 
 const UNLIMITED = Infinity
@@ -34,6 +36,7 @@ const ABSOLUTE_MAX_TIMER_PRESETS = 100
 const ABSOLUTE_MAX_SHARED_LISTS = 50
 const ABSOLUTE_MAX_SHARED_LIST_MEMBERS = 20
 const ABSOLUTE_MAX_WORKSPACES = 20
+const ABSOLUTE_MAX_WORKSPACE_MEMBERS = 20
 
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   free: {
@@ -51,6 +54,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     sharedLists: 0,
     sharedListMembers: 0,
     workspaces: 0,
+    workspaceMembers: 0,
   },
   plus: {
     lists: UNLIMITED,
@@ -67,6 +71,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     sharedLists: 3,
     sharedListMembers: 3,
     workspaces: 3,
+    workspaceMembers: 3,
   },
   pro: {
     lists: UNLIMITED,
@@ -83,6 +88,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     sharedLists: UNLIMITED,
     sharedListMembers: UNLIMITED,
     workspaces: UNLIMITED,
+    workspaceMembers: UNLIMITED,
   },
 }
 
@@ -106,6 +112,7 @@ export function getLimits(plan: Plan): PlanLimits {
     sharedLists: Math.min(limits.sharedLists, ABSOLUTE_MAX_SHARED_LISTS),
     sharedListMembers: Math.min(limits.sharedListMembers, ABSOLUTE_MAX_SHARED_LIST_MEMBERS),
     workspaces: Math.min(limits.workspaces, ABSOLUTE_MAX_WORKSPACES),
+    workspaceMembers: Math.min(limits.workspaceMembers, ABSOLUTE_MAX_WORKSPACE_MEMBERS),
   }
 }
 
@@ -138,6 +145,7 @@ export const LIMIT_ERRORS = {
   SHARED_LISTS_LIMIT: 'SHARED_LISTS_LIMIT',
   SHARED_LIST_MEMBERS_LIMIT: 'SHARED_LIST_MEMBERS_LIMIT',
   WORKSPACES_LIMIT: 'WORKSPACES_LIMIT',
+  WORKSPACE_MEMBERS_LIMIT: 'WORKSPACE_MEMBERS_LIMIT',
 } as const
 
 export type LimitError = (typeof LIMIT_ERRORS)[keyof typeof LIMIT_ERRORS]
@@ -157,6 +165,7 @@ export const SAFETY_CAP_ERRORS = {
   SHARED_LISTS_CAP: 'SHARED_LISTS_CAP',
   SHARED_LIST_MEMBERS_CAP: 'SHARED_LIST_MEMBERS_CAP',
   WORKSPACES_CAP: 'WORKSPACES_CAP',
+  WORKSPACE_MEMBERS_CAP: 'WORKSPACE_MEMBERS_CAP',
 } as const
 
 export type SafetyCapError = (typeof SAFETY_CAP_ERRORS)[keyof typeof SAFETY_CAP_ERRORS]

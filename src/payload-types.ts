@@ -84,6 +84,7 @@ export interface Config {
     connections: Connection;
     'list-members': ListMember;
     'task-comments': TaskComment;
+    'workspace-member-archive': WorkspaceMemberArchive;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -108,6 +109,7 @@ export interface Config {
     connections: ConnectionsSelect<false> | ConnectionsSelect<true>;
     'list-members': ListMembersSelect<false> | ListMembersSelect<true>;
     'task-comments': TaskCommentsSelect<false> | TaskCommentsSelect<true>;
+    'workspace-member-archive': WorkspaceMemberArchiveSelect<false> | WorkspaceMemberArchiveSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -711,6 +713,25 @@ export interface TaskComment {
   createdAt: string;
 }
 /**
+ * Workspace members removed because a plan downgrade put the workspace over its member limit. Kept here so they can be restored later.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "workspace-member-archive".
+ */
+export interface WorkspaceMemberArchive {
+  id: number;
+  organizationId: string;
+  userId: string;
+  /**
+   * Their role at the time they were removed, restored as-is.
+   */
+  role: string;
+  removedBy: string;
+  archivedAt: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -801,6 +822,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'task-comments';
         value: number | TaskComment;
+      } | null)
+    | ({
+        relationTo: 'workspace-member-archive';
+        value: number | WorkspaceMemberArchive;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1196,6 +1221,19 @@ export interface TaskCommentsSelect<T extends boolean = true> {
   mentions?: T;
   likes?: T;
   dislikes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "workspace-member-archive_select".
+ */
+export interface WorkspaceMemberArchiveSelect<T extends boolean = true> {
+  organizationId?: T;
+  userId?: T;
+  role?: T;
+  removedBy?: T;
+  archivedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

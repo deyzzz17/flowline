@@ -8,6 +8,7 @@ import {
   restoreAllArchivedTimerCategoriesForUserId,
   restoreAllArchivedTimerConfigsForUserId,
 } from '@/api/timer/actions'
+import { restoreAllArchivedWorkspaceMembersForUserId } from '@/api/workspaces/actions'
 
 export async function reconcilePlanArchivedEntities(userId: string): Promise<void> {
   await Promise.all([
@@ -18,5 +19,6 @@ export async function reconcilePlanArchivedEntities(userId: string): Promise<voi
     restoreAllArchivedHabitsForUserId(userId),
     restoreAllArchivedTimerCategoriesForUserId(userId),
     restoreAllArchivedTimerConfigsForUserId(userId),
+    restoreAllArchivedWorkspaceMembersForUserId(userId),
   ])
 }

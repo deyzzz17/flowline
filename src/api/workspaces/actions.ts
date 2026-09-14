@@ -3,15 +3,17 @@
 import 'server-only'
 
 import { headers } from 'next/headers'
+import { revalidatePath } from 'next/cache'
 import { pool } from '@/lib/db-pool'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { auth } from '@/lib/auth'
 import { ok, err } from '@/types/result'
 import { getSession } from '@/lib/get-session'
-import { getUserPlanLimits } from '@/lib/get-user-plan'
+import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { getWorkspaceRoleForUser } from '@/lib/get-current-workspace'
 import { findUserByEmail, findUsersByIds, type ContactProfile } from '@/api/contacts/actions'
 import { deleteCommentsForTaskIds } from '@/api/task-comments/actions'
 import type { WorkspaceRole } from '@/lib/workspace-permissions'
@@ -341,6 +343,31 @@ export const listWorkspaceMembers = async () => {
   return { docs }
 }
 
+// The workspace's plan quota is governed by its owner's subscription, not
+// whoever happens to be inviting (an admin can invite too), so the member
+// limit check always needs to resolve the actual owner first.
+async function getWorkspaceOwnerId(workspaceId: string): Promise<string | null> {
+  const result = await pool.query(
+    `SELECT "userId" FROM member WHERE "organizationId" = $1 AND role = 'owner' LIMIT 1`,
+    [workspaceId],
+  )
+  return result.rows[0]?.userId ?? null
+}
+
+// Counts both accepted members and still-pending invitations as occupied
+// seats — otherwise sending 5 invites at once on a 3-member plan would let
+// all 5 land before anyone even accepts.
+async function countWorkspaceMembers(workspaceId: string): Promise<number> {
+  const result = await pool.query(
+    `SELECT
+       (SELECT COUNT(*)::int FROM member WHERE "organizationId" = $1) AS member_count,
+       (SELECT COUNT(*)::int FROM invitation WHERE "organizationId" = $1 AND status = 'pending') AS pending_count`,
+    [workspaceId],
+  )
+  const row = result.rows[0]
+  return (row?.member_count ?? 0) + (row?.pending_count ?? 0)
+}
+
 // Adding, changing roles, and removing all happen from the Members page.
 // Better Auth's own permission checks already implement exactly the model
 // requested: member:['update'|'delete'] is granted to both owner and admin
@@ -356,6 +383,19 @@ export const inviteWorkspaceMember = async (email: string, role: WorkspaceInvite
     const session = await getSession()
     const workspaceId = session?.session.activeOrganizationId
     if (!workspaceId) return err('No active workspace')
+
+    const ownerId = await getWorkspaceOwnerId(workspaceId)
+    if (!ownerId) return err('Workspace owner not found')
+
+    const { plan, limits } = await getPlanLimitsForUserId(ownerId)
+    const memberCount = await countWorkspaceMembers(workspaceId)
+    if (isAtLimit(memberCount, limits.workspaceMembers)) {
+      return err(
+        isPlanUnlimited(plan, 'workspaceMembers')
+          ? SAFETY_CAP_ERRORS.WORKSPACE_MEMBERS_CAP
+          : LIMIT_ERRORS.WORKSPACE_MEMBERS_LIMIT,
+      )
+    }
 
     await auth.api.createInvitation({
       headers: await headers(),
@@ -400,6 +440,293 @@ export const removeWorkspaceMember = async (memberId: string) => {
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Error removing member'
     return err(message)
+  }
+}
+
+export interface WorkspaceMembersComplianceInfo {
+  workspaceId: string
+  workspaceName: string
+  overBy: number
+  /** Non-owner seats available — the owner itself always keeps its own seat separately. */
+  limit: number
+  members: {
+    id: string
+    userId: string
+    label: string
+    email: string
+    image: string | null
+    role: string
+  }[]
+}
+
+// Checked for every workspace this user OWNS — a Pro owner with several
+// workspaces who downgrades to Plus can have more than one over its new
+// member limit at once, so this returns all of them, not just the first.
+// Personal never appears here — it isn't an organization, it has no members.
+export const checkWorkspaceMembersCompliance = async (): Promise<
+  WorkspaceMembersComplianceInfo[]
+> => {
+  const userId = await getUserId()
+  if (!userId) return []
+
+  const { limits } = await getUserPlanLimits()
+  if (limits.workspaceMembers === Infinity) return []
+
+  const ownedResult = await pool.query(
+    `SELECT "organizationId" FROM member WHERE "userId" = $1 AND role = 'owner'`,
+    [userId],
+  )
+  const ownedOrgIds: string[] = ownedResult.rows.map((r) => r.organizationId)
+  if (ownedOrgIds.length === 0) return []
+
+  const requestHeaders = await headers()
+  const keepableSlots = Math.max(0, limits.workspaceMembers - 1)
+  const results: WorkspaceMembersComplianceInfo[] = []
+
+  for (const orgId of ownedOrgIds) {
+    const { members } = await auth.api.listMembers({
+      headers: requestHeaders,
+      query: { organizationId: orgId },
+    })
+    const nonOwnerMembers = members.filter((m) => m.role !== 'owner')
+    if (nonOwnerMembers.length <= keepableSlots) continue
+
+    const orgResult = await pool.query(`SELECT name FROM organization WHERE id = $1`, [orgId])
+
+    results.push({
+      workspaceId: orgId,
+      workspaceName: orgResult.rows[0]?.name ?? 'Workspace',
+      overBy: nonOwnerMembers.length - keepableSlots,
+      limit: keepableSlots,
+      members: nonOwnerMembers.map((m) => ({
+        id: m.id,
+        userId: m.userId,
+        label: m.nickname || m.user.name,
+        email: m.user.email,
+        image: m.user.image ?? null,
+        role: m.role,
+      })),
+    })
+  }
+
+  return results
+}
+
+export const chooseWorkspaceMembersToKeep = async (workspaceId: string, keepUserIds: string[]) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    // Only the owner decides who stays — an admin invited by the owner
+    // could itself be one of the people over the limit.
+    const ownerId = await getWorkspaceOwnerId(workspaceId)
+    if (!ownerId || ownerId !== userId) return err('Not authorized')
+
+    const { limits } = await getPlanLimitsForUserId(ownerId)
+    const keepableSlots = Math.max(0, limits.workspaceMembers - 1)
+    if (keepUserIds.length > keepableSlots) return err('TOO_MANY_SELECTED')
+
+    const requestHeaders = await headers()
+    const { members } = await auth.api.listMembers({
+      headers: requestHeaders,
+      query: { organizationId: workspaceId },
+    })
+
+    const keepSet = new Set(keepUserIds)
+    const toRemove = members.filter((m) => m.role !== 'owner' && !keepSet.has(m.userId))
+
+    const payload = await getPayload({ config })
+    const now = new Date().toISOString()
+
+    for (const member of toRemove) {
+      await payload.create({
+        collection: 'workspace-member-archive',
+        data: {
+          organizationId: workspaceId,
+          userId: member.userId,
+          role: member.role,
+          removedBy: userId,
+          archivedAt: now,
+        },
+      })
+      await auth.api.removeMember({
+        headers: requestHeaders,
+        body: { memberIdOrEmail: member.id, organizationId: workspaceId },
+      })
+    }
+
+    // Pending invitations are non-binding — nothing of theirs to preserve —
+    // so any that don't fit in the room actually freed up are simply
+    // canceled rather than forcing a second, separate decision about
+    // invites nobody has even accepted yet.
+    const roomLeft = keepableSlots - keepUserIds.length
+    const invitesResult = await pool.query(
+      `SELECT id FROM invitation WHERE "organizationId" = $1 AND status = 'pending' ORDER BY "createdAt" ASC`,
+      [workspaceId],
+    )
+    const toCancelIds = invitesResult.rows.slice(Math.max(0, roomLeft)).map((r) => r.id)
+    for (const invitationId of toCancelIds) {
+      await auth.api
+        .cancelInvitation({ headers: requestHeaders, body: { invitationId } })
+        .catch(() => {})
+    }
+
+    revalidatePath('/')
+    return ok(true)
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Error updating workspace members'
+    return err(message)
+  }
+}
+
+export interface ArchivedWorkspaceMember {
+  id: number
+  userId: string
+  name: string
+  email: string
+  image: string | null
+  role: string
+  archivedAt: string
+}
+
+// Scoped to the active workspace, same as listWorkspaceMembers — shown in
+// the Members page so the owner/admin can bring someone back once there's
+// room again (a plan upgrade, or removing someone else first).
+export const listArchivedWorkspaceMembers = async (): Promise<{
+  docs: ArchivedWorkspaceMember[]
+}> => {
+  const userId = await getUserId()
+  if (!userId) return { docs: [] }
+
+  const session = await getSession()
+  const workspaceId = session?.session.activeOrganizationId
+  if (!workspaceId) return { docs: [] }
+
+  const role = await getWorkspaceRoleForUser(workspaceId, userId)
+  if (role !== 'owner' && role !== 'admin') return { docs: [] }
+
+  const payload = await getPayload({ config })
+  const { docs } = await payload.find({
+    collection: 'workspace-member-archive',
+    where: { organizationId: { equals: workspaceId } },
+    sort: '-archivedAt',
+    limit: 0,
+  })
+  if (docs.length === 0) return { docs: [] }
+
+  const profiles = await findUsersByIds(docs.map((d) => d.userId))
+
+  return {
+    docs: docs.map((d) => {
+      const profile = profiles.get(d.userId)
+      return {
+        id: d.id,
+        userId: d.userId,
+        name: profile?.name ?? 'Former member',
+        email: profile?.email ?? '',
+        image: profile?.image ?? null,
+        role: d.role,
+        archivedAt: d.archivedAt as unknown as string,
+      }
+    }),
+  }
+}
+
+export const restoreWorkspaceMember = async (archiveId: number) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const payload = await getPayload({ config })
+    const archived = await payload
+      .findByID({ collection: 'workspace-member-archive', id: archiveId })
+      .catch(() => null)
+    if (!archived) return err('Not found')
+
+    const role = await getWorkspaceRoleForUser(archived.organizationId, userId)
+    if (role !== 'owner' && role !== 'admin') return err('Not authorized')
+
+    const ownerId = await getWorkspaceOwnerId(archived.organizationId)
+    if (!ownerId) return err('Workspace owner not found')
+
+    const { plan, limits } = await getPlanLimitsForUserId(ownerId)
+    const memberCount = await countWorkspaceMembers(archived.organizationId)
+    if (isAtLimit(memberCount, limits.workspaceMembers)) {
+      return err(
+        isPlanUnlimited(plan, 'workspaceMembers')
+          ? SAFETY_CAP_ERRORS.WORKSPACE_MEMBERS_CAP
+          : LIMIT_ERRORS.WORKSPACE_MEMBERS_LIMIT,
+      )
+    }
+
+    await auth.api.addMember({
+      headers: await headers(),
+      body: {
+        userId: archived.userId,
+        organizationId: archived.organizationId,
+        role: archived.role as WorkspaceInviteRole,
+      },
+    })
+
+    await payload.delete({ collection: 'workspace-member-archive', id: archiveId })
+
+    revalidatePath('/')
+    return ok(true)
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Error restoring member'
+    return err(message)
+  }
+}
+
+// Mirrors restoreAllArchivedListsForUserId — called on a plan upgrade, once
+// per workspace this user owns, restoring as many archived members as now
+// fit (oldest-removed first) via addMember(), which re-adds them instantly
+// with their previous role and skips the invite/accept round-trip entirely.
+export async function restoreAllArchivedWorkspaceMembersForUserId(userId: string): Promise<void> {
+  try {
+    const { limits } = await getPlanLimitsForUserId(userId)
+
+    const ownedResult = await pool.query(
+      `SELECT "organizationId" FROM member WHERE "userId" = $1 AND role = 'owner'`,
+      [userId],
+    )
+    const ownedOrgIds: string[] = ownedResult.rows.map((r) => r.organizationId)
+    if (ownedOrgIds.length === 0) return
+
+    const payload = await getPayload({ config })
+    const requestHeaders = await headers()
+
+    for (const orgId of ownedOrgIds) {
+      const { docs: archivedForOrg } = await payload.find({
+        collection: 'workspace-member-archive',
+        where: { organizationId: { equals: orgId } },
+        sort: 'archivedAt',
+        limit: 0,
+      })
+      if (archivedForOrg.length === 0) continue
+
+      let memberCount = await countWorkspaceMembers(orgId)
+
+      for (const archived of archivedForOrg) {
+        if (limits.workspaceMembers !== Infinity && memberCount >= limits.workspaceMembers) break
+
+        await auth.api
+          .addMember({
+            headers: requestHeaders,
+            body: {
+              userId: archived.userId,
+              organizationId: orgId,
+              role: archived.role as WorkspaceInviteRole,
+            },
+          })
+          .catch(() => null)
+
+        await payload.delete({ collection: 'workspace-member-archive', id: archived.id })
+        memberCount++
+      }
+    }
+  } catch (e) {
+    console.error('restoreAllArchivedWorkspaceMembersForUserId error:', e)
   }
 }
 
@@ -498,6 +825,24 @@ export const acceptWorkspaceInvite = async (invitationId: string) => {
   try {
     const userId = await getUserId()
     if (!userId) return err('Not authenticated')
+
+    // Re-checked here, not just at invite time — other invites sent around
+    // the same time could have filled the workspace up in the meantime.
+    const invitationResult = await pool.query(
+      `SELECT "organizationId" FROM invitation WHERE id = $1`,
+      [invitationId],
+    )
+    const workspaceId = invitationResult.rows[0]?.organizationId as string | undefined
+    if (workspaceId) {
+      const ownerId = await getWorkspaceOwnerId(workspaceId)
+      if (ownerId) {
+        const { limits } = await getPlanLimitsForUserId(ownerId)
+        const memberCount = await countWorkspaceMembers(workspaceId)
+        if (isAtLimit(memberCount, limits.workspaceMembers)) {
+          return err('This workspace has reached its member limit. Ask the owner to upgrade the plan.')
+        }
+      }
+    }
 
     await auth.api.acceptInvitation({
       headers: await headers(),
