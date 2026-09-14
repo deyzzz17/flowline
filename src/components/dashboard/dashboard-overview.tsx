@@ -38,7 +38,6 @@ interface DashboardOverviewProps {
   habitsCompletedToday: number
   habitsTotal: number
   habitWeekRate: number
-  habitStreak: number
   focusTodaySeconds: number
   focusYesterdaySeconds: number
   timerWeek: SessionAnalytics
@@ -52,7 +51,6 @@ export function DashboardOverview({
   habitsCompletedToday,
   habitsTotal,
   habitWeekRate,
-  habitStreak,
   focusTodaySeconds,
   focusYesterdaySeconds,
   timerWeek,
@@ -165,10 +163,7 @@ export function DashboardOverview({
                     style={{ width: `${habitPct}%` }}
                   />
                 </div>
-                <p className="mt-1.5 text-[11px] text-muted-foreground">
-                  {habitWeekRate}% this week
-                  {habitStreak > 0 ? ` · ${habitStreak}-day streak` : ''}
-                </p>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">{habitWeekRate}% this week</p>
               </>
             ) : (
               <p className="text-[11px] text-muted-foreground">Add a habit to track it here</p>

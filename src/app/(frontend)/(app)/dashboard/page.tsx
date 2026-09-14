@@ -103,7 +103,6 @@ export default async function DashboardPage() {
         habitsCompletedToday={habitAnalytics.todayCompleted}
         habitsTotal={habitAnalytics.todayTotal}
         habitWeekRate={habitAnalytics.avgCompletionRate}
-        habitStreak={habitAnalytics.bestStreak?.streak ?? 0}
         focusTodaySeconds={timerToday.totalSeconds}
         focusYesterdaySeconds={timerYesterday.totalSeconds}
         timerWeek={timerWeek}
