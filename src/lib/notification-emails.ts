@@ -111,3 +111,22 @@ export async function sendTaskAssignmentEmail(to: string, taskTitle: string, lis
     ),
   })
 }
+
+export async function sendCommentMentionEmail(
+  to: string,
+  authorName: string,
+  taskTitle: string,
+) {
+  await sendEmail({
+    to,
+    subject: `${authorName} mentioned you in a comment`,
+    html: wrapEmail(
+      heading('You were mentioned in a comment') +
+        paragraph(
+          `<strong>${authorName}</strong> mentioned you in a comment on <strong>${taskTitle}</strong>.`,
+        ) +
+        button(loginUrl(), 'Log in to view') +
+        footer("You're receiving this because you're a member of this shared list."),
+    ),
+  })
+}

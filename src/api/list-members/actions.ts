@@ -237,6 +237,15 @@ export const createSharedList = async (input: CreateSharedListInput) => {
       })
     }
 
+    if (uniqueInvites.length > 0) {
+      const profiles = await findUsersByIds([userId, ...uniqueInvites.map((i) => i.userId)])
+      const inviterName = profiles.get(userId)?.name ?? 'Someone'
+      for (const invite of uniqueInvites) {
+        const invitee = profiles.get(invite.userId)
+        if (invitee) await sendListInviteEmail(invitee.email, list.name, inviterName)
+      }
+    }
+
     revalidatePath('/')
     return ok(list)
   } catch (e) {

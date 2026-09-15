@@ -14,6 +14,7 @@ import { resolveListRole, canViewList, canEditListContent, getListMemberIds } fr
 import { canComment } from '@/lib/plan-limits'
 import { findUsersByIds, type ContactProfile } from '@/api/contacts/actions'
 import { getWorkspaceNicknames, applyWorkspaceNicknames } from '@/lib/get-current-workspace'
+import { sendCommentMentionEmail } from '@/lib/notification-emails'
 import type { List, Task } from '@/payload-types'
 
 const getUserId = async () => {
@@ -45,6 +46,36 @@ async function getTaskListContext(
   const list = await payload.findByID({ collection: 'lists', id: listId }).catch(() => null)
   if (!list) return null
   return { task, list, listId }
+}
+
+async function resolveDisplayName(
+  userId: string,
+  workspaceId: string | null | undefined,
+): Promise<string> {
+  const profile = (await findUsersByIds([userId])).get(userId)
+  if (workspaceId) {
+    const nickname = (await getWorkspaceNicknames(workspaceId)).get(userId)
+    if (nickname) return nickname
+  }
+  return profile?.name ?? 'Someone'
+}
+
+// Best-effort email nudge for whoever is newly @mentioned — never for
+// people who were already mentioned in this comment before an edit, and
+// never for the person doing the mentioning.
+async function notifyCommentMentions(
+  mentionedIds: string[],
+  authorId: string,
+  authorName: string,
+  taskTitle: string,
+) {
+  const targets = mentionedIds.filter((id) => id !== authorId)
+  if (targets.length === 0) return
+  const profiles = await findUsersByIds(targets)
+  for (const id of targets) {
+    const profile = profiles.get(id)
+    if (profile) await sendCommentMentionEmail(profile.email, authorName, taskTitle)
+  }
 }
 
 export const listCommentsForTask = async (taskId: number): Promise<CommentEntry[]> => {
@@ -157,6 +188,11 @@ export const createComment = async (input: CreateCommentInput) => {
         mentions,
       },
     })
+
+    if (mentions.length > 0) {
+      const authorName = await resolveDisplayName(userId, ctx.list.workspace)
+      await notifyCommentMentions(mentions, userId, authorName, ctx.task.title)
+    }
 
     revalidatePath('/')
     return ok(comment)
@@ -286,11 +322,19 @@ export const editComment = async (input: EditCommentInput) => {
       if (invalid) return err('You can only mention members of this list.')
     }
 
+    const previousMentions = new Set((ctx.comment.mentions ?? []) as string[])
+    const newlyMentioned = mentions.filter((id) => !previousMentions.has(id))
+
     const comment = await payload.update({
       collection: 'task-comments',
       id: input.commentId,
       data: { content, mentions },
     })
+
+    if (newlyMentioned.length > 0) {
+      const authorName = await resolveDisplayName(userId, ctx.list.workspace)
+      await notifyCommentMentions(newlyMentioned, userId, authorName, ctx.task.title)
+    }
 
     revalidatePath('/')
     return ok(comment)
