@@ -1129,3 +1129,62 @@ export const uncompleteSubtask = async (taskId: number, subtaskIndex: number) =>
     return err('Error while uncompleting subtask')
   }
 }
+
+export interface TaskAssignmentNotification {
+  taskId: number
+  taskTitle: string
+  listSlug: string
+  listName: string
+  listColor: string
+}
+
+export const listMyTaskAssignmentNotifications = async (): Promise<
+  TaskAssignmentNotification[]
+> => {
+  const userId = await getUserId()
+  if (!userId) return []
+
+  const payload = await getPayload({ config })
+
+  // assignedTo is a hasMany text field — DB-level "array contains" isn't
+  // reliable across adapters, so scan recent active tasks created by
+  // someone else and filter the assignment client-side here, same approach
+  // as comment mentions above.
+  const { docs } = await payload.find({
+    collection: 'tasks',
+    where: {
+      and: [
+        { userId: { not_equals: userId } },
+        { status: { equals: 'active' } },
+        { planArchivedAt: { exists: false } },
+      ],
+    },
+    sort: '-updatedAt',
+    limit: 300,
+  })
+
+  const assigned = docs.filter((t) => ((t.assignedTo ?? []) as string[]).includes(userId))
+  if (assigned.length === 0) return []
+
+  const result: TaskAssignmentNotification[] = []
+  for (const task of assigned) {
+    const listId = typeof task.list === 'object' ? task.list?.id : task.list
+    if (!listId) continue
+
+    const list = await payload.findByID({ collection: 'lists', id: listId }).catch(() => null)
+    if (!list || !list.isShared || list.planArchivedAt) continue
+
+    const role = await resolveListRole(payload, listId, userId)
+    if (!canViewList(role)) continue
+
+    result.push({
+      taskId: task.id,
+      taskTitle: task.title,
+      listSlug: list.slug ?? '',
+      listName: list.name,
+      listColor: list.category?.color ?? '#8b5cf6',
+    })
+  }
+
+  return result
+}

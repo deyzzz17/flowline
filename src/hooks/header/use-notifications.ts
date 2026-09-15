@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api } from '@/api'
 import { WORKSPACE_SCOPED_QUERY_KEYS } from '@/components/dashboard/workspace-switcher'
+import { SHARED_LIST_POLL_INTERVAL_MS } from '@/lib/realtime'
 import { listHabits } from '@/api/habits/actions'
 import {
   listPendingRequests,
@@ -26,6 +27,10 @@ import {
   type CommentMentionNotification,
 } from '@/api/task-comments/actions'
 import {
+  listMyTaskAssignmentNotifications,
+  type TaskAssignmentNotification,
+} from '@/api/tasks/actions'
+import {
   listMyWorkspaceInvites,
   acceptWorkspaceInvite,
   declineWorkspaceInvite,
@@ -44,6 +49,7 @@ export type NotificationLevel =
   | 'list_invite'
   | 'comment_mention'
   | 'workspace_invite'
+  | 'task_assignment'
 
 export interface TaskNotification {
   id: string
@@ -73,6 +79,7 @@ const PENDING_RECEIVED_KEY = ['connections', 'pending-received']
 const PAGE_DATA_KEY = ['contacts', 'page-data']
 const LIST_INVITES_KEY = ['list-invites', 'mine']
 const COMMENT_MENTIONS_KEY = ['task-comments', 'my-mentions']
+const TASK_ASSIGNMENTS_KEY = ['tasks', 'my-assignments']
 const WORKSPACE_INVITES_KEY = ['workspace-invites', 'mine']
 
 function getIdSetFromStorage(key: string): Set<string> {
@@ -170,6 +177,7 @@ function buildNotifications(tasks: Task[]): TaskNotification[] {
     list_invite: -1,
     workspace_invite: -1,
     comment_mention: -1,
+    task_assignment: -1,
     today: 0,
     urgent: 1,
     warning: 2,
@@ -291,6 +299,22 @@ function buildCommentMentionNotifications(
   }))
 }
 
+function buildTaskAssignmentNotifications(
+  assignments: TaskAssignmentNotification[],
+): TaskNotification[] {
+  return assignments.map((a) => ({
+    id: `task-assignment-${a.taskId}`,
+    taskId: a.taskId,
+    taskTitle: a.taskTitle,
+    listName: `Assigned to you on "${a.listName}"`,
+    listSlug: a.listSlug,
+    listColor: a.listColor,
+    level: 'task_assignment' as const,
+    message: 'New task assignment',
+    dueDate: new Date().toISOString(),
+  }))
+}
+
 export const useNotifications = () => {
   const queryClient = useQueryClient()
   const router = useRouter()
@@ -312,60 +336,72 @@ export const useNotifications = () => {
   toastedIdsRef.current = toastedIds
   const seenIdsRef = useRef<Set<string> | null>(null)
 
+  // All notification sources poll on the same short cadence used elsewhere
+  // in the app for shared/collaborative data (see realtime.ts) — this is
+  // what makes a new invite, mention, or assignment show up live in the
+  // bell without the user ever needing to reload the page.
   const { data } = useQuery({
     queryKey: ['tasks'],
     queryFn: () => api.tasks.list(),
     staleTime: 0,
     refetchOnWindowFocus: true,
-    refetchInterval: 30_000,
+    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
   })
 
   const { data: habitsData } = useQuery({
     queryKey: ['habits'],
     queryFn: () => listHabits(),
-    staleTime: 30_000,
+    staleTime: SHARED_LIST_POLL_INTERVAL_MS,
     refetchOnWindowFocus: true,
-    refetchInterval: 60_000,
+    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
   })
 
   const { data: pendingRequestsData } = useQuery({
     queryKey: PENDING_RECEIVED_KEY,
     queryFn: () => listPendingRequests(),
-    staleTime: 15_000,
+    staleTime: SHARED_LIST_POLL_INTERVAL_MS,
     refetchOnWindowFocus: true,
-    refetchInterval: 30_000,
+    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
   })
 
   const { data: acceptedByOthersData } = useQuery({
     queryKey: ['connections', 'recently-accepted-by-others'],
     queryFn: () => listRecentlyAcceptedByOthers(),
-    staleTime: 15_000,
+    staleTime: SHARED_LIST_POLL_INTERVAL_MS,
     refetchOnWindowFocus: true,
-    refetchInterval: 30_000,
+    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
   })
 
   const { data: listInvitesData } = useQuery({
     queryKey: LIST_INVITES_KEY,
     queryFn: () => listMyListInvites(),
-    staleTime: 15_000,
+    staleTime: SHARED_LIST_POLL_INTERVAL_MS,
     refetchOnWindowFocus: true,
-    refetchInterval: 30_000,
+    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
   })
 
   const { data: commentMentionsData } = useQuery({
     queryKey: COMMENT_MENTIONS_KEY,
     queryFn: () => listMyCommentMentionNotifications(),
-    staleTime: 15_000,
+    staleTime: SHARED_LIST_POLL_INTERVAL_MS,
     refetchOnWindowFocus: true,
-    refetchInterval: 30_000,
+    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
+  })
+
+  const { data: taskAssignmentsData } = useQuery({
+    queryKey: TASK_ASSIGNMENTS_KEY,
+    queryFn: () => listMyTaskAssignmentNotifications(),
+    staleTime: SHARED_LIST_POLL_INTERVAL_MS,
+    refetchOnWindowFocus: true,
+    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
   })
 
   const { data: workspaceInvitesData } = useQuery({
     queryKey: WORKSPACE_INVITES_KEY,
     queryFn: () => listMyWorkspaceInvites(),
-    staleTime: 15_000,
+    staleTime: SHARED_LIST_POLL_INTERVAL_MS,
     refetchOnWindowFocus: true,
-    refetchInterval: 30_000,
+    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
   })
 
   const allNotifications = useMemo(() => {
@@ -375,6 +411,7 @@ export const useNotifications = () => {
     const acceptedNotifs = buildConnectionAcceptedNotifications(acceptedByOthersData ?? [])
     const listInviteNotifs = buildListInviteNotifications(listInvitesData ?? [])
     const commentMentionNotifs = buildCommentMentionNotifications(commentMentionsData ?? [])
+    const taskAssignmentNotifs = buildTaskAssignmentNotifications(taskAssignmentsData ?? [])
     const workspaceInviteNotifs = buildWorkspaceInviteNotifications(workspaceInvitesData ?? [])
     return [
       ...requestNotifs,
@@ -382,6 +419,7 @@ export const useNotifications = () => {
       ...workspaceInviteNotifs,
       ...acceptedNotifs,
       ...commentMentionNotifs,
+      ...taskAssignmentNotifs,
       ...taskNotifs,
       ...goalNotifs,
     ]
@@ -392,6 +430,7 @@ export const useNotifications = () => {
     acceptedByOthersData,
     listInvitesData,
     commentMentionsData,
+    taskAssignmentsData,
     workspaceInvitesData,
   ])
 

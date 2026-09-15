@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell, X, Trophy, Users, Check, Loader2, AtSign, Building2 } from 'lucide-react'
+import { Bell, X, Trophy, Users, Check, Loader2, AtSign, Building2, ClipboardCheck } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { useNotifications } from '@/hooks/header/use-notifications'
@@ -170,6 +170,10 @@ export const NotificationsMenu = () => {
                         <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500/15">
                           <AtSign className="h-3 w-3 text-violet-500" />
                         </div>
+                      ) : notif.level === 'task_assignment' ? (
+                        <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500/15">
+                          <ClipboardCheck className="h-3 w-3 text-violet-500" />
+                        </div>
                       ) : (
                         <div
                           className="mt-0.5 h-2 w-2 shrink-0 rounded-full mt-1.5"
@@ -192,7 +196,8 @@ export const NotificationsMenu = () => {
                                 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
                                 : notif.level === 'list_invite' ||
                                     notif.level === 'workspace_invite' ||
-                                    notif.level === 'comment_mention'
+                                    notif.level === 'comment_mention' ||
+                                    notif.level === 'task_assignment'
                                   ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
                                   : notif.level === 'today'
                                     ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
