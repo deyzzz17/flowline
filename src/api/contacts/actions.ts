@@ -9,6 +9,7 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
 import { getUserPlanLimits } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
+import { sendConnectionRequestEmail } from '@/lib/notification-emails'
 
 const getUserId = async () => {
   const session = await getSession()
@@ -183,6 +184,12 @@ export const sendConnectionRequest = async (recipientUserId: string) => {
         status: 'pending',
       },
     })
+
+    const currentUser = await getCurrentUser()
+    const recipient = (await findUsersByIds([recipientUserId])).get(recipientUserId)
+    if (currentUser && recipient) {
+      await sendConnectionRequestEmail(recipient.email, currentUser.name ?? 'Someone')
+    }
 
     return ok(created)
   } catch (e) {

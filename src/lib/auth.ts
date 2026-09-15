@@ -10,6 +10,7 @@ import {
 } from 'better-auth/plugins/organization/access'
 import { Pool } from 'pg'
 import { sendEmail } from './send-email'
+import { sendWorkspaceInviteEmail } from './notification-emails'
 
 // Custom 4th role: a hard read-only ceiling. Reuses the exact same
 // owner/admin/member access-control objects Better Auth ships by default —
@@ -190,6 +191,16 @@ export const auth = betterAuth({
         admin: adminAc,
         member: memberAc,
         viewer: viewerAc,
+      },
+      async sendInvitationEmail(data) {
+        const roleLabel =
+          data.role === 'admin' ? 'Admin' : data.role === 'viewer' ? 'Viewer' : 'Editor'
+        await sendWorkspaceInviteEmail(
+          data.email,
+          data.organization.name,
+          data.inviter.user.name ?? null,
+          roleLabel,
+        )
       },
     }),
     // Must be last: forwards Set-Cookie headers from direct `auth.api.*()`

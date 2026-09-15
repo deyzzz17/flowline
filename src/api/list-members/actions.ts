@@ -19,6 +19,7 @@ import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/l
 import { resolveListRole, getListMemberIds, canViewList } from '@/lib/list-roles'
 import type { WorkspaceRole } from '@/lib/workspace-permissions'
 import { findUsersByIds, type ContactProfile } from '@/api/contacts/actions'
+import { sendListInviteEmail } from '@/lib/notification-emails'
 import type { List } from '@/payload-types'
 
 const getUserId = async () => {
@@ -319,6 +320,13 @@ export const inviteListMember = async (
 
     if (!list.isShared) {
       await payload.update({ collection: 'lists', id: listId, data: { isShared: true } })
+    }
+
+    const profiles = await findUsersByIds([userId, inviteeUserId])
+    const invitee = profiles.get(inviteeUserId)
+    const inviter = profiles.get(userId)
+    if (invitee && inviter) {
+      await sendListInviteEmail(invitee.email, list.name, inviter.name ?? 'Someone')
     }
 
     revalidatePath('/')

@@ -25,6 +25,8 @@ import {
   getListMemberIds,
 } from '@/lib/list-roles'
 import { deleteCommentsForTaskIds } from '@/api/task-comments/actions'
+import { findUsersByIds } from '@/api/contacts/actions'
+import { sendTaskAssignmentEmail } from '@/lib/notification-emails'
 
 type CreateTaskInput = {
   title: string
@@ -69,6 +71,24 @@ function getTaskListId(task: { list?: unknown }): number | null {
   if (list && typeof list === 'object') return (list as { id: number }).id
   if (typeof list === 'number') return list
   return null
+}
+
+// Best-effort email nudge for whoever is newly on a task's assignedTo list —
+// never for people who were already assigned before this edit, and never
+// for the person doing the assigning.
+async function notifyNewTaskAssignees(
+  taskTitle: string,
+  listName: string,
+  newAssigneeIds: string[],
+  actingUserId: string,
+) {
+  const targets = newAssigneeIds.filter((id) => id !== actingUserId)
+  if (targets.length === 0) return
+  const profiles = await findUsersByIds(targets)
+  for (const id of targets) {
+    const profile = profiles.get(id)
+    if (profile) await sendTaskAssignmentEmail(profile.email, taskTitle, listName)
+  }
 }
 
 async function assertCanViewTask(
@@ -203,12 +223,14 @@ export const createTask = async (task: CreateTaskInput) => {
     let limits: Awaited<ReturnType<typeof getUserPlanLimits>>['limits']
     let role: Awaited<ReturnType<typeof resolveListRole>> = null
     let taskWorkspace: string | null
+    let listName: string | null = null
 
     if (task.listId) {
       const list = await payload
         .findByID({ collection: 'lists', id: task.listId })
         .catch(() => null)
       if (!list) return err('List not found')
+      listName = list.name
 
       role = await resolveListRole(payload, task.listId, userId)
       if (!canEditListContent(role)) return err('Not authorized')
@@ -269,6 +291,8 @@ export const createTask = async (task: CreateTaskInput) => {
       assignedTo: sanitizeAssignees(s.assignedTo),
     }))
 
+    const newTaskAssignees = sanitizeAssignees(task.assignedTo)
+
     const newTask = await payload.create({
       collection: 'tasks',
       data: {
@@ -279,7 +303,7 @@ export const createTask = async (task: CreateTaskInput) => {
         tags: task.tags ?? [],
         customTags: (task.customTags ?? []) as number[],
         subtasks: sanitizedSubtasks,
-        assignedTo: sanitizeAssignees(task.assignedTo),
+        assignedTo: newTaskAssignees,
         ...(task.recurrence && { recurrence: task.recurrence }),
         ...(task.dueDate !== undefined && { dueDate: task.dueDate }),
         autoDeleteOnDueDate: task.autoDeleteOnDueDate ?? false,
@@ -288,6 +312,10 @@ export const createTask = async (task: CreateTaskInput) => {
         userId,
       },
     })
+
+    if (listName && newTaskAssignees.length > 0) {
+      await notifyNewTaskAssignees(newTask.title, listName, newTaskAssignees, userId)
+    }
 
     revalidatePath('/')
     return ok(newTask)
@@ -864,6 +892,15 @@ export const editTask = async (id: number, draft: EditTaskInput) => {
           : (originalSubtasks[i]?.assignedTo ?? []),
     }))
 
+    const finalAssignedTo =
+      role === 'admin' && draft.assignedTo !== undefined
+        ? sanitizeAssignees(draft.assignedTo)
+        : undefined
+    const previousAssignees = new Set((originalTask.assignedTo ?? []) as string[])
+    const newlyAssignedIds = finalAssignedTo
+      ? finalAssignedTo.filter((uid) => !previousAssignees.has(uid))
+      : []
+
     // Moving a task to a different list (or detaching it) changes which
     // workspace it belongs to — keep it in sync with the target list's
     // workspace, or the mover's current active workspace if detached.
@@ -886,8 +923,7 @@ export const editTask = async (id: number, draft: EditTaskInput) => {
         ...(draft.tags !== undefined && { tags: draft.tags }),
         ...(draft.customTags !== undefined && { customTags: draft.customTags as number[] }),
         ...(sanitizedSubtasks !== undefined && { subtasks: sanitizedSubtasks }),
-        ...(role === 'admin' &&
-          draft.assignedTo !== undefined && { assignedTo: sanitizeAssignees(draft.assignedTo) }),
+        ...(finalAssignedTo !== undefined && { assignedTo: finalAssignedTo }),
         ...(draft.recurrence !== undefined && { recurrence: draft.recurrence }),
         ...(draft.dueDate !== undefined && { dueDate: draft.dueDate }),
         ...(draft.autoDeleteOnDueDate !== undefined && {
@@ -897,6 +933,16 @@ export const editTask = async (id: number, draft: EditTaskInput) => {
         ...workspaceUpdate,
       },
     })
+
+    if (newlyAssignedIds.length > 0) {
+      const listIdForEmail = draft.listId !== undefined ? draft.listId : listId
+      const listForEmail = listIdForEmail
+        ? await payload.findByID({ collection: 'lists', id: listIdForEmail }).catch(() => null)
+        : null
+      if (listForEmail) {
+        await notifyNewTaskAssignees(finalTitle, listForEmail.name, newlyAssignedIds, userId)
+      }
+    }
 
     revalidatePath('/')
     return ok(updatedTask)
