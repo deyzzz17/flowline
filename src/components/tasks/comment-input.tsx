@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { useCommentMentionSearch } from '@/hooks/tasks/use-comment-mention-search'
 import { useIsMobile } from '@/hooks/use-mobile'
 import type { ContactProfile } from '@/api/contacts/actions'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Loader2, Send } from 'lucide-react'
 
 function getInitials(name?: string | null): string {
@@ -156,9 +157,12 @@ export const CommentInput = ({
                   i === selectedIndex ? 'bg-muted' : 'hover:bg-muted/60',
                 )}
               >
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-[9px] font-semibold text-violet-600 dark:text-violet-400">
-                  {getInitials(member.name)}
-                </span>
+                <Avatar className="h-5 w-5 shrink-0">
+                  <AvatarImage src={member.image ?? undefined} alt={member.name} />
+                  <AvatarFallback className="bg-violet-500/15 text-[9px] font-semibold text-violet-600 dark:text-violet-400">
+                    {getInitials(member.name)}
+                  </AvatarFallback>
+                </Avatar>
                 <span className="text-xs font-medium text-foreground truncate">{member.name}</span>
               </button>
             ))}
