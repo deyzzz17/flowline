@@ -3,6 +3,7 @@
 import { useState, useRef, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { api } from '@/api'
 import { WORKSPACE_SCOPED_QUERY_KEYS } from '@/components/dashboard/workspace-switcher'
 import { listHabits } from '@/api/habits/actions'
@@ -62,15 +63,19 @@ export interface TaskNotification {
   workspaceInviteId?: string
 }
 
-const ACCEPTED_DISMISSED_KEY = 'connection_accepted_dismissed'
-const COMMENT_MENTION_DISMISSED_KEY = 'comment_mention_dismissed'
+// Persisted so state survives reload/reconnect — a notification, once
+// dismissed or read, must not resurrect itself, and a toast must only ever
+// fire once per notification id, for its entire lifetime.
+const DISMISSED_KEY = 'notifications_dismissed_ids'
+const READ_KEY = 'notifications_read_ids'
+const TOASTED_KEY = 'notifications_toasted_ids'
 const PENDING_RECEIVED_KEY = ['connections', 'pending-received']
 const PAGE_DATA_KEY = ['contacts', 'page-data']
 const LIST_INVITES_KEY = ['list-invites', 'mine']
 const COMMENT_MENTIONS_KEY = ['task-comments', 'my-mentions']
 const WORKSPACE_INVITES_KEY = ['workspace-invites', 'mine']
 
-function getDismissedIdsFromStorage(key: string): Set<string> {
+function getIdSetFromStorage(key: string): Set<string> {
   if (typeof window === 'undefined') return new Set()
   try {
     const raw = localStorage.getItem(key)
@@ -80,12 +85,10 @@ function getDismissedIdsFromStorage(key: string): Set<string> {
   }
 }
 
-function addDismissedIdToStorage(key: string, id: string) {
+function saveIdSetToStorage(key: string, ids: Set<string>) {
   if (typeof window === 'undefined') return
   try {
-    const current = getDismissedIdsFromStorage(key)
-    current.add(id)
-    localStorage.setItem(key, JSON.stringify([...current]))
+    localStorage.setItem(key, JSON.stringify([...ids]))
   } catch {}
 }
 
@@ -124,7 +127,7 @@ function buildNotifications(tasks: Task[]): TaskNotification[] {
 
     if (isSameCalendarDay(dueDate, now)) {
       notifications.push({
-        id: `today-${task.id}`,
+        id: `today-${task.id}-${task.dueDate}`,
         taskId: task.id,
         taskTitle: task.title,
         listName: list.name,
@@ -136,7 +139,7 @@ function buildNotifications(tasks: Task[]): TaskNotification[] {
       })
     } else if (dueDayStart === tomorrowStart) {
       notifications.push({
-        id: `urgent-${task.id}`,
+        id: `urgent-${task.id}-${task.dueDate}`,
         taskId: task.id,
         taskTitle: task.title,
         listName: list.name,
@@ -148,7 +151,7 @@ function buildNotifications(tasks: Task[]): TaskNotification[] {
       })
     } else if (dueDayStart === twoDaysStart) {
       notifications.push({
-        id: `warning-${task.id}`,
+        id: `warning-${task.id}-${task.dueDate}`,
         taskId: task.id,
         taskTitle: task.title,
         listName: list.name,
@@ -255,59 +258,59 @@ function buildWorkspaceInviteNotifications(invites: WorkspaceInvite[]): TaskNoti
 
 function buildConnectionAcceptedNotifications(
   accepted: AcceptedNotification[],
-  dismissedIds: Set<string>,
 ): TaskNotification[] {
-  return accepted
-    .filter((a) => !dismissedIds.has(`connection-accepted-${a.connectionId}`))
-    .map((a) => ({
-      id: `connection-accepted-${a.connectionId}`,
-      taskId: a.connectionId,
-      taskTitle: a.user.name,
-      listName: 'accepted your connection request',
-      listSlug: '',
-      listColor: '#10b981',
-      level: 'connection_accepted' as const,
-      message: 'Connection accepted',
-      dueDate: a.respondedAt,
-      connectionId: a.connectionId,
-      userImage: a.user.image,
-    }))
+  return accepted.map((a) => ({
+    id: `connection-accepted-${a.connectionId}`,
+    taskId: a.connectionId,
+    taskTitle: a.user.name,
+    listName: 'accepted your connection request',
+    listSlug: '',
+    listColor: '#10b981',
+    level: 'connection_accepted' as const,
+    message: 'Connection accepted',
+    dueDate: a.respondedAt,
+    connectionId: a.connectionId,
+    userImage: a.user.image,
+  }))
 }
 
 function buildCommentMentionNotifications(
   mentions: CommentMentionNotification[],
-  dismissedIds: Set<string>,
 ): TaskNotification[] {
-  return mentions
-    .filter((m) => !dismissedIds.has(`comment-mention-${m.commentId}`))
-    .map((m) => ({
-      id: `comment-mention-${m.commentId}`,
-      taskId: m.taskId,
-      taskTitle: m.taskTitle,
-      listName: `${m.authorName} mentioned you in a comment`,
-      listSlug: m.listSlug,
-      listColor: m.listColor,
-      level: 'comment_mention' as const,
-      message: 'Mentioned in a comment',
-      dueDate: m.createdAt,
-      userImage: m.authorImage,
-    }))
+  return mentions.map((m) => ({
+    id: `comment-mention-${m.commentId}`,
+    taskId: m.taskId,
+    taskTitle: m.taskTitle,
+    listName: `${m.authorName} mentioned you in a comment`,
+    listSlug: m.listSlug,
+    listColor: m.listColor,
+    level: 'comment_mention' as const,
+    message: 'Mentioned in a comment',
+    dueDate: m.createdAt,
+    userImage: m.authorImage,
+  }))
 }
 
 export const useNotifications = () => {
   const queryClient = useQueryClient()
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const readIdsRef = useRef<Set<string>>(new Set())
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
-  const [dismissedAcceptedIds, setDismissedAcceptedIds] = useState<Set<string>>(new Set())
-  const [dismissedMentionIds, setDismissedMentionIds] = useState<Set<string>>(new Set())
-  const [, forceUpdate] = useState(0)
 
-  useEffect(() => {
-    setDismissedAcceptedIds(getDismissedIdsFromStorage(ACCEPTED_DISMISSED_KEY))
-    setDismissedMentionIds(getDismissedIdsFromStorage(COMMENT_MENTION_DISMISSED_KEY))
-  }, [])
+  // All three sets are persisted to localStorage and hydrated lazily on
+  // mount, so dismissed/read/already-toasted state survives reload and
+  // reconnecting — a dismissed notification must never come back, the
+  // unread dot must stay cleared until something genuinely new arrives,
+  // and a toast must fire at most once per notification id, ever.
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() =>
+    getIdSetFromStorage(DISMISSED_KEY),
+  )
+  const [readIds, setReadIds] = useState<Set<string>>(() => getIdSetFromStorage(READ_KEY))
+  const [toastedIds, setToastedIds] = useState<Set<string>>(() =>
+    getIdSetFromStorage(TOASTED_KEY),
+  )
+  const toastedIdsRef = useRef(toastedIds)
+  toastedIdsRef.current = toastedIds
+  const seenIdsRef = useRef<Set<string> | null>(null)
 
   const { data } = useQuery({
     queryKey: ['tasks'],
@@ -369,15 +372,9 @@ export const useNotifications = () => {
     const taskNotifs = buildNotifications((data?.docs ?? []) as Task[])
     const goalNotifs = buildGoalClaimNotifications(habitsData ?? [])
     const requestNotifs = buildConnectionRequestNotifications(pendingRequestsData ?? [])
-    const acceptedNotifs = buildConnectionAcceptedNotifications(
-      acceptedByOthersData ?? [],
-      dismissedAcceptedIds,
-    )
+    const acceptedNotifs = buildConnectionAcceptedNotifications(acceptedByOthersData ?? [])
     const listInviteNotifs = buildListInviteNotifications(listInvitesData ?? [])
-    const commentMentionNotifs = buildCommentMentionNotifications(
-      commentMentionsData ?? [],
-      dismissedMentionIds,
-    )
+    const commentMentionNotifs = buildCommentMentionNotifications(commentMentionsData ?? [])
     const workspaceInviteNotifs = buildWorkspaceInviteNotifications(workspaceInvitesData ?? [])
     return [
       ...requestNotifs,
@@ -394,9 +391,7 @@ export const useNotifications = () => {
     pendingRequestsData,
     acceptedByOthersData,
     listInvitesData,
-    dismissedAcceptedIds,
     commentMentionsData,
-    dismissedMentionIds,
     workspaceInvitesData,
   ])
 
@@ -405,52 +400,95 @@ export const useNotifications = () => {
     [allNotifications, dismissedIds],
   )
 
-  const hasUnread = notifications.some((n) => !readIdsRef.current.has(n.id))
+  // Fire a one-time toast for notifications that genuinely just appeared.
+  // The first run only establishes a baseline (so reload/reconnect never
+  // replays a toast for something already sitting in the list); every id,
+  // once toasted, is persisted and will never toast again.
+  useEffect(() => {
+    const currentIds = new Set(notifications.map((n) => n.id))
+
+    if (seenIdsRef.current === null) {
+      seenIdsRef.current = currentIds
+      const missing = [...currentIds].filter((id) => !toastedIdsRef.current.has(id))
+      if (missing.length > 0) {
+        const next = new Set(toastedIdsRef.current)
+        missing.forEach((id) => next.add(id))
+        saveIdSetToStorage(TOASTED_KEY, next)
+        setToastedIds(next)
+      }
+      return
+    }
+
+    const newOnes = notifications.filter(
+      (n) => !seenIdsRef.current!.has(n.id) && !toastedIdsRef.current.has(n.id),
+    )
+    seenIdsRef.current = currentIds
+    if (newOnes.length === 0) return
+
+    const next = new Set(toastedIdsRef.current)
+    newOnes.forEach((n) => {
+      next.add(n.id)
+      toast.message(n.taskTitle, {
+        description: n.message,
+        duration: 2000,
+        position: 'top-right',
+      })
+    })
+    saveIdSetToStorage(TOASTED_KEY, next)
+    setToastedIds(next)
+  }, [notifications])
+
+  const hasUnread = notifications.some((n) => !readIds.has(n.id))
 
   const handleOpen = (value: boolean) => {
     setOpen(value)
-    if (value) {
-      notifications.forEach((n) => readIdsRef.current.add(n.id))
-      forceUpdate((c) => c + 1)
+    if (value && notifications.length > 0) {
+      setReadIds((prev) => {
+        let changed = false
+        const next = new Set(prev)
+        notifications.forEach((n) => {
+          if (!next.has(n.id)) {
+            next.add(n.id)
+            changed = true
+          }
+        })
+        if (!changed) return prev
+        saveIdSetToStorage(READ_KEY, next)
+        return next
+      })
     }
   }
 
   const dismiss = (id: string) => {
-    setDismissedIds((prev) => new Set([...prev, id]))
-    readIdsRef.current.add(id)
-    if (id.startsWith('connection-accepted-')) {
-      addDismissedIdToStorage(ACCEPTED_DISMISSED_KEY, id)
-      setDismissedAcceptedIds((prev) => new Set([...prev, id]))
-    } else if (id.startsWith('comment-mention-')) {
-      addDismissedIdToStorage(COMMENT_MENTION_DISMISSED_KEY, id)
-      setDismissedMentionIds((prev) => new Set([...prev, id]))
-    }
+    setDismissedIds((prev) => {
+      const next = new Set(prev)
+      next.add(id)
+      saveIdSetToStorage(DISMISSED_KEY, next)
+      return next
+    })
+    setReadIds((prev) => {
+      if (prev.has(id)) return prev
+      const next = new Set(prev)
+      next.add(id)
+      saveIdSetToStorage(READ_KEY, next)
+      return next
+    })
   }
 
   const dismissAll = () => {
-    const allIds = new Set(notifications.map((n) => n.id))
-    setDismissedIds((prev) => new Set([...prev, ...allIds]))
-    notifications.forEach((n) => {
-      readIdsRef.current.add(n.id)
-      if (n.id.startsWith('connection-accepted-')) addDismissedIdToStorage(ACCEPTED_DISMISSED_KEY, n.id)
-      else if (n.id.startsWith('comment-mention-'))
-        addDismissedIdToStorage(COMMENT_MENTION_DISMISSED_KEY, n.id)
-    })
-    setDismissedAcceptedIds((prev) => {
+    const allIds = notifications.map((n) => n.id)
+    setDismissedIds((prev) => {
       const next = new Set(prev)
-      notifications.forEach((n) => {
-        if (n.id.startsWith('connection-accepted-')) next.add(n.id)
-      })
+      allIds.forEach((id) => next.add(id))
+      saveIdSetToStorage(DISMISSED_KEY, next)
       return next
     })
-    setDismissedMentionIds((prev) => {
+    setReadIds((prev) => {
       const next = new Set(prev)
-      notifications.forEach((n) => {
-        if (n.id.startsWith('comment-mention-')) next.add(n.id)
-      })
+      allIds.forEach((id) => next.add(id))
+      saveIdSetToStorage(READ_KEY, next)
       return next
     })
-    forceUpdate((c) => c + 1)
   }
 
   const acceptMutation = useMutation({
