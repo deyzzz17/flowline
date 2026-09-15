@@ -110,12 +110,16 @@ export function TaskCommentsSection({ taskId, listId, isReader }: TaskCommentsSe
     onMutate: async (input) => {
       await queryClient.cancelQueries({ queryKey })
       const previous = snapshot()
+      // Prefer the workspace nickname already resolved in `members` (same
+      // source as the mention picker) so the optimistic comment doesn't
+      // flash the account name before the real fetch replaces it.
+      const ownProfile = members.find((m) => m.id === currentUserId)
       const optimistic: CommentEntry = {
         id: -Date.now(),
         content: input.content,
         author: {
           id: currentUserId ?? '',
-          name: user.name,
+          name: ownProfile?.name ?? user.name,
           email: user.email,
           image: user.image,
         },

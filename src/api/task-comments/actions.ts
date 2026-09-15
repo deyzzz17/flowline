@@ -13,6 +13,7 @@ import { getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { resolveListRole, canViewList, canEditListContent, getListMemberIds } from '@/lib/list-roles'
 import { canComment } from '@/lib/plan-limits'
 import { findUsersByIds, type ContactProfile } from '@/api/contacts/actions'
+import { getWorkspaceNicknames, applyWorkspaceNicknames } from '@/lib/get-current-workspace'
 import type { List, Task } from '@/payload-types'
 
 const getUserId = async () => {
@@ -67,11 +68,15 @@ export const listCommentsForTask = async (taskId: number): Promise<CommentEntry[
   if (docs.length === 0) return []
 
   const authorsMap = await findUsersByIds(docs.map((d) => d.userId as string))
+  const nicknames = ctx.list.workspace
+    ? await getWorkspaceNicknames(ctx.list.workspace)
+    : new Map<string, string>()
 
   return docs
     .map((d) => {
-      const author = authorsMap.get(d.userId as string)
-      if (!author) return null
+      const rawAuthor = authorsMap.get(d.userId as string)
+      if (!rawAuthor) return null
+      const author = applyWorkspaceNicknames([rawAuthor], nicknames)[0]
       const likes = (d.likes ?? []) as string[]
       const dislikes = (d.dislikes ?? []) as string[]
       const parentCommentId =
@@ -357,6 +362,15 @@ export const listMyCommentMentionNotifications = async (): Promise<
   if (mentioning.length === 0) return []
 
   const authorsMap = await findUsersByIds(mentioning.map((d) => d.userId as string))
+  const nicknamesByWorkspace = new Map<string, Map<string, string>>()
+  const getNicknames = async (workspaceId: string) => {
+    let nicknames = nicknamesByWorkspace.get(workspaceId)
+    if (!nicknames) {
+      nicknames = await getWorkspaceNicknames(workspaceId)
+      nicknamesByWorkspace.set(workspaceId, nicknames)
+    }
+    return nicknames
+  }
 
   const result: CommentMentionNotification[] = []
   for (const d of mentioning) {
@@ -369,13 +383,16 @@ export const listMyCommentMentionNotifications = async (): Promise<
     if (!canViewList(role)) continue
 
     const author = authorsMap.get(d.userId as string)
+    const authorName = ctx.list.workspace
+      ? ((await getNicknames(ctx.list.workspace)).get(d.userId as string) ?? author?.name)
+      : author?.name
     result.push({
       commentId: d.id,
       taskId,
       taskTitle: ctx.task.title,
       listSlug: ctx.list.slug ?? '',
       listColor: ctx.list.category?.color ?? '#8b5cf6',
-      authorName: author?.name ?? 'Someone',
+      authorName: authorName ?? 'Someone',
       authorImage: author?.image ?? null,
       createdAt: d.createdAt as string,
     })

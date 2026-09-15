@@ -190,7 +190,8 @@ export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
     if (m.userId === currentUserId) return false
     const q = memberSearch.trim().toLowerCase()
     if (!q) return true
-    return m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q)
+    const displayName = m.nickname || m.name
+    return displayName.toLowerCase().includes(q) || m.email.toLowerCase().includes(q)
   })
 
   const displayColor = optimisticColor
@@ -404,9 +405,9 @@ export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
                         className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 hover:bg-muted/40 transition-colors"
                       >
                         <Avatar className="h-8 w-8 shrink-0">
-                          <AvatarImage src={m.image ?? undefined} alt={m.name} />
+                          <AvatarImage src={m.image ?? undefined} alt={m.nickname || m.name} />
                           <AvatarFallback className="bg-violet-500/10 text-xs font-semibold text-violet-600 dark:text-violet-400">
-                            {m.name.slice(0, 1).toUpperCase()}
+                            {(m.nickname || m.name).slice(0, 1).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0 flex-1">

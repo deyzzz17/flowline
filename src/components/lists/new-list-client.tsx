@@ -110,7 +110,8 @@ export const NewListClient = () => {
       if (m.userId === currentUserId) return false
       if (invitedUserIds.has(m.userId)) return false
       if (!q) return true
-      return m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q)
+      const displayName = m.nickname || m.name
+      return displayName.toLowerCase().includes(q) || m.email.toLowerCase().includes(q)
     })
   }, [workspaceMembersData, invitedUserIds, memberSearch, currentUserId])
 
@@ -313,9 +314,11 @@ export const NewListClient = () => {
                 {invitees.map((u) => (
                   <div key={u.userId} className="rounded-xl bg-muted/40 px-2 py-1.5">
                     <div className="flex items-center gap-2.5">
-                      <MemberRowAvatar name={u.name} image={u.image} />
+                      <MemberRowAvatar name={u.nickname || u.name} image={u.image} />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-foreground">{u.name}</p>
+                        <p className="truncate text-sm font-medium text-foreground">
+                          {u.nickname || u.name}
+                        </p>
                       </div>
                       <span className="rounded-md bg-muted/50 px-2 py-1 text-[10px] font-medium text-muted-foreground">
                         {u.role === 'viewer' ? 'Viewer' : 'Editor'}
@@ -357,9 +360,11 @@ export const NewListClient = () => {
                     key={m.userId}
                     className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 hover:bg-muted/40 transition-colors"
                   >
-                    <MemberRowAvatar name={m.name} image={m.image} />
+                    <MemberRowAvatar name={m.nickname || m.name} image={m.image} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-foreground">{m.name}</p>
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {m.nickname || m.name}
+                      </p>
                       <p className="truncate text-xs text-muted-foreground/60">{m.email}</p>
                     </div>
                     <button

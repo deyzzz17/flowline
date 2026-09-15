@@ -77,3 +77,34 @@ export const getWorkspaceRoleForUser = cache(
       : null
   },
 )
+
+/**
+ * Per-workspace display-name overrides (the `nickname` additionalField on
+ * Better Auth's `member` — see auth.ts), keyed by userId, for every member
+ * of the given workspace who has actually set one. Callers should fall back
+ * to the account's own name for any id missing from the map.
+ */
+export async function getWorkspaceNicknames(workspaceId: string): Promise<Map<string, string>> {
+  const result = await pool.query(
+    `SELECT "userId", nickname FROM member WHERE "organizationId" = $1 AND nickname IS NOT NULL AND nickname <> ''`,
+    [workspaceId],
+  )
+  const map = new Map<string, string>()
+  for (const row of result.rows) map.set(row.userId, row.nickname)
+  return map
+}
+
+/**
+ * Swaps in each profile's per-workspace nickname (when one is set) in place
+ * of their global account name. Use this anywhere a member's name is shown
+ * inside a workspace — assignee pickers, comments, list member panels,
+ * invite dialogs — so it reflects what was set on the workspace's Members
+ * page rather than the account's own global name.
+ */
+export function applyWorkspaceNicknames<T extends { id: string; name: string }>(
+  profiles: T[],
+  nicknames: Map<string, string>,
+): T[] {
+  if (nicknames.size === 0) return profiles
+  return profiles.map((p) => (nicknames.has(p.id) ? { ...p, name: nicknames.get(p.id)! } : p))
+}

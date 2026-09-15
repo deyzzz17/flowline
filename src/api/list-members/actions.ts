@@ -12,6 +12,8 @@ import { getSession } from '@/lib/get-session'
 import {
   getCurrentWorkspaceId,
   getWorkspaceRoleForUser,
+  getWorkspaceNicknames,
+  applyWorkspaceNicknames,
   workspaceWhereClause,
 } from '@/lib/get-current-workspace'
 import { getPlanLimitsForUserId } from '@/lib/get-user-plan'
@@ -494,10 +496,17 @@ export const listMembersForList = async (listId: number): Promise<ListMemberEntr
     ? await getWorkspaceMemberRoles(listWorkspaceId)
     : new Map<string, WorkspaceRole>()
 
+  // A workspace list's members are shown by whatever nickname they set on
+  // the workspace's Members page, not their global account name.
+  const nicknames = listWorkspaceId
+    ? await getWorkspaceNicknames(listWorkspaceId)
+    : new Map<string, string>()
+
   return docs
     .map((d) => {
-      const user = usersMap.get(d.userId as string)
-      if (!user) return null
+      const rawUser = usersMap.get(d.userId as string)
+      if (!rawUser) return null
+      const user = applyWorkspaceNicknames([rawUser], nicknames)[0]
       const displayRole = listWorkspaceId
         ? deriveListRoleFromWorkspaceRole(workspaceRoles.get(d.userId as string) ?? null)
         : (d.role as ListMemberRole)
@@ -521,10 +530,22 @@ export const listMemberProfiles = async (listId: number): Promise<ContactProfile
   const role = await resolveListRole(payload, listId, userId)
   if (!canViewList(role)) return []
 
+  const list = await payload.findByID({ collection: 'lists', id: listId }).catch(() => null)
+  const listWorkspaceId = (list as any)?.workspace ?? null
+
   const memberIds = await getListMemberIds(payload, listId)
   const usersMap = await findUsersByIds(memberIds)
+  const profiles = memberIds
+    .map((id) => usersMap.get(id))
+    .filter((u): u is ContactProfile => u !== undefined)
 
-  return memberIds.map((id) => usersMap.get(id)).filter((u): u is ContactProfile => u !== undefined)
+  // Assignee pickers, @mentions, and anywhere else this feeds into should
+  // show each workspace member's nickname rather than their account name.
+  const nicknames = listWorkspaceId
+    ? await getWorkspaceNicknames(listWorkspaceId)
+    : new Map<string, string>()
+
+  return applyWorkspaceNicknames(profiles, nicknames)
 }
 
 export const listMyListInvites = async (): Promise<ListInvite[]> => {
