@@ -32,7 +32,6 @@ export const useDeleteList = (list: List) => {
         if (!old) return old
         return { ...old, docs: old.docs.filter((l) => l.id !== list.id) }
       })
-      router.push('/lists/today')
       return { previousLists }
     },
     onSuccess: async (result, _vars, context) => {
@@ -40,9 +39,15 @@ export const useDeleteList = (list: List) => {
         if (context?.previousLists) {
           queryClient.setQueryData(['lists'], context.previousLists)
         }
-        router.push(`/lists/${list.slug}`)
         return
       }
+
+      // Only leave the list's own page once the deletion is actually
+      // confirmed — navigating away earlier (e.g. from onMutate, before the
+      // delete has even been sent) races the in-flight request against the
+      // route change and can cause it to never actually persist server-side.
+      router.push('/lists/today')
+
       toast.info('List successfully removed', {
         description: `This list and all associated tasks have been deleted.`,
       })
@@ -105,7 +110,6 @@ export const useDeleteList = (list: List) => {
       if (context?.previousLists) {
         queryClient.setQueryData(['lists'], context.previousLists)
       }
-      router.push(`/lists/${list.slug}`)
       toast.error('Failed to delete list', {
         description: 'Something went wrong. Please try again.',
       })

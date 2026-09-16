@@ -376,7 +376,6 @@ export function HabitDetailClient({ habit: initialHabit, initialTrackingAnalytic
       const previousHabits = queryClient.getQueryData<HabitWithStats[]>(['habits'])
       closeEndOnReachDialog()
       queryClient.setQueryData(['habits'], (old: HabitWithStats[] | undefined) => old?.filter((h) => h.id !== habit.id) ?? [])
-      router.push('/habits/habits-view')
 
       const result = await deleteHabit(habit.id)
       if ('error' in result) {
@@ -385,6 +384,12 @@ export function HabitDetailClient({ habit: initialHabit, initialTrackingAnalytic
         return
       }
       toast.success('Habit deleted')
+
+      // Only leave the habit's own page once the deletion is actually
+      // confirmed — navigating away earlier races the in-flight request
+      // against the route change and can cause it to never actually
+      // persist server-side.
+      router.push('/habits/habits-view')
 
       const archived = await listPlanArchivedHabits()
       if (archived.length === 0) return
