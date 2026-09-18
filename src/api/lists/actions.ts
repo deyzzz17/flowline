@@ -593,17 +593,38 @@ export const getListBySlug = async (slug: string) => {
   const userId = await getUserId()
   if (!userId) return err('Not authenticated')
   const payload = await getPayload({ config })
+
+  // A slug is only guaranteed unique within its own workspace (see the
+  // (workspace, slug) index on the Lists collection) — the same user can
+  // independently create a same-named list in two different workspaces
+  // they belong to, Personal included, which then share a slug. Fetch
+  // every match and disambiguate instead of blindly taking the first one
+  // (which always ended up being whichever was created first, regardless
+  // of which workspace the link/click actually meant).
   const { docs } = await payload.find({
     collection: 'lists',
     where: {
       and: [{ slug: { equals: slug } }, { planArchivedAt: { exists: false } }],
     },
-    limit: 1,
+    limit: 10,
   })
-  if (!docs[0]) return err('List not found')
+  if (docs.length === 0) return err('List not found')
 
-  const role = await resolveListRole(payload, docs[0].id, userId)
-  if (!role) return err('List not found')
+  // Prefer whichever match belongs to the currently active workspace — that's
+  // what a sidebar click always means. Still fall back to any other match the
+  // user actually has a role on (e.g. a notification link for a list that
+  // lives in a workspace other than the one currently active), rather than
+  // 404ing just because it isn't the active workspace right now.
+  const workspaceId = await getCurrentWorkspaceId()
+  const preferred = docs.find((d) => (d.workspace ?? null) === workspaceId)
+  const candidates = preferred
+    ? [preferred, ...docs.filter((d) => d.id !== preferred.id)]
+    : docs
 
-  return ok(docs[0])
+  for (const candidate of candidates) {
+    const role = await resolveListRole(payload, candidate.id, userId)
+    if (role) return ok(candidate)
+  }
+
+  return err('List not found')
 }

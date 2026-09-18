@@ -49,6 +49,7 @@ import * as migration_20260828_154737_workspaces_full_scope from './20260828_154
 import * as migration_20260830_195000_workspaces_to_organizations from './20260830_195000_workspaces_to_organizations';
 import * as migration_20260831_014500_tasks_workspace from './20260831_014500_tasks_workspace';
 import * as migration_20260831_144000_timer_global from './20260831_144000_timer_global';
+import * as migration_20260918_120000_lists_personal_slug_unique from './20260918_120000_lists_personal_slug_unique';
 
 export const migrations = [
   {
@@ -305,5 +306,10 @@ export const migrations = [
     up: migration_20260831_144000_timer_global.up,
     down: migration_20260831_144000_timer_global.down,
     name: '20260831_144000_timer_global'
+  },
+  {
+    up: migration_20260918_120000_lists_personal_slug_unique.up,
+    down: migration_20260918_120000_lists_personal_slug_unique.down,
+    name: '20260918_120000_lists_personal_slug_unique'
   },
 ];
