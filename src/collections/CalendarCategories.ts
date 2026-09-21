@@ -15,6 +15,17 @@ export const CalendarCategories: CollectionConfig = {
           'Better Auth organization id this category belongs to. Empty means the Personal workspace.',
       },
     },
+    {
+      name: 'team',
+      type: 'relationship',
+      relationTo: 'teams',
+      required: false,
+      index: true,
+      admin: {
+        description:
+          'Optional team (within the same workspace) this category is grouped under. Empty means it belongs to the workspace at large, not any specific team.',
+      },
+    },
     { name: 'name', type: 'text', required: true },
     { name: 'color', type: 'text', required: true, defaultValue: '#8b5cf6' },
     { name: 'isDefault', type: 'checkbox', defaultValue: false },

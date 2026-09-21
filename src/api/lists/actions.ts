@@ -25,6 +25,7 @@ type CreateListInput = {
     name?: string
     color?: string
   }
+  teamId?: number | null
 }
 
 type EditListInput = {
@@ -97,6 +98,13 @@ export const createList = async (input: CreateListInput) => {
       return err(existing[0].planArchivedAt ? 'DUPLICATE_NAME_ARCHIVED' : 'DUPLICATE_NAME')
     }
 
+    if (input.teamId) {
+      const team = await payload.findByID({ collection: 'teams', id: input.teamId }).catch(() => null)
+      if (!team || team.workspace !== workspaceId || team.planArchivedAt) {
+        return err('Team not found')
+      }
+    }
+
     const newList = await payload.create({
       collection: 'lists',
       data: {
@@ -104,6 +112,7 @@ export const createList = async (input: CreateListInput) => {
         userId,
         workspace: workspaceId,
         ...(input.category && { category: input.category }),
+        ...(input.teamId && { team: input.teamId }),
         isDefault: false,
       },
     })

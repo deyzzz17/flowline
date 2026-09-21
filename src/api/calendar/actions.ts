@@ -153,7 +153,10 @@ async function countActiveCalendarCategories(
   return totalDocs
 }
 
-export const createCalendarCategory = async (data: CalendarCategoryData) => {
+export const createCalendarCategory = async (
+  data: CalendarCategoryData,
+  teamId?: number | null,
+) => {
   try {
     const userId = await getUserId()
     if (!userId) return err('Not authenticated')
@@ -174,10 +177,23 @@ export const createCalendarCategory = async (data: CalendarCategoryData) => {
       )
     }
 
+    if (teamId) {
+      const team = await payload.findByID({ collection: 'teams', id: teamId }).catch(() => null)
+      if (!team || team.workspace !== workspaceId || team.planArchivedAt) {
+        return err('Team not found')
+      }
+    }
+
     return ok(
       await payload.create({
         collection: 'calendar-categories',
-        data: { ...data, userId, workspace: workspaceId, isDefault: false },
+        data: {
+          ...data,
+          userId,
+          workspace: workspaceId,
+          ...(teamId && { team: teamId }),
+          isDefault: false,
+        },
       }),
     )
   } catch {

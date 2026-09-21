@@ -49,6 +49,17 @@ export const Lists: CollectionConfig = {
       },
     },
     {
+      name: 'team',
+      type: 'relationship',
+      relationTo: 'teams',
+      required: false,
+      index: true,
+      admin: {
+        description:
+          'Optional team (within the same workspace) this list is grouped under. Empty means it belongs to the workspace at large, not any specific team.',
+      },
+    },
+    {
       name: 'category',
       type: 'group',
       required: false,

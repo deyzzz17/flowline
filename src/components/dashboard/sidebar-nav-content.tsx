@@ -41,6 +41,8 @@ import { SidebarNewsletter } from './sidebar-newsletter'
 import { FeedbackDialog } from '../support/feedback-dialog'
 import { WorkspaceSwitcher, useActiveWorkspace, type WorkspacesData } from './workspace-switcher'
 import { CalendarNavSection } from './calendar-nav-section'
+import { useTeams } from '@/hooks/teams/use-teams'
+import { CreateTeamDialog } from './create-team-dialog'
 
 function getListUrgency(tasks: Task[]): 'red' | 'orange' | null {
   const now = Date.now()
@@ -104,8 +106,11 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
   const planLimits = usePlanLimits()
   const sharedLists = useSharedLists()
   const activeWorkspace = useActiveWorkspace(initialWorkspaces)
+  const { teams } = useTeams(!!activeWorkspace && !activeWorkspace.isPersonal)
 
   const [listsOpen, setListsOpen] = useState(false)
+  const [teamsOpen, setTeamsOpen] = useState(false)
+  const [createTeamOpen, setCreateTeamOpen] = useState(false)
   const [habitsOpen, setHabitsOpen] = useState(false)
   const [timerOpen, setTimerOpen] = useState(false)
   const [limitDialog, setLimitDialog] = useState<LimitError | null>(null)
@@ -179,6 +184,7 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
         }}
         capError={capDialog}
       />
+      <CreateTeamDialog open={createTeamOpen} onOpenChange={setCreateTeamOpen} />
 
       <div className="flex flex-1 flex-col h-full overflow-hidden">
         <nav className="flex-1 overflow-y-auto min-h-0 p-3 space-y-1 sidebar-scroll">
@@ -530,18 +536,51 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
                 <Users className="h-4 w-4 shrink-0" />
                 Members
               </Link>
-              <Link
-                {...navLink('/teams')}
-                className={cn(
-                  'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
-                  isActive('/teams')
-                    ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setTeamsOpen((v) => !v)}
+                  className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
+                >
+                  <div className="flex items-center gap-3">
+                    <UsersRound className="h-4 w-4 shrink-0" />
+                    Teams
+                  </div>
+                  <SubChevron open={teamsOpen} />
+                </button>
+                {teamsOpen && (
+                  <div className="mt-0.5 ml-3 space-y-0.5 border-l border-border/50 pl-3">
+                    {teams.map((team) => (
+                      <Link
+                        key={team.id}
+                        {...navLink(`/teams/${team.id}`)}
+                        className={cn(
+                          'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
+                          isActive(`/teams/${team.id}`)
+                            ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                            : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                        )}
+                      >
+                        <span className="flex-1 truncate">{team.name}</span>
+                        <span className="text-[10px] text-muted-foreground/50">
+                          {team.memberCount}
+                        </span>
+                      </Link>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCreateTeamOpen(true)
+                        onNavigate?.()
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground/60 hover:bg-muted hover:text-foreground transition-all"
+                    >
+                      <Plus className="h-3.5 w-3.5 shrink-0" />
+                      New team
+                    </button>
+                  </div>
                 )}
-              >
-                <UsersRound className="h-4 w-4 shrink-0" />
-                Teams
-              </Link>
+              </div>
             </>
           )}
         </nav>

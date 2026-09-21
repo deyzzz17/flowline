@@ -87,6 +87,9 @@ export interface Config {
     'workspace-member-archive': WorkspaceMemberArchive;
     'workspace-archive': WorkspaceArchive;
     'custom-roles': CustomRole;
+    teams: Team;
+    'team-roles': TeamRole;
+    'team-members': TeamMember;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -114,6 +117,9 @@ export interface Config {
     'workspace-member-archive': WorkspaceMemberArchiveSelect<false> | WorkspaceMemberArchiveSelect<true>;
     'workspace-archive': WorkspaceArchiveSelect<false> | WorkspaceArchiveSelect<true>;
     'custom-roles': CustomRolesSelect<false> | CustomRolesSelect<true>;
+    teams: TeamsSelect<false> | TeamsSelect<true>;
+    'team-roles': TeamRolesSelect<false> | TeamRolesSelect<true>;
+    'team-members': TeamMembersSelect<false> | TeamMembersSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -274,6 +280,10 @@ export interface List {
    * Better Auth organization id this list belongs to. Empty means the Personal workspace (which is not an organization).
    */
   workspace?: string | null;
+  /**
+   * Optional team (within the same workspace) this list is grouped under. Empty means it belongs to the workspace at large, not any specific team.
+   */
+  team?: (number | null) | Team;
   category?: {
     name?: string | null;
     color?: string | null;
@@ -288,6 +298,25 @@ export interface List {
   isShared?: boolean | null;
   /**
    * Indicates when the list was set aside following a plan downgrade (quota exceeded). As long as this field is filled in, the list and its tasks are hidden throughout the app, except in The screen for managing lists archived via downgrade. This is distinct from any other archiving concept.
+   */
+  planArchivedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "teams".
+ */
+export interface Team {
+  id: number;
+  /**
+   * Better Auth organization id this team belongs to.
+   */
+  workspace: string;
+  name: string;
+  createdBy: string;
+  /**
+   * Set when the workspace owner drops below Pro — every team in the workspace is archived at once (no per-team choice, unlike lists). Restored automatically if the owner returns to Pro within 2 years; permanently deleted after that. Always hard-deleted (archived or not) when the workspace itself is deleted.
    */
   planArchivedAt?: string | null;
   updatedAt: string;
@@ -501,6 +530,10 @@ export interface CalendarCategory {
    * Better Auth organization id this category belongs to. Empty means the Personal workspace.
    */
   workspace?: string | null;
+  /**
+   * Optional team (within the same workspace) this category is grouped under. Empty means it belongs to the workspace at large, not any specific team.
+   */
+  team?: (number | null) | Team;
   name: string;
   color: string;
   isDefault?: boolean | null;
@@ -783,6 +816,30 @@ export interface CustomRole {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "team-roles".
+ */
+export interface TeamRole {
+  id: number;
+  team: number | Team;
+  name: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "team-members".
+ */
+export interface TeamMember {
+  id: number;
+  team: number | Team;
+  userId: string;
+  teamRole: number | TeamRole;
+  addedBy: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -884,6 +941,18 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'custom-roles';
         value: number | CustomRole;
+      } | null)
+    | ({
+        relationTo: 'teams';
+        value: number | Team;
+      } | null)
+    | ({
+        relationTo: 'team-roles';
+        value: number | TeamRole;
+      } | null)
+    | ({
+        relationTo: 'team-members';
+        value: number | TeamMember;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1046,6 +1115,7 @@ export interface ListsSelect<T extends boolean = true> {
   slug?: T;
   userId?: T;
   workspace?: T;
+  team?: T;
   category?:
     | T
     | {
@@ -1164,6 +1234,7 @@ export interface CalendarEventsSelect<T extends boolean = true> {
 export interface CalendarCategoriesSelect<T extends boolean = true> {
   userId?: T;
   workspace?: T;
+  team?: T;
   name?: T;
   color?: T;
   isDefault?: T;
@@ -1317,6 +1388,40 @@ export interface CustomRolesSelect<T extends boolean = true> {
   canModifyContent?: T;
   canPermanentlyDeleteTasks?: T;
   canDeleteCalendarCategories?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "teams_select".
+ */
+export interface TeamsSelect<T extends boolean = true> {
+  workspace?: T;
+  name?: T;
+  createdBy?: T;
+  planArchivedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "team-roles_select".
+ */
+export interface TeamRolesSelect<T extends boolean = true> {
+  team?: T;
+  name?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "team-members_select".
+ */
+export interface TeamMembersSelect<T extends boolean = true> {
+  team?: T;
+  userId?: T;
+  teamRole?: T;
+  addedBy?: T;
   updatedAt?: T;
   createdAt?: T;
 }

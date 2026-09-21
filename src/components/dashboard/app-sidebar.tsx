@@ -26,6 +26,8 @@ import { api } from '@/api'
 import { useSidebarFooter } from '@/hooks/sidebar/use-sidebar-footer'
 import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
 import { useSharedLists } from '@/hooks/lists/use-shared-lists'
+import { useTeams } from '@/hooks/teams/use-teams'
+import { CreateTeamDialog } from './create-team-dialog'
 import { useListUrgency } from '@/hooks/tasks/use-list-urgency'
 import { SHARED_LIST_POLL_INTERVAL_MS } from '@/lib/realtime'
 import { cn } from '@/lib/utils'
@@ -119,6 +121,8 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
   const activeWorkspace = useActiveWorkspace(initialWorkspaces)
   const [limitDialog, setLimitDialog] = useState<LimitError | null>(null)
   const [capDialog, setCapDialog] = useState<SafetyCapError | null>(null)
+  const [createTeamOpen, setCreateTeamOpen] = useState(false)
+  const { teams } = useTeams(!!activeWorkspace && !activeWorkspace.isPersonal)
 
   // Inside a workspace, other members can add/remove lists at any time — poll
   // at the same cadence as the rest of the app's shared/collaborative data
@@ -189,6 +193,7 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
         }}
         capError={capDialog}
       />
+      <CreateTeamDialog open={createTeamOpen} onOpenChange={setCreateTeamOpen} />
 
       <Sidebar
         collapsible={isMobile ? 'offcanvas' : 'icon'}
@@ -536,14 +541,48 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
-                    <SidebarMenuItem>
-                      <SidebarMenuButton asChild isActive={isActive('/teams')} tooltip="Teams">
-                        <Link href={nav('/teams')}>
-                          <UsersRound className="h-4 w-4 shrink-0" />
-                          <span>Teams</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
+                    <Collapsible asChild className="group/teams" disabled={isCollapsed}>
+                      <SidebarMenuItem>
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton
+                            tooltip="Teams"
+                            className={cn(isCollapsed && 'pointer-events-none')}
+                          >
+                            <UsersRound className="h-4 w-4 shrink-0" />
+                            <span>Teams</span>
+                            <ChevronDown className="ml-auto h-3.5 w-3.5 transition-transform group-data-[state=closed]/teams:-rotate-90" />
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <SidebarMenuSub>
+                            {teams.map((team) => (
+                              <SidebarMenuSubItem key={team.id}>
+                                <SidebarMenuSubButton
+                                  asChild
+                                  isActive={pathname === `/teams/${team.id}`}
+                                >
+                                  <Link href={nav(`/teams/${team.id}`)}>
+                                    <span className="flex-1 truncate">{team.name}</span>
+                                    <span className="text-[10px] text-muted-foreground/50">
+                                      {team.memberCount}
+                                    </span>
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            ))}
+                            <SidebarMenuSubItem>
+                              <SidebarMenuSubButton
+                                onClick={() => setCreateTeamOpen(true)}
+                                className="text-muted-foreground/60"
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                                New team
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          </SidebarMenuSub>
+                        </CollapsibleContent>
+                      </SidebarMenuItem>
+                    </Collapsible>
                   </>
                 )}
               </SidebarMenu>
