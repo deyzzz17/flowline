@@ -573,7 +573,7 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
                         setCreateTeamOpen(true)
                         onNavigate?.()
                       }}
-                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground/60 hover:bg-muted hover:text-foreground transition-all"
+                      className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground/60 hover:bg-muted hover:text-foreground transition-all"
                     >
                       <Plus className="h-3.5 w-3.5 shrink-0" />
                       New team

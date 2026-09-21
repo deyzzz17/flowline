@@ -573,7 +573,7 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                             <SidebarMenuSubItem>
                               <SidebarMenuSubButton
                                 onClick={() => setCreateTeamOpen(true)}
-                                className="text-muted-foreground/60"
+                                className="cursor-pointer text-muted-foreground/60"
                               >
                                 <Plus className="h-3.5 w-3.5" />
                                 New team

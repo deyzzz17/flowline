@@ -14,6 +14,7 @@ import {
 } from '@/lib/get-current-workspace'
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
+import { getTeamPermissions } from '@/api/teams/actions'
 
 const getUserId = async () => {
   const session = await getSession()
@@ -182,6 +183,8 @@ export const createCalendarCategory = async (
       if (!team || team.workspace !== workspaceId || team.planArchivedAt) {
         return err('Team not found')
       }
+      const teamPermissions = await getTeamPermissions(teamId, userId)
+      if (!teamPermissions.canManageCalendar) return err('Not authorized')
     }
 
     return ok(

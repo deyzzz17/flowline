@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Loader2, Plus, X, Zap } from 'lucide-react'
+import { Check, ChevronRight, Loader2, Plus, X, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -22,6 +22,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 import { useTeamsAccess, TEAMS_QUERY_KEY } from '@/hooks/teams/use-teams'
+import { TeamRolePermissionsFields } from './team-role-permissions-fields'
+import type { TeamRoleInput } from '@/api/teams/actions'
 
 function getInitials(name?: string | null): string {
   if (!name) return '?'
@@ -30,7 +32,12 @@ function getInitials(name?: string | null): string {
   return parts[0][0].toUpperCase()
 }
 
-const DEFAULT_ROLE = 'Member'
+const DEFAULT_ROLE: TeamRoleInput = {
+  name: 'Member',
+  canManageLists: true,
+  canManageCalendar: true,
+  canManageMembers: false,
+}
 
 interface CreateTeamDialogProps {
   open: boolean
@@ -43,8 +50,9 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
   const { hasAccess, isLoading: accessLoading } = useTeamsAccess(open)
 
   const [name, setName] = useState('')
-  const [roles, setRoles] = useState<string[]>([DEFAULT_ROLE])
-  const [newRole, setNewRole] = useState('')
+  const [roles, setRoles] = useState<TeamRoleInput[]>([DEFAULT_ROLE])
+  const [expandedRoles, setExpandedRoles] = useState<Set<string>>(new Set())
+  const [newRoleName, setNewRoleName] = useState('')
   const [selected, setSelected] = useState<Map<string, string>>(new Map())
   const [error, setError] = useState<string | null>(null)
 
@@ -58,7 +66,8 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
   const reset = () => {
     setName('')
     setRoles([DEFAULT_ROLE])
-    setNewRole('')
+    setExpandedRoles(new Set())
+    setNewRoleName('')
     setSelected(new Map())
     setError(null)
   }
@@ -68,18 +77,35 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
     onOpenChange(v)
   }
 
-  const addRole = () => {
-    const trimmed = newRole.trim()
-    if (!trimmed || roles.includes(trimmed)) return
-    setRoles((prev) => [...prev, trimmed])
-    setNewRole('')
+  const toggleExpanded = (roleName: string) => {
+    setExpandedRoles((prev) => {
+      const next = new Set(prev)
+      if (next.has(roleName)) next.delete(roleName)
+      else next.add(roleName)
+      return next
+    })
   }
 
-  const removeRole = (role: string) => {
-    setRoles((prev) => prev.filter((r) => r !== role))
+  const addRole = () => {
+    const trimmed = newRoleName.trim()
+    if (!trimmed || roles.some((r) => r.name === trimmed)) return
+    setRoles((prev) => [
+      ...prev,
+      { name: trimmed, canManageLists: true, canManageCalendar: true, canManageMembers: false },
+    ])
+    setNewRoleName('')
+  }
+
+  const updateRole = (roleName: string, patch: Partial<TeamRoleInput>) => {
+    setRoles((prev) => prev.map((r) => (r.name === roleName ? { ...r, ...patch } : r)))
+  }
+
+  const removeRole = (roleName: string) => {
+    setRoles((prev) => prev.filter((r) => r.name !== roleName))
+    const fallback = roles.find((r) => r.name !== roleName)?.name ?? ''
     setSelected((prev) => {
       const next = new Map(prev)
-      for (const [userId, r] of next) if (r === role) next.set(userId, roles[0] === role ? (roles[1] ?? '') : roles[0])
+      for (const [userId, r] of next) if (r === roleName) next.set(userId, fallback)
       return next
     })
   }
@@ -88,7 +114,7 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
     setSelected((prev) => {
       const next = new Map(prev)
       if (next.has(userId)) next.delete(userId)
-      else next.set(userId, roles[0] ?? '')
+      else next.set(userId, roles[0]?.name ?? '')
       return next
     })
   }
@@ -97,6 +123,7 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
     mutationFn: () =>
       api.teams.create({
         name: name.trim(),
+        roles,
         members: [...selected.entries()].map(([userId, roleName]) => ({ userId, roleName })),
       }),
     onSuccess: (result) => {
@@ -181,27 +208,48 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
 
           <div className="space-y-2">
             <Label>Roles</Label>
-            <div className="flex flex-wrap gap-1.5">
-              {roles.map((role) => (
-                <span
-                  key={role}
-                  className="flex items-center gap-1 rounded-full bg-violet-500/10 px-2.5 py-1 text-xs font-medium text-violet-600 dark:text-violet-400"
-                >
-                  {role}
-                  <button
-                    type="button"
-                    onClick={() => removeRole(role)}
-                    className="text-violet-600/60 hover:text-violet-600 dark:text-violet-400/60 dark:hover:text-violet-400"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
+            <div className="space-y-1.5">
+              {roles.map((role) => {
+                const isExpanded = expandedRoles.has(role.name)
+                return (
+                  <div key={role.name} className="rounded-xl border border-border/50 overflow-hidden">
+                    <div className="flex items-center gap-1.5 px-2 py-1.5">
+                      <button
+                        type="button"
+                        onClick={() => toggleExpanded(role.name)}
+                        className="flex h-6 w-6 shrink-0 items-center justify-center text-muted-foreground transition-transform"
+                      >
+                        <ChevronRight
+                          className={cn('h-3.5 w-3.5 transition-transform', isExpanded && 'rotate-90')}
+                        />
+                      </button>
+                      <span className="flex-1 truncate text-sm font-medium text-foreground">
+                        {role.name}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeRole(role.name)}
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/60 hover:bg-muted hover:text-foreground"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    {isExpanded && (
+                      <div className="border-t border-border/40 bg-muted/20 px-3 py-3">
+                        <TeamRolePermissionsFields
+                          value={role}
+                          onChange={(next) => updateRole(role.name, next)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
             <div className="flex items-center gap-2">
               <Input
-                value={newRole}
-                onChange={(e) => setNewRole(e.target.value)}
+                value={newRoleName}
+                onChange={(e) => setNewRoleName(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault()
@@ -214,14 +262,15 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
               <button
                 type="button"
                 onClick={addRole}
-                disabled={!newRole.trim()}
+                disabled={!newRoleName.trim()}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40"
               >
                 <Plus className="h-3.5 w-3.5" />
               </button>
             </div>
             <p className="text-xs text-muted-foreground/70">
-              These roles will only exist in this team — you can add more later.
+              These roles will only exist in this team — tap a role to choose what it&apos;s
+              allowed to do.
             </p>
           </div>
 
@@ -262,8 +311,8 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
                           className="h-7 rounded-md border border-border/60 bg-background px-1.5 text-xs"
                         >
                           {roles.map((role) => (
-                            <option key={role} value={role}>
-                              {role}
+                            <option key={role.name} value={role.name}>
+                              {role.name}
                             </option>
                           ))}
                         </select>

@@ -11,6 +11,7 @@ import {
   LayoutGrid,
   Plus,
   Check,
+  ChevronRight,
   Loader2,
   Trash2,
 } from 'lucide-react'
@@ -40,7 +41,8 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { SHARED_LIST_POLL_INTERVAL_MS } from '@/lib/realtime'
-import type { TeamOverview } from '@/api/teams/actions'
+import { TeamRolePermissionsFields } from './team-role-permissions-fields'
+import type { TeamOverview, TeamRoleInput } from '@/api/teams/actions'
 
 function getInitials(name?: string | null): string {
   if (!name) return '?'
@@ -596,10 +598,12 @@ function MembersTab({
     queryFn: () => api.teams.listRoles(teamId),
   })
   const roles = rolesData ?? []
+  const canManage = overview.myPermissions.canManageMembers
 
   const { data: workspaceMembersData } = useQuery({
     queryKey: ['workspace-members'],
     queryFn: () => api.workspaces.listMembers(),
+    enabled: canManage,
   })
   const candidateMembers = (workspaceMembersData?.docs ?? []).filter(
     (m) => !overview.members.some((tm) => tm.userId === m.userId),
@@ -614,7 +618,13 @@ function MembersTab({
   const invalidateRoles = () => queryClient.invalidateQueries({ queryKey: rolesKey })
 
   const createRoleMutation = useMutation({
-    mutationFn: (name: string) => api.teams.createRole(teamId, name),
+    mutationFn: (name: string) =>
+      api.teams.createRole(teamId, {
+        name,
+        canManageLists: true,
+        canManageCalendar: true,
+        canManageMembers: false,
+      }),
     onSuccess: (result) => {
       if (!result.ok) {
         setError(result.error)
@@ -642,7 +652,7 @@ function MembersTab({
     onError: () => setError('Something went wrong. Please try again.'),
   })
 
-  const updateRoleMutation = useMutation({
+  const updateMemberRoleMutation = useMutation({
     mutationFn: ({ memberId, roleId }: { memberId: number; roleId: number }) =>
       api.teams.updateMemberRole(memberId, roleId),
     onSuccess: (result) => {
@@ -666,101 +676,260 @@ function MembersTab({
     },
   })
 
+  const updateTeamRoleMutation = useMutation({
+    mutationFn: ({ roleId, input }: { roleId: number; input: TeamRoleInput }) =>
+      api.teams.updateRole(teamId, roleId, input),
+    onSuccess: (result) => {
+      if (!result.ok) {
+        toast.error(result.error || 'Error updating role')
+        return
+      }
+      invalidateRoles()
+      onChanged()
+    },
+  })
+
+  const deleteTeamRoleMutation = useMutation({
+    mutationFn: (roleId: number) => api.teams.deleteRole(teamId, roleId),
+    onSuccess: (result) => {
+      if (!result.ok) {
+        toast.error(result.error || 'Error deleting role')
+        return
+      }
+      toast.info('Role deleted')
+      invalidateRoles()
+    },
+  })
+
+  const [expandedRoleId, setExpandedRoleId] = useState<number | null>(null)
+
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8">
+      <div className="space-y-4">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight text-foreground">Members</h2>
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">Roles</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {overview.members.length} member{overview.members.length !== 1 ? 's' : ''} in this
-            team.
+            Tap a role to see and change what it&apos;s allowed to do.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setError(null)
-            setAddOpen(true)
-          }}
-          className="flex items-center gap-1.5 rounded-xl bg-violet-600 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-500"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Add member
-        </button>
+
+        <div className="space-y-1.5">
+          {roles.length === 0 ? (
+            <EmptyState text="No roles yet." />
+          ) : (
+            roles.map((role) => {
+              const isExpanded = expandedRoleId === role.id
+              return (
+                <div key={role.id} className="rounded-2xl bg-card shadow-sm overflow-hidden">
+                  <div className="flex items-center gap-1.5 px-3 py-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedRoleId(isExpanded ? null : role.id)}
+                      className="flex h-6 w-6 shrink-0 items-center justify-center text-muted-foreground"
+                    >
+                      <ChevronRight
+                        className={cn(
+                          'h-3.5 w-3.5 transition-transform',
+                          isExpanded && 'rotate-90',
+                        )}
+                      />
+                    </button>
+                    <span className="flex-1 truncate text-sm font-medium text-foreground">
+                      {role.name}
+                    </span>
+                    {canManage && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            type="button"
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete this role?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Members using <strong>{role.name}</strong> must be reassigned to
+                              another role first.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => deleteTeamRoleMutation.mutate(role.id)}
+                              variant="destructive"
+                            >
+                              Delete role
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                  </div>
+                  {isExpanded && (
+                    <div className="border-t border-border/30 bg-muted/20 px-4 py-3">
+                      <fieldset disabled={!canManage} className="group-has-disabled/field:opacity-50">
+                        <TeamRolePermissionsFields
+                          value={role}
+                          onChange={(next) =>
+                            updateTeamRoleMutation.mutate({
+                              roleId: role.id,
+                              input: { name: role.name, ...next },
+                            })
+                          }
+                        />
+                      </fieldset>
+                      {!canManage && (
+                        <p className="mt-2 text-[11px] text-muted-foreground/60">
+                          You don&apos;t have permission to change this.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        {canManage && (
+          <div className="flex items-center gap-2">
+            <Input
+              value={newRoleName}
+              onChange={(e) => setNewRoleName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  if (newRoleName.trim()) createRoleMutation.mutate(newRoleName.trim())
+                }
+              }}
+              placeholder="New role name..."
+              className="h-9 text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => newRoleName.trim() && createRoleMutation.mutate(newRoleName.trim())}
+              disabled={!newRoleName.trim() || createRoleMutation.isPending}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40"
+            >
+              {createRoleMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Plus className="h-3.5 w-3.5" />
+              )}
+            </button>
+          </div>
+        )}
       </div>
 
-      <div className="rounded-3xl bg-card shadow-lg shadow-black/5">
-        <div className="p-3 sm:p-5">
-          {overview.members.length === 0 ? (
-            <EmptyState text="No members yet — add one above." />
-          ) : (
-            <div className="space-y-1">
-              {overview.members.map((m) => (
-                <div
-                  key={m.id}
-                  className="flex items-center gap-2.5 rounded-xl px-2 py-2 hover:bg-muted/40 transition-colors"
-                >
-                  <Avatar className="h-8 w-8 shrink-0">
-                    <AvatarImage src={m.image ?? undefined} alt={m.name} />
-                    <AvatarFallback className="bg-violet-500/10 text-xs font-semibold text-violet-600 dark:text-violet-400">
-                      {getInitials(m.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="flex-1 truncate text-sm font-medium text-foreground">
-                    {m.name}
-                  </span>
-                  <select
-                    value={roles.find((r) => r.name === m.roleName)?.id ?? ''}
-                    onChange={(e) => {
-                      const roleId = Number(e.target.value)
-                      if (roleId) updateRoleMutation.mutate({ memberId: m.id, roleId })
-                    }}
-                    className="h-7 rounded-md border border-border/60 bg-background px-1.5 text-xs"
+      <div className="space-y-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">Members</h2>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {overview.members.length} member{overview.members.length !== 1 ? 's' : ''} in this
+              team.
+            </p>
+          </div>
+          {canManage && (
+            <button
+              type="button"
+              onClick={() => {
+                setError(null)
+                setAddOpen(true)
+              }}
+              className="flex items-center gap-1.5 rounded-xl bg-violet-600 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-500"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add member
+            </button>
+          )}
+        </div>
+
+        <div className="rounded-3xl bg-card shadow-lg shadow-black/5">
+          <div className="p-3 sm:p-5">
+            {overview.members.length === 0 ? (
+              <EmptyState text="No members yet — add one above." />
+            ) : (
+              <div className="space-y-1">
+                {overview.members.map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex items-center gap-2.5 rounded-xl px-2 py-2 hover:bg-muted/40 transition-colors"
                   >
-                    {!roles.some((r) => r.name === m.roleName) && (
-                      <option value="">{m.roleName}</option>
-                    )}
-                    {roles.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
-                      </option>
-                    ))}
-                  </select>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <button
-                        type="button"
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    <Avatar className="h-8 w-8 shrink-0">
+                      <AvatarImage src={m.image ?? undefined} alt={m.name} />
+                      <AvatarFallback className="bg-violet-500/10 text-xs font-semibold text-violet-600 dark:text-violet-400">
+                        {getInitials(m.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="flex-1 truncate text-sm font-medium text-foreground">
+                      {m.name}
+                    </span>
+                    {canManage ? (
+                      <select
+                        value={roles.find((r) => r.name === m.roleName)?.id ?? ''}
+                        onChange={(e) => {
+                          const roleId = Number(e.target.value)
+                          if (roleId) updateMemberRoleMutation.mutate({ memberId: m.id, roleId })
+                        }}
+                        className="h-7 rounded-md border border-border/60 bg-background px-1.5 text-xs"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Remove this member?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          <strong>{m.name}</strong> will be removed from this team. This does not
-                          affect their access to the workspace itself.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => removeMemberMutation.mutate(m.id)}
-                          variant="destructive"
-                        >
-                          Remove
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              ))}
+                        {!roles.some((r) => r.name === m.roleName) && (
+                          <option value="">{m.roleName}</option>
+                        )}
+                        {roles.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        {m.roleName}
+                      </span>
+                    )}
+                    {canManage && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            type="button"
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Remove this member?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              <strong>{m.name}</strong> will be removed from this team. This does
+                              not affect their access to the workspace itself.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => removeMemberMutation.mutate(m.id)}
+                              variant="destructive"
+                            >
+                              Remove
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                  </div>
+                ))}
             </div>
           )}
         </div>
       </div>
+      </div>
 
+      {canManage && (
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
@@ -801,49 +970,29 @@ function MembersTab({
 
             <div className="space-y-2">
               <Label>Role</Label>
-              <div className="flex flex-wrap gap-1.5">
-                {roles.map((r) => (
-                  <button
-                    key={r.id}
-                    type="button"
-                    onClick={() => setSelectedRoleId(r.id)}
-                    className={cn(
-                      'rounded-full px-2.5 py-1 text-xs font-medium transition-all',
-                      selectedRoleId === r.id
-                        ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                        : 'bg-muted text-muted-foreground hover:text-foreground',
-                    )}
-                  >
-                    {r.name}
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-2">
-                <Input
-                  value={newRoleName}
-                  onChange={(e) => setNewRoleName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      if (newRoleName.trim()) createRoleMutation.mutate(newRoleName.trim())
-                    }
-                  }}
-                  placeholder="New role name..."
-                  className="h-8 text-xs"
-                />
-                <button
-                  type="button"
-                  onClick={() => newRoleName.trim() && createRoleMutation.mutate(newRoleName.trim())}
-                  disabled={!newRoleName.trim() || createRoleMutation.isPending}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/60 text-muted-foreground hover:bg-muted disabled:opacity-40"
-                >
-                  {createRoleMutation.isPending ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Plus className="h-3.5 w-3.5" />
-                  )}
-                </button>
-              </div>
+              {roles.length === 0 ? (
+                <p className="text-xs text-muted-foreground/60">
+                  Add a role above first, then come back here.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {roles.map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => setSelectedRoleId(r.id)}
+                      className={cn(
+                        'rounded-full px-2.5 py-1 text-xs font-medium transition-all',
+                        selectedRoleId === r.id
+                          ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                          : 'bg-muted text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      {r.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <DialogFooter className="pt-2">
@@ -882,6 +1031,7 @@ function MembersTab({
           </div>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   )
 }

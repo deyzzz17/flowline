@@ -822,6 +822,18 @@ export interface TeamRole {
   id: number;
   team: number | Team;
   name: string;
+  /**
+   * Create lists in this team.
+   */
+  canManageLists?: boolean | null;
+  /**
+   * Create calendar categories in this team.
+   */
+  canManageCalendar?: boolean | null;
+  /**
+   * Add/remove team members, change their role, and create/delete team roles.
+   */
+  canManageMembers?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1410,6 +1422,9 @@ export interface TeamsSelect<T extends boolean = true> {
 export interface TeamRolesSelect<T extends boolean = true> {
   team?: T;
   name?: T;
+  canManageLists?: T;
+  canManageCalendar?: T;
+  canManageMembers?: T;
   updatedAt?: T;
   createdAt?: T;
 }

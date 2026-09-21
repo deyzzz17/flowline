@@ -18,6 +18,7 @@ import {
   getEffectiveWorkspacePermissions,
 } from '@/lib/get-current-workspace'
 import { deleteCommentsForTaskIds } from '@/api/task-comments/actions'
+import { getTeamPermissions } from '@/api/teams/actions'
 
 type CreateListInput = {
   name: string
@@ -103,6 +104,8 @@ export const createList = async (input: CreateListInput) => {
       if (!team || team.workspace !== workspaceId || team.planArchivedAt) {
         return err('Team not found')
       }
+      const teamPermissions = await getTeamPermissions(input.teamId, userId)
+      if (!teamPermissions.canManageLists) return err('Not authorized')
     }
 
     const newList = await payload.create({

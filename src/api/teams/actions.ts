@@ -81,16 +81,70 @@ export const listTeams = async (): Promise<TeamSummary[]> => {
   return docs.map((t, i) => ({ id: t.id, name: t.name, memberCount: counts[i].totalDocs }))
 }
 
-async function canManageTeam(
+export interface TeamPermissions {
+  canManageLists: boolean
+  canManageCalendar: boolean
+  canManageMembers: boolean
+}
+
+const NO_PERMISSIONS: TeamPermissions = {
+  canManageLists: false,
+  canManageCalendar: false,
+  canManageMembers: false,
+}
+const ALL_PERMISSIONS: TeamPermissions = {
+  canManageLists: true,
+  canManageCalendar: true,
+  canManageMembers: true,
+}
+
+// The workspace owner/admin and the team's own creator can always do
+// everything on a team — everyone else's permissions come from whichever
+// team role they were assigned (see TeamRoles' 3 checkboxes).
+export async function getTeamPermissionsForUser(
   payload: Awaited<ReturnType<typeof getPayload>>,
   teamId: number,
   workspaceId: string,
   userId: string,
-): Promise<boolean> {
-  const role = await getWorkspaceRoleForUser(workspaceId, userId)
-  if (role === 'owner' || role === 'admin') return true
+): Promise<TeamPermissions> {
+  const workspaceRole = await getWorkspaceRoleForUser(workspaceId, userId)
+  if (workspaceRole === 'owner' || workspaceRole === 'admin') return ALL_PERMISSIONS
+
   const team = await payload.findByID({ collection: 'teams', id: teamId }).catch(() => null)
-  return !!team && team.createdBy === userId
+  if (!team) return NO_PERMISSIONS
+  if (team.createdBy === userId) return ALL_PERMISSIONS
+
+  const { docs } = await payload.find({
+    collection: 'team-members',
+    where: { and: [{ team: { equals: teamId } }, { userId: { equals: userId } }] },
+    limit: 1,
+    depth: 1,
+  })
+  const member = docs[0]
+  if (!member) return NO_PERMISSIONS
+  const role = typeof member.teamRole === 'object' ? member.teamRole : null
+  if (!role) return NO_PERMISSIONS
+
+  return {
+    canManageLists: !!role.canManageLists,
+    canManageCalendar: !!role.canManageCalendar,
+    canManageMembers: !!role.canManageMembers,
+  }
+}
+
+/** Same as getTeamPermissionsForUser, but resolves its own payload/workspace — for callers outside teams/actions.ts (e.g. list/calendar creation) that only have a teamId and userId on hand. */
+export async function getTeamPermissions(teamId: number, userId: string): Promise<TeamPermissions> {
+  const payload = await getPayload({ config })
+  const team = await payload.findByID({ collection: 'teams', id: teamId }).catch(() => null)
+  if (!team) return NO_PERMISSIONS
+  return getTeamPermissionsForUser(payload, teamId, team.workspace, userId)
+}
+
+export interface TeamRoleInput {
+  name: string
+  canManageLists: boolean
+  canManageCalendar: boolean
+  canManageMembers: boolean
 }
 
 export interface CreateTeamMemberInput {
@@ -100,6 +154,7 @@ export interface CreateTeamMemberInput {
 
 export interface CreateTeamInput {
   name: string
+  roles: TeamRoleInput[]
   members: CreateTeamMemberInput[]
 }
 
@@ -139,12 +194,19 @@ export const createTeam = async (input: CreateTeamInput) => {
       data: { workspace: workspaceId, name, createdBy: userId },
     })
 
-    const roleNames = [...new Set(input.members.map((m) => m.roleName.trim()).filter(Boolean))]
     const roleIdByName = new Map<string, number>()
-    for (const roleName of roleNames) {
+    for (const roleInput of input.roles) {
+      const roleName = roleInput.name.trim()
+      if (!roleName || roleIdByName.has(roleName)) continue
       const role = await payload.create({
         collection: 'team-roles',
-        data: { team: team.id, name: roleName },
+        data: {
+          team: team.id,
+          name: roleName,
+          canManageLists: roleInput.canManageLists,
+          canManageCalendar: roleInput.canManageCalendar,
+          canManageMembers: roleInput.canManageMembers,
+        },
       })
       roleIdByName.set(roleName, role.id)
     }
@@ -170,6 +232,7 @@ export interface TeamOverview {
   id: number
   name: string
   memberCount: number
+  myPermissions: TeamPermissions
   lists: { id: number; name: string; slug: string; taskCount: number }[]
   calendarCategories: { id: number; name: string; color: string }[]
   members: { id: number; userId: string; name: string; image: string | null; roleName: string }[]
@@ -186,26 +249,28 @@ export const getTeamOverview = async (teamId: number): Promise<TeamOverview | nu
   if (!team || team.workspace !== workspaceId || team.planArchivedAt) return null
   if (!(await getWorkspaceRoleForUser(workspaceId, userId))) return null
 
-  const [{ docs: lists }, { docs: categories }, { docs: memberDocs }] = await Promise.all([
-    payload.find({
-      collection: 'lists',
-      where: { and: [{ team: { equals: teamId } }, { planArchivedAt: { exists: false } }] },
-      sort: 'name',
-      limit: 0,
-    }),
-    payload.find({
-      collection: 'calendar-categories',
-      where: { and: [{ team: { equals: teamId } }, { planArchivedAt: { exists: false } }] },
-      sort: 'name',
-      limit: 0,
-    }),
-    payload.find({
-      collection: 'team-members',
-      where: { team: { equals: teamId } },
-      limit: 0,
-      depth: 1,
-    }),
-  ])
+  const [{ docs: lists }, { docs: categories }, { docs: memberDocs }, myPermissions] =
+    await Promise.all([
+      payload.find({
+        collection: 'lists',
+        where: { and: [{ team: { equals: teamId } }, { planArchivedAt: { exists: false } }] },
+        sort: 'name',
+        limit: 0,
+      }),
+      payload.find({
+        collection: 'calendar-categories',
+        where: { and: [{ team: { equals: teamId } }, { planArchivedAt: { exists: false } }] },
+        sort: 'name',
+        limit: 0,
+      }),
+      payload.find({
+        collection: 'team-members',
+        where: { team: { equals: teamId } },
+        limit: 0,
+        depth: 1,
+      }),
+      getTeamPermissionsForUser(payload, teamId, workspaceId, userId),
+    ])
 
   const taskCounts = await Promise.all(
     lists.map((l) =>
@@ -231,11 +296,19 @@ export const getTeamOverview = async (teamId: number): Promise<TeamOverview | nu
       }
     })
     .filter((m): m is NonNullable<typeof m> => m !== null)
+    // Your own membership row first, then everyone else — same convention
+    // as the workspace members list.
+    .sort((a, b) => {
+      if (a.userId === userId && b.userId !== userId) return -1
+      if (b.userId === userId && a.userId !== userId) return 1
+      return 0
+    })
 
   return {
     id: team.id,
     name: team.name,
     memberCount: members.length,
+    myPermissions,
     lists: lists.map((l, i) => ({
       id: l.id,
       name: l.name,
@@ -247,7 +320,15 @@ export const getTeamOverview = async (teamId: number): Promise<TeamOverview | nu
   }
 }
 
-export const listTeamRoles = async (teamId: number) => {
+export interface TeamRole {
+  id: number
+  name: string
+  canManageLists: boolean
+  canManageCalendar: boolean
+  canManageMembers: boolean
+}
+
+export const listTeamRoles = async (teamId: number): Promise<TeamRole[]> => {
   const userId = await getUserId()
   if (!userId) return []
   const workspaceId = await getActiveWorkspaceId()
@@ -264,10 +345,16 @@ export const listTeamRoles = async (teamId: number) => {
     sort: 'name',
     limit: 0,
   })
-  return docs.map((r) => ({ id: r.id, name: r.name }))
+  return docs.map((r) => ({
+    id: r.id,
+    name: r.name,
+    canManageLists: !!r.canManageLists,
+    canManageCalendar: !!r.canManageCalendar,
+    canManageMembers: !!r.canManageMembers,
+  }))
 }
 
-export const createTeamRole = async (teamId: number, name: string) => {
+export const createTeamRole = async (teamId: number, input: TeamRoleInput) => {
   try {
     const userId = await getUserId()
     if (!userId) return err('Not authenticated')
@@ -275,9 +362,10 @@ export const createTeamRole = async (teamId: number, name: string) => {
     if (!workspaceId) return err('No active workspace')
 
     const payload = await getPayload({ config })
-    if (!(await canManageTeam(payload, teamId, workspaceId, userId))) return err('Not authorized')
+    const permissions = await getTeamPermissionsForUser(payload, teamId, workspaceId, userId)
+    if (!permissions.canManageMembers) return err('Not authorized')
 
-    const trimmed = name.trim()
+    const trimmed = input.name.trim()
     if (!trimmed) return err('Name is required')
 
     const { totalDocs: dupeCount } = await payload.find({
@@ -289,13 +377,81 @@ export const createTeamRole = async (teamId: number, name: string) => {
 
     const role = await payload.create({
       collection: 'team-roles',
-      data: { team: teamId, name: trimmed },
+      data: {
+        team: teamId,
+        name: trimmed,
+        canManageLists: input.canManageLists,
+        canManageCalendar: input.canManageCalendar,
+        canManageMembers: input.canManageMembers,
+      },
     })
 
     revalidatePath('/')
-    return ok({ id: role.id, name: role.name })
+    return ok({
+      id: role.id,
+      name: role.name,
+      canManageLists: !!role.canManageLists,
+      canManageCalendar: !!role.canManageCalendar,
+      canManageMembers: !!role.canManageMembers,
+    })
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Error creating role'
+    return err(message)
+  }
+}
+
+export const updateTeamRole = async (teamId: number, roleId: number, input: TeamRoleInput) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+    const workspaceId = await getActiveWorkspaceId()
+    if (!workspaceId) return err('No active workspace')
+
+    const payload = await getPayload({ config })
+    const permissions = await getTeamPermissionsForUser(payload, teamId, workspaceId, userId)
+    if (!permissions.canManageMembers) return err('Not authorized')
+
+    const existing = await payload.findByID({ collection: 'team-roles', id: roleId }).catch(() => null)
+    const existingTeamId = typeof existing?.team === 'object' ? existing?.team.id : existing?.team
+    if (!existing || existingTeamId !== teamId) return err('Role not found')
+
+    const trimmed = input.name.trim()
+    if (!trimmed) return err('Name is required')
+
+    const { totalDocs: dupeCount } = await payload.find({
+      collection: 'team-roles',
+      where: {
+        and: [
+          { team: { equals: teamId } },
+          { name: { equals: trimmed } },
+          { id: { not_equals: roleId } },
+        ],
+      },
+      limit: 0,
+    })
+    if (dupeCount > 0) return err('A role with this name already exists on this team')
+
+    const updated = await payload.update({
+      collection: 'team-roles',
+      id: roleId,
+      data: {
+        name: trimmed,
+        canManageLists: input.canManageLists,
+        canManageCalendar: input.canManageCalendar,
+        canManageMembers: input.canManageMembers,
+      },
+    })
+
+    revalidatePath('/')
+    return ok({
+      id: updated.id,
+      name: updated.name,
+      canManageLists: !!updated.canManageLists,
+      canManageCalendar: !!updated.canManageCalendar,
+      canManageMembers: !!updated.canManageMembers,
+    })
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Error updating role'
     return err(message)
   }
 }
@@ -308,7 +464,8 @@ export const deleteTeamRole = async (teamId: number, roleId: number) => {
     if (!workspaceId) return err('No active workspace')
 
     const payload = await getPayload({ config })
-    if (!(await canManageTeam(payload, teamId, workspaceId, userId))) return err('Not authorized')
+    const permissions = await getTeamPermissionsForUser(payload, teamId, workspaceId, userId)
+    if (!permissions.canManageMembers) return err('Not authorized')
 
     const { totalDocs: inUse } = await payload.find({
       collection: 'team-members',
@@ -336,7 +493,8 @@ export const addTeamMember = async (teamId: number, targetUserId: string, roleId
     if (!workspaceId) return err('No active workspace')
 
     const payload = await getPayload({ config })
-    if (!(await canManageTeam(payload, teamId, workspaceId, userId))) return err('Not authorized')
+    const permissions = await getTeamPermissionsForUser(payload, teamId, workspaceId, userId)
+    if (!permissions.canManageMembers) return err('Not authorized')
     if (!(await getWorkspaceRoleForUser(workspaceId, targetUserId))) {
       return err('This person is not part of this workspace')
     }
@@ -376,9 +534,10 @@ export const updateTeamMemberRole = async (teamMemberId: number, roleId: number)
     const member = await payload.findByID({ collection: 'team-members', id: teamMemberId }).catch(() => null)
     if (!member) return err('Member not found')
     const memberTeamId = typeof member.team === 'object' ? member.team.id : member.team
-    if (!memberTeamId || !(await canManageTeam(payload, memberTeamId, workspaceId, userId))) {
-      return err('Not authorized')
-    }
+    if (!memberTeamId) return err('Member not found')
+
+    const permissions = await getTeamPermissionsForUser(payload, memberTeamId, workspaceId, userId)
+    if (!permissions.canManageMembers) return err('Not authorized')
 
     const role = await payload.findByID({ collection: 'team-roles', id: roleId }).catch(() => null)
     const roleTeamId = typeof role?.team === 'object' ? role?.team.id : role?.team
@@ -404,9 +563,10 @@ export const removeTeamMember = async (teamMemberId: number) => {
     const member = await payload.findByID({ collection: 'team-members', id: teamMemberId }).catch(() => null)
     if (!member) return err('Member not found')
     const memberTeamId = typeof member.team === 'object' ? member.team.id : member.team
-    if (!memberTeamId || !(await canManageTeam(payload, memberTeamId, workspaceId, userId))) {
-      return err('Not authorized')
-    }
+    if (!memberTeamId) return err('Member not found')
+
+    const permissions = await getTeamPermissionsForUser(payload, memberTeamId, workspaceId, userId)
+    if (!permissions.canManageMembers) return err('Not authorized')
 
     await payload.delete({ collection: 'team-members', id: teamMemberId })
     revalidatePath('/')
