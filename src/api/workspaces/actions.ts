@@ -534,6 +534,8 @@ export interface WorkspaceMember {
   email: string
   image: string | null
   nickname: string | null
+  customRoleId: string | null
+  customRoleName: string | null
 }
 
 // Personal has no members (it's not an organization) — callers should only
@@ -559,6 +561,20 @@ export const listWorkspaceMembers = async () => {
     return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   })
 
+  const customRoleIds = [
+    ...new Set(sortedMembers.map((m) => m.customRoleId).filter((id): id is string => !!id)),
+  ]
+  const customRoleNames = new Map<string, string>()
+  if (customRoleIds.length > 0) {
+    const payload = await getPayload({ config })
+    const { docs: customRoles } = await payload.find({
+      collection: 'custom-roles',
+      where: { id: { in: customRoleIds.map(Number) } },
+      limit: 0,
+    })
+    for (const cr of customRoles) customRoleNames.set(String(cr.id), cr.name)
+  }
+
   const docs: WorkspaceMember[] = sortedMembers.map((m) => ({
     id: m.id,
     userId: m.userId,
@@ -567,6 +583,8 @@ export const listWorkspaceMembers = async () => {
     email: m.user.email,
     image: m.user.image ?? null,
     nickname: m.nickname ?? null,
+    customRoleId: m.customRoleId ?? null,
+    customRoleName: m.customRoleId ? (customRoleNames.get(m.customRoleId) ?? null) : null,
   }))
 
   return { docs }
@@ -638,15 +656,45 @@ export const inviteWorkspaceMember = async (email: string, role: WorkspaceInvite
   }
 }
 
-export const updateWorkspaceMemberRole = async (memberId: string, role: WorkspaceInviteRole) => {
+// `customRoleId` assigns one of this workspace's own custom roles instead
+// of a plain base role — Better Auth only understands `role` below (it has
+// no concept of custom roles), so the member's `role` is always set to
+// whatever base tier that custom role maps to, and `customRoleId` is kept
+// alongside it purely for this app's own permission checks (see
+// getEffectiveWorkspacePermissions) and for displaying the role's name.
+// Passing `customRoleId: null` clears back to a plain base role.
+export const updateWorkspaceMemberRole = async (
+  memberId: string,
+  role: WorkspaceInviteRole,
+  customRoleId?: string | null,
+) => {
   try {
     const userId = await getUserId()
     if (!userId) return err('Not authenticated')
 
+    let effectiveRole: WorkspaceInviteRole = role
+    if (customRoleId) {
+      const session = await getSession()
+      const workspaceId = session?.session.activeOrganizationId
+      if (!workspaceId) return err('No active workspace')
+
+      const payload = await getPayload({ config })
+      const customRole = await payload
+        .findByID({ collection: 'custom-roles', id: Number(customRoleId) })
+        .catch(() => null)
+      if (!customRole || customRole.workspace !== workspaceId) return err('Custom role not found')
+      effectiveRole = customRole.baseTier as WorkspaceInviteRole
+    }
+
     await auth.api.updateMemberRole({
       headers: await headers(),
-      body: { memberId, role },
+      body: { memberId, role: effectiveRole },
     })
+
+    await pool.query(`UPDATE member SET "customRoleId" = $1 WHERE id = $2`, [
+      customRoleId ?? null,
+      memberId,
+    ])
 
     return ok(true)
   } catch (e) {

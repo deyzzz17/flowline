@@ -8,6 +8,7 @@ import { calendarAPI } from './calendar'
 import { listMembersAPI } from './list-members'
 import { taskCommentsAPI } from './task-comments'
 import { workspacesAPI } from './workspaces'
+import { customRolesAPI } from './custom-roles'
 
 export const api = {
   tasks: tasksAPI,
@@ -20,4 +21,5 @@ export const api = {
   listMembers: listMembersAPI,
   taskComments: taskCommentsAPI,
   workspaces: workspacesAPI,
+  customRoles: customRolesAPI,
 }

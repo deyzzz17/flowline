@@ -13,9 +13,8 @@ import { getSession } from '@/lib/get-session'
 import {
   getCurrentWorkspaceId,
   workspaceWhereClause,
-  getWorkspaceRoleForUser,
+  getEffectiveWorkspacePermissions,
 } from '@/lib/get-current-workspace'
-import { canPermanentlyDeleteTask, canModifyWorkspaceContent } from '@/lib/workspace-permissions'
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 import {
@@ -248,8 +247,8 @@ export const createTask = async (task: CreateTaskInput) => {
       limits = own.limits
       taskWorkspace = await getCurrentWorkspaceId()
 
-      const workspaceRole = await getWorkspaceRoleForUser(taskWorkspace, userId)
-      if (!canModifyWorkspaceContent(workspaceRole)) return err('Not authorized')
+      const permissions = await getEffectiveWorkspacePermissions(taskWorkspace, userId)
+      if (!permissions.canModifyContent) return err('Not authorized')
     }
 
     if (task.listId) {
@@ -709,8 +708,11 @@ export const deleteTask = async (id: number) => {
     const authError = await assertIsListAdminForTask(payload, task, userId)
     if (authError) return err(authError)
 
-    const workspaceRole = await getWorkspaceRoleForUser((task as any).workspace ?? null, userId)
-    if (!canPermanentlyDeleteTask(workspaceRole)) {
+    const permissions = await getEffectiveWorkspacePermissions(
+      (task as any).workspace ?? null,
+      userId,
+    )
+    if (!permissions.canPermanentlyDeleteTasks) {
       return err('Only the workspace owner or an admin can permanently delete tasks.')
     }
 
@@ -1011,8 +1013,11 @@ export const deleteSubtask = async (taskId: number, subtaskIndex: number) => {
     const authError = await assertCanEditTask(payload, task, userId)
     if (authError) return err(authError)
 
-    const workspaceRole = await getWorkspaceRoleForUser((task as any).workspace ?? null, userId)
-    if (!canPermanentlyDeleteTask(workspaceRole)) {
+    const permissions = await getEffectiveWorkspacePermissions(
+      (task as any).workspace ?? null,
+      userId,
+    )
+    if (!permissions.canPermanentlyDeleteTasks) {
       return err('Only the workspace owner or an admin can permanently delete subtasks.')
     }
 

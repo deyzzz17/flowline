@@ -4,6 +4,11 @@ import { cache } from 'react'
 import { pool } from './db-pool'
 import { getSession } from './get-session'
 import type { WorkspaceRole } from './workspace-permissions'
+import {
+  canModifyWorkspaceContent,
+  canPermanentlyDeleteTask,
+  canDeleteCalendarCategory,
+} from './workspace-permissions'
 
 /**
  * Whether a workspace was archived because its owner's plan no longer
@@ -107,4 +112,57 @@ export function applyWorkspaceNicknames<T extends { id: string; name: string }>(
 ): T[] {
   if (nicknames.size === 0) return profiles
   return profiles.map((p) => (nicknames.has(p.id) ? { ...p, name: nicknames.get(p.id)! } : p))
+}
+
+export interface EffectiveWorkspacePermissions {
+  role: WorkspaceRole
+  /** Name of the assigned custom role, if any — for display purposes. */
+  customRoleName: string | null
+  canModifyContent: boolean
+  canPermanentlyDeleteTasks: boolean
+  canDeleteCalendarCategories: boolean
+}
+
+/**
+ * The permissions a user actually has in a workspace, folding in a custom
+ * role's checkboxes (see api/custom-roles/actions.ts) when one is assigned
+ * on top of the plain owner/admin/member/viewer defaults from
+ * workspace-permissions.ts. `workspaceId: null` means Personal, which is
+ * always unrestricted and never has a custom role.
+ */
+export async function getEffectiveWorkspacePermissions(
+  workspaceId: string | null,
+  userId: string,
+): Promise<EffectiveWorkspacePermissions> {
+  const role = await getWorkspaceRoleForUser(workspaceId, userId)
+  const base: EffectiveWorkspacePermissions = {
+    role,
+    customRoleName: null,
+    canModifyContent: canModifyWorkspaceContent(role),
+    canPermanentlyDeleteTasks: canPermanentlyDeleteTask(role),
+    canDeleteCalendarCategories: canDeleteCalendarCategory(role),
+  }
+  if (!workspaceId || !role) return base
+
+  const result = await pool.query(
+    `SELECT
+       cr.name,
+       cr.can_modify_content AS "canModifyContent",
+       cr.can_permanently_delete_tasks AS "canPermanentlyDeleteTasks",
+       cr.can_delete_calendar_categories AS "canDeleteCalendarCategories"
+     FROM member m
+     JOIN custom_roles cr ON cr.id::text = m."customRoleId"
+     WHERE m."organizationId" = $1 AND m."userId" = $2 AND m."customRoleId" IS NOT NULL`,
+    [workspaceId, userId],
+  )
+  const row = result.rows[0]
+  if (!row) return base
+
+  return {
+    role,
+    customRoleName: row.name,
+    canModifyContent: row.canModifyContent,
+    canPermanentlyDeleteTasks: row.canPermanentlyDeleteTasks,
+    canDeleteCalendarCategories: row.canDeleteCalendarCategories,
+  }
 }

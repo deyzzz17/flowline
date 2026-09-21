@@ -86,6 +86,7 @@ export interface Config {
     'task-comments': TaskComment;
     'workspace-member-archive': WorkspaceMemberArchive;
     'workspace-archive': WorkspaceArchive;
+    'custom-roles': CustomRole;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -112,6 +113,7 @@ export interface Config {
     'task-comments': TaskCommentsSelect<false> | TaskCommentsSelect<true>;
     'workspace-member-archive': WorkspaceMemberArchiveSelect<false> | WorkspaceMemberArchiveSelect<true>;
     'workspace-archive': WorkspaceArchiveSelect<false> | WorkspaceArchiveSelect<true>;
+    'custom-roles': CustomRolesSelect<false> | CustomRolesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -748,6 +750,38 @@ export interface WorkspaceArchive {
   createdAt: string;
 }
 /**
+ * Custom workspace roles: a name plus which of this app's own permissions they grant.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "custom-roles".
+ */
+export interface CustomRole {
+  id: number;
+  /**
+   * Better Auth organization id this role belongs to.
+   */
+  workspace: string;
+  name: string;
+  /**
+   * The underlying Better Auth role — governs invitations, member removal, and role changes, which Better Auth enforces itself and this app cannot override per-role.
+   */
+  baseTier: 'admin' | 'member';
+  /**
+   * Create/edit lists, tasks, and calendar events — otherwise read-only.
+   */
+  canModifyContent?: boolean | null;
+  /**
+   * Permanently delete tasks from the trash.
+   */
+  canPermanentlyDeleteTasks?: boolean | null;
+  /**
+   * Delete calendar categories (and their events).
+   */
+  canDeleteCalendarCategories?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -846,6 +880,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'workspace-archive';
         value: number | WorkspaceArchive;
+      } | null)
+    | ({
+        relationTo: 'custom-roles';
+        value: number | CustomRole;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1265,6 +1303,20 @@ export interface WorkspaceArchiveSelect<T extends boolean = true> {
   organizationId?: T;
   ownerId?: T;
   archivedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "custom-roles_select".
+ */
+export interface CustomRolesSelect<T extends boolean = true> {
+  workspace?: T;
+  name?: T;
+  baseTier?: T;
+  canModifyContent?: T;
+  canPermanentlyDeleteTasks?: T;
+  canDeleteCalendarCategories?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -183,6 +183,13 @@ export const auth = betterAuth({
             // only (enforced in updateMyWorkspaceNickname, not by Better Auth
             // itself — it has no concept of this field beyond storing it).
             nickname: { type: 'string', required: false },
+            // Points at a `custom-roles` Payload document when this member
+            // was assigned a custom role instead of a plain base role. Kept
+            // in sync with `role` (always set to the custom role's own
+            // baseTier) by assignMemberRole — Better Auth itself has no
+            // concept of this field beyond storing it; see
+            // getEffectiveWorkspacePermissions for how it's resolved.
+            customRoleId: { type: 'string', required: false },
           },
         },
       },

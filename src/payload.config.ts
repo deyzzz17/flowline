@@ -24,6 +24,7 @@ import { ListMembers } from './collections/ListMembers'
 import { TaskComments } from './collections/TaskComments'
 import { WorkspaceMemberArchive } from './collections/WorkspaceMemberArchive'
 import { WorkspaceArchive } from './collections/WorkspaceArchive'
+import { CustomRoles } from './collections/CustomRoles'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -55,6 +56,7 @@ export default buildConfig({
     TaskComments,
     WorkspaceMemberArchive,
     WorkspaceArchive,
+    CustomRoles,
   ],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',

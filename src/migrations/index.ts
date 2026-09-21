@@ -50,6 +50,7 @@ import * as migration_20260830_195000_workspaces_to_organizations from './202608
 import * as migration_20260831_014500_tasks_workspace from './20260831_014500_tasks_workspace';
 import * as migration_20260831_144000_timer_global from './20260831_144000_timer_global';
 import * as migration_20260918_120000_lists_personal_slug_unique from './20260918_120000_lists_personal_slug_unique';
+import * as migration_20260921_142500_custom_roles from './20260921_142500_custom_roles';
 
 export const migrations = [
   {
@@ -311,5 +312,10 @@ export const migrations = [
     up: migration_20260918_120000_lists_personal_slug_unique.up,
     down: migration_20260918_120000_lists_personal_slug_unique.down,
     name: '20260918_120000_lists_personal_slug_unique'
+  },
+  {
+    up: migration_20260921_142500_custom_roles.up,
+    down: migration_20260921_142500_custom_roles.down,
+    name: '20260921_142500_custom_roles'
   },
 ];
