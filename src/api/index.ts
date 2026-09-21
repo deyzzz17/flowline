@@ -9,6 +9,7 @@ import { listMembersAPI } from './list-members'
 import { taskCommentsAPI } from './task-comments'
 import { workspacesAPI } from './workspaces'
 import { customRolesAPI } from './custom-roles'
+import { teamsAPI } from './teams'
 
 export const api = {
   tasks: tasksAPI,
@@ -22,4 +23,5 @@ export const api = {
   taskComments: taskCommentsAPI,
   workspaces: workspacesAPI,
   customRoles: customRolesAPI,
+  teams: teamsAPI,
 }

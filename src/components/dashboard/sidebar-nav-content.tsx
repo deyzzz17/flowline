@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Flame,
   Users,
+  UsersRound,
   UserPlus,
   Zap,
 } from 'lucide-react'
@@ -528,6 +529,18 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
               >
                 <Users className="h-4 w-4 shrink-0" />
                 Members
+              </Link>
+              <Link
+                {...navLink('/teams')}
+                className={cn(
+                  'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
+                  isActive('/teams')
+                    ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                )}
+              >
+                <UsersRound className="h-4 w-4 shrink-0" />
+                Teams
               </Link>
             </>
           )}

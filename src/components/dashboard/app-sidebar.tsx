@@ -14,6 +14,7 @@ import {
   PanelLeft,
   Flame,
   Users,
+  UsersRound,
   UserPlus,
   Zap,
 } from 'lucide-react'
@@ -532,6 +533,14 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                         <Link href={nav('/workspace-members')}>
                           <Users className="h-4 w-4 shrink-0" />
                           <span>Members</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={isActive('/teams')} tooltip="Teams">
+                        <Link href={nav('/teams')}>
+                          <UsersRound className="h-4 w-4 shrink-0" />
+                          <span>Teams</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

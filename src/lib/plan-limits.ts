@@ -18,6 +18,8 @@ export interface PlanLimits {
   workspaces: number
   /** Members (accepted + pending invites) allowed per workspace. Personal has no members at all — it isn't an organization. */
   workspaceMembers: number
+  /** Teams (groups within a workspace) — gated by plan tier, not a count: 0 means "not on this plan" (Free/Plus), unlimited on Pro. Personal has no teams — it isn't an organization. */
+  teams: number
 }
 
 const UNLIMITED = Infinity
@@ -37,6 +39,7 @@ const ABSOLUTE_MAX_SHARED_LISTS = 50
 const ABSOLUTE_MAX_SHARED_LIST_MEMBERS = 20
 const ABSOLUTE_MAX_WORKSPACES = 20
 const ABSOLUTE_MAX_WORKSPACE_MEMBERS = 20
+const ABSOLUTE_MAX_TEAMS = 50
 
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   free: {
@@ -55,6 +58,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     sharedListMembers: 0,
     workspaces: 0,
     workspaceMembers: 0,
+    teams: 0,
   },
   plus: {
     lists: UNLIMITED,
@@ -72,6 +76,9 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     sharedListMembers: 3,
     workspaces: 3,
     workspaceMembers: 3,
+    // Teams are a Pro-only feature, not a numeric cap Plus gets a smaller
+    // slice of — Plus sees the nav entry but is prompted to upgrade.
+    teams: 0,
   },
   pro: {
     lists: UNLIMITED,
@@ -89,6 +96,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     sharedListMembers: UNLIMITED,
     workspaces: UNLIMITED,
     workspaceMembers: UNLIMITED,
+    teams: UNLIMITED,
   },
 }
 
@@ -113,6 +121,7 @@ export function getLimits(plan: Plan): PlanLimits {
     sharedListMembers: Math.min(limits.sharedListMembers, ABSOLUTE_MAX_SHARED_LIST_MEMBERS),
     workspaces: Math.min(limits.workspaces, ABSOLUTE_MAX_WORKSPACES),
     workspaceMembers: Math.min(limits.workspaceMembers, ABSOLUTE_MAX_WORKSPACE_MEMBERS),
+    teams: Math.min(limits.teams, ABSOLUTE_MAX_TEAMS),
   }
 }
 

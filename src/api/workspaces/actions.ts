@@ -593,7 +593,7 @@ export const listWorkspaceMembers = async () => {
 // The workspace's plan quota is governed by its owner's subscription, not
 // whoever happens to be inviting (an admin can invite too), so the member
 // limit check always needs to resolve the actual owner first.
-async function getWorkspaceOwnerId(workspaceId: string): Promise<string | null> {
+export async function getWorkspaceOwnerId(workspaceId: string): Promise<string | null> {
   const result = await pool.query(
     `SELECT "userId" FROM member WHERE "organizationId" = $1 AND role = 'owner' LIMIT 1`,
     [workspaceId],
