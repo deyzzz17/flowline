@@ -139,12 +139,13 @@ export const listLists = async () => {
   }
 
   // The workspace's own owner/admin can see (and, per resolveListRole, fully
-  // manage) every list in the workspace, not just their own or ones they
-  // were personally added to — matches the owner/admin "peut tout faire"
-  // role matrix (see workspace-permissions.ts / resolveListRole). Without
-  // this, the delete/edit rights resolveListRole now grants them over
-  // other members' lists would be unreachable — they'd never see the list
-  // in the sidebar to begin with.
+  // manage) every SHARED list in the workspace, not just ones they were
+  // personally added to — matches the owner/admin "peut tout faire" role
+  // matrix (see workspace-permissions.ts / resolveListRole). A list that's
+  // still private to its creator (never shared) stays out of this even for
+  // the owner/admin — resolveListRole denies them a role on it, so it must
+  // not show up here either or the sidebar would offer a list they can't
+  // actually open.
   const workspaceRole = await getWorkspaceRoleForUser(workspaceId, userId)
   if (workspaceRole === 'owner' || workspaceRole === 'admin') {
     return await payload.find({
@@ -152,7 +153,11 @@ export const listLists = async () => {
       sort: 'createdAt',
       limit: 0,
       where: {
-        and: [workspaceWhereClause(workspaceId), { planArchivedAt: { exists: false } }],
+        and: [
+          workspaceWhereClause(workspaceId),
+          { planArchivedAt: { exists: false } },
+          { or: [{ userId: { equals: userId } }, { isShared: { equals: true } }] },
+        ],
       },
     })
   }

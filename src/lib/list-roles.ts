@@ -23,21 +23,27 @@ export async function resolveListRole(
     const workspaceRole = await getWorkspaceRoleForUser(list.workspace, userId)
     if (!workspaceRole) return null // not part of this workspace at all
 
-    // The workspace's own owner/admin can fully manage EVERY list inside
-    // it — view, edit, delete, manage members — regardless of who created
-    // the list or whether they were personally added to it. This is what
+    // A list that was never shared is private to whoever created it —
+    // that stays true even for the workspace's own owner/admin. Only once
+    // a list has had at least one member added (isShared) does it become
+    // something the owner/admin can see and fully manage on top of the
+    // creator themselves.
+    if (!isOwner && !list.isShared) return null
+
+    // The workspace's own owner/admin can fully manage every SHARED list
+    // inside it — view, edit, delete, manage members — regardless of who
+    // created it or whether they were personally added to it. This is what
     // "owner peut tout faire" / "admin peut tout faire sauf supprimer le
-    // workspace ou toucher les membres" (phase 16) actually implies for
-    // lists specifically, and it was NOT previously true: only the list's
-    // own creator ever got 'admin' before, so a workspace owner/admin
-    // couldn't even delete a list they didn't personally create.
+    // workspace ou toucher les membres" (phase 16) implies for lists, but
+    // it stops at the workspace's private, not-yet-shared lists — those
+    // remain visible only to their creator, exactly like Personal lists.
     if (workspaceRole === 'owner' || workspaceRole === 'admin') return 'admin'
 
     // Editor/Viewer stay membership-gated exactly like before — they only
     // ever get a role on their own list or one they were specifically
-    // added to (see phase 13/18: this is deliberate, not a bug).
+    // added to (see phase 13/18: this is deliberate, not a bug). We already
+    // know the list is shared at this point (private lists returned above).
     if (!isOwner) {
-      if (!list.isShared) return null
       const { totalDocs } = await payload.find({
         collection: 'list-members',
         where: {
