@@ -302,7 +302,7 @@ export const CreateTask = ({ listId, canAssign }: CreateTaskProps) => {
         <DialogTrigger asChild>
           <Button
             variant="outline"
-            className="w-full max-w-48 justify-between h-12 px-5 shadow-sm group"
+            className="w-full max-w-48 justify-between h-12 rounded-full px-5 shadow-sm group"
           >
             <span className="font-medium text-muted-foreground group-hover:text-foreground">
               Add a new task

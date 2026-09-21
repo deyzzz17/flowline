@@ -30,7 +30,7 @@ export function TaskSortControl({ value, onChange }: TaskSortControlProps) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="flex items-center gap-1.5 rounded-xl border border-border/60 bg-background px-3 py-2 text-xs font-medium text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
+          className="flex items-center gap-1.5 rounded-full border border-border/40 bg-background px-3.5 py-2 text-xs font-medium text-muted-foreground shadow-sm transition-all hover:bg-muted hover:text-foreground"
         >
           <ArrowUpDown className="h-3.5 w-3.5" />
           {currentLabel}

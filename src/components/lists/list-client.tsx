@@ -458,10 +458,10 @@ export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
 
       <Tabs defaultValue="todo" className="w-full">
         <div className="mb-8">
-          <TabsList className="h-10 w-full rounded-xl bg-muted/60 p-1 sm:w-auto">
+          <TabsList className="h-10 w-full justify-start gap-1.5 rounded-full bg-transparent p-0 sm:w-auto">
             <TabsTrigger
               value="todo"
-              className="flex-1 sm:flex-none gap-1.5 rounded-lg px-2 sm:px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+              className="gap-1.5 rounded-full px-4 py-2 text-xs font-medium text-muted-foreground shadow-none data-[state=active]:bg-violet-500/10 data-[state=active]:text-violet-600 dark:data-[state=active]:text-violet-400"
             >
               <ClipboardList className="h-3.5 w-3.5 shrink-0" />
               <span className="hidden xs:inline sm:inline">To do</span>
@@ -473,14 +473,14 @@ export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
             </TabsTrigger>
             <TabsTrigger
               value="achieved"
-              className="flex-1 sm:flex-none gap-1.5 rounded-lg px-2 sm:px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+              className="gap-1.5 rounded-full px-4 py-2 text-xs font-medium text-muted-foreground shadow-none data-[state=active]:bg-violet-500/10 data-[state=active]:text-violet-600 dark:data-[state=active]:text-violet-400"
             >
               <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
               <span className="hidden xs:inline sm:inline">Achieved</span>
             </TabsTrigger>
             <TabsTrigger
               value="inactive"
-              className="flex-1 sm:flex-none gap-1.5 rounded-lg px-2 sm:px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+              className="gap-1.5 rounded-full px-4 py-2 text-xs font-medium text-muted-foreground shadow-none data-[state=active]:bg-violet-500/10 data-[state=active]:text-violet-600 dark:data-[state=active]:text-violet-400"
             >
               <PauseCircle className="h-3.5 w-3.5 shrink-0" />
               <span className="hidden xs:inline sm:inline">Inactive</span>
@@ -492,7 +492,7 @@ export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
             </TabsTrigger>
             <TabsTrigger
               value="trashed"
-              className="flex-1 sm:flex-none gap-1.5 rounded-lg px-2 sm:px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+              className="gap-1.5 rounded-full px-4 py-2 text-xs font-medium text-muted-foreground shadow-none data-[state=active]:bg-violet-500/10 data-[state=active]:text-violet-600 dark:data-[state=active]:text-violet-400"
             >
               <Trash2 className="h-3.5 w-3.5 shrink-0" />
               <span className="hidden xs:inline sm:inline">Trash</span>

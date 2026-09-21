@@ -272,13 +272,8 @@ export const TaskCard = ({
   const daysLeft = isDeleted && task.trashedAt ? getDaysLeft(task.trashedAt) : null
 
   type ListObj = { id: number; name: string; category?: { color?: string | null } | null }
-  const taskListObj =
-    task.list && typeof task.list === 'object' ? (task.list as ListObj) : null
-  const taskList = showListBadge ? taskListObj : null
-  // Every task card is tinted by its own list's color — the same idea as a
-  // color-coded calendar, so a glance at the list tells you which is which
-  // without reading the badge.
-  const cardAccentColor = taskListObj?.category?.color ?? null
+  const taskList =
+    showListBadge && task.list && typeof task.list === 'object' ? (task.list as ListObj) : null
 
   const handleStartEditing = () => {
     setEditTags((task.tags ?? []) as TaskTag[])
@@ -415,18 +410,12 @@ export const TaskCard = ({
       <div
         data-task-id={task.id}
         className={cn(
-          'relative z-20 flex items-start gap-2 p-3 sm:gap-3 sm:p-4 rounded-3xl shadow-sm transition-all min-w-0 overflow-hidden',
-          !cardAccentColor && 'border border-border/40 bg-background',
+          'relative z-20 flex items-start gap-2 p-3 sm:gap-3 sm:p-4 rounded-2xl bg-background shadow-sm transition-all min-w-0 overflow-hidden',
           isEditing ? 'ring-2 ring-primary shadow-md' : 'hover:shadow-md hover:bg-accent/30',
           isDisabled ? 'opacity-40 grayscale pointer-events-none' : 'opacity-100',
           isInactive && !isEditing && 'opacity-60',
           isPending && 'opacity-50',
         )}
-        style={
-          cardAccentColor
-            ? { backgroundColor: hexToRgba(cardAccentColor, isEditing ? 0.16 : 0.12) }
-            : undefined
-        }
       >
         <div className="mt-1 shrink-0">
           <Checkbox
