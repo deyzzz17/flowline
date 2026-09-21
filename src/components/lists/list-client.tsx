@@ -458,10 +458,10 @@ export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
 
       <Tabs defaultValue="todo" className="w-full">
         <div className="mb-8">
-          <TabsList className="h-10 w-full justify-start gap-1.5 rounded-full bg-transparent p-0 sm:w-auto">
+          <TabsList className="h-10 w-full rounded-xl bg-muted/60 p-1 sm:w-auto">
             <TabsTrigger
               value="todo"
-              className="gap-1.5 rounded-full px-4 py-2 text-xs font-medium text-muted-foreground shadow-none data-[state=active]:bg-violet-500/10 data-[state=active]:text-violet-600 dark:data-[state=active]:text-violet-400"
+              className="flex-1 sm:flex-none gap-1.5 rounded-lg px-2 sm:px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
             >
               <ClipboardList className="h-3.5 w-3.5 shrink-0" />
               <span className="hidden xs:inline sm:inline">To do</span>
@@ -473,14 +473,14 @@ export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
             </TabsTrigger>
             <TabsTrigger
               value="achieved"
-              className="gap-1.5 rounded-full px-4 py-2 text-xs font-medium text-muted-foreground shadow-none data-[state=active]:bg-violet-500/10 data-[state=active]:text-violet-600 dark:data-[state=active]:text-violet-400"
+              className="flex-1 sm:flex-none gap-1.5 rounded-lg px-2 sm:px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
             >
               <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
               <span className="hidden xs:inline sm:inline">Achieved</span>
             </TabsTrigger>
             <TabsTrigger
               value="inactive"
-              className="gap-1.5 rounded-full px-4 py-2 text-xs font-medium text-muted-foreground shadow-none data-[state=active]:bg-violet-500/10 data-[state=active]:text-violet-600 dark:data-[state=active]:text-violet-400"
+              className="flex-1 sm:flex-none gap-1.5 rounded-lg px-2 sm:px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
             >
               <PauseCircle className="h-3.5 w-3.5 shrink-0" />
               <span className="hidden xs:inline sm:inline">Inactive</span>
@@ -492,7 +492,7 @@ export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
             </TabsTrigger>
             <TabsTrigger
               value="trashed"
-              className="gap-1.5 rounded-full px-4 py-2 text-xs font-medium text-muted-foreground shadow-none data-[state=active]:bg-violet-500/10 data-[state=active]:text-violet-600 dark:data-[state=active]:text-violet-400"
+              className="flex-1 sm:flex-none gap-1.5 rounded-lg px-2 sm:px-4 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
             >
               <Trash2 className="h-3.5 w-3.5 shrink-0" />
               <span className="hidden xs:inline sm:inline">Trash</span>
@@ -524,8 +524,8 @@ export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
               </div>
               {!isReadOnly && <CreateTask listId={list.id} canAssign={canAssign} />}
             </div>
-            <div className="rounded-3xl bg-card shadow-lg shadow-black/5">
-              <div className="flex items-center justify-between border-b border-border/20 px-5 py-4">
+            <div className="rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm">
+              <div className="flex items-center justify-between border-b border-border/50 px-5 py-3.5">
                 <div className="flex items-center gap-2">
                   <ListTodo className="h-3.5 w-3.5 text-violet-500 dark:text-violet-400" />
                   <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
@@ -575,8 +575,8 @@ export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
                 <CheckCircleIcon size={18} />
               </div>
             </div>
-            <div className="rounded-3xl bg-card shadow-lg shadow-black/5">
-              <div className="flex items-center justify-between border-b border-border/20 px-5 py-4">
+            <div className="rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm">
+              <div className="flex items-center justify-between border-b border-border/50 px-5 py-3.5">
                 <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
                   Archive
                 </span>
@@ -623,8 +623,8 @@ export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
                 <PauseCircle size={18} />
               </div>
             </div>
-            <div className="rounded-3xl bg-card shadow-lg shadow-black/5">
-              <div className="flex items-center justify-between border-b border-border/20 px-5 py-4">
+            <div className="rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm">
+              <div className="flex items-center justify-between border-b border-border/50 px-5 py-3.5">
                 <div className="flex items-center gap-2">
                   <PauseCircle className="h-3.5 w-3.5 text-muted-foreground/60" />
                   <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
@@ -676,8 +676,8 @@ export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
                 <Trash2 size={18} />
               </div>
             </div>
-            <div className="rounded-3xl bg-card shadow-lg shadow-black/5">
-              <div className="flex items-center justify-between border-b border-border/20 px-5 py-4">
+            <div className="rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm">
+              <div className="flex items-center justify-between border-b border-border/50 px-5 py-3.5">
                 <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
                   Delete zone
                 </span>

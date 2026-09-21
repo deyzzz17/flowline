@@ -410,8 +410,8 @@ export const TaskCard = ({
       <div
         data-task-id={task.id}
         className={cn(
-          'relative z-20 flex items-start gap-2 p-3 sm:gap-3 sm:p-4 rounded-2xl bg-background shadow-sm transition-all min-w-0 overflow-hidden',
-          isEditing ? 'ring-2 ring-primary shadow-md' : 'hover:shadow-md hover:bg-accent/30',
+          'relative z-20 flex items-start gap-2 p-3 sm:gap-3 sm:p-4 rounded-xl border bg-background transition-all min-w-0 overflow-hidden',
+          isEditing ? 'ring-2 ring-primary shadow-md border-transparent' : 'hover:bg-accent/50',
           isDisabled ? 'opacity-40 grayscale pointer-events-none' : 'opacity-100',
           isInactive && !isEditing && 'opacity-60',
           isPending && 'opacity-50',

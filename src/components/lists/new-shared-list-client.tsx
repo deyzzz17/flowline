@@ -192,7 +192,7 @@ export const NewSharedListClient = () => {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="rounded-3xl bg-card shadow-lg shadow-black/5 p-6 space-y-6">
+        <div className="rounded-2xl border border-border/60 bg-card/40 p-6 backdrop-blur-sm space-y-6">
           <div className="space-y-2">
             <Label htmlFor="name" className="text-sm font-medium">
               Name <span className="text-destructive">*</span>
@@ -279,7 +279,7 @@ export const NewSharedListClient = () => {
           </div>
         </div>
 
-        <div className="rounded-3xl bg-card shadow-lg shadow-black/5 p-6 space-y-4">
+        <div className="rounded-2xl border border-border/60 bg-card/40 p-6 backdrop-blur-sm space-y-4">
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-violet-500" />
             <p className="text-sm font-medium text-foreground">Invite people</p>
