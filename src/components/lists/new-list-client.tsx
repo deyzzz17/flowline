@@ -210,7 +210,7 @@ export const NewListClient = () => {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="rounded-2xl border border-border/40 bg-card shadow-sm p-6 space-y-6">
+        <div className="rounded-3xl bg-card shadow-lg shadow-black/5 p-6 space-y-6">
           <div className="space-y-2">
             <Label htmlFor="name" className="text-sm font-medium">
               Name <span className="text-destructive">*</span>
@@ -298,7 +298,7 @@ export const NewListClient = () => {
         </div>
 
         {isWorkspaceActive && (
-          <div className="rounded-2xl border border-border/40 bg-card shadow-sm p-6 space-y-4">
+          <div className="rounded-3xl bg-card shadow-lg shadow-black/5 p-6 space-y-4">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-violet-500" />
               <p className="text-sm font-medium text-foreground">Add members</p>

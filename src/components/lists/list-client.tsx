@@ -524,8 +524,8 @@ export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
               </div>
               {!isReadOnly && <CreateTask listId={list.id} canAssign={canAssign} />}
             </div>
-            <div className="rounded-2xl border border-border/40 bg-card shadow-sm">
-              <div className="flex items-center justify-between border-b border-border/30 px-5 py-3.5">
+            <div className="rounded-3xl bg-card shadow-lg shadow-black/5">
+              <div className="flex items-center justify-between border-b border-border/20 px-5 py-4">
                 <div className="flex items-center gap-2">
                   <ListTodo className="h-3.5 w-3.5 text-violet-500 dark:text-violet-400" />
                   <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
@@ -575,8 +575,8 @@ export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
                 <CheckCircleIcon size={18} />
               </div>
             </div>
-            <div className="rounded-2xl border border-border/40 bg-card shadow-sm">
-              <div className="flex items-center justify-between border-b border-border/30 px-5 py-3.5">
+            <div className="rounded-3xl bg-card shadow-lg shadow-black/5">
+              <div className="flex items-center justify-between border-b border-border/20 px-5 py-4">
                 <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
                   Archive
                 </span>
@@ -623,8 +623,8 @@ export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
                 <PauseCircle size={18} />
               </div>
             </div>
-            <div className="rounded-2xl border border-border/40 bg-card shadow-sm">
-              <div className="flex items-center justify-between border-b border-border/30 px-5 py-3.5">
+            <div className="rounded-3xl bg-card shadow-lg shadow-black/5">
+              <div className="flex items-center justify-between border-b border-border/20 px-5 py-4">
                 <div className="flex items-center gap-2">
                   <PauseCircle className="h-3.5 w-3.5 text-muted-foreground/60" />
                   <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
@@ -676,8 +676,8 @@ export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
                 <Trash2 size={18} />
               </div>
             </div>
-            <div className="rounded-2xl border border-border/40 bg-card shadow-sm">
-              <div className="flex items-center justify-between border-b border-border/30 px-5 py-3.5">
+            <div className="rounded-3xl bg-card shadow-lg shadow-black/5">
+              <div className="flex items-center justify-between border-b border-border/20 px-5 py-4">
                 <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
                   Delete zone
                 </span>
