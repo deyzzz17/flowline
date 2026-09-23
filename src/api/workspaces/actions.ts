@@ -13,9 +13,13 @@ import { getSession } from '@/lib/get-session'
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { getWorkspaceRoleForUser } from '@/lib/get-current-workspace'
+import {
+  getWorkspaceRoleForUser,
+  getEffectiveWorkspacePermissions,
+} from '@/lib/get-current-workspace'
 import { findUserByEmail, findUsersByIds, type ContactProfile } from '@/api/contacts/actions'
 import { deleteCommentsForTaskIds } from '@/api/task-comments/actions'
+import { deriveBetterAuthRole } from '@/api/custom-roles/actions'
 import type { WorkspaceRole } from '@/lib/workspace-permissions'
 
 // Better Auth's org plugin ships owner (auto-assigned to the creator, not
@@ -432,6 +436,9 @@ export const updateWorkspaceName = async (workspaceId: string, name: string) => 
     const userId = await getUserId()
     if (!userId) return err('Not authenticated')
 
+    const permissions = await getEffectiveWorkspacePermissions(workspaceId, userId)
+    if (!permissions.canManageWorkspaceSettings) return err('Not authorized')
+
     const trimmed = name.trim()
     if (!trimmed) return err('Name is required')
 
@@ -631,6 +638,9 @@ export const inviteWorkspaceMember = async (email: string, role: WorkspaceInvite
     const workspaceId = session?.session.activeOrganizationId
     if (!workspaceId) return err('No active workspace')
 
+    const permissions = await getEffectiveWorkspacePermissions(workspaceId, userId)
+    if (!permissions.canManageMembers) return err('Not authorized')
+
     const ownerId = await getWorkspaceOwnerId(workspaceId)
     if (!ownerId) return err('Workspace owner not found')
 
@@ -672,18 +682,24 @@ export const updateWorkspaceMemberRole = async (
     const userId = await getUserId()
     if (!userId) return err('Not authenticated')
 
+    const session = await getSession()
+    const workspaceId = session?.session.activeOrganizationId
+    if (!workspaceId) return err('No active workspace')
+
+    const permissions = await getEffectiveWorkspacePermissions(workspaceId, userId)
+    if (!permissions.canManageMembers) return err('Not authorized')
+
     let effectiveRole: WorkspaceInviteRole = role
     if (customRoleId) {
-      const session = await getSession()
-      const workspaceId = session?.session.activeOrganizationId
-      if (!workspaceId) return err('No active workspace')
-
       const payload = await getPayload({ config })
       const customRole = await payload
         .findByID({ collection: 'custom-roles', id: Number(customRoleId) })
         .catch(() => null)
       if (!customRole || customRole.workspace !== workspaceId) return err('Custom role not found')
-      effectiveRole = customRole.baseTier as WorkspaceInviteRole
+      effectiveRole = deriveBetterAuthRole({
+        canManageMembers: !!customRole.canManageMembers,
+        canManageWorkspaceSettings: !!customRole.canManageWorkspaceSettings,
+      })
     }
 
     await auth.api.updateMemberRole({
@@ -707,6 +723,13 @@ export const removeWorkspaceMember = async (memberId: string) => {
   try {
     const userId = await getUserId()
     if (!userId) return err('Not authenticated')
+
+    const session = await getSession()
+    const workspaceId = session?.session.activeOrganizationId
+    if (!workspaceId) return err('No active workspace')
+
+    const permissions = await getEffectiveWorkspacePermissions(workspaceId, userId)
+    if (!permissions.canManageMembers) return err('Not authorized')
 
     await auth.api.removeMember({
       headers: await headers(),

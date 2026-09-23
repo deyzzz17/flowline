@@ -14,6 +14,8 @@ import {
   RotateCcw,
   ShieldCheck,
   ChevronDown,
+  ChevronRight,
+  Plus,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -44,8 +46,9 @@ import type { WorkspaceInviteRole, WorkspaceMember } from '@/api/workspaces/acti
 import { LIMIT_ERRORS, SAFETY_CAP_ERRORS, type LimitError, type SafetyCapError } from '@/lib/plan-limits'
 import { PlanLimitDialog } from '@/components/ui/plan-limit-dialog'
 import { SafetyCapDialog } from '@/components/ui/safety-cap-dialog'
-import { useCustomRoles } from '@/hooks/workspace/use-custom-roles'
-import { CustomRolesPanel } from './custom-roles-panel'
+import { useCustomRoles, CUSTOM_ROLES_QUERY_KEY } from '@/hooks/workspace/use-custom-roles'
+import { WorkspaceRolePermissionsFields } from './workspace-role-permissions-fields'
+import type { CustomRoleInput } from '@/api/custom-roles/actions'
 
 function getInitials(name?: string | null): string {
   if (!name) return '?'
@@ -255,7 +258,61 @@ export function WorkspaceMembersClient() {
   const [roleFilter, setRoleFilter] = useState<RoleFilterValue>('all')
   const filteredMembers = roleFilter === 'all' ? members : members.filter((m) => m.role === roleFilter)
 
-  const [rolesOpen, setRolesOpen] = useState(false)
+  const { customRoles } = useCustomRoles()
+  const [expandedRoleId, setExpandedRoleId] = useState<number | null>(null)
+  const [newRoleName, setNewRoleName] = useState('')
+  const invalidateRoles = () => queryClient.invalidateQueries({ queryKey: CUSTOM_ROLES_QUERY_KEY })
+
+  const createRoleMutation = useMutation({
+    mutationFn: (name: string) =>
+      api.customRoles.create({
+        name,
+        canManageWorkspaceSettings: false,
+        canManageMembers: false,
+        canManageLists: true,
+        canManageCalendar: true,
+        canManageTeams: false,
+        canPermanentlyDeleteTasks: false,
+        canDeleteCalendarCategories: false,
+      }),
+    onSuccess: (result) => {
+      if (!result.ok) {
+        toast.error(result.error || 'Error creating role')
+        return
+      }
+      setNewRoleName('')
+      invalidateRoles()
+    },
+    onError: () => toast.error('Error creating role'),
+  })
+
+  const updateRoleMutation = useMutation({
+    mutationFn: ({ id, input }: { id: number; input: CustomRoleInput }) =>
+      api.customRoles.update(id, input),
+    onSuccess: (result) => {
+      if (!result.ok) {
+        toast.error(result.error || 'Error updating role')
+        return
+      }
+      invalidateRoles()
+    },
+    onError: () => toast.error('Error updating role'),
+  })
+
+  const deleteRoleMutation = useMutation({
+    mutationFn: (id: number) => api.customRoles.delete(id),
+    onSuccess: (result) => {
+      if (!result.ok) {
+        toast.error(result.error || 'Error deleting role')
+        return
+      }
+      toast.info('Role deleted')
+      invalidateRoles()
+      queryClient.invalidateQueries({ queryKey: ['workspace-members'] })
+    },
+    onError: () => toast.error('Error deleting role'),
+  })
+
   const [editingId, setEditingId] = useState<string | null>(null)
   const [nicknameDraft, setNicknameDraft] = useState('')
   const [roleDraft, setRoleDraft] = useState<RoleSelection>('member')
@@ -359,29 +416,134 @@ export function WorkspaceMembersClient() {
 
   return (
     <>
-      <section className="mb-8 mt-10 flex items-start justify-between gap-4">
-        <div>
-          <p className="mb-1 text-xl font-semibold uppercase text-violet-500 dark:text-violet-400">
-            Workspace
-          </p>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Members</h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            {members.length} member{members.length !== 1 ? 's' : ''} in this workspace.
-          </p>
-        </div>
-        {canManage && (
-          <button
-            type="button"
-            onClick={() => setRolesOpen(true)}
-            className="flex shrink-0 items-center gap-1.5 rounded-xl border border-border/60 bg-background px-3 py-2 text-xs font-medium text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
-          >
-            <ShieldCheck className="h-3.5 w-3.5" />
-            Manage roles
-          </button>
-        )}
+      <section className="mb-8 mt-10">
+        <p className="mb-1 text-xl font-semibold uppercase text-violet-500 dark:text-violet-400">
+          Workspace
+        </p>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">Members</h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          {members.length} member{members.length !== 1 ? 's' : ''} in this workspace.
+        </p>
       </section>
 
-      <CustomRolesPanel open={rolesOpen} onOpenChange={setRolesOpen} />
+      {canManage && (
+        <div className="mb-6 rounded-2xl border border-border/60 bg-card/40 p-5 backdrop-blur-sm space-y-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-violet-500" />
+              <p className="text-sm font-medium text-foreground">Roles</p>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Tap a role to see and change what it&apos;s allowed to do.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            {customRoles.length === 0 ? (
+              <p className="py-4 text-center text-xs text-muted-foreground/60">
+                No custom roles yet.
+              </p>
+            ) : (
+              customRoles.map((role) => {
+                const isExpanded = expandedRoleId === role.id
+                return (
+                  <div
+                    key={role.id}
+                    className="overflow-hidden rounded-xl border border-border/50"
+                  >
+                    <div className="flex items-center gap-1.5 px-3 py-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedRoleId(isExpanded ? null : role.id)}
+                        className="flex h-6 w-6 shrink-0 items-center justify-center text-muted-foreground"
+                      >
+                        <ChevronRight
+                          className={cn(
+                            'h-3.5 w-3.5 transition-transform',
+                            isExpanded && 'rotate-90',
+                          )}
+                        />
+                      </button>
+                      <span className="flex-1 truncate text-sm font-medium text-foreground">
+                        {role.name}
+                      </span>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            type="button"
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete this role?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Members using <strong>{role.name}</strong> will fall back to a plain
+                              Editor role.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => deleteRoleMutation.mutate(role.id)}
+                              variant="destructive"
+                            >
+                              Delete role
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                    {isExpanded && (
+                      <div className="border-t border-border/30 bg-muted/20 px-4 py-3">
+                        <WorkspaceRolePermissionsFields
+                          value={role}
+                          onChange={(next) =>
+                            updateRoleMutation.mutate({
+                              id: role.id,
+                              input: { name: role.name, ...next },
+                            })
+                          }
+                        />
+                      </div>
+                    )}
+                  </div>
+                )
+              })
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Input
+              value={newRoleName}
+              onChange={(e) => setNewRoleName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  if (newRoleName.trim()) createRoleMutation.mutate(newRoleName.trim())
+                }
+              }}
+              placeholder="New role name..."
+              className="h-9 text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => newRoleName.trim() && createRoleMutation.mutate(newRoleName.trim())}
+              disabled={!newRoleName.trim() || createRoleMutation.isPending}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40"
+            >
+              {createRoleMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Plus className="h-3.5 w-3.5" />
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
       {canManage && (
         <div className="mb-6 rounded-2xl border border-border/60 bg-card/40 p-5 backdrop-blur-sm space-y-3">
           <div className="flex items-center gap-2">

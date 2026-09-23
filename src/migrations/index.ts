@@ -53,6 +53,7 @@ import * as migration_20260918_120000_lists_personal_slug_unique from './2026091
 import * as migration_20260921_142500_custom_roles from './20260921_142500_custom_roles';
 import * as migration_20260921_170000_teams from './20260921_170000_teams';
 import * as migration_20260921_183000_team_role_permissions from './20260921_183000_team_role_permissions';
+import * as migration_20260923_120000_custom_roles_granular from './20260923_120000_custom_roles_granular';
 
 export const migrations = [
   {
@@ -329,5 +330,10 @@ export const migrations = [
     up: migration_20260921_183000_team_role_permissions.up,
     down: migration_20260921_183000_team_role_permissions.down,
     name: '20260921_183000_team_role_permissions'
+  },
+  {
+    up: migration_20260923_120000_custom_roles_granular.up,
+    down: migration_20260923_120000_custom_roles_granular.down,
+    name: '20260923_120000_custom_roles_granular'
   },
 ];

@@ -73,7 +73,7 @@ export const createList = async (input: CreateListInput) => {
     const workspaceId = await getCurrentWorkspaceId()
 
     const permissions = await getEffectiveWorkspacePermissions(workspaceId, userId)
-    if (!permissions.canModifyContent) {
+    if (!permissions.canManageLists) {
       return err('You do not have permission to create lists in this workspace')
     }
 

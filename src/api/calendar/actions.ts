@@ -166,7 +166,7 @@ export const createCalendarCategory = async (
     const workspaceId = await getCurrentWorkspaceId()
 
     const permissions = await getEffectiveWorkspacePermissions(workspaceId, userId)
-    if (!permissions.canModifyContent) return err('Not authorized')
+    if (!permissions.canManageCalendar) return err('Not authorized')
 
     const { plan, limits } = await getUserPlanLimits()
     const totalDocs = await countActiveCalendarCategories(payload, userId)
@@ -356,7 +356,7 @@ export const updateCalendarCategory = async (id: number, data: Partial<CalendarC
 
     const workspaceId = (category as any).workspace ?? null
     const permissions = await getEffectiveWorkspacePermissions(workspaceId, userId)
-    if (!permissions.canModifyContent) return err('Not authorized')
+    if (!permissions.canManageCalendar) return err('Not authorized')
 
     return ok(await payload.update({ collection: 'calendar-categories', id, data }))
   } catch {
@@ -620,7 +620,7 @@ export const createCalendarEvent = async (data: CalendarEventData) => {
     const workspaceId = await getCurrentWorkspaceId()
 
     const permissions = await getEffectiveWorkspacePermissions(workspaceId, userId)
-    if (!permissions.canModifyContent) return err('Not authorized')
+    if (!permissions.canManageCalendar) return err('Not authorized')
 
     const event = await payload.create({
       collection: 'calendar-events',
@@ -661,7 +661,7 @@ export const updateCalendarEvent = async (
 
     const eventWorkspaceId = (existing as any).workspace ?? null
     const permissions = await getEffectiveWorkspacePermissions(eventWorkspaceId, userId)
-    if (!permissions.canModifyContent) return err('Not authorized')
+    if (!permissions.canManageCalendar) return err('Not authorized')
 
     const isRecurring = !!(existing as any).recurrence?.frequency
     const isOverride = !!(existing as any).recurrenceId
@@ -932,7 +932,7 @@ export const deleteCalendarEvent = async (
 
     const eventWorkspaceId = (existing as any).workspace ?? null
     const permissions = await getEffectiveWorkspacePermissions(eventWorkspaceId, userId)
-    if (!permissions.canModifyContent) return err('Not authorized')
+    if (!permissions.canManageCalendar) return err('Not authorized')
 
     const isRecurring = !!(existing as any).recurrence?.frequency
     const isOverride = !!(existing as any).recurrenceId

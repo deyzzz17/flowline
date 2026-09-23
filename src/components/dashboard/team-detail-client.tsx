@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
@@ -14,6 +15,8 @@ import {
   ChevronRight,
   Loader2,
   Trash2,
+  Pencil,
+  X,
 } from 'lucide-react'
 import { api } from '@/api'
 import { cn } from '@/lib/utils'
@@ -70,6 +73,7 @@ interface TeamDetailClientProps {
 }
 
 export function TeamDetailClient({ teamId, initialOverview }: TeamDetailClientProps) {
+  const router = useRouter()
   const queryClient = useQueryClient()
   const overviewKey = ['teams', teamId, 'overview']
 
@@ -82,21 +86,141 @@ export function TeamDetailClient({ teamId, initialOverview }: TeamDetailClientPr
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: overviewKey })
 
+  const [editingName, setEditingName] = useState(false)
+  const [nameDraft, setNameDraft] = useState(overview?.name ?? '')
+
+  const renameMutation = useMutation({
+    mutationFn: (name: string) => api.teams.rename(teamId, name),
+    onSuccess: (result) => {
+      if (!result.ok) {
+        toast.error(result.error || 'Error renaming team')
+        return
+      }
+      setEditingName(false)
+      invalidate()
+    },
+    onError: () => toast.error('Error renaming team'),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.teams.delete(teamId),
+    onSuccess: (result) => {
+      if (!result.ok) {
+        toast.error(result.error || 'Error deleting team')
+        return
+      }
+      toast.info('Team deleted')
+      router.push('/teams')
+    },
+    onError: () => toast.error('Error deleting team'),
+  })
+
   if (!overview) return null
+  const canManageTeam = overview.myPermissions.canManageMembers
 
   return (
     <>
-      <section className="mb-8 mt-10">
-        <div className="mb-1 flex items-center gap-2">
-          <Users className="h-3.5 w-3.5 text-violet-500" />
-          <p className="text-xl font-semibold uppercase text-violet-500 dark:text-violet-400">
-            Team
+      <section className="mb-8 mt-10 flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex items-center gap-2">
+            <Users className="h-3.5 w-3.5 text-violet-500" />
+            <p className="text-xl font-semibold uppercase text-violet-500 dark:text-violet-400">
+              Team
+            </p>
+          </div>
+          {editingName ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (nameDraft.trim()) renameMutation.mutate(nameDraft.trim())
+              }}
+              className="flex items-center gap-2"
+            >
+              <Input
+                autoFocus
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                className="h-10 max-w-sm text-2xl font-bold tracking-tight"
+              />
+              <button
+                type="submit"
+                disabled={renameMutation.isPending || !nameDraft.trim()}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-violet-600 transition-colors hover:bg-violet-500/10 disabled:opacity-50"
+              >
+                {renameMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingName(false)
+                  setNameDraft(overview.name)
+                }}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-muted"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </form>
+          ) : (
+            <div className="flex items-center gap-2">
+              <h1 className="truncate text-3xl font-bold tracking-tight text-foreground">
+                {overview.name}
+              </h1>
+              {canManageTeam && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNameDraft(overview.name)
+                    setEditingName(true)
+                  }}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            {overview.memberCount} member{overview.memberCount !== 1 ? 's' : ''}
           </p>
         </div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">{overview.name}</h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">
-          {overview.memberCount} member{overview.memberCount !== 1 ? 's' : ''}
-        </p>
+
+        {canManageTeam && !editingName && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button
+                type="button"
+                className="flex shrink-0 items-center gap-1.5 rounded-xl border border-border/60 bg-background px-3 py-2 text-xs font-medium text-muted-foreground transition-all hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete team
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this team?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  <strong>{overview.name}</strong> and its members/roles will be permanently
+                  deleted. Lists and calendar categories created through it are kept, just no
+                  longer tied to a team. This cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => deleteMutation.mutate()}
+                  variant="destructive"
+                  disabled={deleteMutation.isPending}
+                >
+                  Delete team
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </section>
 
       <Tabs defaultValue="overview" className="w-full">

@@ -167,7 +167,7 @@ export const createTeam = async (input: CreateTeamInput) => {
     if (!(await assertTeamAccess(workspaceId))) return err('TEAMS_REQUIRE_PRO')
 
     const permissions = await getEffectiveWorkspacePermissions(workspaceId, userId)
-    if (!permissions.canModifyContent) return err('Not authorized')
+    if (!permissions.canManageTeams) return err('Not authorized')
 
     const name = input.name.trim()
     if (!name) return err('Name is required')
@@ -481,6 +481,85 @@ export const deleteTeamRole = async (teamId: number, roleId: number) => {
     return ok(true)
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Error deleting role'
+    return err(message)
+  }
+}
+
+export const renameTeam = async (teamId: number, name: string) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+    const workspaceId = await getActiveWorkspaceId()
+    if (!workspaceId) return err('No active workspace')
+
+    const payload = await getPayload({ config })
+    const team = await payload.findByID({ collection: 'teams', id: teamId }).catch(() => null)
+    if (!team || team.workspace !== workspaceId) return err('Team not found')
+
+    const permissions = await getTeamPermissionsForUser(payload, teamId, workspaceId, userId)
+    if (!permissions.canManageMembers) return err('Not authorized')
+
+    const trimmed = name.trim()
+    if (!trimmed) return err('Name is required')
+
+    const { totalDocs: dupeCount } = await payload.find({
+      collection: 'teams',
+      where: {
+        and: [
+          { workspace: { equals: workspaceId } },
+          { name: { equals: trimmed } },
+          { id: { not_equals: teamId } },
+        ],
+      },
+      limit: 0,
+    })
+    if (dupeCount > 0) return err('A team with this name already exists')
+
+    const updated = await payload.update({ collection: 'teams', id: teamId, data: { name: trimmed } })
+
+    revalidatePath('/')
+    return ok({ id: updated.id, name: updated.name })
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Error renaming team'
+    return err(message)
+  }
+}
+
+export const deleteTeam = async (teamId: number) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+    const workspaceId = await getActiveWorkspaceId()
+    if (!workspaceId) return err('No active workspace')
+
+    const payload = await getPayload({ config })
+    const team = await payload.findByID({ collection: 'teams', id: teamId }).catch(() => null)
+    if (!team || team.workspace !== workspaceId) return err('Team not found')
+
+    const permissions = await getTeamPermissionsForUser(payload, teamId, workspaceId, userId)
+    if (!permissions.canManageMembers) return err('Not authorized')
+
+    // Lists/calendar categories created via this team survive — they just
+    // stop being team-scoped, matching what the FK's ON DELETE SET NULL
+    // would do if Payload cascaded relationship deletes (it doesn't).
+    await payload.update({
+      collection: 'lists',
+      where: { team: { equals: teamId } },
+      data: { team: null },
+    })
+    await payload.update({
+      collection: 'calendar-categories',
+      where: { team: { equals: teamId } },
+      data: { team: null },
+    })
+    await payload.delete({ collection: 'team-members', where: { team: { equals: teamId } } })
+    await payload.delete({ collection: 'team-roles', where: { team: { equals: teamId } } })
+    await payload.delete({ collection: 'teams', id: teamId })
+
+    revalidatePath('/')
+    return ok(true)
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Error deleting team'
     return err(message)
   }
 }

@@ -118,7 +118,16 @@ export interface EffectiveWorkspacePermissions {
   role: WorkspaceRole
   /** Name of the assigned custom role, if any — for display purposes. */
   customRoleName: string | null
-  canModifyContent: boolean
+  /** Rename the workspace, change its icon/color. */
+  canManageWorkspaceSettings: boolean
+  /** Invite/remove workspace members and change their role. */
+  canManageMembers: boolean
+  /** Create lists directly in the workspace (outside of any team). */
+  canManageLists: boolean
+  /** Create calendar events/categories directly in the workspace (outside of any team). */
+  canManageCalendar: boolean
+  /** Create teams in this workspace. */
+  canManageTeams: boolean
   canPermanentlyDeleteTasks: boolean
   canDeleteCalendarCategories: boolean
 }
@@ -135,10 +144,18 @@ export async function getEffectiveWorkspacePermissions(
   userId: string,
 ): Promise<EffectiveWorkspacePermissions> {
   const role = await getWorkspaceRoleForUser(workspaceId, userId)
+  // Owner/admin (or Personal, where there's no restriction at all) get every
+  // permission by default — a custom role can only ever narrow that down
+  // for admin-tier folks, or grant extra to a plain member-tier one.
+  const isAdminTier = role === 'owner' || role === 'admin' || role === null
   const base: EffectiveWorkspacePermissions = {
     role,
     customRoleName: null,
-    canModifyContent: canModifyWorkspaceContent(role),
+    canManageWorkspaceSettings: isAdminTier,
+    canManageMembers: isAdminTier,
+    canManageLists: canModifyWorkspaceContent(role),
+    canManageCalendar: canModifyWorkspaceContent(role),
+    canManageTeams: isAdminTier,
     canPermanentlyDeleteTasks: canPermanentlyDeleteTask(role),
     canDeleteCalendarCategories: canDeleteCalendarCategory(role),
   }
@@ -147,7 +164,11 @@ export async function getEffectiveWorkspacePermissions(
   const result = await pool.query(
     `SELECT
        cr.name,
-       cr.can_modify_content AS "canModifyContent",
+       cr.can_manage_workspace_settings AS "canManageWorkspaceSettings",
+       cr.can_manage_members AS "canManageMembers",
+       cr.can_manage_lists AS "canManageLists",
+       cr.can_manage_calendar AS "canManageCalendar",
+       cr.can_manage_teams AS "canManageTeams",
        cr.can_permanently_delete_tasks AS "canPermanentlyDeleteTasks",
        cr.can_delete_calendar_categories AS "canDeleteCalendarCategories"
      FROM member m
@@ -161,7 +182,11 @@ export async function getEffectiveWorkspacePermissions(
   return {
     role,
     customRoleName: row.name,
-    canModifyContent: row.canModifyContent,
+    canManageWorkspaceSettings: row.canManageWorkspaceSettings,
+    canManageMembers: row.canManageMembers,
+    canManageLists: row.canManageLists,
+    canManageCalendar: row.canManageCalendar,
+    canManageTeams: row.canManageTeams,
     canPermanentlyDeleteTasks: row.canPermanentlyDeleteTasks,
     canDeleteCalendarCategories: row.canDeleteCalendarCategories,
   }

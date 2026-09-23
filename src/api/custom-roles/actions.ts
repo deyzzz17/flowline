@@ -21,22 +21,38 @@ const getActiveWorkspaceId = async () => {
   return session?.session.activeOrganizationId ?? null
 }
 
-export type CustomRoleBaseTier = 'admin' | 'member'
-
 export interface CustomRoleInput {
   name: string
-  baseTier: CustomRoleBaseTier
-  canModifyContent: boolean
+  canManageWorkspaceSettings: boolean
+  canManageMembers: boolean
+  canManageLists: boolean
+  canManageCalendar: boolean
+  canManageTeams: boolean
   canPermanentlyDeleteTasks: boolean
   canDeleteCalendarCategories: boolean
+}
+
+// Better Auth only understands "admin" or "member" for its own native
+// endpoints (invitations, member removal/role changes, renaming the
+// workspace) — a role needs that admin tier the moment it grants either of
+// the two permissions that route through those endpoints. Every other
+// checkbox is enforced by this app on top of whatever Better Auth allows.
+export function deriveBetterAuthRole(input: {
+  canManageMembers: boolean
+  canManageWorkspaceSettings: boolean
+}): 'admin' | 'member' {
+  return input.canManageMembers || input.canManageWorkspaceSettings ? 'admin' : 'member'
 }
 
 function toDoc(d: CustomRole) {
   return {
     id: d.id,
     name: d.name,
-    baseTier: d.baseTier,
-    canModifyContent: !!d.canModifyContent,
+    canManageWorkspaceSettings: !!d.canManageWorkspaceSettings,
+    canManageMembers: !!d.canManageMembers,
+    canManageLists: !!d.canManageLists,
+    canManageCalendar: !!d.canManageCalendar,
+    canManageTeams: !!d.canManageTeams,
     canPermanentlyDeleteTasks: !!d.canPermanentlyDeleteTasks,
     canDeleteCalendarCategories: !!d.canDeleteCalendarCategories,
   }
@@ -92,8 +108,11 @@ export const createCustomRole = async (input: CustomRoleInput) => {
       data: {
         workspace: workspaceId,
         name,
-        baseTier: input.baseTier,
-        canModifyContent: input.canModifyContent,
+        canManageWorkspaceSettings: input.canManageWorkspaceSettings,
+        canManageMembers: input.canManageMembers,
+        canManageLists: input.canManageLists,
+        canManageCalendar: input.canManageCalendar,
+        canManageTeams: input.canManageTeams,
         canPermanentlyDeleteTasks: input.canPermanentlyDeleteTasks,
         canDeleteCalendarCategories: input.canDeleteCalendarCategories,
       },
@@ -140,18 +159,20 @@ export const updateCustomRole = async (id: number, input: CustomRoleInput) => {
       id,
       data: {
         name,
-        baseTier: input.baseTier,
-        canModifyContent: input.canModifyContent,
+        canManageWorkspaceSettings: input.canManageWorkspaceSettings,
+        canManageMembers: input.canManageMembers,
+        canManageLists: input.canManageLists,
+        canManageCalendar: input.canManageCalendar,
+        canManageTeams: input.canManageTeams,
         canPermanentlyDeleteTasks: input.canPermanentlyDeleteTasks,
         canDeleteCalendarCategories: input.canDeleteCalendarCategories,
       },
     })
 
     // Members currently on this role need their Better Auth `role` mirror
-    // updated too if the base tier changed — that's the value Better Auth's
-    // own invite/remove/role-change endpoints actually check.
+    // re-derived too, in case a checkbox that governs it changed.
     await pool.query(`UPDATE member SET role = $1 WHERE "customRoleId" = $2`, [
-      input.baseTier,
+      deriveBetterAuthRole(input),
       String(id),
     ])
 
@@ -175,7 +196,7 @@ export const deleteCustomRole = async (id: number) => {
     const existing = await payload.findByID({ collection: 'custom-roles', id }).catch(() => null)
     if (!existing || existing.workspace !== workspaceId) return err('Role not found')
 
-    // Anyone still assigned this role falls back to its plain base tier —
+    // Anyone still assigned this role falls back to a plain base role —
     // `role` on their member row was already kept in sync, so only the
     // pointer back to this (now-deleted) role needs clearing.
     await pool.query(`UPDATE member SET "customRoleId" = NULL WHERE "customRoleId" = $1`, [

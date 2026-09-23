@@ -2,12 +2,16 @@ import type { CollectionConfig } from 'payload'
 
 // A workspace-scoped, user-defined role layered on top of Better Auth's own
 // owner/admin/member/viewer roles (which are code-defined and can't be
-// extended dynamically). A custom role always maps to one of Better Auth's
-// two invitable base tiers (admin or member/"Editor") for anything Better
-// Auth itself enforces natively (invitations, member removal, role
-// changes) — the three checkboxes here only refine the handful of
-// permissions this app enforces on its own (see workspace-permissions.ts /
-// getEffectiveWorkspacePermissions), on top of that base tier.
+// extended dynamically). There's no separate "base tier" picker anymore —
+// Better Auth only needs to know "admin" or "member" for its own native
+// endpoints (invitations, member removal/role changes, renaming the
+// workspace), and that's derived automatically: a role counts as
+// Better-Auth-admin the moment canManageMembers or
+// canManageWorkspaceSettings is checked (see
+// updateWorkspaceMemberRole/inviteWorkspaceMember). Every checkbox below is
+// still independently enforced by this app on top of that, so e.g. a role
+// can be Better-Auth-admin (to pass invite/remove) while still being denied
+// canManageLists by us.
 export const CustomRoles: CollectionConfig = {
   slug: 'custom-roles',
   admin: {
@@ -24,24 +28,36 @@ export const CustomRoles: CollectionConfig = {
     },
     { name: 'name', type: 'text', required: true },
     {
-      name: 'baseTier',
-      type: 'select',
-      required: true,
-      defaultValue: 'member',
-      options: [
-        { label: 'Admin', value: 'admin' },
-        { label: 'Editor', value: 'member' },
-      ],
+      name: 'canManageWorkspaceSettings',
+      type: 'checkbox',
+      defaultValue: false,
+      admin: { description: 'Rename the workspace, change its icon/color.' },
+    },
+    {
+      name: 'canManageMembers',
+      type: 'checkbox',
+      defaultValue: false,
+      admin: { description: 'Invite/remove workspace members and change their role.' },
+    },
+    {
+      name: 'canManageLists',
+      type: 'checkbox',
+      defaultValue: true,
+      admin: { description: 'Create lists directly in the workspace (outside of any team).' },
+    },
+    {
+      name: 'canManageCalendar',
+      type: 'checkbox',
+      defaultValue: true,
       admin: {
-        description:
-          'The underlying Better Auth role — governs invitations, member removal, and role changes, which Better Auth enforces itself and this app cannot override per-role.',
+        description: 'Create calendar events/categories directly in the workspace (outside of any team).',
       },
     },
     {
-      name: 'canModifyContent',
+      name: 'canManageTeams',
       type: 'checkbox',
-      defaultValue: true,
-      admin: { description: 'Create/edit lists, tasks, and calendar events — otherwise read-only.' },
+      defaultValue: false,
+      admin: { description: 'Create teams in this workspace.' },
     },
     {
       name: 'canPermanentlyDeleteTasks',

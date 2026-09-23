@@ -248,7 +248,7 @@ export const createTask = async (task: CreateTaskInput) => {
       taskWorkspace = await getCurrentWorkspaceId()
 
       const permissions = await getEffectiveWorkspacePermissions(taskWorkspace, userId)
-      if (!permissions.canModifyContent) return err('Not authorized')
+      if (!permissions.canManageLists) return err('Not authorized')
     }
 
     if (task.listId) {

@@ -796,13 +796,25 @@ export interface CustomRole {
   workspace: string;
   name: string;
   /**
-   * The underlying Better Auth role — governs invitations, member removal, and role changes, which Better Auth enforces itself and this app cannot override per-role.
+   * Rename the workspace, change its icon/color.
    */
-  baseTier: 'admin' | 'member';
+  canManageWorkspaceSettings?: boolean | null;
   /**
-   * Create/edit lists, tasks, and calendar events — otherwise read-only.
+   * Invite/remove workspace members and change their role.
    */
-  canModifyContent?: boolean | null;
+  canManageMembers?: boolean | null;
+  /**
+   * Create lists directly in the workspace (outside of any team).
+   */
+  canManageLists?: boolean | null;
+  /**
+   * Create calendar events/categories directly in the workspace (outside of any team).
+   */
+  canManageCalendar?: boolean | null;
+  /**
+   * Create teams in this workspace.
+   */
+  canManageTeams?: boolean | null;
   /**
    * Permanently delete tasks from the trash.
    */
@@ -1396,8 +1408,11 @@ export interface WorkspaceArchiveSelect<T extends boolean = true> {
 export interface CustomRolesSelect<T extends boolean = true> {
   workspace?: T;
   name?: T;
-  baseTier?: T;
-  canModifyContent?: T;
+  canManageWorkspaceSettings?: T;
+  canManageMembers?: T;
+  canManageLists?: T;
+  canManageCalendar?: T;
+  canManageTeams?: T;
   canPermanentlyDeleteTasks?: T;
   canDeleteCalendarCategories?: T;
   updatedAt?: T;
