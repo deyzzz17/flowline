@@ -9,6 +9,7 @@ import { pool } from '@/lib/db-pool'
 import { ok, err } from '@/types/result'
 import { getSession } from '@/lib/get-session'
 import { getWorkspaceRoleForUser } from '@/lib/get-current-workspace'
+import { deriveBetterAuthRole } from '@/lib/derive-better-auth-role'
 import type { CustomRole } from '@/payload-types'
 
 const getUserId = async () => {
@@ -30,18 +31,6 @@ export interface CustomRoleInput {
   canManageTeams: boolean
   canPermanentlyDeleteTasks: boolean
   canDeleteCalendarCategories: boolean
-}
-
-// Better Auth only understands "admin" or "member" for its own native
-// endpoints (invitations, member removal/role changes, renaming the
-// workspace) — a role needs that admin tier the moment it grants either of
-// the two permissions that route through those endpoints. Every other
-// checkbox is enforced by this app on top of whatever Better Auth allows.
-export function deriveBetterAuthRole(input: {
-  canManageMembers: boolean
-  canManageWorkspaceSettings: boolean
-}): 'admin' | 'member' {
-  return input.canManageMembers || input.canManageWorkspaceSettings ? 'admin' : 'member'
 }
 
 function toDoc(d: CustomRole) {

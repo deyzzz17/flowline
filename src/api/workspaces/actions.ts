@@ -19,7 +19,7 @@ import {
 } from '@/lib/get-current-workspace'
 import { findUserByEmail, findUsersByIds, type ContactProfile } from '@/api/contacts/actions'
 import { deleteCommentsForTaskIds } from '@/api/task-comments/actions'
-import { deriveBetterAuthRole } from '@/api/custom-roles/actions'
+import { deriveBetterAuthRole } from '@/lib/derive-better-auth-role'
 import type { WorkspaceRole } from '@/lib/workspace-permissions'
 
 // Better Auth's org plugin ships owner (auto-assigned to the creator, not
