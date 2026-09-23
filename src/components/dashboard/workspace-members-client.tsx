@@ -259,7 +259,10 @@ export function WorkspaceMembersClient() {
   const filteredMembers = roleFilter === 'all' ? members : members.filter((m) => m.role === roleFilter)
 
   const { customRoles } = useCustomRoles()
+  type CustomRoleDoc = (typeof customRoles)[number]
   const [expandedRoleId, setExpandedRoleId] = useState<number | null>(null)
+  const [editingRoleId, setEditingRoleId] = useState<number | null>(null)
+  const [roleNameDraft, setRoleNameDraft] = useState('')
   const [newRoleName, setNewRoleName] = useState('')
   const invalidateRoles = () => queryClient.invalidateQueries({ queryKey: CUSTOM_ROLES_QUERY_KEY })
 
@@ -289,14 +292,29 @@ export function WorkspaceMembersClient() {
   const updateRoleMutation = useMutation({
     mutationFn: ({ id, input }: { id: number; input: CustomRoleInput }) =>
       api.customRoles.update(id, input),
-    onSuccess: (result) => {
+    // Applied to the cache immediately so checkboxes flip the instant you
+    // click them, instead of waiting on the round trip — rolled back if the
+    // request actually fails.
+    onMutate: async ({ id, input }) => {
+      await queryClient.cancelQueries({ queryKey: CUSTOM_ROLES_QUERY_KEY })
+      const previous = queryClient.getQueryData<CustomRoleDoc[]>(CUSTOM_ROLES_QUERY_KEY)
+      queryClient.setQueryData<CustomRoleDoc[]>(CUSTOM_ROLES_QUERY_KEY, (old) =>
+        old?.map((r) => (r.id === id ? { ...r, ...input } : r)),
+      )
+      return { previous }
+    },
+    onSuccess: (result, { id }) => {
       if (!result.ok) {
         toast.error(result.error || 'Error updating role')
         return
       }
-      invalidateRoles()
+      if (editingRoleId === id) setEditingRoleId(null)
     },
-    onError: () => toast.error('Error updating role'),
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(CUSTOM_ROLES_QUERY_KEY, context.previous)
+      toast.error('Error updating role')
+    },
+    onSettled: () => invalidateRoles(),
   })
 
   const deleteRoleMutation = useMutation({
@@ -312,6 +330,21 @@ export function WorkspaceMembersClient() {
     },
     onError: () => toast.error('Error deleting role'),
   })
+
+  const startEditingRole = (role: CustomRoleDoc) => {
+    setEditingRoleId(role.id)
+    setRoleNameDraft(role.name)
+    setExpandedRoleId(role.id)
+  }
+
+  const saveRoleName = (role: CustomRoleDoc) => {
+    const name = roleNameDraft.trim()
+    if (!name || name === role.name) {
+      setEditingRoleId(null)
+      return
+    }
+    updateRoleMutation.mutate({ id: role.id, input: { ...role, name } })
+  }
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [nicknameDraft, setNicknameDraft] = useState('')
@@ -446,6 +479,7 @@ export function WorkspaceMembersClient() {
             ) : (
               customRoles.map((role) => {
                 const isExpanded = expandedRoleId === role.id
+                const isEditingName = editingRoleId === role.id
                 return (
                   <div
                     key={role.id}
@@ -464,37 +498,77 @@ export function WorkspaceMembersClient() {
                           )}
                         />
                       </button>
-                      <span className="flex-1 truncate text-sm font-medium text-foreground">
-                        {role.name}
-                      </span>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
+                      {isEditingName ? (
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault()
+                            saveRoleName(role)
+                          }}
+                          className="flex flex-1 items-center gap-1.5"
+                        >
+                          <Input
+                            autoFocus
+                            value={roleNameDraft}
+                            onChange={(e) => setRoleNameDraft(e.target.value)}
+                            className="h-7 flex-1 text-sm"
+                          />
+                          <button
+                            type="submit"
+                            disabled={!roleNameDraft.trim()}
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-violet-600 transition-colors hover:bg-violet-500/10 disabled:opacity-50"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </button>
                           <button
                             type="button"
-                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() => setEditingRoleId(null)}
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-muted"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <X className="h-3.5 w-3.5" />
                           </button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete this role?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Members using <strong>{role.name}</strong> will fall back to a plain
-                              Editor role.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => deleteRoleMutation.mutate(role.id)}
-                              variant="destructive"
-                            >
-                              Delete role
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                        </form>
+                      ) : (
+                        <>
+                          <span className="flex-1 truncate text-sm font-medium text-foreground">
+                            {role.name}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => startEditingRole(role)}
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <button
+                                type="button"
+                                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete this role?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Members using <strong>{role.name}</strong> will fall back to a
+                                  plain Editor role.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => deleteRoleMutation.mutate(role.id)}
+                                  variant="destructive"
+                                >
+                                  Delete role
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </>
+                      )}
                     </div>
                     {isExpanded && (
                       <div className="border-t border-border/30 bg-muted/20 px-4 py-3">
