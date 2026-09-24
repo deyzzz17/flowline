@@ -17,7 +17,7 @@ interface WorkspaceRolePermissionsFieldsProps {
   onChange: (value: WorkspaceRolePermissionsValue) => void
 }
 
-const FIELDS: {
+export const WORKSPACE_ROLE_PERMISSION_FIELDS: {
   key: keyof WorkspaceRolePermissionsValue
   label: string
   description: string
@@ -65,7 +65,7 @@ export function WorkspaceRolePermissionsFields({
 }: WorkspaceRolePermissionsFieldsProps) {
   return (
     <div className="space-y-2">
-      {FIELDS.map((field) => (
+      {WORKSPACE_ROLE_PERMISSION_FIELDS.map((field) => (
         <label key={field.key} className="flex items-start gap-2.5 cursor-pointer">
           <Checkbox
             checked={value[field.key]}

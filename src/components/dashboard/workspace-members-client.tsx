@@ -47,7 +47,10 @@ import { LIMIT_ERRORS, SAFETY_CAP_ERRORS, type LimitError, type SafetyCapError }
 import { PlanLimitDialog } from '@/components/ui/plan-limit-dialog'
 import { SafetyCapDialog } from '@/components/ui/safety-cap-dialog'
 import { useCustomRoles, CUSTOM_ROLES_QUERY_KEY } from '@/hooks/workspace/use-custom-roles'
-import { WorkspaceRolePermissionsFields } from './workspace-role-permissions-fields'
+import {
+  WorkspaceRolePermissionsFields,
+  WORKSPACE_ROLE_PERMISSION_FIELDS,
+} from './workspace-role-permissions-fields'
 import type { CustomRoleInput } from '@/api/custom-roles/actions'
 
 function getInitials(name?: string | null): string {
@@ -467,7 +470,7 @@ export function WorkspaceMembersClient() {
               <p className="text-sm font-medium text-foreground">Roles</p>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Tap a role to see and change what it&apos;s allowed to do.
+              Tap a role to see what it&apos;s allowed to do — use the pencil to change it.
             </p>
           </div>
 
@@ -572,15 +575,40 @@ export function WorkspaceMembersClient() {
                     </div>
                     {isExpanded && (
                       <div className="border-t border-border/30 bg-muted/20 px-4 py-3">
-                        <WorkspaceRolePermissionsFields
-                          value={role}
-                          onChange={(next) =>
-                            updateRoleMutation.mutate({
-                              id: role.id,
-                              input: { name: role.name, ...next },
-                            })
-                          }
-                        />
+                        {isEditingName ? (
+                          <WorkspaceRolePermissionsFields
+                            value={role}
+                            onChange={(next) =>
+                              updateRoleMutation.mutate({
+                                id: role.id,
+                                input: { name: role.name, ...next },
+                              })
+                            }
+                          />
+                        ) : (
+                          (() => {
+                            const allowed = WORKSPACE_ROLE_PERMISSION_FIELDS.filter(
+                              (field) => role[field.key],
+                            )
+                            return allowed.length === 0 ? (
+                              <p className="text-xs text-muted-foreground/60">
+                                No permissions granted.
+                              </p>
+                            ) : (
+                              <ul className="space-y-1.5">
+                                {allowed.map((field) => (
+                                  <li
+                                    key={field.key}
+                                    className="flex items-center gap-2 text-xs text-foreground"
+                                  >
+                                    <Check className="h-3 w-3 shrink-0 text-violet-500" />
+                                    {field.label}
+                                  </li>
+                                ))}
+                              </ul>
+                            )
+                          })()
+                        )}
                       </div>
                     )}
                   </div>
