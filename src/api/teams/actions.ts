@@ -54,6 +54,8 @@ export interface TeamSummary {
   id: number
   name: string
   memberCount: number
+  canManageTeamSettings: boolean
+  canManageMembers: boolean
 }
 
 export const listTeams = async (): Promise<TeamSummary[]> => {
@@ -72,13 +74,22 @@ export const listTeams = async (): Promise<TeamSummary[]> => {
     limit: 0,
   })
 
-  const counts = await Promise.all(
-    docs.map((t) =>
-      payload.count({ collection: 'team-members', where: { team: { equals: t.id } } }),
+  const [counts, permissions] = await Promise.all([
+    Promise.all(
+      docs.map((t) =>
+        payload.count({ collection: 'team-members', where: { team: { equals: t.id } } }),
+      ),
     ),
-  )
+    Promise.all(docs.map((t) => getTeamPermissionsForUser(payload, t.id, workspaceId, userId))),
+  ])
 
-  return docs.map((t, i) => ({ id: t.id, name: t.name, memberCount: counts[i].totalDocs }))
+  return docs.map((t, i) => ({
+    id: t.id,
+    name: t.name,
+    memberCount: counts[i].totalDocs,
+    canManageTeamSettings: permissions[i].canManageTeamSettings,
+    canManageMembers: permissions[i].canManageMembers,
+  }))
 }
 
 export interface TeamPermissions {

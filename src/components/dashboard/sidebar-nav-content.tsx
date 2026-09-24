@@ -17,11 +17,15 @@ import {
   UsersRound,
   UserPlus,
   Zap,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { api } from '@/api'
 import { useSidebarFooter } from '@/hooks/sidebar/use-sidebar-footer'
 import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
@@ -41,8 +45,25 @@ import { SidebarNewsletter } from './sidebar-newsletter'
 import { FeedbackDialog } from '../support/feedback-dialog'
 import { WorkspaceSwitcher, useActiveWorkspace, type WorkspacesData } from './workspace-switcher'
 import { CalendarNavSection } from './calendar-nav-section'
-import { useTeams } from '@/hooks/teams/use-teams'
+import { useTeams, TEAMS_QUERY_KEY } from '@/hooks/teams/use-teams'
 import { CreateTeamDialog } from './create-team-dialog'
+import { EditTeamDialog } from './edit-team-dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 function getListUrgency(tasks: Task[]): 'red' | 'orange' | null {
   const now = Date.now()
@@ -101,7 +122,9 @@ interface SidebarNavContentProps {
 }
 
 export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavContentProps) {
+  const router = useRouter()
   const pathname = usePathname()
+  const queryClient = useQueryClient()
   const { feedbackOpen, setFeedbackOpen } = useSidebarFooter()
   const planLimits = usePlanLimits()
   const sharedLists = useSharedLists()
@@ -111,10 +134,29 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
   const [listsOpen, setListsOpen] = useState(false)
   const [teamsOpen, setTeamsOpen] = useState(false)
   const [createTeamOpen, setCreateTeamOpen] = useState(false)
+  const [editTeamTarget, setEditTeamTarget] = useState<{ id: number; name: string } | null>(null)
+  const [deleteTeamTarget, setDeleteTeamTarget] = useState<{ id: number; name: string } | null>(
+    null,
+  )
   const [habitsOpen, setHabitsOpen] = useState(false)
   const [timerOpen, setTimerOpen] = useState(false)
   const [limitDialog, setLimitDialog] = useState<LimitError | null>(null)
   const [capDialog, setCapDialog] = useState<SafetyCapError | null>(null)
+
+  const deleteTeamMutation = useMutation({
+    mutationFn: (id: number) => api.teams.delete(id),
+    onSuccess: (result, id) => {
+      if (!result.ok) {
+        toast.error(result.error || 'Error deleting team')
+        return
+      }
+      toast.info('Team deleted')
+      queryClient.invalidateQueries({ queryKey: TEAMS_QUERY_KEY })
+      setDeleteTeamTarget(null)
+      if (pathname === `/teams/${id}`) router.push('/teams')
+    },
+    onError: () => toast.error('Error deleting team'),
+  })
 
   // Inside a workspace, other members can add/remove lists at any time — poll
   // at the same cadence as the rest of the app's shared/collaborative data
@@ -185,6 +227,43 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
         capError={capDialog}
       />
       <CreateTeamDialog open={createTeamOpen} onOpenChange={setCreateTeamOpen} />
+      {editTeamTarget && (
+        <EditTeamDialog
+          teamId={editTeamTarget.id}
+          teamName={editTeamTarget.name}
+          open={!!editTeamTarget}
+          onOpenChange={(v) => {
+            if (!v) setEditTeamTarget(null)
+          }}
+        />
+      )}
+      <AlertDialog
+        open={!!deleteTeamTarget}
+        onOpenChange={(v) => {
+          if (!v) setDeleteTeamTarget(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this team?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{deleteTeamTarget?.name}</strong> and its members/roles will be permanently
+              deleted. Lists and calendar categories created through it are kept, just no longer
+              tied to a team. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteTeamTarget && deleteTeamMutation.mutate(deleteTeamTarget.id)}
+              variant="destructive"
+              disabled={deleteTeamMutation.isPending}
+            >
+              Delete team
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="flex flex-1 flex-col h-full overflow-hidden">
         <nav className="flex-1 overflow-y-auto min-h-0 p-3 space-y-1 sidebar-scroll">
@@ -550,23 +629,66 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
                 </button>
                 {teamsOpen && (
                   <div className="mt-0.5 ml-3 space-y-0.5 border-l border-border/50 pl-3">
-                    {teams.map((team) => (
-                      <Link
-                        key={team.id}
-                        {...navLink(`/teams/${team.id}`)}
-                        className={cn(
-                          'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
-                          isActive(`/teams/${team.id}`)
-                            ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                            : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                        )}
-                      >
-                        <span className="flex-1 truncate">{team.name}</span>
-                        <span className="text-[10px] text-muted-foreground/50">
-                          {team.memberCount}
-                        </span>
-                      </Link>
-                    ))}
+                    {teams.map((team) => {
+                      const canEditTeam = team.canManageTeamSettings || team.canManageMembers
+                      return (
+                        <div
+                          key={team.id}
+                          className={cn(
+                            'group/team flex items-center gap-1 rounded-xl transition-all',
+                            isActive(`/teams/${team.id}`)
+                              ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                              : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                          )}
+                        >
+                          <Link
+                            {...navLink(`/teams/${team.id}`)}
+                            className="flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2 text-sm font-medium"
+                          >
+                            <span className="flex-1 truncate">{team.name}</span>
+                            {!canEditTeam && (
+                              <span className="text-[10px] text-muted-foreground/50">
+                                {team.memberCount}
+                              </span>
+                            )}
+                          </Link>
+                          {canEditTeam && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/40 opacity-100 transition-all hover:bg-muted hover:text-foreground sm:opacity-0 sm:group-hover/team:opacity-100"
+                                >
+                                  <MoreHorizontal className="h-3.5 w-3.5" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" side="right" className="w-36">
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    setEditTeamTarget({ id: team.id, name: team.name })
+                                  }
+                                  className="gap-2 text-xs cursor-pointer"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                  Edit
+                                </DropdownMenuItem>
+                                {team.canManageTeamSettings && (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      setDeleteTeamTarget({ id: team.id, name: team.name })
+                                    }
+                                    className="gap-2 text-xs cursor-pointer text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
+                      )
+                    })}
                     <button
                       type="button"
                       onClick={() => {
