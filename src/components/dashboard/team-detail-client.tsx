@@ -44,8 +44,12 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { SHARED_LIST_POLL_INTERVAL_MS } from '@/lib/realtime'
-import { TeamRolePermissionsFields } from './team-role-permissions-fields'
-import type { TeamOverview, TeamRoleInput } from '@/api/teams/actions'
+import {
+  TeamRolePermissionsFields,
+  TEAM_ROLE_PERMISSION_FIELDS,
+  type TeamRolePermissionsValue,
+} from './team-role-permissions-fields'
+import type { TeamOverview, TeamRoleInput, TeamRole } from '@/api/teams/actions'
 
 function getInitials(name?: string | null): string {
   if (!name) return '?'
@@ -808,14 +812,32 @@ function MembersTab({
   const updateTeamRoleMutation = useMutation({
     mutationFn: ({ roleId, input }: { roleId: number; input: TeamRoleInput }) =>
       api.teams.updateRole(teamId, roleId, input),
-    onSuccess: (result) => {
+    // Applied to the cache immediately so the save feels instant, rolled
+    // back if the request actually fails.
+    onMutate: async ({ roleId, input }) => {
+      await queryClient.cancelQueries({ queryKey: rolesKey })
+      const previous = queryClient.getQueryData<TeamRole[]>(rolesKey)
+      queryClient.setQueryData<TeamRole[]>(rolesKey, (old) =>
+        old?.map((r) => (r.id === roleId ? { ...r, ...input } : r)),
+      )
+      return { previous }
+    },
+    onSuccess: (result, { roleId }) => {
       if (!result.ok) {
         toast.error(result.error || 'Error updating role')
         return
       }
-      invalidateRoles()
+      if (editingRoleId === roleId) {
+        setEditingRoleId(null)
+        setPermissionsDraft(null)
+      }
       onChanged()
     },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(rolesKey, context.previous)
+      toast.error('Error updating role')
+    },
+    onSettled: () => invalidateRoles(),
   })
 
   const deleteTeamRoleMutation = useMutation({
@@ -831,6 +853,33 @@ function MembersTab({
   })
 
   const [expandedRoleId, setExpandedRoleId] = useState<number | null>(null)
+  const [editingRoleId, setEditingRoleId] = useState<number | null>(null)
+  const [roleNameDraft, setRoleNameDraft] = useState('')
+  const [permissionsDraft, setPermissionsDraft] = useState<TeamRolePermissionsValue | null>(null)
+
+  const startEditingRole = (role: TeamRole) => {
+    setEditingRoleId(role.id)
+    setRoleNameDraft(role.name)
+    setPermissionsDraft({
+      canManageLists: role.canManageLists,
+      canManageCalendar: role.canManageCalendar,
+      canManageMembers: role.canManageMembers,
+      canManageTeamSettings: role.canManageTeamSettings,
+    })
+    setExpandedRoleId(role.id)
+  }
+
+  const cancelEditingRole = () => {
+    setEditingRoleId(null)
+    setPermissionsDraft(null)
+  }
+
+  const saveRole = (role: TeamRole) => {
+    const name = roleNameDraft.trim()
+    if (!name) return
+    const permissions = permissionsDraft ?? role
+    updateTeamRoleMutation.mutate({ roleId: role.id, input: { name, ...permissions } })
+  }
 
   return (
     <div className="space-y-8">
@@ -838,7 +887,7 @@ function MembersTab({
         <div>
           <h2 className="text-lg font-semibold tracking-tight text-foreground">Roles</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Tap a role to see and change what it&apos;s allowed to do.
+            Tap a role to see what it&apos;s allowed to do — use the pencil to change it.
           </p>
         </div>
 
@@ -848,6 +897,7 @@ function MembersTab({
           ) : (
             roles.map((role) => {
               const isExpanded = expandedRoleId === role.id
+              const isEditingName = editingRoleId === role.id
               return (
                 <div key={role.id} className="rounded-2xl bg-card shadow-sm overflow-hidden">
                   <div className="flex items-center gap-1.5 px-3 py-2.5">
@@ -863,57 +913,116 @@ function MembersTab({
                         )}
                       />
                     </button>
-                    <span className="flex-1 truncate text-sm font-medium text-foreground">
-                      {role.name}
-                    </span>
-                    {canManage && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
+                    {isEditingName ? (
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault()
+                          saveRole(role)
+                        }}
+                        className="flex flex-1 items-center gap-1.5"
+                      >
+                        <Input
+                          autoFocus
+                          value={roleNameDraft}
+                          onChange={(e) => setRoleNameDraft(e.target.value)}
+                          className="h-7 flex-1 text-sm"
+                        />
+                        <button
+                          type="submit"
+                          disabled={!roleNameDraft.trim() || updateTeamRoleMutation.isPending}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-violet-600 transition-colors hover:bg-violet-500/10 disabled:opacity-50"
+                        >
+                          {updateTeamRoleMutation.isPending ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Check className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelEditingRole}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-muted"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </form>
+                    ) : (
+                      <>
+                        <span className="flex-1 truncate text-sm font-medium text-foreground">
+                          {role.name}
+                        </span>
+                        {canManage && (
                           <button
                             type="button"
-                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() => startEditingRole(role)}
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Pencil className="h-3.5 w-3.5" />
                           </button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete this role?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Members using <strong>{role.name}</strong> must be reassigned to
-                              another role first.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => deleteTeamRoleMutation.mutate(role.id)}
-                              variant="destructive"
-                            >
-                              Delete role
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                        )}
+                        {canManage && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <button
+                                type="button"
+                                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete this role?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Members using <strong>{role.name}</strong> must be reassigned to
+                                  another role first.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => deleteTeamRoleMutation.mutate(role.id)}
+                                  variant="destructive"
+                                >
+                                  Delete role
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </>
                     )}
                   </div>
                   {isExpanded && (
                     <div className="border-t border-border/30 bg-muted/20 px-4 py-3">
-                      <fieldset disabled={!canManage} className="group-has-disabled/field:opacity-50">
+                      {isEditingName ? (
                         <TeamRolePermissionsFields
-                          value={role}
-                          onChange={(next) =>
-                            updateTeamRoleMutation.mutate({
-                              roleId: role.id,
-                              input: { name: role.name, ...next },
-                            })
-                          }
+                          value={permissionsDraft ?? role}
+                          onChange={setPermissionsDraft}
                         />
-                      </fieldset>
-                      {!canManage && (
-                        <p className="mt-2 text-[11px] text-muted-foreground/60">
-                          You don&apos;t have permission to change this.
-                        </p>
+                      ) : (
+                        (() => {
+                          const allowed = TEAM_ROLE_PERMISSION_FIELDS.filter(
+                            (field) => role[field.key],
+                          )
+                          return allowed.length === 0 ? (
+                            <p className="text-xs text-muted-foreground/60">
+                              No permissions granted.
+                            </p>
+                          ) : (
+                            <ul className="space-y-1.5">
+                              {allowed.map((field) => (
+                                <li
+                                  key={field.key}
+                                  className="flex items-center gap-2 text-xs text-foreground"
+                                >
+                                  <Check className="h-3 w-3 shrink-0 text-violet-500" />
+                                  {field.label}
+                                </li>
+                              ))}
+                            </ul>
+                          )
+                        })()
                       )}
                     </div>
                   )}

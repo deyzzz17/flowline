@@ -2,7 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query'
 import { getCurrentWorkspaceId } from '@/lib/get-current-workspace'
 import { requireAuth } from '@/lib/require-auth'
-import { getTeamOverview } from '@/api/teams/actions'
+import { getTeamOverview, listTeamRoles } from '@/api/teams/actions'
 import { TeamDetailClient } from '@/components/dashboard/team-detail-client'
 
 interface TeamPageProps {
@@ -23,10 +23,16 @@ export default async function TeamPage({ params }: TeamPageProps) {
   const overview = await getTeamOverview(teamId)
   if (!overview) notFound()
 
-  await queryClient.prefetchQuery({
-    queryKey: ['teams', teamId, 'overview'],
-    queryFn: () => Promise.resolve(overview),
-  })
+  await Promise.all([
+    queryClient.prefetchQuery({
+      queryKey: ['teams', teamId, 'overview'],
+      queryFn: () => Promise.resolve(overview),
+    }),
+    queryClient.prefetchQuery({
+      queryKey: ['teams', teamId, 'roles'],
+      queryFn: () => listTeamRoles(teamId),
+    }),
+  ])
 
   return (
     <div className="relative px-4 pb-16 sm:px-6 lg:px-10">
