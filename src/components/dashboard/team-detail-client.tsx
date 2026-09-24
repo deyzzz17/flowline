@@ -116,7 +116,7 @@ export function TeamDetailClient({ teamId, initialOverview }: TeamDetailClientPr
   })
 
   if (!overview) return null
-  const canManageTeam = overview.myPermissions.canManageMembers
+  const canManageTeam = overview.myPermissions.canManageTeamSettings
 
   return (
     <>
@@ -438,17 +438,19 @@ function ListsTab({
               : `${overview.lists.length} list${overview.lists.length !== 1 ? 's' : ''}.`}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setError(null)
-            setOpen(true)
-          }}
-          className="flex items-center gap-1.5 rounded-xl bg-violet-600 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-500"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          New list
-        </button>
+        {overview.myPermissions.canManageLists && (
+          <button
+            type="button"
+            onClick={() => {
+              setError(null)
+              setOpen(true)
+            }}
+            className="flex items-center gap-1.5 rounded-xl bg-violet-600 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-500"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            New list
+          </button>
+        )}
       </div>
 
       {overview.lists.length === 0 ? (
@@ -596,17 +598,19 @@ function CalendarTab({
               : `${overview.calendarCategories.length} categor${overview.calendarCategories.length !== 1 ? 'ies' : 'y'}.`}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setError(null)
-            setOpen(true)
-          }}
-          className="flex items-center gap-1.5 rounded-xl bg-violet-600 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-500"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          New category
-        </button>
+        {overview.myPermissions.canManageCalendar && (
+          <button
+            type="button"
+            onClick={() => {
+              setError(null)
+              setOpen(true)
+            }}
+            className="flex items-center gap-1.5 rounded-xl bg-violet-600 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-500"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            New category
+          </button>
+        )}
       </div>
 
       {overview.calendarCategories.length === 0 ? (
@@ -748,6 +752,7 @@ function MembersTab({
         canManageLists: true,
         canManageCalendar: true,
         canManageMembers: false,
+        canManageTeamSettings: false,
       }),
     onSuccess: (result) => {
       if (!result.ok) {

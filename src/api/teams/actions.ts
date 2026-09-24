@@ -85,17 +85,20 @@ export interface TeamPermissions {
   canManageLists: boolean
   canManageCalendar: boolean
   canManageMembers: boolean
+  canManageTeamSettings: boolean
 }
 
 const NO_PERMISSIONS: TeamPermissions = {
   canManageLists: false,
   canManageCalendar: false,
   canManageMembers: false,
+  canManageTeamSettings: false,
 }
 const ALL_PERMISSIONS: TeamPermissions = {
   canManageLists: true,
   canManageCalendar: true,
   canManageMembers: true,
+  canManageTeamSettings: true,
 }
 
 // The workspace owner/admin and the team's own creator can always do
@@ -129,6 +132,7 @@ export async function getTeamPermissionsForUser(
     canManageLists: !!role.canManageLists,
     canManageCalendar: !!role.canManageCalendar,
     canManageMembers: !!role.canManageMembers,
+    canManageTeamSettings: !!role.canManageTeamSettings,
   }
 }
 
@@ -145,6 +149,7 @@ export interface TeamRoleInput {
   canManageLists: boolean
   canManageCalendar: boolean
   canManageMembers: boolean
+  canManageTeamSettings: boolean
 }
 
 export interface CreateTeamMemberInput {
@@ -206,6 +211,7 @@ export const createTeam = async (input: CreateTeamInput) => {
           canManageLists: roleInput.canManageLists,
           canManageCalendar: roleInput.canManageCalendar,
           canManageMembers: roleInput.canManageMembers,
+          canManageTeamSettings: roleInput.canManageTeamSettings,
         },
       })
       roleIdByName.set(roleName, role.id)
@@ -326,6 +332,7 @@ export interface TeamRole {
   canManageLists: boolean
   canManageCalendar: boolean
   canManageMembers: boolean
+  canManageTeamSettings: boolean
 }
 
 export const listTeamRoles = async (teamId: number): Promise<TeamRole[]> => {
@@ -351,6 +358,7 @@ export const listTeamRoles = async (teamId: number): Promise<TeamRole[]> => {
     canManageLists: !!r.canManageLists,
     canManageCalendar: !!r.canManageCalendar,
     canManageMembers: !!r.canManageMembers,
+    canManageTeamSettings: !!r.canManageTeamSettings,
   }))
 }
 
@@ -383,6 +391,7 @@ export const createTeamRole = async (teamId: number, input: TeamRoleInput) => {
         canManageLists: input.canManageLists,
         canManageCalendar: input.canManageCalendar,
         canManageMembers: input.canManageMembers,
+        canManageTeamSettings: input.canManageTeamSettings,
       },
     })
 
@@ -393,6 +402,7 @@ export const createTeamRole = async (teamId: number, input: TeamRoleInput) => {
       canManageLists: !!role.canManageLists,
       canManageCalendar: !!role.canManageCalendar,
       canManageMembers: !!role.canManageMembers,
+      canManageTeamSettings: !!role.canManageTeamSettings,
     })
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Error creating role'
@@ -439,6 +449,7 @@ export const updateTeamRole = async (teamId: number, roleId: number, input: Team
         canManageLists: input.canManageLists,
         canManageCalendar: input.canManageCalendar,
         canManageMembers: input.canManageMembers,
+        canManageTeamSettings: input.canManageTeamSettings,
       },
     })
 
@@ -449,6 +460,7 @@ export const updateTeamRole = async (teamId: number, roleId: number, input: Team
       canManageLists: !!updated.canManageLists,
       canManageCalendar: !!updated.canManageCalendar,
       canManageMembers: !!updated.canManageMembers,
+      canManageTeamSettings: !!updated.canManageTeamSettings,
     })
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Error updating role'
@@ -497,7 +509,7 @@ export const renameTeam = async (teamId: number, name: string) => {
     if (!team || team.workspace !== workspaceId) return err('Team not found')
 
     const permissions = await getTeamPermissionsForUser(payload, teamId, workspaceId, userId)
-    if (!permissions.canManageMembers) return err('Not authorized')
+    if (!permissions.canManageTeamSettings) return err('Not authorized')
 
     const trimmed = name.trim()
     if (!trimmed) return err('Name is required')
@@ -537,7 +549,7 @@ export const deleteTeam = async (teamId: number) => {
     if (!team || team.workspace !== workspaceId) return err('Team not found')
 
     const permissions = await getTeamPermissionsForUser(payload, teamId, workspaceId, userId)
-    if (!permissions.canManageMembers) return err('Not authorized')
+    if (!permissions.canManageTeamSettings) return err('Not authorized')
 
     // Lists/calendar categories created via this team survive — they just
     // stop being team-scoped, matching what the FK's ON DELETE SET NULL

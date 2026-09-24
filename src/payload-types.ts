@@ -846,6 +846,10 @@ export interface TeamRole {
    * Add/remove team members, change their role, and create/delete team roles.
    */
   canManageMembers?: boolean | null;
+  /**
+   * Rename or delete the team itself.
+   */
+  canManageTeamSettings?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1440,6 +1444,7 @@ export interface TeamRolesSelect<T extends boolean = true> {
   canManageLists?: T;
   canManageCalendar?: T;
   canManageMembers?: T;
+  canManageTeamSettings?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -4,8 +4,8 @@ import type { CollectionConfig } from 'payload'
 // team, created either while setting up the team or later from its Members
 // tab. Unlike the workspace-level custom-roles collection (which is
 // bottlenecked by what Better Auth itself enforces), team permissions are
-// fully our own — these 3 checkboxes gate the team's own action surface
-// (its Lists tab, Calendar tab, and Members tab) directly.
+// fully our own — these checkboxes gate the team's own action surface (its
+// Lists tab, Calendar tab, and Members tab, plus the team itself) directly.
 export const TeamRoles: CollectionConfig = {
   slug: 'team-roles',
   admin: { useAsTitle: 'name' },
@@ -31,6 +31,12 @@ export const TeamRoles: CollectionConfig = {
       admin: {
         description: 'Add/remove team members, change their role, and create/delete team roles.',
       },
+    },
+    {
+      name: 'canManageTeamSettings',
+      type: 'checkbox',
+      defaultValue: false,
+      admin: { description: 'Rename or delete the team itself.' },
     },
   ],
   indexes: [{ fields: ['team', 'name'], unique: true }],

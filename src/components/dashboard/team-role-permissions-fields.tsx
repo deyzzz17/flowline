@@ -6,6 +6,7 @@ export interface TeamRolePermissionsValue {
   canManageLists: boolean
   canManageCalendar: boolean
   canManageMembers: boolean
+  canManageTeamSettings: boolean
 }
 
 interface TeamRolePermissionsFieldsProps {
@@ -52,6 +53,19 @@ export function TeamRolePermissionsFields({ value, onChange }: TeamRolePermissio
           <span className="font-medium text-foreground">Manage members</span>
           <span className="block text-[11px] text-muted-foreground/70">
             Add/remove members, change roles, and create/delete team roles.
+          </span>
+        </span>
+      </label>
+      <label className="flex items-start gap-2.5 cursor-pointer">
+        <Checkbox
+          checked={value.canManageTeamSettings}
+          onCheckedChange={(v) => onChange({ ...value, canManageTeamSettings: v === true })}
+          className="mt-0.5"
+        />
+        <span className="text-xs">
+          <span className="font-medium text-foreground">Manage team settings</span>
+          <span className="block text-[11px] text-muted-foreground/70">
+            Rename or delete the team itself.
           </span>
         </span>
       </label>

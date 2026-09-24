@@ -37,6 +37,7 @@ const DEFAULT_ROLE: TeamRoleInput = {
   canManageLists: true,
   canManageCalendar: true,
   canManageMembers: false,
+  canManageTeamSettings: false,
 }
 
 interface CreateTeamDialogProps {
@@ -91,7 +92,13 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
     if (!trimmed || roles.some((r) => r.name === trimmed)) return
     setRoles((prev) => [
       ...prev,
-      { name: trimmed, canManageLists: true, canManageCalendar: true, canManageMembers: false },
+      {
+        name: trimmed,
+        canManageLists: true,
+        canManageCalendar: true,
+        canManageMembers: false,
+        canManageTeamSettings: false,
+      },
     ])
     setNewRoleName('')
   }

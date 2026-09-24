@@ -55,6 +55,7 @@ import * as migration_20260921_170000_teams from './20260921_170000_teams';
 import * as migration_20260921_183000_team_role_permissions from './20260921_183000_team_role_permissions';
 import * as migration_20260923_120000_custom_roles_granular from './20260923_120000_custom_roles_granular';
 import * as migration_20260923_130000_lock_docs_rels_teams_custom_roles from './20260923_130000_lock_docs_rels_teams_custom_roles';
+import * as migration_20260924_090000_team_roles_team_settings from './20260924_090000_team_roles_team_settings';
 
 export const migrations = [
   {
@@ -341,5 +342,10 @@ export const migrations = [
     up: migration_20260923_130000_lock_docs_rels_teams_custom_roles.up,
     down: migration_20260923_130000_lock_docs_rels_teams_custom_roles.down,
     name: '20260923_130000_lock_docs_rels_teams_custom_roles'
+  },
+  {
+    up: migration_20260924_090000_team_roles_team_settings.up,
+    down: migration_20260924_090000_team_roles_team_settings.down,
+    name: '20260924_090000_team_roles_team_settings'
   },
 ];
