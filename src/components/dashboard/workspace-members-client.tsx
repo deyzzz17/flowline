@@ -50,6 +50,7 @@ import { useCustomRoles, CUSTOM_ROLES_QUERY_KEY } from '@/hooks/workspace/use-cu
 import {
   WorkspaceRolePermissionsFields,
   WORKSPACE_ROLE_PERMISSION_FIELDS,
+  type WorkspaceRolePermissionsValue,
 } from './workspace-role-permissions-fields'
 import type { CustomRoleInput } from '@/api/custom-roles/actions'
 
@@ -266,6 +267,9 @@ export function WorkspaceMembersClient() {
   const [expandedRoleId, setExpandedRoleId] = useState<number | null>(null)
   const [editingRoleId, setEditingRoleId] = useState<number | null>(null)
   const [roleNameDraft, setRoleNameDraft] = useState('')
+  const [permissionsDraft, setPermissionsDraft] = useState<WorkspaceRolePermissionsValue | null>(
+    null,
+  )
   const [newRoleName, setNewRoleName] = useState('')
   const invalidateRoles = () => queryClient.invalidateQueries({ queryKey: CUSTOM_ROLES_QUERY_KEY })
 
@@ -311,7 +315,10 @@ export function WorkspaceMembersClient() {
         toast.error(result.error || 'Error updating role')
         return
       }
-      if (editingRoleId === id) setEditingRoleId(null)
+      if (editingRoleId === id) {
+        setEditingRoleId(null)
+        setPermissionsDraft(null)
+      }
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(CUSTOM_ROLES_QUERY_KEY, context.previous)
@@ -337,16 +344,35 @@ export function WorkspaceMembersClient() {
   const startEditingRole = (role: CustomRoleDoc) => {
     setEditingRoleId(role.id)
     setRoleNameDraft(role.name)
+    setPermissionsDraft({
+      canManageWorkspaceSettings: role.canManageWorkspaceSettings,
+      canManageMembers: role.canManageMembers,
+      canManageLists: role.canManageLists,
+      canManageCalendar: role.canManageCalendar,
+      canManageTeams: role.canManageTeams,
+      canPermanentlyDeleteTasks: role.canPermanentlyDeleteTasks,
+      canDeleteCalendarCategories: role.canDeleteCalendarCategories,
+    })
     setExpandedRoleId(role.id)
   }
 
-  const saveRoleName = (role: CustomRoleDoc) => {
+  const cancelEditingRole = () => {
+    setEditingRoleId(null)
+    setPermissionsDraft(null)
+  }
+
+  // Both the name and the checkboxes are staged locally while editing — this
+  // is the one point where they're actually sent, so you can flip as many
+  // boxes as you like before committing.
+  const saveRole = (role: CustomRoleDoc) => {
     const name = roleNameDraft.trim()
-    if (!name || name === role.name) {
-      setEditingRoleId(null)
+    if (!name) return
+    const permissions = permissionsDraft ?? role
+    if (name === role.name && Object.entries(permissions).every(([k, v]) => role[k as keyof WorkspaceRolePermissionsValue] === v)) {
+      cancelEditingRole()
       return
     }
-    updateRoleMutation.mutate({ id: role.id, input: { ...role, name } })
+    updateRoleMutation.mutate({ id: role.id, input: { name, ...permissions } })
   }
 
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -505,7 +531,7 @@ export function WorkspaceMembersClient() {
                         <form
                           onSubmit={(e) => {
                             e.preventDefault()
-                            saveRoleName(role)
+                            saveRole(role)
                           }}
                           className="flex flex-1 items-center gap-1.5"
                         >
@@ -517,14 +543,18 @@ export function WorkspaceMembersClient() {
                           />
                           <button
                             type="submit"
-                            disabled={!roleNameDraft.trim()}
+                            disabled={!roleNameDraft.trim() || updateRoleMutation.isPending}
                             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-violet-600 transition-colors hover:bg-violet-500/10 disabled:opacity-50"
                           >
-                            <Check className="h-3.5 w-3.5" />
+                            {updateRoleMutation.isPending ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Check className="h-3.5 w-3.5" />
+                            )}
                           </button>
                           <button
                             type="button"
-                            onClick={() => setEditingRoleId(null)}
+                            onClick={cancelEditingRole}
                             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-muted"
                           >
                             <X className="h-3.5 w-3.5" />
@@ -577,13 +607,8 @@ export function WorkspaceMembersClient() {
                       <div className="border-t border-border/30 bg-muted/20 px-4 py-3">
                         {isEditingName ? (
                           <WorkspaceRolePermissionsFields
-                            value={role}
-                            onChange={(next) =>
-                              updateRoleMutation.mutate({
-                                id: role.id,
-                                input: { name: role.name, ...next },
-                              })
-                            }
+                            value={permissionsDraft ?? role}
+                            onChange={setPermissionsDraft}
                           />
                         ) : (
                           (() => {

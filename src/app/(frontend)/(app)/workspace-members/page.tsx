@@ -18,6 +18,10 @@ export default async function WorkspaceMembersPage() {
       queryKey: ['workspace-members'],
       queryFn: () => api.workspaces.listMembers(),
     }),
+    queryClient.prefetchQuery({
+      queryKey: ['custom-roles'],
+      queryFn: () => api.customRoles.list(),
+    }),
   ])
 
   return (
