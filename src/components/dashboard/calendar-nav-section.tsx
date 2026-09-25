@@ -14,12 +14,14 @@ import {
   Pencil,
   Plus,
   Trash2,
+  UsersRound,
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useCalendarCategories } from '@/hooks/calendar/use-calendar-categories'
 import { useTeams } from '@/hooks/teams/use-teams'
 import { TeamSelect } from '@/components/dashboard/team-select'
+import { groupByTeam } from '@/lib/group-by-team'
 import { useCalendarFilter } from '../calendar/calendar-filter-context'
 import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
 import { useRestorePrompt } from '@/components/ui/restore-prompt-context'
@@ -375,6 +377,73 @@ export function CalendarNavSection({ scope, href, label, onNavigate }: CalendarN
   const s = useCalendarNavState(scope)
   const activeWorkspace = useActiveWorkspace()
   const canDeleteCategory = canDeleteCalendarCategory(activeWorkspace?.myRole ?? null)
+  // s.teams is only ever populated for scope === 'workspace', so this groups
+  // by team there and is a no-op (everything falls into noTeam) elsewhere —
+  // no separate scope check needed.
+  const { noTeam: noTeamCategories, groups: teamCategoryGroups } = groupByTeam(
+    s.categories,
+    (cat) => cat.teamId,
+    s.teams,
+  )
+
+  const renderCategoryRow = (cat: (typeof s.categories)[number]) => {
+    const isVisible = !s.hiddenCategories.has(cat.id)
+    return (
+      <div
+        key={cat.id}
+        className="flex items-center gap-2 rounded-xl px-3 py-1.5 group/cat hover:bg-muted/40 transition-colors"
+      >
+        <button
+          type="button"
+          onClick={() => s.toggleCategory(cat.id)}
+          className={cn(
+            'flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all',
+            isVisible ? 'border-transparent' : 'border-border/60 bg-background',
+          )}
+          style={isVisible ? { backgroundColor: cat.color, borderColor: cat.color } : undefined}
+        >
+          {isVisible && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
+        </button>
+        <span
+          className={cn(
+            'flex-1 truncate text-xs font-medium',
+            isVisible ? 'text-foreground' : 'text-muted-foreground/50',
+          )}
+        >
+          {cat.name}
+        </span>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="opacity-100 sm:opacity-0 sm:group-hover/cat:opacity-100 flex h-5 w-5 items-center justify-center rounded text-muted-foreground/40 hover:text-foreground hover:bg-muted transition-all"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MoreHorizontal className="h-3 w-3" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" side="right" className="w-36">
+            <DropdownMenuItem
+              onClick={() => s.handleStartEdit(cat)}
+              className="gap-2 text-xs cursor-pointer"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Edit
+            </DropdownMenuItem>
+            {canDeleteCategory && (
+              <DropdownMenuItem
+                onClick={() => s.setDeleteTarget({ id: cat.id, name: cat.name })}
+                className="gap-2 text-xs cursor-pointer text-destructive focus:text-destructive"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -440,66 +509,25 @@ export function CalendarNavSection({ scope, href, label, onNavigate }: CalendarN
               </div>
             )}
 
-            {s.categories.map((cat) => {
-              const isVisible = !s.hiddenCategories.has(cat.id)
-              return (
-                <div
-                  key={cat.id}
-                  className="flex items-center gap-2 rounded-xl px-3 py-1.5 group/cat hover:bg-muted/40 transition-colors"
-                >
-                  <button
-                    type="button"
-                    onClick={() => s.toggleCategory(cat.id)}
-                    className={cn(
-                      'flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all',
-                      isVisible ? 'border-transparent' : 'border-border/60 bg-background',
-                    )}
-                    style={
-                      isVisible ? { backgroundColor: cat.color, borderColor: cat.color } : undefined
-                    }
-                  >
-                    {isVisible && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
-                  </button>
-                  <span
-                    className={cn(
-                      'flex-1 truncate text-xs font-medium',
-                      isVisible ? 'text-foreground' : 'text-muted-foreground/50',
-                    )}
-                  >
-                    {cat.name}
+            {teamCategoryGroups.length > 0 && noTeamCategories.length > 0 && (
+              <div className="mt-1 mb-1 flex items-center gap-1.5 px-3">
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
+                  All
+                </span>
+              </div>
+            )}
+            {noTeamCategories.map(renderCategoryRow)}
+            {teamCategoryGroups.map((g) => (
+              <div key={g.teamId}>
+                <div className="mt-2 mb-1 flex items-center gap-1.5 px-3">
+                  <UsersRound className="h-3 w-3 text-violet-500/70" />
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-violet-500/70">
+                    {g.teamName}
                   </span>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        className="opacity-100 sm:opacity-0 sm:group-hover/cat:opacity-100 flex h-5 w-5 items-center justify-center rounded text-muted-foreground/40 hover:text-foreground hover:bg-muted transition-all"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <MoreHorizontal className="h-3 w-3" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" side="right" className="w-36">
-                      <DropdownMenuItem
-                        onClick={() => s.handleStartEdit(cat)}
-                        className="gap-2 text-xs cursor-pointer"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                        Edit
-                      </DropdownMenuItem>
-                      {canDeleteCategory && (
-                        <DropdownMenuItem
-                          onClick={() => s.setDeleteTarget({ id: cat.id, name: cat.name })}
-                          className="gap-2 text-xs cursor-pointer text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Delete
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
                 </div>
-              )
-            })}
+                {g.items.map(renderCategoryRow)}
+              </div>
+            ))}
 
             {s.showNewCategory ? (
               <div className="rounded-xl border border-border/50 bg-muted/20 p-2.5 space-y-2 mt-1">
@@ -596,6 +624,69 @@ export function SidebarCalendarNavSection({ scope, href, label }: CalendarNavSec
   const s = useCalendarNavState(scope)
   const activeWorkspace = useActiveWorkspace()
   const canDeleteCategory = canDeleteCalendarCategory(activeWorkspace?.myRole ?? null)
+  const { noTeam: noTeamCategories, groups: teamCategoryGroups } = groupByTeam(
+    s.categories,
+    (cat) => cat.teamId,
+    s.teams,
+  )
+
+  const renderCategoryRow = (cat: (typeof s.categories)[number]) => {
+    const isVisible = !s.hiddenCategories.has(cat.id)
+    return (
+      <SidebarMenuSubItem key={cat.id}>
+        <div className="flex items-center gap-2 px-2 py-1 rounded-md group/cat hover:bg-sidebar-accent transition-colors">
+          <button
+            type="button"
+            onClick={() => s.toggleCategory(cat.id)}
+            className={cn(
+              'flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all',
+              isVisible ? 'border-transparent' : 'border-border/60 bg-background',
+            )}
+            style={isVisible ? { backgroundColor: cat.color, borderColor: cat.color } : undefined}
+          >
+            {isVisible && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
+          </button>
+          <span
+            className={cn(
+              'flex-1 truncate text-xs font-medium',
+              isVisible ? 'text-foreground' : 'text-muted-foreground/50',
+            )}
+          >
+            {cat.name}
+          </span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="opacity-0 group-hover/cat:opacity-100 flex h-5 w-5 items-center justify-center rounded text-muted-foreground/40 hover:text-foreground hover:bg-muted transition-all"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreHorizontal className="h-3 w-3" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="right" className="w-36">
+              <DropdownMenuItem
+                onClick={() => s.handleStartEdit(cat)}
+                className="gap-2 text-xs cursor-pointer"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Edit
+              </DropdownMenuItem>
+              {canDeleteCategory && (
+                <DropdownMenuItem
+                  onClick={() => s.setDeleteTarget({ id: cat.id, name: cat.name })}
+                  className="gap-2 text-xs cursor-pointer text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </SidebarMenuSubItem>
+    )
+  }
 
   return (
     <>
@@ -662,67 +753,25 @@ export function SidebarCalendarNavSection({ scope, href, label }: CalendarNavSec
                 </SidebarMenuSubItem>
               )}
 
-              {s.categories.map((cat) => {
-                const isVisible = !s.hiddenCategories.has(cat.id)
-                return (
-                  <SidebarMenuSubItem key={cat.id}>
-                    <div className="flex items-center gap-2 px-2 py-1 rounded-md group/cat hover:bg-sidebar-accent transition-colors">
-                      <button
-                        type="button"
-                        onClick={() => s.toggleCategory(cat.id)}
-                        className={cn(
-                          'flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all',
-                          isVisible ? 'border-transparent' : 'border-border/60 bg-background',
-                        )}
-                        style={
-                          isVisible
-                            ? { backgroundColor: cat.color, borderColor: cat.color }
-                            : undefined
-                        }
-                      >
-                        {isVisible && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
-                      </button>
-                      <span
-                        className={cn(
-                          'flex-1 truncate text-xs font-medium',
-                          isVisible ? 'text-foreground' : 'text-muted-foreground/50',
-                        )}
-                      >
-                        {cat.name}
-                      </span>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            type="button"
-                            className="opacity-0 group-hover/cat:opacity-100 flex h-5 w-5 items-center justify-center rounded text-muted-foreground/40 hover:text-foreground hover:bg-muted transition-all"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreHorizontal className="h-3 w-3" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" side="right" className="w-36">
-                          <DropdownMenuItem
-                            onClick={() => s.handleStartEdit(cat)}
-                            className="gap-2 text-xs cursor-pointer"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                            Edit
-                          </DropdownMenuItem>
-                          {canDeleteCategory && (
-                            <DropdownMenuItem
-                              onClick={() => s.setDeleteTarget({ id: cat.id, name: cat.name })}
-                              className="gap-2 text-xs cursor-pointer text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                              Delete
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </SidebarMenuSubItem>
-                )
-              })}
+              {teamCategoryGroups.length > 0 && noTeamCategories.length > 0 && (
+                <div className="mt-1 mb-1 flex items-center gap-1.5 px-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
+                    All
+                  </span>
+                </div>
+              )}
+              {noTeamCategories.map(renderCategoryRow)}
+              {teamCategoryGroups.map((g) => (
+                <div key={g.teamId}>
+                  <div className="mt-2 mb-1 flex items-center gap-1.5 px-2">
+                    <UsersRound className="h-3 w-3 text-violet-500/70" />
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-violet-500/70">
+                      {g.teamName}
+                    </span>
+                  </div>
+                  {g.items.map(renderCategoryRow)}
+                </div>
+              ))}
 
               {s.showNewCategory ? (
                 <SidebarMenuSubItem>

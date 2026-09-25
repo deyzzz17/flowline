@@ -27,6 +27,7 @@ import { useSidebarFooter } from '@/hooks/sidebar/use-sidebar-footer'
 import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
 import { useSharedLists } from '@/hooks/lists/use-shared-lists'
 import { useTeams } from '@/hooks/teams/use-teams'
+import { groupByTeam } from '@/lib/group-by-team'
 import { CreateTeamDialog } from './create-team-dialog'
 import { useListUrgency } from '@/hooks/tasks/use-list-urgency'
 import { SHARED_LIST_POLL_INTERVAL_MS } from '@/lib/realtime'
@@ -153,6 +154,13 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
   const workspaceLists = isPersonalActive
     ? []
     : [...customLists, ...ownSharedLists].sort((a, b) => a.name.localeCompare(b.name))
+  const getListTeamId = (list: List): number | null =>
+    typeof list.team === 'object' ? (list.team?.id ?? null) : (list.team ?? null)
+  const { noTeam: noTeamLists, groups: teamListGroups } = groupByTeam(
+    workspaceLists,
+    getListTeamId,
+    teams,
+  )
 
   const tasksByList = allTasks.reduce<Record<number, Task[]>>((acc, task) => {
     const listId =
@@ -174,6 +182,47 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
   }
   const isActive = (href: string) => pathname === href
   const isHabitsActive = pathname.startsWith('/habits')
+
+  const renderWorkspaceListLink = (list: List) =>
+    list.isShared ? (
+      <SharedListMenuItem
+        key={list.id}
+        list={list}
+        isActive={isActive(`/lists/${list.slug}`)}
+        href={nav(`/lists/${list.slug}`)}
+      />
+    ) : (
+      <SidebarMenuSubItem key={list.id}>
+        <SidebarMenuSubButton asChild isActive={isActive(`/lists/${list.slug}`)}>
+          <Link href={nav(`/lists/${list.slug}`)}>
+            <span
+              className="h-2 w-2 rounded-full shrink-0"
+              style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
+            />
+            <span className="flex-1 truncate">{list.name}</span>
+            {getListUrgency(tasksByList[list.id] ?? []) && (
+              <span
+                className={cn(
+                  'size-1.5 shrink-0 rounded-full',
+                  getListUrgency(tasksByList[list.id] ?? []) === 'red'
+                    ? 'bg-destructive'
+                    : 'bg-orange-500',
+                )}
+              />
+            )}
+          </Link>
+        </SidebarMenuSubButton>
+      </SidebarMenuSubItem>
+    )
+
+  const TeamGroupHeader = ({ name }: { name: string }) => (
+    <div className="mt-2 mb-1 flex items-center gap-1.5 px-2">
+      <UsersRound className="h-3 w-3 text-violet-500/70" />
+      <span className="text-[10px] font-semibold uppercase tracking-widest text-violet-500/70">
+        {name}
+      </span>
+    </div>
+  )
 
   return (
     <>
@@ -467,43 +516,20 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                           </>
                         ) : (
                           <>
-                            {workspaceLists.map((list) =>
-                              list.isShared ? (
-                                <SharedListMenuItem
-                                  key={list.id}
-                                  list={list}
-                                  isActive={isActive(`/lists/${list.slug}`)}
-                                  href={nav(`/lists/${list.slug}`)}
-                                />
-                              ) : (
-                                <SidebarMenuSubItem key={list.id}>
-                                  <SidebarMenuSubButton
-                                    asChild
-                                    isActive={isActive(`/lists/${list.slug}`)}
-                                  >
-                                    <Link href={nav(`/lists/${list.slug}`)}>
-                                      <span
-                                        className="h-2 w-2 rounded-full shrink-0"
-                                        style={{
-                                          backgroundColor: list.category?.color ?? '#8b5cf6',
-                                        }}
-                                      />
-                                      <span className="flex-1 truncate">{list.name}</span>
-                                      {getListUrgency(tasksByList[list.id] ?? []) && (
-                                        <span
-                                          className={cn(
-                                            'size-1.5 shrink-0 rounded-full',
-                                            getListUrgency(tasksByList[list.id] ?? []) === 'red'
-                                              ? 'bg-destructive'
-                                              : 'bg-orange-500',
-                                          )}
-                                        />
-                                      )}
-                                    </Link>
-                                  </SidebarMenuSubButton>
-                                </SidebarMenuSubItem>
-                              ),
+                            {teamListGroups.length > 0 && noTeamLists.length > 0 && (
+                              <div className="mt-1 mb-1 flex items-center gap-1.5 px-2">
+                                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
+                                  All
+                                </span>
+                              </div>
                             )}
+                            {noTeamLists.map(renderWorkspaceListLink)}
+                            {teamListGroups.map((g) => (
+                              <div key={g.teamId}>
+                                <TeamGroupHeader name={g.teamName} />
+                                {g.items.map(renderWorkspaceListLink)}
+                              </div>
+                            ))}
                             <SidebarMenuSubItem>
                               <SidebarMenuSubButton asChild>
                                 <Link

@@ -46,6 +46,7 @@ import { FeedbackDialog } from '../support/feedback-dialog'
 import { WorkspaceSwitcher, useActiveWorkspace, type WorkspacesData } from './workspace-switcher'
 import { CalendarNavSection } from './calendar-nav-section'
 import { useTeams, TEAMS_QUERY_KEY } from '@/hooks/teams/use-teams'
+import { groupByTeam } from '@/lib/group-by-team'
 import { CreateTeamDialog } from './create-team-dialog'
 import { EditTeamDialog } from './edit-team-dialog'
 import {
@@ -187,6 +188,13 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
   const workspaceLists = isPersonalActive
     ? []
     : [...customLists, ...ownSharedLists].sort((a, b) => a.name.localeCompare(b.name))
+  const getListTeamId = (list: List): number | null =>
+    typeof list.team === 'object' ? (list.team?.id ?? null) : (list.team ?? null)
+  const { noTeam: noTeamLists, groups: teamListGroups } = groupByTeam(
+    workspaceLists,
+    getListTeamId,
+    teams,
+  )
 
   const tasksByList = allTasks.reduce<Record<number, Task[]>>((acc, task) => {
     const listId =
@@ -207,6 +215,52 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
 
   const SubChevron = ({ open }: { open: boolean }) =>
     open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />
+
+  const renderWorkspaceListLink = (list: List) =>
+    list.isShared ? (
+      <SharedListLink
+        key={list.id}
+        list={list}
+        isActive={isActive(`/lists/${list.slug}`)}
+        navLink={navLink(`/lists/${list.slug}`)}
+      />
+    ) : (
+      <Link
+        key={list.id}
+        {...navLink(`/lists/${list.slug}`)}
+        className={cn(
+          'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
+          isActive(`/lists/${list.slug}`)
+            ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+            : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+        )}
+      >
+        <span
+          className="h-2 w-2 rounded-full shrink-0"
+          style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
+        />
+        <span className="flex-1 truncate">{list.name}</span>
+        {getListUrgency(tasksByList[list.id] ?? []) && (
+          <span
+            className={cn(
+              'size-1.5 shrink-0 rounded-full',
+              getListUrgency(tasksByList[list.id] ?? []) === 'red'
+                ? 'bg-destructive'
+                : 'bg-orange-500',
+            )}
+          />
+        )}
+      </Link>
+    )
+
+  const TeamGroupHeader = ({ name }: { name: string }) => (
+    <div className="mt-2 mb-1 flex items-center gap-1.5 px-3">
+      <UsersRound className="h-3 w-3 text-violet-500/70" />
+      <span className="text-[10px] font-semibold uppercase tracking-widest text-violet-500/70">
+        {name}
+      </span>
+    </div>
+  )
 
   return (
     <>
@@ -545,43 +599,20 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
                   </>
                 ) : (
                   <>
-                    {workspaceLists.map((list) =>
-                      list.isShared ? (
-                        <SharedListLink
-                          key={list.id}
-                          list={list}
-                          isActive={isActive(`/lists/${list.slug}`)}
-                          navLink={navLink(`/lists/${list.slug}`)}
-                        />
-                      ) : (
-                        <Link
-                          key={list.id}
-                          {...navLink(`/lists/${list.slug}`)}
-                          className={cn(
-                            'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
-                            isActive(`/lists/${list.slug}`)
-                              ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                              : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                          )}
-                        >
-                          <span
-                            className="h-2 w-2 rounded-full shrink-0"
-                            style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
-                          />
-                          <span className="flex-1 truncate">{list.name}</span>
-                          {getListUrgency(tasksByList[list.id] ?? []) && (
-                            <span
-                              className={cn(
-                                'size-1.5 shrink-0 rounded-full',
-                                getListUrgency(tasksByList[list.id] ?? []) === 'red'
-                                  ? 'bg-destructive'
-                                  : 'bg-orange-500',
-                              )}
-                            />
-                          )}
-                        </Link>
-                      ),
+                    {teamListGroups.length > 0 && noTeamLists.length > 0 && (
+                      <div className="mt-1 mb-1 flex items-center gap-1.5 px-3">
+                        <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
+                          All
+                        </span>
+                      </div>
                     )}
+                    {noTeamLists.map(renderWorkspaceListLink)}
+                    {teamListGroups.map((g) => (
+                      <div key={g.teamId}>
+                        <TeamGroupHeader name={g.teamName} />
+                        {g.items.map(renderWorkspaceListLink)}
+                      </div>
+                    ))}
                     <Link
                       {...navLink('/lists/new-list')}
                       className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/60 hover:bg-muted hover:text-foreground transition-all"
