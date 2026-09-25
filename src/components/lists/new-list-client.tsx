@@ -18,6 +18,7 @@ import { PlanLimitDialog } from '../ui/plan-limit-dialog'
 import { SafetyCapDialog } from '../ui/safety-cap-dialog'
 import { useActiveWorkspace } from '@/components/dashboard/workspace-switcher'
 import { useTeams } from '@/hooks/teams/use-teams'
+import { TeamSelect } from '@/components/dashboard/team-select'
 import type { WorkspaceMember } from '@/api/workspaces/actions'
 import type { ListMemberRole } from '@/api/list-members/actions'
 
@@ -320,18 +321,13 @@ export const NewListClient = () => {
               Associate this list with a team to make it visible only to that team&apos;s
               members, instead of the whole workspace.
             </p>
-            <select
-              value={teamId ?? ''}
-              onChange={(e) => setTeamId(e.target.value ? Number(e.target.value) : null)}
-              className="h-10 w-full rounded-xl border border-border/60 bg-background px-3 text-sm outline-none focus:border-primary/40"
-            >
-              <option value="">No team — visible to the whole workspace</option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
+            <TeamSelect
+              teams={teams}
+              value={teamId}
+              onChange={setTeamId}
+              noTeamLabel="No team — visible to the whole workspace"
+              className="h-10 text-sm"
+            />
           </div>
         )}
 

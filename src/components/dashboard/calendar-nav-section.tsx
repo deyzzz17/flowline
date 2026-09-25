@@ -19,6 +19,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useCalendarCategories } from '@/hooks/calendar/use-calendar-categories'
 import { useTeams } from '@/hooks/teams/use-teams'
+import { TeamSelect } from '@/components/dashboard/team-select'
 import { useCalendarFilter } from '../calendar/calendar-filter-context'
 import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
 import { useRestorePrompt } from '@/components/ui/restore-prompt-context'
@@ -513,20 +514,12 @@ export function CalendarNavSection({ scope, href, label, onNavigate }: CalendarN
                   }}
                 />
                 {s.teams.length > 0 && (
-                  <select
-                    value={s.newCategoryTeamId ?? ''}
-                    onChange={(e) =>
-                      s.setNewCategoryTeamId(e.target.value ? Number(e.target.value) : null)
-                    }
-                    className="w-full h-7 rounded-lg border border-border/60 bg-background px-2 text-xs outline-none focus:border-primary/40"
-                  >
-                    <option value="">Whole workspace</option>
-                    {s.teams.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name} (team only)
-                      </option>
-                    ))}
-                  </select>
+                  <TeamSelect
+                    teams={s.teams}
+                    value={s.newCategoryTeamId}
+                    onChange={s.setNewCategoryTeamId}
+                    className="h-7 text-xs"
+                  />
                 )}
                 <div className="flex flex-wrap gap-1">
                   {PRESET_COLORS.map((c) => (
@@ -745,20 +738,12 @@ export function SidebarCalendarNavSection({ scope, href, label }: CalendarNavSec
                       }}
                     />
                     {s.teams.length > 0 && (
-                      <select
-                        value={s.newCategoryTeamId ?? ''}
-                        onChange={(e) =>
-                          s.setNewCategoryTeamId(e.target.value ? Number(e.target.value) : null)
-                        }
-                        className="w-full h-7 rounded-lg border border-border/60 bg-background px-2 text-xs outline-none focus:border-primary/40"
-                      >
-                        <option value="">Whole workspace</option>
-                        {s.teams.map((t) => (
-                          <option key={t.id} value={t.id}>
-                            {t.name} (team only)
-                          </option>
-                        ))}
-                      </select>
+                      <TeamSelect
+                        teams={s.teams}
+                        value={s.newCategoryTeamId}
+                        onChange={s.setNewCategoryTeamId}
+                        className="h-7 text-xs"
+                      />
                     )}
                     <div className="flex flex-wrap gap-1">
                       {PRESET_COLORS.map((c) => (
