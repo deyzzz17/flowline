@@ -112,18 +112,24 @@ const ALL_PERMISSIONS: TeamPermissions = {
   canManageTeamSettings: true,
 }
 
-// The workspace owner/admin and the team's own creator can always do
-// everything on a team — everyone else's permissions come from whichever
-// team role they were assigned (see TeamRoles' 3 checkboxes).
+// The team's own creator always has full access — an irreducible safety
+// net so they can never lock themselves out of a team they made. Beyond
+// that, an EXPLICIT team-member assignment always wins, even for someone
+// who is otherwise the workspace owner/admin: deliberately giving them a
+// restricted role on this one team must actually restrict them here, not
+// be silently overridden. Only someone who was never added to the team at
+// all falls back to the workspace-wide owner/admin override, and even then
+// only a plain, non-custom owner/admin counts — a custom workspace role's
+// underlying Better Auth tier is only ever derived to 'admin' to satisfy
+// Better Auth's own invite/remove/role-change endpoints (see
+// deriveBetterAuthRole), not a real admin designation, so it must not
+// bypass every team's own roles either.
 export async function getTeamPermissionsForUser(
   payload: Awaited<ReturnType<typeof getPayload>>,
   teamId: number,
   workspaceId: string,
   userId: string,
 ): Promise<TeamPermissions> {
-  const workspaceRole = await getWorkspaceRoleForUser(workspaceId, userId)
-  if (workspaceRole === 'owner' || workspaceRole === 'admin') return ALL_PERMISSIONS
-
   const team = await payload.findByID({ collection: 'teams', id: teamId }).catch(() => null)
   if (!team) return NO_PERMISSIONS
   if (team.createdBy === userId) return ALL_PERMISSIONS
@@ -135,16 +141,20 @@ export async function getTeamPermissionsForUser(
     depth: 1,
   })
   const member = docs[0]
-  if (!member) return NO_PERMISSIONS
-  const role = typeof member.teamRole === 'object' ? member.teamRole : null
-  if (!role) return NO_PERMISSIONS
-
-  return {
-    canManageLists: !!role.canManageLists,
-    canManageCalendar: !!role.canManageCalendar,
-    canManageMembers: !!role.canManageMembers,
-    canManageTeamSettings: !!role.canManageTeamSettings,
+  const role = member && typeof member.teamRole === 'object' ? member.teamRole : null
+  if (role) {
+    return {
+      canManageLists: !!role.canManageLists,
+      canManageCalendar: !!role.canManageCalendar,
+      canManageMembers: !!role.canManageMembers,
+      canManageTeamSettings: !!role.canManageTeamSettings,
+    }
   }
+
+  const effective = await getEffectiveWorkspacePermissions(workspaceId, userId)
+  const isPlainOwnerOrAdmin =
+    (effective.role === 'owner' || effective.role === 'admin') && effective.customRoleName === null
+  return isPlainOwnerOrAdmin ? ALL_PERMISSIONS : NO_PERMISSIONS
 }
 
 /** Same as getTeamPermissionsForUser, but resolves its own payload/workspace — for callers outside teams/actions.ts (e.g. list/calendar creation) that only have a teamId and userId on hand. */

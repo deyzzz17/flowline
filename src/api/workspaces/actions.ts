@@ -13,10 +13,7 @@ import { getSession } from '@/lib/get-session'
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 import { checkRateLimit } from '@/lib/rate-limit'
-import {
-  getWorkspaceRoleForUser,
-  getEffectiveWorkspacePermissions,
-} from '@/lib/get-current-workspace'
+import { getEffectiveWorkspacePermissions } from '@/lib/get-current-workspace'
 import { findUserByEmail, findUsersByIds, type ContactProfile } from '@/api/contacts/actions'
 import { deleteCommentsForTaskIds } from '@/api/task-comments/actions'
 import { deriveBetterAuthRole } from '@/lib/derive-better-auth-role'
@@ -909,8 +906,8 @@ export const listArchivedWorkspaceMembers = async (): Promise<{
   const workspaceId = session?.session.activeOrganizationId
   if (!workspaceId) return { docs: [] }
 
-  const role = await getWorkspaceRoleForUser(workspaceId, userId)
-  if (role !== 'owner' && role !== 'admin') return { docs: [] }
+  const permissions = await getEffectiveWorkspacePermissions(workspaceId, userId)
+  if (!permissions.canManageMembers) return { docs: [] }
 
   const payload = await getPayload({ config })
   const { docs } = await payload.find({
@@ -950,8 +947,8 @@ export const restoreWorkspaceMember = async (archiveId: number) => {
       .catch(() => null)
     if (!archived) return err('Not found')
 
-    const role = await getWorkspaceRoleForUser(archived.organizationId, userId)
-    if (role !== 'owner' && role !== 'admin') return err('Not authorized')
+    const permissions = await getEffectiveWorkspacePermissions(archived.organizationId, userId)
+    if (!permissions.canManageMembers) return err('Not authorized')
 
     const ownerId = await getWorkspaceOwnerId(archived.organizationId)
     if (!ownerId) return err('Workspace owner not found')
