@@ -10,6 +10,7 @@ export interface CalendarCategory {
   name: string
   color: string
   isDefault: boolean
+  teamId: number | null
 }
 
 export const useCalendarCategories = (scope: CalendarScope = 'workspace') => {
@@ -26,10 +27,12 @@ export const useCalendarCategories = (scope: CalendarScope = 'workspace') => {
     name: c.name,
     color: c.color,
     isDefault: c.isDefault ?? false,
+    teamId: typeof c.team === 'object' ? (c.team?.id ?? null) : (c.team ?? null),
   }))
 
   const createMutation = useMutation({
-    mutationFn: (data: { name: string; color: string }) => api.calendar.categories.create(data),
+    mutationFn: (data: { name: string; color: string; teamId?: number | null }) =>
+      api.calendar.categories.create({ name: data.name, color: data.color }, data.teamId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['calendar-categories'] }),
     onError: () => toast.error('Failed to create category'),
   })

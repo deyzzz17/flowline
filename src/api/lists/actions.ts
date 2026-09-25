@@ -19,6 +19,7 @@ import {
 } from '@/lib/get-current-workspace'
 import { deleteCommentsForTaskIds } from '@/api/task-comments/actions'
 import { getTeamPermissions } from '@/api/teams/actions'
+import { getMyTeamIds } from '@/lib/team-access'
 
 type CreateListInput = {
   name: string
@@ -154,16 +155,21 @@ export const listLists = async () => {
     })
   }
 
-  // The workspace's own owner/admin can see (and, per resolveListRole, fully
-  // manage) every SHARED list in the workspace, not just ones they were
-  // personally added to — matches the owner/admin "peut tout faire" role
-  // matrix (see workspace-permissions.ts / resolveListRole). A list that's
-  // still private to its creator (never shared) stays out of this even for
-  // the owner/admin — resolveListRole denies them a role on it, so it must
-  // not show up here either or the sidebar would offer a list they can't
-  // actually open.
-  const workspaceRole = await getWorkspaceRoleForUser(workspaceId, userId)
-  if (workspaceRole === 'owner' || workspaceRole === 'admin') {
+  // The workspace's real owner/admin can see (and, per resolveListRole,
+  // fully manage) every SHARED or team-scoped list in the workspace, not
+  // just ones they were personally added to — matches the owner/admin
+  // "peut tout faire" role matrix (see workspace-permissions.ts /
+  // resolveListRole). A list that's still private to its creator (never
+  // shared, no team) stays out of this even for the owner/admin —
+  // resolveListRole denies them a role on it, so it must not show up here
+  // either or the sidebar would offer a list they can't actually open. A
+  // custom workspace role's derived Better Auth 'admin' tier doesn't count
+  // as "real" here (see deriveBetterAuthRole) — it falls through to the
+  // narrower, role-driven branch below like any other custom role.
+  const effective = await getEffectiveWorkspacePermissions(workspaceId, userId)
+  const isPlainOwnerOrAdmin =
+    (effective.role === 'owner' || effective.role === 'admin') && effective.customRoleName === null
+  if (isPlainOwnerOrAdmin) {
     return await payload.find({
       collection: 'lists',
       sort: 'createdAt',
@@ -172,7 +178,13 @@ export const listLists = async () => {
         and: [
           workspaceWhereClause(workspaceId),
           { planArchivedAt: { exists: false } },
-          { or: [{ userId: { equals: userId } }, { isShared: { equals: true } }] },
+          {
+            or: [
+              { userId: { equals: userId } },
+              { isShared: { equals: true } },
+              { team: { exists: true } },
+            ],
+          },
         ],
       },
     })
@@ -187,6 +199,8 @@ export const listLists = async () => {
     .map((d) => (typeof d.list === 'object' ? d.list?.id : d.list))
     .filter((id): id is number => typeof id === 'number')
 
+  const myTeamIds = await getMyTeamIds(payload, workspaceId, userId)
+
   return await payload.find({
     collection: 'lists',
     sort: 'createdAt',
@@ -199,6 +213,7 @@ export const listLists = async () => {
           or: [
             { userId: { equals: userId } },
             ...(sharedListIds.length > 0 ? [{ id: { in: sharedListIds } }] : []),
+            ...(myTeamIds.length > 0 ? [{ team: { in: myTeamIds } }] : []),
           ],
         },
       ],

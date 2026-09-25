@@ -23,10 +23,21 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
-import { Trash2, Loader2, Pencil, CalendarDays, Clock, AlignLeft, Tag, Repeat } from 'lucide-react'
+import {
+  Trash2,
+  Loader2,
+  Pencil,
+  CalendarDays,
+  Clock,
+  AlignLeft,
+  Tag,
+  Repeat,
+  UsersRound,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { useCalendarCategories } from '@/hooks/calendar/use-calendar-categories'
+import { useTeams } from '@/hooks/teams/use-teams'
 import { useTimeFormat } from '@/hooks/calendar/use-time-format'
 import type { CalendarItem, CalendarEvent } from '@/hooks/calendar/use-calendar'
 import type { CalendarEventData, RecurrenceRule, EditScope } from '@/api/calendar/actions'
@@ -509,6 +520,12 @@ interface CalendarEventDialogProps {
   onDelete: (id: number, scope?: EditScope, originalDate?: string) => void
   isSaving: boolean
   isDeleting: boolean
+  /**
+   * Lets an event be scoped to a team — visible only to that team's
+   * members. Only meaningful (and only passed as true) from the Workspace
+   * Calendar; the global, cross-workspace Calendar never offers this.
+   */
+  allowTeamAssociation?: boolean
 }
 
 export function CalendarEventDialog({
@@ -520,6 +537,7 @@ export function CalendarEventDialog({
   onDelete,
   isSaving,
   isDeleting,
+  allowTeamAssociation = false,
 }: CalendarEventDialogProps) {
   const isTask = selectedItem?.type === 'task'
   const isExistingEvent = selectedItem?.type === 'event'
@@ -527,6 +545,7 @@ export function CalendarEventDialog({
   // edits is attached to the active workspace, regardless of which calendar
   // page (global or workspace) it was opened from.
   const { categories } = useCalendarCategories('workspace')
+  const { teams } = useTeams(allowTeamAssociation && open)
   const { formatTime } = useTimeFormat()
 
   const [mode, setMode] = useState<'view' | 'edit' | 'create'>('create')
@@ -545,6 +564,7 @@ export function CalendarEventDialog({
   const [allDay, setAllDay] = useState(false)
   const [color, setColor] = useState('#8b5cf6')
   const [categoryId, setCategoryId] = useState<number | null>(null)
+  const [teamId, setTeamId] = useState<number | null>(null)
   const [recurrence, setRecurrence] = useState<RecurrenceRule | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -570,6 +590,7 @@ export function CalendarEventDialog({
       setAllDay(ev.allDay)
       setColor(ev.color)
       setCategoryId(ev.categoryId ?? null)
+      setTeamId(ev.teamId ?? null)
       setRecurrence(ev.recurrence ?? null)
       setMode('view')
     } else if (!isTask) {
@@ -582,6 +603,7 @@ export function CalendarEventDialog({
       setAllDay(false)
       setColor('#8b5cf6')
       setCategoryId(null)
+      setTeamId(null)
       setRecurrence(null)
       setMode('create')
     }
@@ -604,6 +626,8 @@ export function CalendarEventDialog({
     allDay,
     color,
     categoryId,
+    // Team association is only set at creation — not editable afterwards.
+    ...(mode === 'create' && { teamId }),
     recurrence: recurrence ?? undefined,
   })
 
@@ -815,6 +839,13 @@ export function CalendarEventDialog({
                 </div>
               )}
 
+              {ev.teamId != null && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <UsersRound className="h-3.5 w-3.5 shrink-0" />
+                  {teams.find((t) => t.id === ev.teamId)?.name ?? 'Team'} only
+                </div>
+              )}
+
               {ev.recurrence?.frequency && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Repeat className="h-3.5 w-3.5 shrink-0" />
@@ -1004,6 +1035,48 @@ export function CalendarEventDialog({
                         style={{ backgroundColor: cat.color }}
                       />
                       {cat.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {allowTeamAssociation && teams.length > 0 && mode === 'create' && (
+              <div className="space-y-2">
+                <Label className="text-sm flex items-center gap-1.5">
+                  <UsersRound className="h-3.5 w-3.5 text-muted-foreground/60" />
+                  Team
+                  <span className="text-xs font-normal text-muted-foreground">Optional</span>
+                </Label>
+                <p className="text-xs text-muted-foreground/70">
+                  Scope this event to a team to make it visible only to that team&apos;s members.
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setTeamId(null)}
+                    className={cn(
+                      'rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
+                      teamId === null
+                        ? 'border-border bg-muted text-foreground'
+                        : 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
+                    )}
+                  >
+                    Whole workspace
+                  </button>
+                  {teams.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setTeamId(t.id)}
+                      className={cn(
+                        'rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
+                        teamId === t.id
+                          ? 'border-violet-500/50 bg-violet-500/15 text-violet-600 dark:text-violet-400'
+                          : 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
+                      )}
+                    >
+                      {t.name}
                     </button>
                   ))}
                 </div>

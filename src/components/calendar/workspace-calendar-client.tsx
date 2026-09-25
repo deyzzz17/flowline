@@ -307,6 +307,7 @@ export function WorkspaceCalendarClient() {
         onDelete={handleDelete}
         isSaving={createMutation.isPending || updateMutation.isPending}
         isDeleting={deleteMutation.isPending}
+        allowTeamAssociation
       />
     </DndContext>
   )

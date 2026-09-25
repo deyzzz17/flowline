@@ -1,7 +1,7 @@
 'use server'
 
 import 'server-only'
-import { getPayload } from 'payload'
+import { getPayload, type Where } from 'payload'
 import config from '@/payload.config'
 import { ok, err } from '@/types/result'
 import { pool } from '@/lib/db-pool'
@@ -15,6 +15,7 @@ import {
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 import { getTeamPermissions } from '@/api/teams/actions'
+import { getMyTeamIds } from '@/lib/team-access'
 
 const getUserId = async () => {
   const session = await getSession()
@@ -71,6 +72,13 @@ export interface CalendarEventData {
   allDay?: boolean
   color?: string
   categoryId?: number | null
+  /**
+   * Optional team to scope this event to — visible to that team's members
+   * instead of staying private to its creator. Only meaningful within the
+   * Workspace Calendar; the global, cross-workspace Calendar never sets or
+   * reads it.
+   */
+  teamId?: number | null
   recurrence?: RecurrenceRule | null
   recurrenceId?: number | null
   originalDate?: string | null
@@ -137,7 +145,39 @@ export const listCalendarCategories = async (scope: CalendarScope = 'workspace')
       sort: 'createdAt',
     })
   }
-  return existing
+
+  const visible = await filterVisibleCategories(payload, existing.docs, workspaceId, userId)
+  return { ...existing, docs: visible }
+}
+
+// Team-scoped categories are only visible to that team's own members — the
+// query above matches on workspace alone (Payload can't filter "team is
+// null or one of these ids" in one relationship where clause), so narrow it
+// down here. A workspace-wide category (no team) stays visible to everyone.
+// The workspace's real owner/admin (not a custom role's derived tier — see
+// deriveBetterAuthRole) still sees every team's categories too, same as
+// they do for lists.
+async function filterVisibleCategories<T extends { team?: unknown }>(
+  payload: Awaited<ReturnType<typeof getPayload>>,
+  docs: T[],
+  workspaceId: string | null,
+  userId: string,
+): Promise<T[]> {
+  if (!workspaceId) return docs
+  const hasTeamScoped = docs.some((d) => !!d.team)
+  if (!hasTeamScoped) return docs
+
+  const effective = await getEffectiveWorkspacePermissions(workspaceId, userId)
+  const isPlainOwnerOrAdmin =
+    (effective.role === 'owner' || effective.role === 'admin') && effective.customRoleName === null
+  if (isPlainOwnerOrAdmin) return docs
+
+  const myTeamIds = new Set(await getMyTeamIds(payload, workspaceId, userId))
+  return docs.filter((d) => {
+    if (!d.team) return true
+    const teamId = typeof d.team === 'object' ? (d.team as { id?: number })?.id : d.team
+    return typeof teamId === 'number' && myTeamIds.has(teamId)
+  })
 }
 
 async function countActiveCalendarCategories(
@@ -563,23 +603,55 @@ export const listFlowlineCalendarEvents = async (
   const userId = await getUserId()
   if (!userId) return { docs: [] }
   const payload = await getPayload({ config })
-  const workspaceFilter =
-    scope === 'global' ? [] : [workspaceWhereClause(await getCurrentWorkspaceId())]
+
+  const dateFilter: Where = {
+    or: [
+      { and: [{ recurrenceId: { exists: false } }, { startDate: { less_than_equal: to } }] },
+      { and: [{ recurrenceId: { exists: true } }, { startDate: { less_than_equal: to } }] },
+    ],
+  }
+
+  // The global, cross-workspace Calendar stays exactly as before — strictly
+  // your own events, no team sharing. Team-visible events only exist within
+  // a specific Workspace Calendar.
+  if (scope === 'global') {
+    const { docs } = await payload.find({
+      collection: 'calendar-events',
+      limit: 500,
+      sort: 'startDate',
+      where: { and: [{ userId: { equals: userId } }, dateFilter] },
+    })
+    return { docs }
+  }
+
+  const workspaceId = await getCurrentWorkspaceId()
+
+  // Within a real (non-Personal) workspace, also surface events from teams
+  // you belong to — a team-scoped event is visible to the whole team, not
+  // just its creator. The workspace's real owner/admin (not a custom role's
+  // derived tier — see deriveBetterAuthRole) sees every team's events too,
+  // same as lists/calendar categories. Personal has no teams, so this is a
+  // no-op there.
+  const visibilityOr: Where[] = [{ userId: { equals: userId } }]
+  if (workspaceId) {
+    const effective = await getEffectiveWorkspacePermissions(workspaceId, userId)
+    const isPlainOwnerOrAdmin =
+      (effective.role === 'owner' || effective.role === 'admin') &&
+      effective.customRoleName === null
+    if (isPlainOwnerOrAdmin) {
+      visibilityOr.push({ team: { exists: true } })
+    } else {
+      const myTeamIds = await getMyTeamIds(payload, workspaceId, userId)
+      if (myTeamIds.length > 0) visibilityOr.push({ team: { in: myTeamIds } })
+    }
+  }
+
   const { docs } = await payload.find({
     collection: 'calendar-events',
     limit: 500,
     sort: 'startDate',
     where: {
-      and: [
-        { userId: { equals: userId } },
-        ...workspaceFilter,
-        {
-          or: [
-            { and: [{ recurrenceId: { exists: false } }, { startDate: { less_than_equal: to } }] },
-            { and: [{ recurrenceId: { exists: true } }, { startDate: { less_than_equal: to } }] },
-          ],
-        },
-      ],
+      and: [workspaceWhereClause(workspaceId), { or: visibilityOr }, dateFilter],
     },
   })
   return { docs }
@@ -622,6 +694,16 @@ export const createCalendarEvent = async (data: CalendarEventData) => {
     const permissions = await getEffectiveWorkspacePermissions(workspaceId, userId)
     if (!permissions.canManageCalendar) return err('Not authorized')
 
+    if (data.teamId) {
+      if (!workspaceId) return err('Team not found')
+      const team = await payload.findByID({ collection: 'teams', id: data.teamId }).catch(() => null)
+      if (!team || team.workspace !== workspaceId || team.planArchivedAt) {
+        return err('Team not found')
+      }
+      const teamPermissions = await getTeamPermissions(data.teamId, userId)
+      if (!teamPermissions.canManageCalendar) return err('Not authorized')
+    }
+
     const event = await payload.create({
       collection: 'calendar-events',
       data: {
@@ -634,6 +716,7 @@ export const createCalendarEvent = async (data: CalendarEventData) => {
         allDay: data.allDay ?? false,
         color: data.color ?? '#8b5cf6',
         ...(data.categoryId !== undefined && { categoryId: data.categoryId }),
+        ...(data.teamId && { team: data.teamId }),
         ...(data.recurrence ? { recurrence: data.recurrence as any } : {}),
         ...(data.recurrenceId ? { recurrenceId: data.recurrenceId } : {}),
         ...(data.originalDate ? { originalDate: data.originalDate } : {}),
@@ -644,6 +727,24 @@ export const createCalendarEvent = async (data: CalendarEventData) => {
     console.error(e)
     return err('Error creating event')
   }
+}
+
+// A team-scoped event is governed by that team's own canManageCalendar
+// permission — even for someone who is otherwise the workspace owner/admin,
+// same precedence as everywhere else team access overrides a blanket
+// workspace-tier permission (see getTeamPermissionsForUser). A non-team
+// event falls back to the plain workspace-level check, as before.
+async function canManageCalendarEvent(
+  existing: { workspace?: string | null; team?: number | { id: number } | null },
+  userId: string,
+): Promise<boolean> {
+  const teamId = typeof existing.team === 'object' ? existing.team?.id : existing.team
+  if (teamId) {
+    const teamPermissions = await getTeamPermissions(teamId, userId)
+    return teamPermissions.canManageCalendar
+  }
+  const permissions = await getEffectiveWorkspacePermissions(existing.workspace ?? null, userId)
+  return permissions.canManageCalendar
 }
 
 export const updateCalendarEvent = async (
@@ -659,9 +760,7 @@ export const updateCalendarEvent = async (
     const payload = await getPayload({ config })
     const existing = await payload.findByID({ collection: 'calendar-events', id })
 
-    const eventWorkspaceId = (existing as any).workspace ?? null
-    const permissions = await getEffectiveWorkspacePermissions(eventWorkspaceId, userId)
-    if (!permissions.canManageCalendar) return err('Not authorized')
+    if (!(await canManageCalendarEvent(existing as any, userId))) return err('Not authorized')
 
     const isRecurring = !!(existing as any).recurrence?.frequency
     const isOverride = !!(existing as any).recurrenceId
@@ -930,9 +1029,7 @@ export const deleteCalendarEvent = async (
     const payload = await getPayload({ config })
     const existing = await payload.findByID({ collection: 'calendar-events', id })
 
-    const eventWorkspaceId = (existing as any).workspace ?? null
-    const permissions = await getEffectiveWorkspacePermissions(eventWorkspaceId, userId)
-    if (!permissions.canManageCalendar) return err('Not authorized')
+    if (!(await canManageCalendarEvent(existing as any, userId))) return err('Not authorized')
 
     const isRecurring = !!(existing as any).recurrence?.frequency
     const isOverride = !!(existing as any).recurrenceId

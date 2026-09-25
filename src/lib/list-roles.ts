@@ -1,5 +1,5 @@
 import type { BasePayload } from 'payload'
-import { getWorkspaceRoleForUser } from './get-current-workspace'
+import { getWorkspaceRoleForUser, getEffectiveWorkspacePermissions } from './get-current-workspace'
 
 export type ListRole = 'admin' | 'editor' | 'reader' | null
 
@@ -22,6 +22,43 @@ export async function resolveListRole(
   if (list.workspace) {
     const workspaceRole = await getWorkspaceRoleForUser(list.workspace, userId)
     if (!workspaceRole) return null // not part of this workspace at all
+
+    // A team-scoped list is visible to the team's own members via their
+    // team role, entirely separate from the isShared/list-members path
+    // below (which team lists never use). The list's own creator and the
+    // team's creator always get full control. An explicit team-member role
+    // assignment comes next and always wins from there — even over someone
+    // who is otherwise the workspace's owner/admin, same precedence as
+    // getTeamPermissionsForUser, so a deliberately restricted team role
+    // actually restricts them on that team's lists too. Only someone with
+    // no assignment on this team at all falls back to the workspace-wide
+    // owner/admin override (a custom role's derived 'admin' tier doesn't
+    // count there — see deriveBetterAuthRole).
+    if (list.team) {
+      if (isOwner) return 'admin'
+      const teamId = typeof list.team === 'object' ? list.team.id : list.team
+
+      const team = await payload.findByID({ collection: 'teams', id: teamId }).catch(() => null)
+      if (team?.createdBy === userId) return 'admin'
+
+      const { docs: memberDocs } = await payload.find({
+        collection: 'team-members',
+        where: { and: [{ team: { equals: teamId } }, { userId: { equals: userId } }] },
+        limit: 1,
+        depth: 1,
+      })
+      const member = memberDocs[0]
+      const role = member && typeof member.teamRole === 'object' ? member.teamRole : null
+      if (role) {
+        return workspaceRole === 'viewer' ? 'reader' : role.canManageLists ? 'editor' : 'reader'
+      }
+
+      const effective = await getEffectiveWorkspacePermissions(list.workspace, userId)
+      const isPlainOwnerOrAdmin =
+        (effective.role === 'owner' || effective.role === 'admin') &&
+        effective.customRoleName === null
+      return isPlainOwnerOrAdmin ? 'admin' : null
+    }
 
     // A list that was never shared is private to whoever created it —
     // that stays true even for the workspace's own owner/admin. Only once

@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { AlertCircle, Check, Loader2, Users, UserPlus, Search, X } from 'lucide-react'
+import { AlertCircle, Check, Loader2, Users, UsersRound, UserPlus, Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCreateList } from '@/hooks/lists/use-create-list'
 import { toast } from 'sonner'
@@ -17,6 +17,7 @@ import { LIMIT_ERRORS, SAFETY_CAP_ERRORS, type LimitError, type SafetyCapError }
 import { PlanLimitDialog } from '../ui/plan-limit-dialog'
 import { SafetyCapDialog } from '../ui/safety-cap-dialog'
 import { useActiveWorkspace } from '@/components/dashboard/workspace-switcher'
+import { useTeams } from '@/hooks/teams/use-teams'
 import type { WorkspaceMember } from '@/api/workspaces/actions'
 import type { ListMemberRole } from '@/api/list-members/actions'
 
@@ -72,6 +73,8 @@ export const NewListClient = () => {
 
   const activeWorkspace = useActiveWorkspace()
   const isWorkspaceActive = !!activeWorkspace && !activeWorkspace.isPersonal
+  const { teams } = useTeams(isWorkspaceActive)
+  const [teamId, setTeamId] = useState<number | null>(null)
 
   const {
     name,
@@ -125,18 +128,27 @@ export const NewListClient = () => {
 
   const mutation = useMutation({
     mutationFn: () =>
-      isWorkspaceActive
-        ? api.listMembers.createShared({
+      // A team-scoped list gets its visibility from team membership, not
+      // individual invites — mutually exclusive with the shared-list flow
+      // below, and the "Add members" section is hidden once a team is picked.
+      teamId
+        ? api.lists.create({
             name: name.trim(),
             category: { name: categoryName.trim() || undefined, color },
-            // The role here is a placeholder — createSharedList() derives
-            // the real role from each invitee's current workspace role.
-            invites: invitees.map((u) => ({ userId: u.userId, role: 'editor' as ListMemberRole })),
+            teamId,
           })
-        : api.lists.create({
-            name: name.trim(),
-            category: { name: categoryName.trim() || undefined, color },
-          }),
+        : isWorkspaceActive
+          ? api.listMembers.createShared({
+              name: name.trim(),
+              category: { name: categoryName.trim() || undefined, color },
+              // The role here is a placeholder — createSharedList() derives
+              // the real role from each invitee's current workspace role.
+              invites: invitees.map((u) => ({ userId: u.userId, role: 'editor' as ListMemberRole })),
+            })
+          : api.lists.create({
+              name: name.trim(),
+              category: { name: categoryName.trim() || undefined, color },
+            }),
     onSuccess: (result) => {
       if (!result.ok) {
         if (result.error === LIMIT_ERRORS.LISTS_LIMIT || result.error === LIMIT_ERRORS.SHARED_LISTS_LIMIT) {
@@ -297,7 +309,33 @@ export const NewListClient = () => {
           </div>
         </div>
 
-        {isWorkspaceActive && (
+        {isWorkspaceActive && teams.length > 0 && (
+          <div className="rounded-2xl border border-border/60 bg-card/40 p-6 backdrop-blur-sm space-y-3">
+            <div className="flex items-center gap-2">
+              <UsersRound className="h-4 w-4 text-violet-500" />
+              <p className="text-sm font-medium text-foreground">Team</p>
+              <span className="text-xs font-normal text-muted-foreground">Optional</span>
+            </div>
+            <p className="text-xs text-muted-foreground/70">
+              Associate this list with a team to make it visible only to that team&apos;s
+              members, instead of the whole workspace.
+            </p>
+            <select
+              value={teamId ?? ''}
+              onChange={(e) => setTeamId(e.target.value ? Number(e.target.value) : null)}
+              className="h-10 w-full rounded-xl border border-border/60 bg-background px-3 text-sm outline-none focus:border-primary/40"
+            >
+              <option value="">No team — visible to the whole workspace</option>
+              {teams.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {isWorkspaceActive && !teamId && (
           <div className="rounded-2xl border border-border/60 bg-card/40 p-6 backdrop-blur-sm space-y-4">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-violet-500" />

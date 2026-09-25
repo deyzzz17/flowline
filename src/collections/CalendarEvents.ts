@@ -15,6 +15,17 @@ export const CalendarEvents: CollectionConfig = {
           'Better Auth organization id this event belongs to. Empty means the Personal workspace.',
       },
     },
+    {
+      name: 'team',
+      type: 'relationship',
+      relationTo: 'teams',
+      required: false,
+      index: true,
+      admin: {
+        description:
+          'Optional team (within the same workspace) this event is scoped to — visible only to that team\'s members, and only within the Workspace Calendar (not the global, cross-workspace Calendar). Empty means private to its creator, same as before.',
+      },
+    },
     { name: 'title', type: 'text', required: true },
     { name: 'description', type: 'textarea', required: false },
     {
