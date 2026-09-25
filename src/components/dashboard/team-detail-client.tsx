@@ -41,6 +41,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { SHARED_LIST_POLL_INTERVAL_MS } from '@/lib/realtime'
 import { TeamRolesEditor } from './team-roles-editor'
 import { EditTeamDialog } from './edit-team-dialog'
@@ -773,28 +779,33 @@ function MembersTab({
                     <span className="flex-1 truncate text-sm font-medium text-foreground">
                       {m.name}
                     </span>
-                    {canManage ? (
-                      <select
-                        value={roles.find((r) => r.name === m.roleName)?.id ?? ''}
-                        onChange={(e) => {
-                          const roleId = Number(e.target.value)
-                          if (roleId) updateMemberRoleMutation.mutate({ memberId: m.id, roleId })
-                        }}
-                        className="h-7 rounded-md border border-border/60 bg-background px-1.5 text-xs"
-                      >
-                        {!roles.some((r) => r.name === m.roleName) && (
-                          <option value="">{m.roleName}</option>
-                        )}
-                        {roles.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.name}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                        {m.roleName}
-                      </span>
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      {m.roleName}
+                    </span>
+                    {canManage && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40">
+                          {roles.map((r) => (
+                            <DropdownMenuItem
+                              key={r.id}
+                              onClick={() =>
+                                updateMemberRoleMutation.mutate({ memberId: m.id, roleId: r.id })
+                              }
+                              className="text-xs"
+                            >
+                              {r.name}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
                     {canManage && (
                       <AlertDialog>
