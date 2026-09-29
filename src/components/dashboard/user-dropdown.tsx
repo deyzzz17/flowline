@@ -14,6 +14,7 @@ import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { clearTimerStorage } from '@/hooks/timer/use-timer'
+import { clearPersistedQueryCache } from '@/components/providers/providers'
 
 function getInitials(name: string | null | undefined): string {
   if (!name) return '?'
@@ -35,6 +36,8 @@ export const UserDropdown = () => {
     clearTimerStorage()
     await signOut()
     queryClient.clear()
+    // The persisted copy of this account's data must not outlive the session.
+    clearPersistedQueryCache()
     toast.info('Log out successful', {
       description: 'You have been successfully logged out. See you soon.',
     })

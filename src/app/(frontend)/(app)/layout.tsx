@@ -66,7 +66,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <Providers>
+    <Providers cacheScope={user?.id ?? null}>
       <UserProvider
         key={user?.email ?? 'guest'}
         initialUser={{

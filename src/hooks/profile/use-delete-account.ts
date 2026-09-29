@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/api'
 import { authClient } from '@/lib/auth-client'
+import { clearPersistedQueryCache } from '@/components/providers/providers'
 
 export const useDeleteAccount = () => {
   const [isDeleting, setIsDeleting] = useState(false)
@@ -23,6 +24,7 @@ export const useDeleteAccount = () => {
     }
 
     await authClient.signOut()
+    clearPersistedQueryCache()
     router.push('/')
     setIsDeleting(false)
     return true

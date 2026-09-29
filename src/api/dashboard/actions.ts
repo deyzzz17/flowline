@@ -3,6 +3,7 @@
 import 'server-only'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
+import { cacheForUser } from '@/lib/server-cache'
 import { generateOccurrences } from '@/api/calendar/calendar-recurrence'
 import { getSession } from '@/lib/get-session'
 
@@ -20,8 +21,18 @@ export interface DashboardTodayEvent {
   allDay: boolean
 }
 
-export async function getDashboardTodayEvents(): Promise<DashboardTodayEvent[]> {
+// Cached per user and day (dropped as soon as one of their calendar events changes — see server-cache.ts).
+export const getDashboardTodayEvents = async (): Promise<DashboardTodayEvent[]> => {
   const userId = await getUserId()
+  if (!userId) return computeGetDashboardTodayEvents(null)
+  return cacheForUser(userId, ['calendar'], ['dashboard-today-events'], () =>
+    computeGetDashboardTodayEvents(userId),
+  )
+}
+
+async function computeGetDashboardTodayEvents(
+  userId: string | null,
+): Promise<DashboardTodayEvent[]> {
   if (!userId) return []
 
   const now = new Date()

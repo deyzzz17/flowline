@@ -42,6 +42,8 @@ import {
   connectionRoute,
   workspaceArchiveRoute,
   invalidateWorkspaceOf,
+  invalidateUserDataOf,
+  withCacheInvalidation,
 } from './collections/hooks/realtime'
 
 const filename = fileURLToPath(import.meta.url)
@@ -55,22 +57,24 @@ export default buildConfig({
     },
   },
   // withRealtime: pushes live-update hints to other members' open tabs on
-  // every change (see src/collections/hooks/realtime.ts).
+  // every change (see src/collections/hooks/realtime.ts). invalidateUserDataOf
+  // / withCacheInvalidation: drop the owner's cached dashboard/analytics data
+  // (see src/lib/server-cache.ts).
   collections: [
     Admins,
     Media,
-    withRealtime(Tasks, taskRoute),
-    TaskCompletions,
-    UserTags,
+    withRealtime(Tasks, taskRoute, invalidateUserDataOf('tasks')),
+    withCacheInvalidation(TaskCompletions, invalidateUserDataOf('tasks')),
+    withCacheInvalidation(UserTags, invalidateUserDataOf('tasks')),
     withRealtime(Lists, listRoute),
-    TimerCategories,
-    TimerSessions,
+    withCacheInvalidation(TimerCategories, invalidateUserDataOf('timer')),
+    withCacheInvalidation(TimerSessions, invalidateUserDataOf('timer')),
     TimerConfigs,
-    withRealtime(CalendarEvents, calendarEventRoute),
+    withRealtime(CalendarEvents, calendarEventRoute, invalidateUserDataOf('calendar')),
     withRealtime(CalendarCategories, calendarCategoryRoute),
     GoogleCalendarSyncs,
-    Habits,
-    HabitCompletions,
+    withCacheInvalidation(Habits, invalidateUserDataOf('habits')),
+    withCacheInvalidation(HabitCompletions, invalidateUserDataOf('habits')),
     withRealtime(Connections, connectionRoute),
     withRealtime(ListMembers, listMemberRoute),
     withRealtime(TaskComments, taskCommentRoute),

@@ -3,6 +3,7 @@
 import 'server-only'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
+import { cacheForUser } from '@/lib/server-cache'
 import { ok, err } from '@/types/result'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
@@ -487,8 +488,16 @@ function mapHabitDoc(
   }
 }
 
+// Cached per user and local day (dropped as soon as a habit or completion of theirs changes — see server-cache.ts).
 export const listHabits = async (timezone = 'UTC'): Promise<HabitWithStats[]> => {
   const userId = await getUserId()
+  if (!userId) return computeListHabits(null, timezone)
+  return cacheForUser(userId, ['habits'], ['habits-list', timezone, getTodayKey(timezone)], () =>
+    computeListHabits(userId, timezone),
+  )
+}
+
+async function computeListHabits(userId: string | null, timezone = 'UTC'): Promise<HabitWithStats[]> {
   if (!userId) return []
   const payload = await getPayload({ config })
   const { docs: habits } = await payload.find({
@@ -1200,8 +1209,16 @@ export const toggleHabitCompletion = async (
   }
 }
 
+// Cached per user (dropped as soon as a habit or completion of theirs changes — see server-cache.ts).
 export const getHabitAnalytics = async (): Promise<HabitAnalytics> => {
   const userId = await getUserId()
+  if (!userId) return computeGetHabitAnalytics(null)
+  return cacheForUser(userId, ['habits'], ['habit-analytics'], () =>
+    computeGetHabitAnalytics(userId),
+  )
+}
+
+async function computeGetHabitAnalytics(userId: string | null): Promise<HabitAnalytics> {
   const empty: HabitAnalytics = {
     totalHabits: 0,
     avgCompletionRate: 0,
@@ -1413,8 +1430,16 @@ export const restoreHabit = async (id: number) => {
   }
 }
 
+// Cached per user (dropped as soon as a habit or completion of theirs changes — see server-cache.ts).
 export const getHeatmapAnalytics = async (year: number): Promise<HeatmapAnalyticsResult> => {
   const userId = await getUserId()
+  if (!userId) return computeGetHeatmapAnalytics(null, year)
+  return cacheForUser(userId, ['habits'], ['habit-heatmap', year], () =>
+    computeGetHeatmapAnalytics(userId, year),
+  )
+}
+
+async function computeGetHeatmapAnalytics(userId: string | null, year: number): Promise<HeatmapAnalyticsResult> {
   if (!userId) return { year, data: [] }
 
   const payload = await getPayload({ config })

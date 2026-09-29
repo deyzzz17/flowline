@@ -3,8 +3,9 @@
 import 'server-only'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
+import { cacheForUser } from '@/lib/server-cache'
 import { getSession } from '@/lib/get-session'
-import { getUserPlanLimits } from '@/lib/get-user-plan'
+import { getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { getAnalyticsWindowStart, clampToAnalyticsWindow } from '@/lib/analytics-window'
 
 const getUserId = async () => {
@@ -158,12 +159,20 @@ function getBuckets(
   return buckets
 }
 
+// Cached per user (dropped as soon as a habit or completion of theirs changes — see server-cache.ts).
 export const getHabitTrackingAnalytics = async (
   habitId: number,
   period: TrackingPeriod,
   offset: number,
 ): Promise<HabitTrackingAnalyticsResult> => {
   const userId = await getUserId()
+  if (!userId) return computeGetHabitTrackingAnalytics(null, habitId, period, offset)
+  return cacheForUser(userId, ['habits'], ['habit-tracking', habitId, period, offset], () =>
+    computeGetHabitTrackingAnalytics(userId, habitId, period, offset),
+  )
+}
+
+async function computeGetHabitTrackingAnalytics(userId: string | null, habitId: number, period: TrackingPeriod, offset: number): Promise<HabitTrackingAnalyticsResult> {
   const empty: HabitTrackingAnalyticsResult = { periodLabel: '', fields: [], restrictedByPlan: false }
   if (!userId) return empty
 
@@ -185,7 +194,7 @@ export const getHabitTrackingAnalytics = async (
   const periodLabel = getPeriodLabel(period, from, to)
   const buckets = getBuckets(period, from, to)
 
-  const { plan } = await getUserPlanLimits()
+  const { plan } = await getPlanLimitsForUserId(userId)
   const windowStart = getAnalyticsWindowStart(plan)
   const { fetchFrom, restrictedByPlan } = clampToAnalyticsWindow(from, windowStart)
 
@@ -243,8 +252,16 @@ export const getHabitTrackingAnalytics = async (
   return { periodLabel, fields, restrictedByPlan }
 }
 
+// Cached per user (dropped as soon as a habit or completion of theirs changes — see server-cache.ts).
 export const getHeatmapAnalytics = async (year: number): Promise<HeatmapAnalyticsResult> => {
   const userId = await getUserId()
+  if (!userId) return computeGetHeatmapAnalytics(null, year)
+  return cacheForUser(userId, ['habits'], ['habit-heatmap-analytics', year], () =>
+    computeGetHeatmapAnalytics(userId, year),
+  )
+}
+
+async function computeGetHeatmapAnalytics(userId: string | null, year: number): Promise<HeatmapAnalyticsResult> {
   if (!userId) return { year, data: [], restrictedByPlan: false }
 
   const payload = await getPayload({ config })
@@ -262,7 +279,7 @@ export const getHeatmapAnalytics = async (year: number): Promise<HeatmapAnalytic
   const to = new Date(year, 11, 31)
   to.setHours(23, 59, 59, 999)
 
-  const { plan } = await getUserPlanLimits()
+  const { plan } = await getPlanLimitsForUserId(userId)
   const windowStart = getAnalyticsWindowStart(plan)
   const { fetchFrom, restrictedByPlan } = clampToAnalyticsWindow(from, windowStart)
 

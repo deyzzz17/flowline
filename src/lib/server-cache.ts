@@ -18,7 +18,16 @@ export const cacheTags = {
   userWorkspaces: (userId: string) => `user-workspaces:${userId}`,
   /** Every user's timezone, read by the hourly maintenance job (inngest/functions/maintenance.ts). */
   userTimezones: 'user-timezones',
+  /** A user's own data of one kind (see UserDataScope) — dashboard/analytics caches. */
+  userData: (userId: string, scope: UserDataScope) => `user-data:${userId}:${scope}`,
 }
+
+/**
+ * Kinds of per-user data the dashboard/analytics caches depend on. Each is
+ * invalidated by Payload collection hooks whenever a document of that kind
+ * belonging to the user changes (see payload.config.ts).
+ */
+export type UserDataScope = 'tasks' | 'habits' | 'timer' | 'calendar'
 
 /**
  * `unstable_cache` with a pass-through fallback: outside a Next.js request
@@ -42,6 +51,37 @@ export function cached<Args extends unknown[], R>(
       }
       throw e
     }
+  }
+}
+
+/** Today's date (UTC) — part of every per-user cache key, so "today"-relative results roll over daily. */
+function utcDayKey(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+/**
+ * Caches the result of a dashboard/analytics computation for one user
+ * across requests. Invalidated when any of `scopes` changes for that user,
+ * or their plan changes (analytics history windows depend on it); the key
+ * also includes the current day. `fn` must not read the session/cookies/
+ * headers — pass it the userId.
+ */
+export async function cacheForUser<T>(
+  userId: string,
+  scopes: UserDataScope[],
+  keyParts: unknown[],
+  fn: () => Promise<T>,
+  revalidate = 15 * 60,
+): Promise<T> {
+  const key = ['user-data', userId, ...scopes, utcDayKey(), JSON.stringify(keyParts)]
+  const tags = [...scopes.map((s) => cacheTags.userData(userId, s)), cacheTags.userPlan(userId)]
+  try {
+    return await unstable_cache(fn, key, { tags, revalidate })()
+  } catch (e) {
+    if (e instanceof Error && /incrementalCache|static generation store/i.test(e.message)) {
+      return fn()
+    }
+    throw e
   }
 }
 
@@ -70,4 +110,9 @@ export function invalidateUserTimezones() {
 /** The set of workspaces a user belongs to changed (joined, left, removed). */
 export function invalidateUserWorkspaces(userId: string) {
   safeRevalidateTag(cacheTags.userWorkspaces(userId))
+}
+
+/** Some of this user's data of the given kind changed. */
+export function invalidateUserData(userId: string, scope: UserDataScope) {
+  safeRevalidateTag(cacheTags.userData(userId, scope))
 }

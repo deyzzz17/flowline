@@ -4,9 +4,13 @@ import type {
   CollectionConfig,
   PayloadRequest,
 } from 'payload'
-import { publishInvalidation, getRealtimeActor, isRealtimeConfigured } from '../../lib/realtime-server'
+import {
+  publishInvalidation,
+  getRealtimeActor,
+  isRealtimeConfigured,
+} from '../../lib/realtime-server'
 import { realtimeChannels } from '../../lib/realtime'
-import { invalidateWorkspace } from '../../lib/server-cache'
+import { invalidateWorkspace, invalidateUserData, type UserDataScope } from '../../lib/server-cache'
 
 // Collection hooks that push a content-free "these query keys changed" hint
 // to the clients concerned (see src/lib/realtime.ts) whenever a document
@@ -189,3 +193,18 @@ export const workspaceArchiveRoute: Router = (doc) => ({
   ],
   keys: [['workspaces'], ['workspace-members'], ['lists'], ['teams']],
 })
+
+/** Invalidates the owner's cached dashboard/analytics data of this kind (see server-cache.ts). */
+export const invalidateUserDataOf =
+  (scope: UserDataScope) =>
+  (doc: Doc): void => {
+    if (doc.userId) invalidateUserData(String(doc.userId), scope)
+  }
+
+/** Only the cache invalidation part of withRealtime, for collections nobody else watches live. */
+export function withCacheInvalidation(
+  config: CollectionConfig,
+  onWrite: (doc: Doc) => void,
+): CollectionConfig {
+  return withRealtime(config, () => [], onWrite)
+}

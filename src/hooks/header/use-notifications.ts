@@ -357,7 +357,6 @@ export const useNotifications = () => {
       queryClient.setQueryData(WORKSPACE_INVITES_KEY, result.workspaceInvites)
       return result
     },
-    staleTime: 0,
     refetchOnWindowFocus: true,
     refetchInterval: livePollInterval,
   })

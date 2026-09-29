@@ -4,7 +4,8 @@ import 'server-only'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { getUserId } from '../timer/actions'
-import { getUserPlanLimits } from '@/lib/get-user-plan'
+import { getPlanLimitsForUserId } from '@/lib/get-user-plan'
+import { cacheForUser } from '@/lib/server-cache'
 import { getAnalyticsWindowStart, clampToAnalyticsWindow } from '@/lib/analytics-window'
 
 export type AnalyticsPeriod = 'day' | 'week' | 'month' | 'year'
@@ -189,16 +190,28 @@ function getSessionKey(startedAt: string, period: AnalyticsPeriod, timezoneOffse
   }
 }
 
+// Cached per user across requests (dropped as soon as one of their timer
+// sessions/categories changes — see server-cache.ts): the dashboard and the
+// analytics page call this several times per render.
 export const getTimerAnalytics = async (
   period: AnalyticsPeriod,
   offset: number = 0,
 ): Promise<SessionAnalytics> => {
   const userId = await getUserId()
+  if (!userId) return emptyAnalytics(getPeriodRange(period, offset).label)
+  return cacheForUser(userId, ['timer'], ['timer-analytics', period, offset], () =>
+    computeTimerAnalytics(userId, period, offset),
+  )
+}
+
+async function computeTimerAnalytics(
+  userId: string,
+  period: AnalyticsPeriod,
+  offset: number,
+): Promise<SessionAnalytics> {
   const { start: periodStart, end: periodEnd, label: periodLabel } = getPeriodRange(period, offset)
 
-  if (!userId) return emptyAnalytics(periodLabel)
-
-  const { plan } = await getUserPlanLimits()
+  const { plan } = await getPlanLimitsForUserId(userId)
   const windowStart = getAnalyticsWindowStart(plan)
   const { fetchFrom, restrictedByPlan } = clampToAnalyticsWindow(periodStart, windowStart)
 

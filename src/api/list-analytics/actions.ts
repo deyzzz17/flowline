@@ -3,10 +3,11 @@
 import 'server-only'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
+import { cacheForUser } from '@/lib/server-cache'
 import { pool } from '@/lib/db-pool'
 import { getSession } from '@/lib/get-session'
 import { getCurrentWorkspaceId, workspaceWhereClause } from '@/lib/get-current-workspace'
-import { getUserPlanLimits } from '@/lib/get-user-plan'
+import { getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { getAnalyticsWindowStart, clampToAnalyticsWindow } from '@/lib/analytics-window'
 
 const getUserId = async () => {
@@ -109,11 +110,19 @@ function getNowInTz(timezone: string): { year: number; month: number; day: numbe
   return { year: get('year'), month: get('month'), day: get('day') }
 }
 
+// Cached per user (dropped as soon as a task, completion or tag of theirs changes — see server-cache.ts); keyed by the hour too, since periods follow the user's own timezone.
 export const getListAnalytics = async (
   period: 'day' | 'week' | 'month' = 'week',
   offset: number = 0,
 ): Promise<ListAnalyticsData> => {
   const userId = await getUserId()
+  if (!userId) return computeGetListAnalytics(null, period, offset)
+  return cacheForUser(userId, ['tasks'], ['list-analytics', period, offset, new Date().toISOString().slice(0, 13)], () =>
+    computeGetListAnalytics(userId, period, offset),
+  )
+}
+
+async function computeGetListAnalytics(userId: string | null, period: 'day' | 'week' | 'month' = 'week', offset: number = 0): Promise<ListAnalyticsData> {
   if (!userId)
     return {
       donut: [],
@@ -219,7 +228,7 @@ export const getListAnalytics = async (
   )
   const donutEndUTC = endOfDayUTC(nowLocal.year, nowLocal.month, nowLocal.day, userTimezone)
 
-  const { plan } = await getUserPlanLimits()
+  const { plan } = await getPlanLimitsForUserId(userId)
   const windowStart = getAnalyticsWindowStart(plan)
   const { fetchFrom: clampedSeriesStartUTC, restrictedByPlan } = clampToAnalyticsWindow(
     seriesStartUTC,
