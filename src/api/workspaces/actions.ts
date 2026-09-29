@@ -1106,7 +1106,12 @@ export const updateMemberNickname = async (memberId: string, nickname: string) =
     }
 
     await pool.query(`UPDATE member SET nickname = $1 WHERE id = $2`, [trimmed || null, memberId])
-    publishInvalidation([realtimeChannels.workspace(workspaceId)], [['workspace-members']], userId)
+    // Team member lists show this name too.
+    publishInvalidation(
+      [realtimeChannels.workspace(workspaceId)],
+      [['workspace-members'], ['teams']],
+      userId,
+    )
 
     return ok(true)
   } catch {

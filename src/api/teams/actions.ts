@@ -8,7 +8,11 @@ import { ok, err } from '@/types/result'
 import { getSession } from '@/lib/get-session'
 import { getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { getWorkspaceOwnerId } from '@/api/workspaces/actions'
-import { getWorkspaceRoleForUser, getEffectiveWorkspacePermissions } from '@/lib/get-current-workspace'
+import {
+  getWorkspaceRoleForUser,
+  getEffectiveWorkspacePermissions,
+  getWorkspaceNicknames,
+} from '@/lib/get-current-workspace'
 import { findUsersByIds } from '@/api/contacts/actions'
 import type { Plan } from '@/lib/stripe'
 
@@ -306,7 +310,10 @@ export const getTeamOverview = async (teamId: number): Promise<TeamOverview | nu
     ),
   )
 
-  const profiles = await findUsersByIds(memberDocs.map((m) => m.userId as string))
+  const [profiles, nicknames] = await Promise.all([
+    findUsersByIds(memberDocs.map((m) => m.userId as string)),
+    getWorkspaceNicknames(workspaceId),
+  ])
   const members = memberDocs
     .map((m) => {
       const profile = profiles.get(m.userId as string)
@@ -315,7 +322,10 @@ export const getTeamOverview = async (teamId: number): Promise<TeamOverview | nu
       return {
         id: m.id,
         userId: m.userId as string,
-        name: profile.name,
+        // The name the member uses in this workspace (set on the Members
+        // page), falling back to their account name — same as everywhere
+        // else inside a workspace.
+        name: nicknames.get(m.userId as string) ?? profile.name,
         image: profile.image,
         roleName: role?.name ?? 'Member',
       }

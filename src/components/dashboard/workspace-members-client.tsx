@@ -467,6 +467,8 @@ export function WorkspaceMembersClient() {
       }
       setEditingId(null)
       queryClient.invalidateQueries({ queryKey: ['workspace-members'] })
+      // Team pages show members by their workspace name too.
+      queryClient.invalidateQueries({ queryKey: ['teams'] })
     },
     onError: () => toast.error('Error saving changes'),
   })
