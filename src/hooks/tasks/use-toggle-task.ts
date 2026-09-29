@@ -13,7 +13,7 @@ function updateTaskInCache(
   id: number,
   status: 'active' | 'completed',
 ) {
-  if (!old) return old
+  if (!old?.docs) return old
   return {
     ...old,
     docs: old.docs.map((task) => {

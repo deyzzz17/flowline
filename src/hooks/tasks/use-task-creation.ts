@@ -155,7 +155,7 @@ export const useTaskCreation = () => {
         .getQueriesData<{ docs: Task[] }>({ queryKey: ['tasks'] })
         .forEach(([queryKey]) => {
           queryClient.setQueryData<{ docs: Task[] }>(queryKey as string[], (old) => {
-            if (!old) return old
+            if (!old?.docs) return old
             return { ...old, docs: [optimisticTask, ...old.docs] }
           })
         })

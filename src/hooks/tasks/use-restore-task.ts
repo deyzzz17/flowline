@@ -28,7 +28,7 @@ export const useRestoreTask = () => {
 
       let task: Task | undefined
       for (const [, data] of queries) {
-        task = data?.docs.find((t) => t.id === id)
+        task = data?.docs?.find((t) => t.id === id)
         if (task) break
       }
 
@@ -39,7 +39,7 @@ export const useRestoreTask = () => {
 
       queries.forEach(([queryKey]) => {
         queryClient.setQueryData<{ docs: Task[] }>(queryKey as string[], (old) => {
-          if (!old) return old
+          if (!old?.docs) return old
           const withoutTask = old.docs.filter((t) => t.id !== id)
           const key = queryKey as string[]
           const isGeneralQuery = key.length === 1

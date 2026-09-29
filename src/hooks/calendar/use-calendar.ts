@@ -600,7 +600,7 @@ export const useCalendar = () => {
       await queryClient.cancelQueries({ queryKey: ['tasks'] })
       const snapshot = queryClient.getQueriesData({ queryKey: ['tasks'] })
       queryClient.setQueriesData<{ docs: any[] }>({ queryKey: ['tasks'] }, (old) => {
-        if (!old) return old
+        if (!old?.docs) return old
         return { ...old, docs: old.docs.map((t) => (t.id === id ? { ...t, dueDate } : t)) }
       })
       clearOptimisticDate('task', id)

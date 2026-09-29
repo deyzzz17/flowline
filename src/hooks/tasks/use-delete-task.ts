@@ -16,7 +16,7 @@ export const useDeleteTask = () => {
 
       queries.forEach(([queryKey]) => {
         queryClient.setQueryData<{ docs: Task[] }>(queryKey as string[], (old) => {
-          if (!old) return old
+          if (!old?.docs) return old
           return {
             ...old,
             docs: old.docs.filter((task) => task.id !== id),

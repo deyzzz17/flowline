@@ -15,7 +15,7 @@ export const useSoftDelete = () => {
 
       queries.forEach(([queryKey]) => {
         queryClient.setQueryData<{ docs: Task[] }>(queryKey as string[], (old) => {
-          if (!old) return old
+          if (!old?.docs) return old
           return {
             ...old,
             docs: old.docs.map((task) => (task.id === id ? { ...task, status: 'deleted' } : task)),

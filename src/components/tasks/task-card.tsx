@@ -1190,7 +1190,7 @@ export const TaskCard = ({
                       queryClient.setQueriesData<{ docs: Task[] }>(
                         { queryKey: ['tasks'] },
                         (old) => {
-                          if (!old) return old
+                          if (!old?.docs) return old
                           return {
                             ...old,
                             docs: old.docs.map((t) =>

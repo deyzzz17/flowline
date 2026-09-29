@@ -40,7 +40,7 @@ export function useToggleSubtask() {
       const queries = queryClient.getQueriesData<{ docs: Task[] }>({ queryKey: ['tasks'] })
       let currentDone = false
       for (const [, data] of queries) {
-        const task = data?.docs.find((t) => t.id === taskId)
+        const task = data?.docs?.find((t) => t.id === taskId)
         if (task) {
           currentDone = (task.subtasks ?? [])[subtaskIndex]?.done ?? false
           break
@@ -50,7 +50,7 @@ export function useToggleSubtask() {
 
       queries.forEach(([queryKey]) => {
         queryClient.setQueryData<{ docs: Task[] }>(queryKey as string[], (old) => {
-          if (!old) return old
+          if (!old?.docs) return old
           return {
             ...old,
             docs: old.docs.map((task) => {
@@ -129,7 +129,7 @@ export function useCompleteTaskWithSubtasks() {
 
       queries.forEach(([queryKey]) => {
         queryClient.setQueryData<{ docs: Task[] }>(queryKey as string[], (old) => {
-          if (!old) return old
+          if (!old?.docs) return old
           return {
             ...old,
             docs: old.docs.map((task) => {

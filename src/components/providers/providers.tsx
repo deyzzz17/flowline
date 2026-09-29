@@ -11,7 +11,7 @@ import { RealtimeProvider } from './realtime-provider'
 // reload or reopening the app paints instantly from it and only refetches
 // what's actually stale, instead of re-downloading everything from the DB.
 // Bump CACHE_VERSION whenever a cached query's data shape changes.
-const CACHE_VERSION = '1'
+const CACHE_VERSION = '2'
 const CACHE_KEY_PREFIX = 'flowline-query-cache:'
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000
 

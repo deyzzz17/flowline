@@ -555,7 +555,7 @@ export const useWorkspaceCalendar = () => {
       const snapshot = queryClient.getQueriesData({ queryKey: ['tasks'] })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       queryClient.setQueriesData<{ docs: any[] }>({ queryKey: ['tasks'] }, (old) => {
-        if (!old) return old
+        if (!old?.docs) return old
         return { ...old, docs: old.docs.map((t) => (t.id === id ? { ...t, dueDate } : t)) }
       })
       clearOptimisticDate('task', id)

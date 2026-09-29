@@ -78,7 +78,9 @@ const PENDING_RECEIVED_KEY = ['connections', 'pending-received']
 const PAGE_DATA_KEY = ['contacts', 'page-data']
 const LIST_INVITES_KEY = ['list-invites', 'mine']
 const COMMENT_MENTIONS_KEY = ['task-comments', 'my-mentions']
-const TASK_ASSIGNMENTS_KEY = ['tasks', 'my-assignments']
+// Not under 'tasks': every task mutation's optimistic update walks all
+// ['tasks', …] caches expecting { docs }, and this one is a plain array.
+const TASK_ASSIGNMENTS_KEY = ['notifications', 'task-assignments']
 const WORKSPACE_INVITES_KEY = ['workspace-invites', 'mine']
 const ACCEPTED_BY_OTHERS_KEY = ['connections', 'recently-accepted-by-others']
 export const NOTIFICATION_FEED_KEY = ['notifications', 'feed']
