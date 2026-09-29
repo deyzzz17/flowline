@@ -219,7 +219,7 @@ export function useRealtimeConnected() {
 
 /**
  * The `refetchInterval` to use for data other people can change.
- * - `live`: shared tasks, comments, the notification bell — 30s without push, 5 min safety net with push.
+ * - `live`: shared tasks, comments, the notification bell — 30s without push, 1h safety net with push.
  * - `slow`: teams, roles, membership — 2 min without push, no polling with push.
  */
 export function useLivePollInterval(kind: 'live' | 'slow' = 'live'): number | false {

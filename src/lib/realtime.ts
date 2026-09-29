@@ -14,8 +14,12 @@
 
 /** Data other people can change and that should feel live (shared list tasks, comments, the bell). */
 export const LIVE_POLL_INTERVAL_MS = 30_000
-/** Same data, when push is connected — polling is then only a fallback for a missed message. */
-export const LIVE_POLL_INTERVAL_WITH_PUSH_MS = 5 * 60_000
+/**
+ * Same data, when push is connected — polling is then only a fallback for a
+ * missed message. Must stay well above Neon's 5-minute scale-to-zero delay,
+ * or a tab left open keeps the compute awake indefinitely.
+ */
+export const LIVE_POLL_INTERVAL_WITH_PUSH_MS = 60 * 60_000
 /** Data that rarely changes (teams, roles, membership) — without push. With push: no polling at all. */
 export const SLOW_POLL_INTERVAL_MS = 2 * 60_000
 
