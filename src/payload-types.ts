@@ -90,6 +90,7 @@ export interface Config {
     teams: Team;
     'team-roles': TeamRole;
     'team-members': TeamMember;
+    'calendar-event-invitations': CalendarEventInvitation;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -120,6 +121,7 @@ export interface Config {
     teams: TeamsSelect<false> | TeamsSelect<true>;
     'team-roles': TeamRolesSelect<false> | TeamRolesSelect<true>;
     'team-members': TeamMembersSelect<false> | TeamMembersSelect<true>;
+    'calendar-event-invitations': CalendarEventInvitationsSelect<false> | CalendarEventInvitationsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -459,6 +461,14 @@ export interface CalendarEvent {
    * Optional team (within the same workspace) this event is scoped to — visible only to that team's members, and only within the Workspace Calendar (not the global, cross-workspace Calendar). Empty means private to its creator, same as before.
    */
   team?: (number | null) | Team;
+  /**
+   * Teams a scheduled meeting is linked to (it shows in each of their calendars). Single-team events created from the event dialog use `team` instead.
+   */
+  teams?: (number | Team)[] | null;
+  /**
+   * How this event affects the availability of its creator and assignees in the meeting scheduler (Workspace Calendar).
+   */
+  showAs?: ('free' | 'tentative' | 'busy' | 'away') | null;
   /**
    * userIds of workspace members this event is assigned to — it shows up in their own agenda in the Workspace Calendar. For a team event, only members of that team.
    */
@@ -876,6 +886,26 @@ export interface TeamMember {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "calendar-event-invitations".
+ */
+export interface CalendarEventInvitation {
+  id: number;
+  event: number | CalendarEvent;
+  /**
+   * userId of the invited participant
+   */
+  userId: string;
+  /**
+   * userId of the organizer who sent the invitation
+   */
+  invitedBy: string;
+  status: 'pending' | 'accepted' | 'declined';
+  respondedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -989,6 +1019,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'team-members';
         value: number | TeamMember;
+      } | null)
+    | ({
+        relationTo: 'calendar-event-invitations';
+        value: number | CalendarEventInvitation;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1222,6 +1256,8 @@ export interface CalendarEventsSelect<T extends boolean = true> {
   userId?: T;
   workspace?: T;
   team?: T;
+  teams?: T;
+  showAs?: T;
   assignedTo?: T;
   title?: T;
   description?: T;
@@ -1467,6 +1503,19 @@ export interface TeamMembersSelect<T extends boolean = true> {
   userId?: T;
   teamRole?: T;
   addedBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "calendar-event-invitations_select".
+ */
+export interface CalendarEventInvitationsSelect<T extends boolean = true> {
+  event?: T;
+  userId?: T;
+  invitedBy?: T;
+  status?: T;
+  respondedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -28,6 +28,7 @@ import { CustomRoles } from './collections/CustomRoles'
 import { Teams } from './collections/Teams'
 import { TeamRoles } from './collections/TeamRoles'
 import { TeamMembers } from './collections/TeamMembers'
+import { CalendarEventInvitations } from './collections/CalendarEventInvitations'
 import {
   withRealtime,
   taskRoute,
@@ -40,6 +41,7 @@ import {
   calendarEventRoute,
   calendarCategoryRoute,
   connectionRoute,
+  eventInvitationRoute,
   workspaceArchiveRoute,
   invalidateWorkspaceOf,
   invalidateUserDataOf,
@@ -94,6 +96,7 @@ export default buildConfig({
     withRealtime(Teams, teamRoute),
     withRealtime(TeamRoles, teamChildRoute),
     withRealtime(TeamMembers, teamChildRoute),
+    withRealtime(CalendarEventInvitations, eventInvitationRoute),
   ],
   editor: lexicalEditor(),
   // Unused by the app (and by the admin panel, which uses REST) — disabled so

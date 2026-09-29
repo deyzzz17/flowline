@@ -13,10 +13,11 @@ import {
   getEffectiveWorkspacePermissions,
   getWorkspaceRoleForUser,
 } from '@/lib/get-current-workspace'
-import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
+import { getUserPlanLimits } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
-import { getTeamPermissions } from '@/api/teams/actions'
+import { getTeamPermissions } from '@/api/teams/internal'
 import { getMyTeamIds } from '@/lib/team-access'
+import { countActiveCalendarCategories } from './internal'
 
 const getUserId = async () => {
   const session = await getSession()
@@ -86,6 +87,11 @@ export interface CalendarEventData {
    * team event, only that team's members.
    */
   assignedTo?: string[]
+  /**
+   * How the event affects its people's availability in the meeting
+   * scheduler (Workspace Calendar). Defaults to busy.
+   */
+  showAs?: 'free' | 'tentative' | 'busy' | 'away'
   recurrence?: RecurrenceRule | null
   recurrenceId?: number | null
   originalDate?: string | null
@@ -187,19 +193,6 @@ async function filterVisibleCategories<T extends { team?: unknown }>(
   })
 }
 
-async function countActiveCalendarCategories(
-  payload: Awaited<ReturnType<typeof getPayload>>,
-  userId: string,
-): Promise<number> {
-  const { totalDocs } = await payload.find({
-    collection: 'calendar-categories',
-    where: {
-      and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: false } }],
-    },
-    limit: 0,
-  })
-  return totalDocs
-}
 
 export const createCalendarCategory = async (
   data: CalendarCategoryData,
@@ -344,38 +337,6 @@ export const restoreArchivedCalendarCategory = async (id: number) => {
   }
 }
 
-export async function restoreAllArchivedCalendarCategoriesForUserId(userId: string): Promise<void> {
-  try {
-    const payload = await getPayload({ config })
-    const { limits } = await getPlanLimitsForUserId(userId)
-
-    const activeCount = await countActiveCalendarCategories(payload, userId)
-    const room =
-      limits.calendarCategories === Infinity
-        ? Infinity
-        : Math.max(0, limits.calendarCategories - activeCount)
-    if (room <= 0) return
-
-    const { docs: archived } = await payload.find({
-      collection: 'calendar-categories',
-      where: {
-        and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: true } }],
-      },
-      sort: 'planArchivedAt',
-      limit: room === Infinity ? 0 : room,
-    })
-
-    for (const category of archived) {
-      await payload.update({
-        collection: 'calendar-categories',
-        id: category.id,
-        data: { planArchivedAt: null } as any,
-      })
-    }
-  } catch (e) {
-    console.error('restoreAllArchivedCalendarCategoriesForUserId error:', e)
-  }
-}
 
 export const listPlanArchivedCalendarCategories = async () => {
   const userId = await getUserId()
@@ -728,7 +689,11 @@ export const listFlowlineCalendarEvents = async (
       .catch(() => null)
     if (!team || team.workspace !== workspaceId || team.planArchivedAt) return { docs: [] }
     if (!(await getWorkspaceRoleForUser(workspaceId, userId))) return { docs: [] }
-    return { docs: await findEvents({ team: { equals: calendar.teamId } }) }
+    return {
+      docs: await findEvents({
+        or: [{ team: { equals: calendar.teamId } }, { teams: { in: [calendar.teamId] } }],
+      }),
+    }
   }
 
   // The viewer's own agenda: events they created outside any team, plus
@@ -811,6 +776,7 @@ export const createCalendarEvent = async (data: CalendarEventData) => {
         ...(data.categoryId !== undefined && { categoryId: data.categoryId }),
         ...(data.teamId && { team: data.teamId }),
         assignedTo,
+        ...(data.showAs && { showAs: data.showAs }),
         ...(data.recurrence ? { recurrence: data.recurrence as any } : {}),
         ...(data.recurrenceId ? { recurrenceId: data.recurrenceId } : {}),
         ...(data.originalDate ? { originalDate: data.originalDate } : {}),
@@ -829,9 +795,24 @@ export const createCalendarEvent = async (data: CalendarEventData) => {
 // workspace-tier permission (see getTeamPermissionsForUser). A non-team
 // event falls back to the plain workspace-level check, as before.
 async function canManageCalendarEvent(
-  existing: { workspace?: string | null; team?: number | { id: number } | null },
+  existing: {
+    workspace?: string | null
+    team?: number | { id: number } | null
+    teams?: (number | { id: number })[] | null
+    userId?: string
+  },
   userId: string,
 ): Promise<boolean> {
+  // A scheduled meeting linked to several teams: its organizer, or anyone
+  // allowed to manage the calendar of one of those teams.
+  const linkedTeams = (existing.teams ?? []).map((t) => teamIdOf(t)).filter((id) => id !== null)
+  if (linkedTeams.length > 0) {
+    if (existing.userId === userId) return true
+    for (const id of linkedTeams) {
+      if ((await getTeamPermissions(id, userId)).canManageCalendar) return true
+    }
+    return false
+  }
   const teamId = typeof existing.team === 'object' ? existing.team?.id : existing.team
   if (teamId) {
     const teamPermissions = await getTeamPermissions(teamId, userId)
@@ -889,17 +870,22 @@ export const updateCalendarEvent = async (
             recurrence: (data.recurrence as any) ?? undefined,
           }),
           ...(assignedTo !== undefined && { assignedTo }),
+          ...(data.showAs !== undefined && { showAs: data.showAs }),
         },
       })
       return ok(updated)
     }
 
     const parentId = isOverride ? (existing as any).recurrenceId : id
-    if (assignedTo !== undefined) {
+    // Assignees and availability status belong to the whole series.
+    if (assignedTo !== undefined || data.showAs !== undefined) {
       await payload.update({
         collection: 'calendar-events',
         where: { or: [{ id: { equals: parentId } }, { recurrenceId: { equals: parentId } }] },
-        data: { assignedTo },
+        data: {
+          ...(assignedTo !== undefined && { assignedTo }),
+          ...(data.showAs !== undefined && { showAs: data.showAs }),
+        },
       })
     }
     const parent = await payload.findByID({ collection: 'calendar-events', id: parentId })
@@ -1050,6 +1036,10 @@ export const updateCalendarEvent = async (
             // its assignees, so it stays visible to the same people.
             ...(teamIdOf((parent as any).team) ? { team: teamIdOf((parent as any).team)! } : {}),
             assignedTo: assignedTo ?? (((parent as any).assignedTo ?? []) as string[]),
+            ...(((parent as any).teams ?? []).length > 0 && {
+              teams: ((parent as any).teams as unknown[]).map((t) => teamIdOf(t)!),
+            }),
+            showAs: data.showAs ?? (parent as any).showAs ?? 'busy',
             recurrenceId: parentId,
             originalDate: occDate,
           },

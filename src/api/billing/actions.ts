@@ -138,11 +138,6 @@ async function hasUsedTrial(userId: string, plan: Plan): Promise<boolean> {
   return result.rows[0]?.[field] ?? false
 }
 
-export async function markTrialUsed(userId: string, plan: Plan) {
-  const field = plan === 'plus' ? '"hadPlusTrial"' : '"hadProTrial"'
-  await pool.query(`UPDATE "user" SET ${field} = TRUE WHERE id = $1`, [userId])
-}
-
 export const createCheckoutSession = async (plan: Plan, interval: BillingInterval) => {
   const session = await getSession()
   if (!session?.user) redirect('/api/auth/session-expired')

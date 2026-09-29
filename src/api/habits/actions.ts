@@ -7,9 +7,10 @@ import { cacheForUser } from '@/lib/server-cache'
 import { ok, err } from '@/types/result'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
-import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
+import { getUserPlanLimits } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 import { revalidatePath } from 'next/cache'
+import { countActiveHabits } from './internal'
 
 const getUserId = async () => {
   const session = await getSession()
@@ -720,23 +721,6 @@ export const createHabit = async (data: HabitData) => {
   }
 }
 
-async function countActiveHabits(
-  payload: Awaited<ReturnType<typeof getPayload>>,
-  userId: string,
-): Promise<number> {
-  const { totalDocs } = await payload.find({
-    collection: 'habits',
-    where: {
-      and: [
-        { userId: { equals: userId } },
-        { archivedAt: { exists: false } },
-        { planArchivedAt: { exists: false } },
-      ],
-    },
-    limit: 0,
-  })
-  return totalDocs
-}
 
 export const checkHabitsCompliance = async () => {
   const userId = await getUserId()
@@ -837,35 +821,6 @@ export const restoreArchivedHabit = async (id: number) => {
   }
 }
 
-export async function restoreAllArchivedHabitsForUserId(userId: string): Promise<void> {
-  try {
-    const payload = await getPayload({ config })
-    const { limits } = await getPlanLimitsForUserId(userId)
-
-    const activeCount = await countActiveHabits(payload, userId)
-    const room = limits.habits === Infinity ? Infinity : Math.max(0, limits.habits - activeCount)
-    if (room <= 0) return
-
-    const { docs: archived } = await payload.find({
-      collection: 'habits',
-      where: {
-        and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: true } }],
-      },
-      sort: 'planArchivedAt',
-      limit: room === Infinity ? 0 : room,
-    })
-
-    for (const habit of archived) {
-      await payload.update({
-        collection: 'habits',
-        id: habit.id,
-        data: { planArchivedAt: null } as any,
-      })
-    }
-  } catch (e) {
-    console.error('restoreAllArchivedHabitsForUserId error:', e)
-  }
-}
 
 export interface HabitTrackingFieldsOverLimit {
   habitId: number

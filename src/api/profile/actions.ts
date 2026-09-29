@@ -88,6 +88,10 @@ export const deleteAccount = async () => {
     await payload.delete({ collection: 'timer-categories', where: { userId: { equals: userId } } })
     await payload.delete({ collection: 'timer-configs', where: { userId: { equals: userId } } })
 
+    await payload.delete({
+      collection: 'calendar-event-invitations',
+      where: { or: [{ userId: { equals: userId } }, { invitedBy: { equals: userId } }] },
+    })
     await payload.delete({ collection: 'calendar-events', where: { userId: { equals: userId } } })
     await payload.delete({
       collection: 'calendar-categories',

@@ -9,7 +9,18 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Plus, User, UsersRound } from 'lucide-react'
+import {
+  CalendarClock,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  User,
+  UsersRound,
+} from 'lucide-react'
+import { MeetingSchedulerDialog } from './meeting-scheduler-dialog'
+import { useActiveWorkspace } from '@/components/dashboard/workspace-switcher'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -72,6 +83,9 @@ export function WorkspaceCalendarClient() {
   const { teams } = useTeams()
   const selectedTeam = teams.find((t) => t.id === calendarTeamId) ?? null
   const calendarLabel = selectedTeam ? selectedTeam.name : 'My agenda'
+  const [schedulerOpen, setSchedulerOpen] = useState(false)
+  // Viewers are read-only in a workspace — the server would refuse anyway.
+  const canSchedule = useActiveWorkspace()?.myRole !== 'viewer'
 
   const handleNavigate = (dir: 'prev' | 'next' | 'today') => {
     if (isMobile && view === 'week' && dir !== 'today') {
@@ -291,6 +305,18 @@ export function WorkspaceCalendarClient() {
               ))}
             </div>
 
+            {canSchedule && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSchedulerOpen(true)}
+                className="h-7 sm:h-8 gap-1 sm:gap-1.5 text-xs px-2 sm:px-3"
+              >
+                <CalendarClock className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Schedule meeting</span>
+              </Button>
+            )}
+
             <Button
               size="sm"
               onClick={() => openNewEvent(new Date())}
@@ -365,6 +391,13 @@ export function WorkspaceCalendarClient() {
         isDeleting={deleteMutation.isPending}
         allowTeamAssociation
         defaultTeamId={calendarTeamId}
+      />
+
+      <MeetingSchedulerDialog
+        open={schedulerOpen}
+        onOpenChange={setSchedulerOpen}
+        defaultDate={currentDate}
+        onScheduled={goToDay}
       />
     </DndContext>
   )

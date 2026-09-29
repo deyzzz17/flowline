@@ -31,6 +31,11 @@ import {
   type TaskAssignmentNotification,
 } from '@/api/tasks/actions'
 import {
+  listMyEventInvitations,
+  respondToEventInvitation,
+  type EventInvitation,
+} from '@/api/calendar/scheduler-actions'
+import {
   listMyWorkspaceInvites,
   acceptWorkspaceInvite,
   declineWorkspaceInvite,
@@ -49,6 +54,7 @@ export type NotificationLevel =
   | 'comment_mention'
   | 'workspace_invite'
   | 'task_assignment'
+  | 'event_invite'
 
 export interface TaskNotification {
   id: string
@@ -66,6 +72,7 @@ export interface TaskNotification {
   userImage?: string | null
   inviteId?: number
   workspaceInviteId?: string
+  eventInviteId?: number
 }
 
 // Persisted so state survives reload/reconnect — a notification, once
@@ -84,6 +91,7 @@ const TASK_ASSIGNMENTS_KEY = ['notifications', 'task-assignments']
 const WORKSPACE_INVITES_KEY = ['workspace-invites', 'mine']
 const ACCEPTED_BY_OTHERS_KEY = ['connections', 'recently-accepted-by-others']
 export const NOTIFICATION_FEED_KEY = ['notifications', 'feed']
+const EVENT_INVITES_KEY = ['event-invitations', 'mine']
 
 function getIdSetFromStorage(key: string): Set<string> {
   if (typeof window === 'undefined') return new Set()
@@ -181,6 +189,7 @@ function buildNotifications(tasks: DueSoonTask[]): TaskNotification[] {
     workspace_invite: -1,
     comment_mention: -1,
     task_assignment: -1,
+    event_invite: -1,
     today: 0,
     urgent: 1,
     warning: 2,
@@ -302,6 +311,30 @@ function buildCommentMentionNotifications(
   }))
 }
 
+function buildEventInviteNotifications(invites: EventInvitation[]): TaskNotification[] {
+  return invites.map((i) => {
+    const start = new Date(i.startDate)
+    const when = `${start.toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    })} · ${start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`
+    return {
+      id: `event-invite-${i.id}`,
+      taskId: i.eventId,
+      taskTitle: i.title,
+      listName: `${i.inviterName} invited you · ${when}`,
+      listSlug: '',
+      listColor: '#8b5cf6',
+      level: 'event_invite' as const,
+      message: 'Meeting invitation',
+      dueDate: i.createdAt,
+      eventInviteId: i.id,
+      userImage: i.inviterImage,
+    }
+  })
+}
+
 function buildTaskAssignmentNotifications(
   assignments: TaskAssignmentNotification[],
 ): TaskNotification[] {
@@ -357,6 +390,7 @@ export const useNotifications = () => {
       queryClient.setQueryData(COMMENT_MENTIONS_KEY, result.commentMentions)
       queryClient.setQueryData(TASK_ASSIGNMENTS_KEY, result.taskAssignments)
       queryClient.setQueryData(WORKSPACE_INVITES_KEY, result.workspaceInvites)
+      queryClient.setQueryData(EVENT_INVITES_KEY, result.eventInvitations)
       return result
     },
     refetchOnWindowFocus: true,
@@ -404,6 +438,11 @@ export const useNotifications = () => {
     queryFn: () => listMyWorkspaceInvites(),
     enabled: false,
   })
+  const { data: eventInvitesData } = useQuery({
+    queryKey: EVENT_INVITES_KEY,
+    queryFn: () => listMyEventInvitations(),
+    enabled: false,
+  })
 
   const allNotifications = useMemo(() => {
     const taskNotifs = buildNotifications(feed?.dueSoonTasks ?? [])
@@ -414,10 +453,12 @@ export const useNotifications = () => {
     const commentMentionNotifs = buildCommentMentionNotifications(commentMentionsData ?? [])
     const taskAssignmentNotifs = buildTaskAssignmentNotifications(taskAssignmentsData ?? [])
     const workspaceInviteNotifs = buildWorkspaceInviteNotifications(workspaceInvitesData ?? [])
+    const eventInviteNotifs = buildEventInviteNotifications(eventInvitesData ?? [])
     return [
       ...requestNotifs,
       ...listInviteNotifs,
       ...workspaceInviteNotifs,
+      ...eventInviteNotifs,
       ...acceptedNotifs,
       ...commentMentionNotifs,
       ...taskAssignmentNotifs,
@@ -433,6 +474,7 @@ export const useNotifications = () => {
     commentMentionsData,
     taskAssignmentsData,
     workspaceInvitesData,
+    eventInvitesData,
   ])
 
   const notifications = useMemo(
@@ -705,6 +747,36 @@ export const useNotifications = () => {
     },
   })
 
+  // Meeting invitations: answered from the bell, removed optimistically.
+  const respondEventInviteMutation = useMutation({
+    mutationFn: ({ id, response }: { id: number; response: 'accepted' | 'declined' }) =>
+      respondToEventInvitation(id, response),
+    onMutate: async ({ id }) => {
+      await queryClient.cancelQueries({ queryKey: EVENT_INVITES_KEY })
+      const previousInvites = queryClient.getQueryData<EventInvitation[]>(EVENT_INVITES_KEY)
+      queryClient.setQueryData<EventInvitation[]>(
+        EVENT_INVITES_KEY,
+        (old) => old?.filter((i) => i.id !== id) ?? [],
+      )
+      return { previousInvites }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousInvites) {
+        queryClient.setQueryData(EVENT_INVITES_KEY, context.previousInvites)
+      }
+    },
+    onSuccess: (result, _vars, context) => {
+      if (!result.ok) {
+        if (context?.previousInvites) {
+          queryClient.setQueryData(EVENT_INVITES_KEY, context.previousInvites)
+        }
+        toast.error(result.error)
+        return
+      }
+      queryClient.invalidateQueries({ queryKey: ['workspace-calendar-events'] })
+    },
+  })
+
   return {
     open,
     setOpen: handleOpen,
@@ -725,5 +797,7 @@ export const useNotifications = () => {
     isAcceptingWorkspaceInvite: acceptWorkspaceInviteMutation.isPending,
     declineWorkspaceInvite: declineWorkspaceInviteMutation.mutate,
     isDecliningWorkspaceInvite: declineWorkspaceInviteMutation.isPending,
+    respondEventInvite: respondEventInviteMutation.mutate,
+    isRespondingEventInvite: respondEventInviteMutation.isPending,
   }
 }

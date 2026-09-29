@@ -25,8 +25,8 @@ import {
   canViewList,
   getListMemberIds,
 } from '@/lib/list-roles'
-import { deleteCommentsForTaskIds } from '@/api/task-comments/actions'
-import { findUsersByIds } from '@/api/contacts/actions'
+import { deleteCommentsForTaskIds } from '@/api/task-comments/internal'
+import { findUsersByIds } from '@/api/contacts/internal'
 import { sendTaskAssignmentEmail } from '@/lib/notification-emails'
 
 type CreateTaskInput = {

@@ -225,3 +225,24 @@ export const invalidateComplianceOf =
   (doc: Doc): void => {
     if (doc[field]) invalidateUserData(String(doc[field]), 'compliance')
   }
+
+// The invitee's bell and agenda, plus the workspace calendars (the event's
+// attendee statuses are shown on it).
+export const eventInvitationRoute: Router = async (doc, req) => {
+  const eventId = idOf(doc.event)
+  const event = eventId
+    ? await req.payload
+        .findByID({
+          collection: 'calendar-events',
+          id: eventId,
+          depth: 0,
+          select: { workspace: true },
+          req,
+        })
+        .catch(() => null)
+    : null
+  return {
+    channels: [event ? ws(event as Doc) : null, ...users([doc.userId, doc.invitedBy])],
+    keys: [['notifications'], ['workspace-calendar-events'], ['event-invitations']],
+  }
+}

@@ -14,6 +14,10 @@ export interface CalendarEvent {
   teamId?: number | null
   /** userIds this event is assigned to (Workspace Calendar only). */
   assignedTo?: string[]
+  /** Teams a scheduled meeting is linked to (besides the single `teamId`). */
+  teamIds?: number[]
+  /** Availability status in the meeting scheduler (Workspace Calendar only). */
+  showAs?: 'free' | 'tentative' | 'busy' | 'away'
   recurrence?: RecurrenceRule | null
   recurrenceId?: number | null
   originalDate?: string | null
@@ -101,6 +105,12 @@ export function mapEvent(e: any) {
     categoryId: typeof e.categoryId === 'number' ? e.categoryId : null,
     teamId: typeof e.team === 'object' ? (e.team?.id ?? null) : (e.team ?? null),
     assignedTo: Array.isArray(e.assignedTo) ? (e.assignedTo as string[]) : [],
+    teamIds: Array.isArray(e.teams)
+      ? (e.teams as unknown[])
+          .map((t) => (t && typeof t === 'object' ? (t as { id: number }).id : t))
+          .filter((id): id is number => typeof id === 'number')
+      : [],
+    showAs: (e.showAs ?? 'busy') as 'free' | 'tentative' | 'busy' | 'away',
     recurrence: e.recurrence?.frequency ? (e.recurrence as RecurrenceRule) : null,
     recurrenceId: e.recurrenceId ?? null,
     originalDate: e.originalDate ?? null,

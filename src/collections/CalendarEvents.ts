@@ -3,6 +3,20 @@ import type { CollectionConfig } from 'payload'
 export const CalendarEvents: CollectionConfig = {
   slug: 'calendar-events',
   admin: { useAsTitle: 'title' },
+  hooks: {
+    // Invitations reference their event with a NOT NULL column whose FK is
+    // ON DELETE SET NULL (Payload's default) — they must go first, or
+    // deleting any invited event would fail.
+    beforeDelete: [
+      async ({ id, req }) => {
+        await req.payload.delete({
+          collection: 'calendar-event-invitations',
+          where: { event: { equals: id } },
+          req,
+        })
+      },
+    ],
+  },
   fields: [
     { name: 'userId', type: 'text', required: true, index: true },
     {
@@ -24,6 +38,33 @@ export const CalendarEvents: CollectionConfig = {
       admin: {
         description:
           'Optional team (within the same workspace) this event is scoped to — visible only to that team\'s members, and only within the Workspace Calendar (not the global, cross-workspace Calendar). Empty means private to its creator, same as before.',
+      },
+    },
+    {
+      name: 'teams',
+      type: 'relationship',
+      relationTo: 'teams',
+      hasMany: true,
+      required: false,
+      admin: {
+        description:
+          'Teams a scheduled meeting is linked to (it shows in each of their calendars). Single-team events created from the event dialog use `team` instead.',
+      },
+    },
+    {
+      name: 'showAs',
+      type: 'select',
+      required: false,
+      defaultValue: 'busy',
+      options: [
+        { label: 'Available', value: 'free' },
+        { label: 'Tentative', value: 'tentative' },
+        { label: 'Busy', value: 'busy' },
+        { label: 'Away', value: 'away' },
+      ],
+      admin: {
+        description:
+          'How this event affects the availability of its creator and assignees in the meeting scheduler (Workspace Calendar).',
       },
     },
     {

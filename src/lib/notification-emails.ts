@@ -130,3 +130,48 @@ export async function sendCommentMentionEmail(
     ),
   })
 }
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+/** A meeting invitation from the Workspace Calendar's scheduler, dated in the recipient's timezone. */
+export async function sendEventInvitationEmail(
+  to: string,
+  args: { title: string; inviterName: string | null; start: Date; end: Date; timezone: string },
+) {
+  let when: string
+  try {
+    const day = new Intl.DateTimeFormat('en-US', {
+      timeZone: args.timezone,
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+    }).format(args.start)
+    const time = new Intl.DateTimeFormat('en-US', {
+      timeZone: args.timezone,
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+    when = `${day}, ${time.format(args.start)} – ${time.format(args.end)}`
+  } catch {
+    when = `${args.start.toUTCString()} (UTC)`
+  }
+  const who = args.inviterName ? `<strong>${escapeHtml(args.inviterName)}</strong>` : 'Someone'
+  await sendEmail({
+    to,
+    subject: `${args.inviterName ?? 'Someone'} invited you to "${args.title}"`,
+    html: wrapEmail(
+      heading('Meeting invitation') +
+        paragraph(
+          `${who} invited you to <strong>${escapeHtml(args.title)}</strong> on ${escapeHtml(when)}.`,
+        ) +
+        button(loginUrl(), 'Log in to respond') +
+        footer('You can accept or decline this invitation from your notifications once logged in.'),
+    ),
+  })
+}

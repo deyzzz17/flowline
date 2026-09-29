@@ -1,17 +1,17 @@
 import 'server-only'
-import { restoreAllArchivedListsForUserId } from '@/api/lists/actions'
-import { restoreAllArchivedSharedListsForUserId } from '@/api/list-members/actions'
-import { restoreAllArchivedTagsForUserId } from '@/api/tags/actions'
-import { restoreAllArchivedCalendarCategoriesForUserId } from '@/api/calendar/actions'
-import { restoreAllArchivedHabitsForUserId } from '@/api/habits/actions'
+import { restoreAllArchivedListsForUserId } from '@/api/lists/internal'
+import { restoreAllArchivedSharedListsForUserId } from '@/api/list-members/internal'
+import { restoreAllArchivedTagsForUserId } from '@/api/tags/internal'
+import { restoreAllArchivedCalendarCategoriesForUserId } from '@/api/calendar/internal'
+import { restoreAllArchivedHabitsForUserId } from '@/api/habits/internal'
 import {
   restoreAllArchivedTimerCategoriesForUserId,
   restoreAllArchivedTimerConfigsForUserId,
-} from '@/api/timer/actions'
+} from '@/api/timer/internal'
 import {
   restoreAllArchivedWorkspaceMembersForUserId,
   restoreAllArchivedWorkspacesForUserId,
-} from '@/api/workspaces/actions'
+} from '@/api/workspaces/internal'
 
 export async function reconcilePlanArchivedEntities(userId: string): Promise<void> {
   // Workspaces first — restoring one frees no member seats by itself (the

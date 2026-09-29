@@ -12,15 +12,11 @@ import { getSession } from '@/lib/get-session'
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 import { resolveListRole } from '@/lib/list-roles'
-import {
-  getCurrentWorkspaceId,
-  getWorkspaceRoleForUser,
-  workspaceWhereClause,
-  getEffectiveWorkspacePermissions,
-} from '@/lib/get-current-workspace'
-import { deleteCommentsForTaskIds } from '@/api/task-comments/actions'
-import { getTeamPermissions } from '@/api/teams/actions'
+import { getCurrentWorkspaceId, workspaceWhereClause, getEffectiveWorkspacePermissions } from '@/lib/get-current-workspace'
+import { deleteCommentsForTaskIds } from '@/api/task-comments/internal'
+import { getTeamPermissions } from '@/api/teams/internal'
 import { getMyTeamIds } from '@/lib/team-access'
+import { countActiveLists } from './internal'
 
 type CreateListInput = {
   name: string
@@ -44,23 +40,6 @@ const getUserId = async () => {
   return session?.user?.id ?? null
 }
 
-async function countActiveLists(
-  payload: Awaited<ReturnType<typeof getPayload>>,
-  userId: string,
-): Promise<number> {
-  const { totalDocs } = await payload.find({
-    collection: 'lists',
-    where: {
-      and: [
-        { userId: { equals: userId } },
-        { planArchivedAt: { exists: false } },
-        { isShared: { not_equals: true } },
-      ],
-    },
-    limit: 0,
-  })
-  return totalDocs
-}
 
 export const createList = async (input: CreateListInput) => {
   try {
@@ -393,70 +372,6 @@ export const restoreArchivedList = async (id: number) => {
   }
 }
 
-export async function restoreAllArchivedListsForUserId(userId: string): Promise<void> {
-  try {
-    const payload = await getPayload({ config })
-    const { limits } = await getPlanLimitsForUserId(userId)
-
-    const activeCount = await countActiveLists(payload, userId)
-    const room = limits.lists === Infinity ? Infinity : Math.max(0, limits.lists - activeCount)
-    if (room <= 0) return
-
-    // No single "current workspace" here — this runs from a plan-upgrade
-    // webhook, not a page request — so instead of scoping to one workspace,
-    // every candidate is checked against the workspaces this user is still
-    // actually a member of. Otherwise a list archived while on a workspace
-    // the user has since left (or that got deleted) would silently come
-    // back on upgrade, counting against their quota with no way to reach it.
-    const { docs: allArchived } = await payload.find({
-      collection: 'lists',
-      where: {
-        and: [
-          { userId: { equals: userId } },
-          { planArchivedAt: { exists: true } },
-          { isShared: { not_equals: true } },
-        ],
-      },
-      sort: 'planArchivedAt',
-      limit: 0,
-    })
-
-    const restorable: typeof allArchived = []
-    for (const list of allArchived) {
-      if (room !== Infinity && restorable.length >= room) break
-      if (!list.workspace) {
-        restorable.push(list)
-        continue
-      }
-      const role = await getWorkspaceRoleForUser(list.workspace, userId)
-      if (role) restorable.push(list)
-    }
-    const archived = restorable
-
-    for (const list of archived) {
-      await payload.update({
-        collection: 'lists',
-        id: list.id,
-        data: { planArchivedAt: null },
-      })
-
-      const { docs: tasks } = await payload.find({
-        collection: 'tasks',
-        where: { list: { equals: list.id } },
-        limit: 0,
-      })
-      for (const task of tasks) {
-        await payload.update({
-          collection: 'tasks',
-          id: task.id,
-          data: { planArchivedAt: null } as any,
-        })
-      }
-    }
-  } catch (e) {
-    console.error('restoreAllArchivedListsForUserId error:', e)
-  }
-}
 
 export const getListById = async (id: number) => {
   try {

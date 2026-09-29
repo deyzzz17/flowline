@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { listEventAttendees } from '@/api/calendar/scheduler-actions'
+import { SHOW_AS_OPTIONS, showAsOption, type ShowAs } from './show-as'
 import {
   Dialog,
   DialogContent,
@@ -574,6 +576,7 @@ export function CalendarEventDialog({
   const [categoryId, setCategoryId] = useState<number | null>(null)
   const [teamId, setTeamId] = useState<number | null>(null)
   const [assignedTo, setAssignedTo] = useState<string[]>([])
+  const [showAs, setShowAs] = useState<ShowAs>('busy')
 
   // Who the event can be assigned to: the workspace's members, narrowed to
   // the event's team members for a team event (same rule as the server).
@@ -597,6 +600,15 @@ export function CalendarEventDialog({
     const m = workspaceMembers?.docs.find((d) => d.userId === userId)
     return m ? m.nickname || m.name : 'Member'
   }
+
+  // Invitation answers, for meetings created with the scheduler.
+  const selectedEventId =
+    selectedItem?.type === 'event' && typeof selectedItem.id === 'number' ? selectedItem.id : null
+  const { data: attendees = [] } = useQuery({
+    queryKey: ['event-invitations', 'attendees', selectedEventId],
+    queryFn: () => listEventAttendees(selectedEventId!),
+    enabled: allowTeamAssociation && open && selectedEventId !== null,
+  })
   const [recurrence, setRecurrence] = useState<RecurrenceRule | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -624,6 +636,7 @@ export function CalendarEventDialog({
       setCategoryId(ev.categoryId ?? null)
       setTeamId(ev.teamId ?? null)
       setAssignedTo(ev.assignedTo ?? [])
+      setShowAs(ev.showAs ?? 'busy')
       setRecurrence(ev.recurrence ?? null)
       setMode('view')
     } else if (!isTask) {
@@ -638,6 +651,7 @@ export function CalendarEventDialog({
       setCategoryId(null)
       setTeamId(defaultTeamId)
       setAssignedTo([])
+      setShowAs('busy')
       setRecurrence(null)
       setMode('create')
     }
@@ -677,7 +691,7 @@ export function CalendarEventDialog({
     categoryId,
     // Team association is only set at creation — not editable afterwards.
     ...(mode === 'create' && { teamId }),
-    ...(allowTeamAssociation && { assignedTo }),
+    ...(allowTeamAssociation && { assignedTo, showAs }),
     recurrence: recurrence ?? undefined,
   })
 
@@ -896,11 +910,61 @@ export function CalendarEventDialog({
                 </div>
               )}
 
-              {allowTeamAssociation && (ev.assignedTo?.length ?? 0) > 0 && (
-                <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                  <UserCheck className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                  <span>Assigned to {ev.assignedTo!.map(memberLabel).join(', ')}</span>
+              {(ev.teamIds?.length ?? 0) > 0 && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <UsersRound className="h-3.5 w-3.5 shrink-0" />
+                  {ev
+                    .teamIds!.map((id) => teams.find((t) => t.id === id)?.name ?? 'Team')
+                    .join(', ')}
                 </div>
+              )}
+
+              {allowTeamAssociation && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className={cn('h-2 w-2 rounded-full shrink-0', showAsOption(ev.showAs).dot)} />
+                  Shown as {showAsOption(ev.showAs).label.toLowerCase()}
+                </div>
+              )}
+
+              {allowTeamAssociation && attendees.length > 0 ? (
+                <div className="space-y-1.5">
+                  <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <UserCheck className="h-3.5 w-3.5 shrink-0" />
+                    Participants
+                  </p>
+                  <div className="space-y-1 pl-5">
+                    {attendees.map((a) => (
+                      <div key={a.userId} className="flex items-center justify-between gap-2 text-xs">
+                        <span className="truncate text-foreground">{memberLabel(a.userId)}</span>
+                        <span
+                          className={cn(
+                            'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium',
+                            a.status === 'accepted' && 'bg-emerald-500/15 text-emerald-600',
+                            a.status === 'declined' && 'bg-red-500/15 text-red-600',
+                            a.status === 'pending' && 'bg-muted text-muted-foreground',
+                            a.status === 'organizer' && 'bg-violet-500/15 text-violet-600',
+                          )}
+                        >
+                          {a.status === 'organizer'
+                            ? 'Organizer'
+                            : a.status === 'accepted'
+                              ? 'Accepted'
+                              : a.status === 'declined'
+                                ? 'Declined'
+                                : 'Pending'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                allowTeamAssociation &&
+                (ev.assignedTo?.length ?? 0) > 0 && (
+                  <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <UserCheck className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                    <span>Assigned to {ev.assignedTo!.map(memberLabel).join(', ')}</span>
+                  </div>
+                )
               )}
 
               {ev.recurrence?.frequency && (
@@ -1177,6 +1241,34 @@ export function CalendarEventDialog({
                       </button>
                     )
                   })}
+                </div>
+              </div>
+            )}
+
+            {allowTeamAssociation && (
+              <div className="space-y-2">
+                <Label className="text-sm">Show as</Label>
+                <p className="text-xs text-muted-foreground/70">
+                  How this event affects your and the assignees&apos; availability when others
+                  schedule a meeting.
+                </p>
+                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                  {SHOW_AS_OPTIONS.map((o) => (
+                    <button
+                      key={o.value}
+                      type="button"
+                      onClick={() => setShowAs(o.value)}
+                      className={cn(
+                        'flex items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-medium transition-all',
+                        showAs === o.value
+                          ? 'border-violet-500/50 bg-violet-500/15 text-foreground'
+                          : 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
+                      )}
+                    >
+                      <span className={cn('h-2 w-2 rounded-full', o.dot)} />
+                      {o.label}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}

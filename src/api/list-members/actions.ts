@@ -21,9 +21,11 @@ import { getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 import { resolveListRole, getListMemberIds, canViewList } from '@/lib/list-roles'
 import type { WorkspaceRole } from '@/lib/workspace-permissions'
-import { findUsersByIds, type ContactProfile } from '@/api/contacts/actions'
+import { type ContactProfile } from '@/api/contacts/actions'
+import { findUsersByIds } from '@/api/contacts/internal'
 import { sendListInviteEmail } from '@/lib/notification-emails'
 import type { List } from '@/payload-types'
+import { countSharedLists } from './internal'
 
 const getUserId = async () => {
   const session = await getSession()
@@ -108,24 +110,6 @@ async function countListMembers(
     collection: 'list-members',
     where: {
       and: [{ list: { equals: listId } }, { status: { in: ['pending', 'accepted'] } }],
-    },
-    limit: 0,
-  })
-  return totalDocs
-}
-
-async function countSharedLists(
-  payload: Awaited<ReturnType<typeof getPayload>>,
-  ownerId: string,
-): Promise<number> {
-  const { totalDocs } = await payload.find({
-    collection: 'lists',
-    where: {
-      and: [
-        { userId: { equals: ownerId } },
-        { isShared: { equals: true } },
-        { planArchivedAt: { exists: false } },
-      ],
     },
     limit: 0,
   })
@@ -790,68 +774,5 @@ export const restoreArchivedSharedList = async (id: number) => {
     return ok(true)
   } catch {
     return err('Error while restoring the shared list')
-  }
-}
-
-export async function restoreAllArchivedSharedListsForUserId(userId: string): Promise<void> {
-  try {
-    const payload = await getPayload({ config })
-    const { limits } = await getPlanLimitsForUserId(userId)
-
-    const activeCount = await countSharedLists(payload, userId)
-    const room =
-      limits.sharedLists === Infinity ? Infinity : Math.max(0, limits.sharedLists - activeCount)
-    if (room <= 0) return
-
-    // Same reasoning as restoreAllArchivedListsForUserId: no "current
-    // workspace" in a webhook context, so each candidate is checked against
-    // the workspaces this user is still actually a member of instead.
-    const { docs: allArchived } = await payload.find({
-      collection: 'lists',
-      where: {
-        and: [
-          { userId: { equals: userId } },
-          { isShared: { equals: true } },
-          { planArchivedAt: { exists: true } },
-        ],
-      },
-      sort: 'planArchivedAt',
-      limit: 0,
-    })
-
-    const restorable: typeof allArchived = []
-    for (const list of allArchived) {
-      if (room !== Infinity && restorable.length >= room) break
-      if (!list.workspace) {
-        restorable.push(list)
-        continue
-      }
-      const role = await getWorkspaceRoleForUser(list.workspace, userId)
-      if (role) restorable.push(list)
-    }
-    const archived = restorable
-
-    for (const list of archived) {
-      await payload.update({
-        collection: 'lists',
-        id: list.id,
-        data: { planArchivedAt: null },
-      })
-
-      const { docs: tasks } = await payload.find({
-        collection: 'tasks',
-        where: { list: { equals: list.id } },
-        limit: 0,
-      })
-      for (const task of tasks) {
-        await payload.update({
-          collection: 'tasks',
-          id: task.id,
-          data: { planArchivedAt: null } as any,
-        })
-      }
-    }
-  } catch (e) {
-    console.error('restoreAllArchivedSharedListsForUserId error:', e)
   }
 }

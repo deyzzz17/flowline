@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe, getPlanFromPriceId, type Plan } from '@/lib/stripe'
-import { markTrialUsed } from '@/api/billing/actions'
+import { markTrialUsed } from '@/api/billing/internal'
 import { reconcilePlanArchivedEntities } from '@/lib/plan-reconcile'
 import {
   sendSubscriptionStartedEmail,

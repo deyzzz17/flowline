@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell, X, Trophy, Users, Check, Loader2, AtSign, Building2, ClipboardCheck } from 'lucide-react'
+import { Bell, X, Trophy, Users, Check, Loader2, AtSign, Building2, ClipboardCheck, CalendarClock } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { useNotifications } from '@/hooks/header/use-notifications'
@@ -65,12 +65,19 @@ export const NotificationsMenu = () => {
     isAcceptingWorkspaceInvite,
     declineWorkspaceInvite,
     isDecliningWorkspaceInvite,
+    respondEventInvite,
+    isRespondingEventInvite,
   } = useNotifications()
   const router = useRouter()
   const pathname = usePathname()
 
   const handleNotifClick = (notif: (typeof notifications)[0]) => {
-    if (notif.level === 'list_invite' || notif.level === 'workspace_invite') return
+    if (
+      notif.level === 'list_invite' ||
+      notif.level === 'workspace_invite' ||
+      notif.level === 'event_invite'
+    )
+      return
 
     setOpen(false)
 
@@ -162,6 +169,10 @@ export const NotificationsMenu = () => {
                         <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500/15">
                           <Users className="h-3 w-3 text-violet-500" />
                         </div>
+                      ) : notif.level === 'event_invite' ? (
+                        <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500/15">
+                          <CalendarClock className="h-3 w-3 text-violet-500" />
+                        </div>
                       ) : notif.level === 'workspace_invite' ? (
                         <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500/15">
                           <Building2 className="h-3 w-3 text-violet-500" />
@@ -196,6 +207,7 @@ export const NotificationsMenu = () => {
                                 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
                                 : notif.level === 'list_invite' ||
                                     notif.level === 'workspace_invite' ||
+                                    notif.level === 'event_invite' ||
                                     notif.level === 'comment_mention' ||
                                     notif.level === 'task_assignment'
                                   ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
@@ -243,6 +255,40 @@ export const NotificationsMenu = () => {
                           </div>
                         )}
 
+                        {notif.level === 'event_invite' && notif.eventInviteId !== undefined && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                respondEventInvite({
+                                  id: notif.eventInviteId as number,
+                                  response: 'accepted',
+                                })
+                              }}
+                              disabled={isRespondingEventInvite}
+                              className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1 text-[10px] font-semibold text-white transition-colors hover:bg-violet-500 disabled:opacity-50"
+                            >
+                              <Check className="h-2.5 w-2.5" />
+                              Accept
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                respondEventInvite({
+                                  id: notif.eventInviteId as number,
+                                  response: 'declined',
+                                })
+                              }}
+                              disabled={isRespondingEventInvite}
+                              className="inline-flex items-center gap-1 rounded-lg border border-border/60 px-2.5 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                            >
+                              Decline
+                            </button>
+                          </div>
+                        )}
+
                         {notif.level === 'workspace_invite' && notif.workspaceInviteId && (
                           <div className="mt-2 flex items-center gap-2">
                             <button
@@ -278,7 +324,9 @@ export const NotificationsMenu = () => {
                     </>
                   )
 
-                  return notif.level === 'list_invite' || notif.level === 'workspace_invite' ? (
+                  return notif.level === 'list_invite' ||
+                    notif.level === 'workspace_invite' ||
+                    notif.level === 'event_invite' ? (
                     <div className="flex flex-1 items-start gap-3 text-left">{content}</div>
                   ) : (
                     <button

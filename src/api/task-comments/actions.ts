@@ -11,7 +11,8 @@ import { getSession } from '@/lib/get-session'
 import { getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { resolveListRole, canViewList, canEditListContent, getListMemberIds } from '@/lib/list-roles'
 import { canComment } from '@/lib/plan-limits'
-import { findUsersByIds, type ContactProfile } from '@/api/contacts/actions'
+import { type ContactProfile } from '@/api/contacts/actions'
+import { findUsersByIds } from '@/api/contacts/internal'
 import { getWorkspaceNicknames, applyWorkspaceNicknames } from '@/lib/get-current-workspace'
 import { sendCommentMentionEmail } from '@/lib/notification-emails'
 import type { List, Task } from '@/payload-types'
@@ -439,19 +440,3 @@ export const listMyCommentMentionNotifications = async (): Promise<
   return result
 }
 
-export async function deleteCommentsForTaskIds(taskIds: number[]): Promise<void> {
-  if (taskIds.length === 0) return
-  try {
-    const payload = await getPayload({ config })
-    const { docs } = await payload.find({
-      collection: 'task-comments',
-      where: { task: { in: taskIds } },
-      limit: 0,
-    })
-    for (const comment of docs) {
-      await payload.delete({ collection: 'task-comments', id: comment.id })
-    }
-  } catch (e) {
-    console.error('deleteCommentsForTaskIds error:', e)
-  }
-}
