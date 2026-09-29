@@ -33,6 +33,9 @@ interface RealtimeToken {
 // (its prebuilt builds also don't survive Next's SWC pipeline).
 const ABLY_SSE_URL = 'https://main.realtime.ably.net/sse'
 
+/** How long Ably can resume a dropped stream without losing messages (2 min, with margin). */
+const RESUME_WINDOW_MS = 100_000
+
 async function fetchToken(): Promise<RealtimeToken | null> {
   const res = await fetch('/api/realtime/token', { cache: 'no-store' }).catch(() => null)
   if (!res || res.status !== 200) return null
@@ -111,7 +114,11 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     let retryTimer: ReturnType<typeof setTimeout> | undefined
     let refreshTimer: ReturnType<typeof setTimeout> | undefined
     let failures = 0
-    let hadDrop = false
+    // When the stream last went down (null while up). Ably keeps a
+    // connection's state for 2 minutes and the browser resumes from the last
+    // event id, so short drops lose nothing; only a longer outage warrants
+    // refreshing what's on screen.
+    let droppedAt: number | null = null
 
     const onMessage = (event: MessageEvent<string>) => {
       if (event.lastEventId) lastEventIdRef.current = event.lastEventId
@@ -162,16 +169,16 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       es.onopen = () => {
         failures = 0
         setConnected(true)
-        // Anything published while the stream was down (beyond what
-        // lastEvent could resume) was missed — refresh what's on screen once.
-        if (hadDrop) {
-          hadDrop = false
+        // Anything published during a long outage (beyond what lastEvent
+        // could resume) was missed — refresh what's on screen once.
+        if (droppedAt !== null && Date.now() - droppedAt > RESUME_WINDOW_MS) {
           queryClient.invalidateQueries()
         }
+        droppedAt = null
       }
       es.onerror = () => {
         setConnected(false)
-        hadDrop = true
+        droppedAt ??= Date.now()
         // CONNECTING: the browser retries by itself. CLOSED: usually an
         // expired token or a channel outside its capabilities (a workspace
         // joined after it was issued) — start over with a fresh token.

@@ -4,6 +4,7 @@ import { useRef, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import type { Task } from '@/payload-types'
+import { patchTaskInCaches } from './task-cache'
 
 type Subtask = NonNullable<Task['subtasks']>[number]
 
@@ -88,11 +89,14 @@ export function useToggleSubtask() {
         const previousData = snapshots.map(([qk, data]) => ({ queryKey: qk, data }))
 
         try {
-          if (target.taskStatus === 'completed') {
-            await api.tasks.uncompleteSubtask(taskId, subtaskIndex)
-          } else {
-            await api.tasks.toggleSubtask(taskId, subtaskIndex)
-          }
+          const result =
+            target.taskStatus === 'completed'
+              ? await api.tasks.uncompleteSubtask(taskId, subtaskIndex)
+              : await api.tasks.toggleSubtask(taskId, subtaskIndex)
+          if (!result.ok) throw new Error(result.error)
+          // Re-assert the saved state (see useToggleTask) from what the
+          // server actually wrote.
+          patchTaskInCaches(queryClient, taskId, result.value as Partial<Task>)
           queryClient.invalidateQueries({ queryKey: ['list-analytics'] })
         } catch {
           previousData.forEach(({ queryKey, data }) => {
@@ -141,7 +145,17 @@ export function useCompleteTaskWithSubtasks() {
       })
 
       try {
-        await api.tasks.completeWithSubtasks(taskId)
+        const result = await api.tasks.completeWithSubtasks(taskId)
+        if (!result.ok) throw new Error(result.error)
+        // Re-assert the saved state (see useToggleTask).
+        const cached = queryClient
+          .getQueriesData<{ docs: Task[] }>({ queryKey: ['tasks'] })
+          .flatMap(([, data]) => data?.docs ?? [])
+          .find((t) => t.id === taskId)
+        patchTaskInCaches(queryClient, taskId, {
+          status: 'completed',
+          subtasks: (cached?.subtasks ?? []).map((s: Subtask) => ({ ...s, done: true })),
+        })
         queryClient.invalidateQueries({ queryKey: ['list-analytics'] })
       } catch {
         previousData.forEach(({ queryKey, data }) => {

@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useCallback } from 'react'
 import { api } from '@/api'
 import type { Task } from '@/payload-types'
+import { patchTaskInCaches } from './task-cache'
 
 type Subtask = NonNullable<Task['subtasks']>[number]
 
@@ -68,7 +69,22 @@ export function useToggleTask() {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
     },
 
-    onSuccess: () => {
+    onSuccess: (result, { id, status }, context) => {
+      if (!result.ok) {
+        context?.previousData?.forEach(({ queryKey, data }) => {
+          queryClient.setQueryData(queryKey as string[], data)
+        })
+        queryClient.invalidateQueries({ queryKey: ['tasks'] })
+        return
+      }
+      // Re-assert the saved state: a refetch that started while the save was
+      // in flight (a realtime/focus refresh) can land with the old status
+      // and silently uncheck the box again.
+      const nextStatus: Task['status'] = status === 'active' ? 'completed' : 'active'
+      patchTaskInCaches(queryClient, id, {
+        status: nextStatus,
+        completedAt: nextStatus === 'completed' ? new Date().toISOString() : null,
+      })
       queryClient.invalidateQueries({ queryKey: ['list-analytics'] })
     },
 
