@@ -2,6 +2,7 @@
 
 import type { QueryClient, QueryKey } from '@tanstack/react-query'
 import type { Task } from '@/payload-types'
+import { LIST_URGENCIES_QUERY_KEY } from './use-list-urgencies'
 
 // Helpers to apply a task mutation's server result directly to every cached
 // task query, instead of invalidating ['tasks'] — which refetched every
@@ -40,6 +41,8 @@ function markFilteredQueriesStale(queryClient: QueryClient) {
   for (const queryKey of FILTERED_TASK_QUERIES) {
     queryClient.invalidateQueries({ queryKey, exact: true })
   }
+  // The sidebar's urgency dots (one small grouped query, see use-list-urgencies).
+  queryClient.invalidateQueries({ queryKey: LIST_URGENCIES_QUERY_KEY })
 }
 
 /**

@@ -43,6 +43,8 @@ import {
   workspaceArchiveRoute,
   invalidateWorkspaceOf,
   invalidateUserDataOf,
+  invalidateComplianceOf,
+  all,
   withCacheInvalidation,
 } from './collections/hooks/realtime'
 
@@ -65,8 +67,8 @@ export default buildConfig({
     Media,
     withRealtime(Tasks, taskRoute, invalidateUserDataOf('tasks')),
     withCacheInvalidation(TaskCompletions, invalidateUserDataOf('tasks')),
-    withCacheInvalidation(UserTags, invalidateUserDataOf('tasks')),
-    withRealtime(Lists, listRoute),
+    withCacheInvalidation(UserTags, all(invalidateUserDataOf('tasks'), invalidateComplianceOf('userId'))),
+    withRealtime(Lists, listRoute, invalidateComplianceOf('userId')),
     withCacheInvalidation(TimerCategories, invalidateUserDataOf('timer')),
     withCacheInvalidation(TimerSessions, invalidateUserDataOf('timer')),
     TimerConfigs,
@@ -78,14 +80,25 @@ export default buildConfig({
     withRealtime(Connections, connectionRoute),
     withRealtime(ListMembers, listMemberRoute),
     withRealtime(TaskComments, taskCommentRoute),
-    withRealtime(WorkspaceMemberArchive, workspaceArchiveRoute, invalidateWorkspaceOf('organizationId')),
-    withRealtime(WorkspaceArchive, workspaceArchiveRoute, invalidateWorkspaceOf('organizationId')),
+    withRealtime(
+      WorkspaceMemberArchive,
+      workspaceArchiveRoute,
+      all(invalidateWorkspaceOf('organizationId'), invalidateComplianceOf('removedBy')),
+    ),
+    withRealtime(
+      WorkspaceArchive,
+      workspaceArchiveRoute,
+      all(invalidateWorkspaceOf('organizationId'), invalidateComplianceOf('ownerId')),
+    ),
     withRealtime(CustomRoles, customRoleRoute, invalidateWorkspaceOf('workspace')),
     withRealtime(Teams, teamRoute),
     withRealtime(TeamRoles, teamChildRoute),
     withRealtime(TeamMembers, teamChildRoute),
   ],
   editor: lexicalEditor(),
+  // Unused by the app (and by the admin panel, which uses REST) — disabled so
+  // bots probing /api/graphql can't make Vercel boot Payload for nothing.
+  graphQL: { disable: true },
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),

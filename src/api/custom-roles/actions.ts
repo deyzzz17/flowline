@@ -4,7 +4,6 @@ import 'server-only'
 
 import { getPayload } from 'payload'
 import config from '@/payload.config'
-import { revalidatePath } from 'next/cache'
 import { pool } from '@/lib/db-pool'
 import { invalidateWorkspace } from '@/lib/server-cache'
 import { ok, err } from '@/types/result'
@@ -108,7 +107,6 @@ export const createCustomRole = async (input: CustomRoleInput) => {
       },
     })
 
-    revalidatePath('/')
     return ok(toDoc(created))
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Error creating role'
@@ -167,7 +165,6 @@ export const updateCustomRole = async (id: number, input: CustomRoleInput) => {
     ])
     invalidateWorkspace(workspaceId)
 
-    revalidatePath('/')
     return ok(toDoc(updated))
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Error updating role'
@@ -196,7 +193,6 @@ export const deleteCustomRole = async (id: number) => {
 
     await payload.delete({ collection: 'custom-roles', id })
 
-    revalidatePath('/')
     return ok(true)
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Error deleting role'

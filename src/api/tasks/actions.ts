@@ -11,6 +11,7 @@ import { unstable_cache } from 'next/cache'
 import { Task } from '@/payload-types'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
+import { pool } from '@/lib/db-pool'
 import {
   getCurrentWorkspaceId,
   workspaceWhereClause,
@@ -1207,6 +1208,26 @@ export interface TaskAssignmentNotification {
   listSlug: string
   listName: string
   listColor: string
+}
+
+/**
+ * For the sidebar's per-list urgency dot: the earliest due date among each
+ * list's active tasks (the viewer's own, like the old full-list derivation).
+ * One small grouped query instead of downloading and serializing every task
+ * the user owns on each page load.
+ */
+export const listMyListUrgencies = async (): Promise<Record<number, string>> => {
+  const userId = await getUserId()
+  if (!userId) return {}
+  const { rows } = await pool.query<{ list_id: number; next_due: Date }>(
+    `SELECT list_id, MIN(due_date) AS next_due
+     FROM tasks
+     WHERE user_id = $1 AND status = 'active' AND due_date IS NOT NULL
+       AND list_id IS NOT NULL AND plan_archived_at IS NULL
+     GROUP BY list_id`,
+    [userId],
+  )
+  return Object.fromEntries(rows.map((r) => [r.list_id, new Date(r.next_due).toISOString()]))
 }
 
 export const listMyTaskAssignmentNotifications = async (): Promise<

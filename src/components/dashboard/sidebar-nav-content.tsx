@@ -25,15 +25,20 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import Link from 'next/link'
+// Every <Link> here uses prefetch={false}: all app pages are dynamic, so
+// Next's automatic prefetch of each visible sidebar link ran a server
+// function per link (~20–30 per page load) — the biggest source of Vercel
+// Active CPU. Pages still open fast from the React Query cache + loading.tsx.
 import { usePathname, useRouter } from 'next/navigation'
 import { api } from '@/api'
 import { useSidebarFooter } from '@/hooks/sidebar/use-sidebar-footer'
 import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
 import { useSharedLists } from '@/hooks/lists/use-shared-lists'
 import { useListUrgency } from '@/hooks/tasks/use-list-urgency'
+import { useListUrgencies } from '@/hooks/tasks/use-list-urgencies'
 import { useLivePollInterval } from '@/components/providers/realtime-provider'
 import { cn } from '@/lib/utils'
-import type { Task, List } from '@/payload-types'
+import type { List } from '@/payload-types'
 import {
   LIMIT_ERRORS,
   type LimitError,
@@ -66,18 +71,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 
-function getListUrgency(tasks: Task[]): 'red' | 'orange' | null {
-  const now = Date.now()
-  let hasOrange = false
-  for (const task of tasks) {
-    if (task.status !== 'active' || !task.dueDate) continue
-    const diff = new Date(task.dueDate).getTime() - now
-    if (diff <= 86400000) return 'red'
-    if (diff <= 172800000) hasOrange = true
-  }
-  return hasOrange ? 'orange' : null
-}
-
 function SharedListLink({
   list,
   isActive,
@@ -90,7 +83,7 @@ function SharedListLink({
   const urgency = useListUrgency(list.id)
 
   return (
-    <Link
+    <Link prefetch={false}
       {...navLink}
       className={cn(
         'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
@@ -170,15 +163,11 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
     queryFn: () => api.lists.list(),
     refetchInterval: isPersonalActive ? false : slowInterval,
   })
-  // Kept fresh by every task mutation's own invalidation — no need to also
-  // refetch the whole task list on every mount/focus (it used staleTime: 0).
-  const { data: tasksData } = useQuery({
-    queryKey: ['tasks'],
-    queryFn: () => api.tasks.list(),
-  })
+  // Only the earliest due date per list (one grouped query) — this used to
+  // download every task the user owns just to color these dots.
+  const listUrgency = useListUrgencies()
 
   const lists = (listsData?.docs ?? []) as List[]
-  const allTasks = (tasksData?.docs ?? []) as Task[]
   const defaultList = lists.find((l: List) => l.isDefault)
   const customLists = lists.filter((l: List) => !l.isDefault && !l.isShared)
   const ownSharedLists = lists.filter((l: List) => l.isShared)
@@ -199,20 +188,6 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
     teams,
   )
 
-  const tasksByList = allTasks.reduce<Record<number, Task[]>>((acc, task) => {
-    const listId =
-      typeof task.list === 'object' && task.list !== null
-        ? (task.list as { id: number }).id
-        : typeof task.list === 'number'
-          ? task.list
-          : null
-    if (listId !== null) {
-      if (!acc[listId]) acc[listId] = []
-      acc[listId].push(task)
-    }
-    return acc
-  }, {})
-
   const isActive = (href: string) => pathname === href
   const navLink = (href: string) => ({ href, onClick: onNavigate })
 
@@ -228,7 +203,7 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
         navLink={navLink(`/lists/${list.slug}`)}
       />
     ) : (
-      <Link
+      <Link prefetch={false}
         key={list.id}
         {...navLink(`/lists/${list.slug}`)}
         className={cn(
@@ -243,11 +218,11 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
           style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
         />
         <span className="flex-1 truncate">{list.name}</span>
-        {getListUrgency(tasksByList[list.id] ?? []) && (
+        {listUrgency(list.id) && (
           <span
             className={cn(
               'size-1.5 shrink-0 rounded-full',
-              getListUrgency(tasksByList[list.id] ?? []) === 'red'
+              listUrgency(list.id) === 'red'
                 ? 'bg-destructive'
                 : 'bg-orange-500',
             )}
@@ -324,7 +299,7 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
 
       <div className="flex flex-1 flex-col h-full overflow-hidden">
         <nav className="flex-1 overflow-y-auto min-h-0 p-3 space-y-1 sidebar-scroll">
-          <Link
+          <Link prefetch={false}
             {...navLink('/dashboard')}
             className={cn(
               'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
@@ -337,7 +312,7 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
             Home
           </Link>
 
-          <Link
+          <Link prefetch={false}
             {...navLink('/contacts')}
             className={cn(
               'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
@@ -371,7 +346,7 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
             </button>
             {habitsOpen && (
               <div className="mt-0.5 ml-3 space-y-0.5 border-l border-border/50 pl-3">
-                <Link
+                <Link prefetch={false}
                   {...navLink('/habits/habits-view')}
                   className={cn(
                     'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
@@ -383,7 +358,7 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
                   <Flame className="h-3.5 w-3.5 shrink-0" />
                   Habits
                 </Link>
-                <Link
+                <Link prefetch={false}
                   {...navLink('/habits/habits-analytics')}
                   className={cn(
                     'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
@@ -413,7 +388,7 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
             </button>
             {timerOpen && (
               <div className="mt-0.5 ml-3 space-y-0.5 border-l border-border/50 pl-3">
-                <Link
+                <Link prefetch={false}
                   {...navLink('/timer')}
                   className={cn(
                     'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
@@ -425,7 +400,7 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
                   <Timer className="h-3.5 w-3.5 shrink-0" />
                   Timer
                 </Link>
-                <Link
+                <Link prefetch={false}
                   {...navLink('/timer-analytics')}
                   className={cn(
                     'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
@@ -459,7 +434,7 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
             </button>
             {listsOpen && (
               <div className="mt-0.5 ml-3 space-y-0.5 border-l border-border/50 pl-3">
-                <Link
+                <Link prefetch={false}
                   {...navLink('/list-analytics')}
                   className={cn(
                     'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
@@ -471,7 +446,7 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
                   <BarChart2 className="h-3.5 w-3.5 shrink-0" />
                   Analytics
                 </Link>
-                <Link
+                <Link prefetch={false}
                   {...navLink('/lists/today')}
                   className={cn(
                     'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
@@ -483,7 +458,7 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
                   <Sun className="h-3.5 w-3.5 shrink-0" />
                   Today
                 </Link>
-                <Link
+                <Link prefetch={false}
                   {...navLink('/lists/recurring')}
                   className={cn(
                     'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
@@ -497,7 +472,7 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
                 </Link>
                 <div className="my-1.5 border-t border-border/40" />
                 {defaultList && (
-                  <Link
+                  <Link prefetch={false}
                     {...navLink(`/lists/${defaultList.slug}`)}
                     className={cn(
                       'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
@@ -511,11 +486,11 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
                       style={{ backgroundColor: defaultList.category?.color ?? '#8b5cf6' }}
                     />
                     <span className="flex-1 truncate">{defaultList.name}</span>
-                    {getListUrgency(tasksByList[defaultList.id] ?? []) && (
+                    {listUrgency(defaultList.id) && (
                       <span
                         className={cn(
                           'size-1.5 shrink-0 rounded-full',
-                          getListUrgency(tasksByList[defaultList.id] ?? []) === 'red'
+                          listUrgency(defaultList.id) === 'red'
                             ? 'bg-destructive'
                             : 'bg-orange-500',
                         )}
@@ -526,7 +501,7 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
                 {isPersonalActive ? (
                   <>
                     {customLists.map((list: List) => (
-                      <Link
+                      <Link prefetch={false}
                         key={list.id}
                         {...navLink(`/lists/${list.slug}`)}
                         className={cn(
@@ -541,11 +516,11 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
                           style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
                         />
                         <span className="flex-1 truncate">{list.name}</span>
-                        {getListUrgency(tasksByList[list.id] ?? []) && (
+                        {listUrgency(list.id) && (
                           <span
                             className={cn(
                               'size-1.5 shrink-0 rounded-full',
-                              getListUrgency(tasksByList[list.id] ?? []) === 'red'
+                              listUrgency(list.id) === 'red'
                                 ? 'bg-destructive'
                                 : 'bg-orange-500',
                             )}
@@ -553,7 +528,7 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
                         )}
                       </Link>
                     ))}
-                    <Link
+                    <Link prefetch={false}
                       {...navLink('/lists/new-list')}
                       className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/60 hover:bg-muted hover:text-foreground transition-all"
                     >
@@ -591,7 +566,7 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
                         </button>
                       </div>
                     ) : (
-                      <Link
+                      <Link prefetch={false}
                         {...navLink('/lists/new-shared-list')}
                         className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/60 hover:bg-muted hover:text-foreground transition-all"
                       >
@@ -616,7 +591,7 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
                         {g.items.map(renderWorkspaceListLink)}
                       </div>
                     ))}
-                    <Link
+                    <Link prefetch={false}
                       {...navLink('/lists/new-list')}
                       className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground/60 hover:bg-muted hover:text-foreground transition-all"
                     >
@@ -637,7 +612,7 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
                 label="Workspace Calendar"
                 onNavigate={onNavigate}
               />
-              <Link
+              <Link prefetch={false}
                 {...navLink('/workspace-members')}
                 className={cn(
                   'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
@@ -675,7 +650,7 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
                               : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                           )}
                         >
-                          <Link
+                          <Link prefetch={false}
                             {...navLink(`/teams/${team.id}`)}
                             className="flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2 text-sm font-medium"
                           >
@@ -744,7 +719,7 @@ export function SidebarNavContent({ onNavigate, initialWorkspaces }: SidebarNavC
         <div className="shrink-0 p-3 space-y-1">
           <SidebarNewsletter />
           <div className="border-t border-border/40 pt-2 space-y-0.5">
-            <Link
+            <Link prefetch={false}
               {...navLink('/support')}
               className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
             >

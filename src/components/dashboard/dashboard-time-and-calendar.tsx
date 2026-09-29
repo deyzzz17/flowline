@@ -134,7 +134,7 @@ export function DashboardTimeAndCalendar({
         <div className="rounded-2xl border border-border/60 bg-card/40 p-5 backdrop-blur-sm">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-foreground">Today</h2>
-            <Link
+            <Link prefetch={false}
               href="/calendar?view=day"
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
@@ -157,7 +157,7 @@ export function DashboardTimeAndCalendar({
               ))}
               {todayEvents.length > 4 && (
                 <div className="pt-3">
-                  <Link
+                  <Link prefetch={false}
                     href="/calendar?view=day"
                     className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >

@@ -145,7 +145,7 @@ export async function markTrialUsed(userId: string, plan: Plan) {
 
 export const createCheckoutSession = async (plan: Plan, interval: BillingInterval) => {
   const session = await getSession()
-  if (!session?.user) redirect('/sign-in')
+  if (!session?.user) redirect('/api/auth/session-expired')
 
   const { id: userId, email, name } = session.user
   const planConfig = PLANS[plan]
@@ -179,7 +179,7 @@ export const createCheckoutSession = async (plan: Plan, interval: BillingInterva
 
 export const createPortalSession = async () => {
   const session = await getSession()
-  if (!session?.user) redirect('/sign-in')
+  if (!session?.user) redirect('/api/auth/session-expired')
 
   const billing = await getBillingInfo()
   if (!billing?.stripeCustomerId) return err('No Stripe customer found')

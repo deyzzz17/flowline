@@ -118,7 +118,7 @@ export function DashboardOverview({
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Link
+          <Link prefetch={false}
             href="/lists/today"
             className="group rounded-xl border border-border/50 bg-background/40 p-4 transition-colors hover:border-orange-500/40 hover:bg-orange-500/5"
           >
@@ -141,7 +141,7 @@ export function DashboardOverview({
             </p>
           </Link>
 
-          <Link
+          <Link prefetch={false}
             href="/habits/habits-view"
             className="group rounded-xl border border-border/50 bg-background/40 p-4 transition-colors hover:border-teal-500/40 hover:bg-teal-500/5"
           >
@@ -170,7 +170,7 @@ export function DashboardOverview({
             )}
           </Link>
 
-          <Link
+          <Link prefetch={false}
             href="/timer"
             className="group rounded-xl border border-border/50 bg-background/40 p-4 transition-colors hover:border-pink-500/40 hover:bg-pink-500/5"
           >
@@ -210,7 +210,7 @@ export function DashboardOverview({
             )}
           </Link>
 
-          <Link
+          <Link prefetch={false}
             href="/calendar?view=day"
             className="group rounded-xl border border-border/50 bg-background/40 p-4 transition-colors hover:border-violet-500/40 hover:bg-violet-500/5"
           >

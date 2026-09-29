@@ -135,7 +135,7 @@ export function SubscriptionSection({ billing }: { billing?: BillingInfo | null 
 
       <div className="px-6 py-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         {plan !== 'pro' && (
-          <Link
+          <Link prefetch={false}
             href="/billing"
             className={cn(
               'flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-colors',
@@ -160,7 +160,7 @@ export function SubscriptionSection({ billing }: { billing?: BillingInfo | null 
         )}
 
         {plan === 'pro' && (
-          <Link
+          <Link prefetch={false}
             href="/billing"
             className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border/60 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >

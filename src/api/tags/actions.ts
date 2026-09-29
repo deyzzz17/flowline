@@ -2,6 +2,7 @@
 import 'server-only'
 import { getPayload, type Where } from 'payload'
 import config from '@/payload.config'
+import { cacheForUser } from '@/lib/server-cache'
 import { ok, err } from '@/types/result'
 import { revalidatePath } from 'next/cache'
 import { getSession } from '@/lib/get-session'
@@ -73,11 +74,19 @@ export const createUserTag = async (data: { name: string; color: string }) => {
   }
 }
 
+// Checked by the app layout on every full render — cached per user (dropped on plan changes and when the relevant documents change, see server-cache.ts).
 export const checkTagsCompliance = async () => {
   const userId = await getUserId()
+  if (!userId) return computeCheckTagsCompliance(null)
+  return cacheForUser(userId, ['compliance'], ['tags-compliance'], () =>
+    computeCheckTagsCompliance(userId),
+  )
+}
+
+async function computeCheckTagsCompliance(userId: string | null) {
   if (!userId) return null
 
-  const { limits } = await getUserPlanLimits()
+  const { limits } = await getPlanLimitsForUserId(userId)
   if (limits.customTags === Infinity) return null
 
   const payload = await getPayload({ config })

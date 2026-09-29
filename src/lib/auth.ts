@@ -11,7 +11,7 @@ import {
 import { Pool } from 'pg'
 import { sendEmail } from './send-email'
 import { sendWorkspaceInviteEmail } from './notification-emails'
-import { invalidateWorkspace, invalidateUserWorkspaces, invalidateUserTimezones } from './server-cache'
+import { invalidateWorkspace, invalidateUserWorkspaces } from './server-cache'
 import { publishInvalidation, isRealtimeConfigured } from './realtime-server'
 import { realtimeChannels } from './realtime'
 
@@ -130,14 +130,6 @@ export const auth = betterAuth({
       })
     },
     autoSignInAfterVerification: true,
-  },
-  databaseHooks: {
-    user: {
-      // The hourly maintenance job decides from a cached user→timezone list
-      // whether any user is at local midnight (see maintenance.ts).
-      create: { after: async () => invalidateUserTimezones() },
-      update: { after: async () => invalidateUserTimezones() },
-    },
   },
   session: {
     cookieCache: {

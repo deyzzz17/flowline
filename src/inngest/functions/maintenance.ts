@@ -1,49 +1,27 @@
 import { inngest } from '@/lib/inngest'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
-import { unstable_cache } from 'next/cache'
 import { pool } from '@/lib/db-pool'
-import { cacheTags } from '@/lib/server-cache'
 import { Task } from '@/payload-types'
 
-// One hourly job instead of six separate crons. Neon only scales to zero
-// after 5 idle minutes, so every cron run that touches the DB keeps it awake
-// (and billed) for at least that long — the old setup woke it 24x/day even
-// with zero users, mostly to find nothing to do.
+// One daily job instead of six separate crons (it used to be hourly, and
+// before that six crons). Every run is a Vercel function invocation (one per
+// Inngest step, each possibly a cold start that loads Payload) and wakes the
+// Neon compute for at least 5 minutes — so it runs once a day, as a single
+// step.
 //
-// Now an hourly run only touches the DB when there is real work:
-// - recurring tasks flip at each user's local midnight → only in hours where
-//   at least one user's timezone is at midnight (decided from a cached list
-//   of timezones, so the check itself doesn't wake the DB);
-// - cleanups piggyback on those runs (the DB is awake anyway), plus one
-//   guaranteed daily run at 03:00 UTC.
+// Recurring tasks don't depend on it: each user's own tasks are re-synced for
+// their local day on their first visit (syncRecurringTasksForUser in the app
+// layout). This run only catches up users who haven't opened the app, so
+// shared lists stay right for their other members.
 
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
-const DAILY_RUN_UTC_HOUR = 3
 
-/** userId → timezone, cached a day; Better Auth's user hooks invalidate it on signup/timezone change (see auth.ts). */
-const getUserTimezones = unstable_cache(
-  async (): Promise<Record<string, string>> => {
-    const { rows } = await pool.query<{ id: string; timezone: string | null }>(
-      'SELECT id, timezone FROM "user"',
-    )
-    return Object.fromEntries(rows.map((r) => [r.id, r.timezone || 'UTC']))
-  },
-  ['user-timezones'],
-  { tags: [cacheTags.userTimezones], revalidate: 24 * 60 * 60 },
-)
-
-function hourInTimezone(timezone: string, now: Date): number {
-  try {
-    const hour = new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone,
-      hour: 'numeric',
-      hour12: false,
-    }).format(now)
-    return parseInt(hour) % 24
-  } catch {
-    return now.getUTCHours()
-  }
+async function getUserTimezones(): Promise<Record<string, string>> {
+  const { rows } = await pool.query<{ id: string; timezone: string | null }>(
+    'SELECT id, timezone FROM "user"',
+  )
+  return Object.fromEntries(rows.map((r) => [r.id, r.timezone || 'UTC']))
 }
 
 function weekdayInTimezone(timezone: string, now: Date): (typeof DAYS)[number] {
@@ -185,45 +163,22 @@ async function cleanupArchivedHabits() {
   return { deleted: habitIds.length }
 }
 
-export const hourlyMaintenance = inngest.createFunction(
+export const dailyMaintenance = inngest.createFunction(
   {
-    id: 'hourly-maintenance',
-    name: 'Hourly maintenance (recurring tasks at local midnight + cleanups)',
-    triggers: { cron: '0 * * * *' },
+    id: 'daily-maintenance',
+    name: 'Daily maintenance (recurring tasks catch-up + cleanups)',
+    // 03:00 UTC: the new day has started across Europe/Africa/Asia.
+    triggers: { cron: '0 3 * * *' },
   },
-  async ({ step }) => {
-    const plan = await step.run('plan', async () => {
-      const now = new Date()
+  async ({ step }) =>
+    step.run('maintenance', async () => {
       const userTimezones = await getUserTimezones()
-      const midnightUserIds = Object.entries(userTimezones)
-        .filter(([, tz]) => hourInTimezone(tz, now) === 0)
-        .map(([id]) => id)
       return {
-        userTimezones,
-        midnightUserIds,
-        isDailyRun: now.getUTCHours() === DAILY_RUN_UTC_HOUR,
+        recurring: await syncRecurringTasks(userTimezones, Object.keys(userTimezones)),
+        expired: await autoDeleteExpiredTasks(),
+        trashed: await cleanupTrashedTasks(),
+        completions: await cleanTaskCompletions(),
+        habits: await cleanupArchivedHabits(),
       }
-    })
-
-    // Nothing due this hour → the DB is never touched (the timezone list
-    // above came from the cache).
-    if (plan.midnightUserIds.length === 0 && !plan.isDailyRun) {
-      return { skipped: true }
-    }
-
-    const recurring =
-      plan.midnightUserIds.length > 0
-        ? await step.run('sync-recurring-tasks', () =>
-            syncRecurringTasks(plan.userTimezones, plan.midnightUserIds),
-          )
-        : null
-    const expired = await step.run('auto-delete-expired-tasks', autoDeleteExpiredTasks)
-    const trashed = await step.run('cleanup-trashed-tasks', cleanupTrashedTasks)
-
-    if (!plan.isDailyRun) return { recurring, expired, trashed }
-
-    const completions = await step.run('clean-task-completions', cleanTaskCompletions)
-    const habits = await step.run('cleanup-archived-habits', cleanupArchivedHabits)
-    return { recurring, expired, trashed, completions, habits }
-  },
+    }),
 )

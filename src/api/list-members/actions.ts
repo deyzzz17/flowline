@@ -5,6 +5,7 @@ import 'server-only'
 import { getPayload, type Where } from 'payload'
 import { pool } from '@/lib/db-pool'
 import config from '@/payload.config'
+import { cacheForUser } from '@/lib/server-cache'
 import { revalidatePath } from 'next/cache'
 import { ok, err } from '@/types/result'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -246,7 +247,6 @@ export const createSharedList = async (input: CreateSharedListInput) => {
       }
     }
 
-    revalidatePath('/')
     return ok(list)
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Error creating the shared list'
@@ -340,7 +340,6 @@ export const inviteListMember = async (
       await sendListInviteEmail(invitee.email, list.name, inviter.name ?? 'Someone')
     }
 
-    revalidatePath('/')
     return ok(created)
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Error inviting member'
@@ -380,7 +379,6 @@ export const acceptListInvite = async (memberId: number) => {
       data: { status: 'accepted', respondedAt: new Date().toISOString() },
     })
 
-    revalidatePath('/')
     return ok(updated)
   } catch {
     return err('Error accepting invite')
@@ -402,7 +400,6 @@ export const declineListInvite = async (memberId: number) => {
 
     await payload.delete({ collection: 'list-members', id: memberId })
 
-    revalidatePath('/')
     return ok(true)
   } catch {
     return err('Error declining invite')
@@ -427,7 +424,6 @@ export const removeListMember = async (listId: number, memberId: number) => {
 
     await payload.delete({ collection: 'list-members', id: memberId })
 
-    revalidatePath('/')
     return ok(true)
   } catch {
     return err('Error removing member')
@@ -469,7 +465,6 @@ export const changeListMemberRole = async (
       data: { role },
     })
 
-    revalidatePath('/')
     return ok(updated)
   } catch {
     return err('Error changing member role')
@@ -623,8 +618,16 @@ export const listListsSharedWithMe = async (): Promise<SharedWithMeList[]> => {
   return result
 }
 
+// Checked by the app layout on every full render — cached per user (dropped on plan changes and when the relevant documents change, see server-cache.ts).
 export const checkSharedListsCompliance = async () => {
   const userId = await getUserId()
+  if (!userId) return computeCheckSharedListsCompliance(null)
+  return cacheForUser(userId, ['compliance'], ['shared-lists-compliance'], () =>
+    computeCheckSharedListsCompliance(userId),
+  )
+}
+
+async function computeCheckSharedListsCompliance(userId: string | null) {
   if (!userId) return null
 
   const { limits } = await getPlanLimitsForUserId(userId)

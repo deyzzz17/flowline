@@ -26,7 +26,7 @@ export function HabitsAnalyticsClient({
   if (data.totalHabits === 0) {
     return (
       <div className="px-4 pb-16 pt-8 sm:px-6 lg:px-10">
-        <Link
+        <Link prefetch={false}
           href="/habits/habits-view"
           className="mb-6 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
@@ -45,7 +45,7 @@ export function HabitsAnalyticsClient({
 
   return (
     <div className="px-4 pb-16 pt-8 sm:px-6 lg:px-10">
-      <Link
+      <Link prefetch={false}
         href="/habits/habits-view"
         className="mb-6 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
       >
@@ -129,7 +129,7 @@ export function HabitsAnalyticsClient({
           {data.perHabit
             .sort((a, b) => b.completionRate30d - a.completionRate30d)
             .map((habit) => (
-              <Link
+              <Link prefetch={false}
                 key={habit.slug}
                 href={`/habits/${habit.slug}`}
                 className="flex items-center gap-4 px-5 py-3.5 hover:bg-muted/30 transition-colors"

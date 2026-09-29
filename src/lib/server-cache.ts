@@ -16,8 +16,6 @@ export const cacheTags = {
   userPlan: (userId: string) => `user-plan:${userId}`,
   workspace: (workspaceId: string) => `workspace:${workspaceId}`,
   userWorkspaces: (userId: string) => `user-workspaces:${userId}`,
-  /** Every user's timezone, read by the hourly maintenance job (inngest/functions/maintenance.ts). */
-  userTimezones: 'user-timezones',
   /** A user's own data of one kind (see UserDataScope) — dashboard/analytics caches. */
   userData: (userId: string, scope: UserDataScope) => `user-data:${userId}:${scope}`,
 }
@@ -27,7 +25,7 @@ export const cacheTags = {
  * invalidated by Payload collection hooks whenever a document of that kind
  * belonging to the user changes (see payload.config.ts).
  */
-export type UserDataScope = 'tasks' | 'habits' | 'timer' | 'calendar'
+export type UserDataScope = 'tasks' | 'habits' | 'timer' | 'calendar' | 'compliance'
 
 /**
  * `unstable_cache` with a pass-through fallback: outside a Next.js request
@@ -100,11 +98,6 @@ export function invalidateUserPlan(userId: string) {
 /** Membership, roles, custom roles or archive state of a workspace changed. */
 export function invalidateWorkspace(workspaceId: string) {
   safeRevalidateTag(cacheTags.workspace(workspaceId))
-}
-
-/** A user signed up or changed timezone. */
-export function invalidateUserTimezones() {
-  safeRevalidateTag(cacheTags.userTimezones)
 }
 
 /** The set of workspaces a user belongs to changed (joined, left, removed). */

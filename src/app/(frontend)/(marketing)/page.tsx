@@ -5,12 +5,10 @@ import { TestimonialsSection } from '@/components/home/testimonials-section'
 import { FinalCtaSection } from '@/components/home/final-cta-section'
 import { Footer } from '@/components/home/footer'
 import { Orb } from '@/components/home/orb'
-import { requireGuest } from '@/lib/require-auth'
 import { DemoSection } from '@/components/home/demo-section'
 
-export default async function HomePage() {
-  await requireGuest()
-
+// Static — signed-in visitors are redirected by middleware.ts.
+export default function HomePage() {
   return (
     <div className="min-h-screen bg-background text-slate-900 selection:bg-violet-200 dark:text-white dark:selection:bg-violet-500/30">
       <div className="relative overflow-hidden">

@@ -2,11 +2,9 @@ import { Suspense } from 'react'
 import { Orb } from '@/components/home/orb'
 import { SignUpForm } from '@/components/authentification/sign-up-form'
 import { AuthCover } from '@/components/authentification/auth-cover'
-import { requireGuest } from '@/lib/require-auth'
 
-export default async function SignUpPage() {
-  await requireGuest()
-
+// Static — signed-in visitors are redirected by middleware.ts.
+export default function SignUpPage() {
   return (
     <div className="relative grid h-full lg:grid-cols-2">
       <Orb className="pointer-events-none absolute -top-32 -left-32 h-96 w-96 rounded-full bg-violet-500 opacity-5 dark:opacity-10 blur-3xl animate-pulse" />

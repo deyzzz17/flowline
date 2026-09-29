@@ -225,7 +225,7 @@ function HabitCard({
         </button>
 
         {hasClaimableGoal(habit) && (
-          <Link href={`/habits/${habit.slug}`} className="shrink-0">
+          <Link prefetch={false} href={`/habits/${habit.slug}`} className="shrink-0">
             <div className="flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/30 px-2 py-0.5">
               <Trophy className="h-3 w-3 text-amber-500" />
               <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">
@@ -235,7 +235,7 @@ function HabitCard({
           </Link>
         )}
 
-        <Link href={`/habits/${habit.slug}`} className="flex-1 min-w-0">
+        <Link prefetch={false} href={`/habits/${habit.slug}`} className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span
               className={cn(
@@ -374,7 +374,7 @@ function InactiveHabitCard({
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-border/40">
           <Moon className="h-4 w-4 text-muted-foreground/30" />
         </div>
-        <Link href={`/habits/${habit.slug}`} className="flex-1 min-w-0">
+        <Link prefetch={false} href={`/habits/${habit.slug}`} className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-semibold text-muted-foreground/60">{habit.name}</span>
             <StreakBadge streak={habit.currentStreak} />
@@ -778,7 +778,7 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
             <Archive className="h-3.5 w-3.5 shrink-0" />
             <span className="hidden sm:inline text-xs">Archives</span>
           </Button>
-          <Link href="/habits/habits-analytics">
+          <Link prefetch={false} href="/habits/habits-analytics">
             <Button variant="outline" size="icon" className="h-8 w-8 sm:w-auto sm:px-3 sm:gap-1.5">
               <BarChart2 className="h-3.5 w-3.5 shrink-0" />
               <span className="hidden sm:inline text-xs">Analytics</span>

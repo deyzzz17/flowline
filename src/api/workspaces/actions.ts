@@ -4,12 +4,12 @@ import 'server-only'
 
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
-import { invalidateWorkspace } from '@/lib/server-cache'
 import { publishInvalidation } from '@/lib/realtime-server'
 import { realtimeChannels } from '@/lib/realtime'
 import { pool } from '@/lib/db-pool'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
+import { cacheForUser, invalidateWorkspace } from '@/lib/server-cache'
 import { auth } from '@/lib/auth'
 import { ok, err } from '@/types/result'
 import { getSession } from '@/lib/get-session'
@@ -230,11 +230,19 @@ export interface WorkspacesComplianceInfo {
 
 // Checked for the current user — only ownership counts against the
 // workspace-count limit, same rule as countOwnedWorkspaces/createWorkspace.
+// Checked by the app layout on every full render — cached per user (dropped on plan changes and when the relevant documents change, see server-cache.ts).
 export const checkWorkspacesCompliance = async (): Promise<WorkspacesComplianceInfo | null> => {
   const userId = await getUserId()
+  if (!userId) return computeCheckWorkspacesCompliance(null)
+  return cacheForUser(userId, ['compliance'], ['workspaces-compliance'], () =>
+    computeCheckWorkspacesCompliance(userId),
+  )
+}
+
+async function computeCheckWorkspacesCompliance(userId: string | null): Promise<WorkspacesComplianceInfo | null> {
   if (!userId) return null
 
-  const { limits } = await getUserPlanLimits()
+  const { limits } = await getPlanLimitsForUserId(userId)
   if (limits.workspaces === Infinity) return null
 
   const ownedResult = await pool.query(
@@ -766,13 +774,21 @@ export interface WorkspaceMembersComplianceInfo {
 // workspaces who downgrades to Plus can have more than one over its new
 // member limit at once, so this returns all of them, not just the first.
 // Personal never appears here — it isn't an organization, it has no members.
+// Checked by the app layout on every full render — cached per user (dropped on plan changes and when the relevant documents change, see server-cache.ts).
 export const checkWorkspaceMembersCompliance = async (): Promise<
   WorkspaceMembersComplianceInfo[]
 > => {
   const userId = await getUserId()
   if (!userId) return []
+  return cacheForUser(userId, ['compliance'], ['workspace-members-compliance'], () =>
+    computeCheckWorkspaceMembersCompliance(userId),
+  )
+}
 
-  const { limits } = await getUserPlanLimits()
+async function computeCheckWorkspaceMembersCompliance(
+  userId: string,
+): Promise<WorkspaceMembersComplianceInfo[]> {
+  const { limits } = await getPlanLimitsForUserId(userId)
   if (limits.workspaceMembers === Infinity) return []
 
   // Owned workspaces with their non-owner member count, in one query —
@@ -800,14 +816,25 @@ export const checkWorkspaceMembersCompliance = async (): Promise<
   const ownedOrgIds = allOwnedOrgIds.filter((id) => !archivedIds.has(id))
   if (ownedOrgIds.length === 0) return []
 
-  const requestHeaders = await headers()
   const results: WorkspaceMembersComplianceInfo[] = []
 
   for (const orgId of ownedOrgIds) {
-    const { members } = await auth.api.listMembers({
-      headers: requestHeaders,
-      query: { organizationId: orgId },
-    })
+    // Plain SQL rather than Better Auth's listMembers: that one needs the
+    // request headers, and this result is cached across requests.
+    const { rows: members } = await pool.query<{
+      id: string
+      userId: string
+      role: string
+      nickname: string | null
+      user: { name: string; email: string; image: string | null }
+    }>(
+      `SELECT m.id, m."userId", m.role, m.nickname,
+              json_build_object('name', u.name, 'email', u.email, 'image', u.image) AS "user"
+       FROM member m JOIN "user" u ON u.id = m."userId"
+       WHERE m."organizationId" = $1
+       ORDER BY m."createdAt" ASC`,
+      [orgId],
+    )
     const nonOwnerMembers = members.filter((m) => m.role !== 'owner')
     if (nonOwnerMembers.length <= keepableSlots) continue
 

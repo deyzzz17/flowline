@@ -3,13 +3,12 @@ import { ModeToggle } from '@/components/theme/mode-toggle'
 import { FlowlineLogo } from '@/components/header/flowline-logo'
 import { AuthButtons } from '@/components/header/auth-button'
 import Link from 'next/link'
-import { requireGuest } from '@/lib/require-auth'
 import { CookieConsentProvider } from '@/contexts/cookie-consent-context'
 import { CookieConsentBanner } from '@/components/marketing/cookie-consent-banner'
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  await requireGuest()
-
+// No session check here (it made every public page dynamic) — signed-in
+// visitors are redirected by middleware.ts instead.
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <CookieConsentProvider>
       <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background backdrop-blur supports-backdrop-filter:bg-background/60">

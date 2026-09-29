@@ -21,6 +21,10 @@ import {
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
+// Every <Link> here uses prefetch={false}: all app pages are dynamic, so
+// Next's automatic prefetch of each visible sidebar link ran a server
+// function per link (~20–30 per page load) — the biggest source of Vercel
+// Active CPU. Pages still open fast from the React Query cache + loading.tsx.
 import { usePathname } from 'next/navigation'
 import { api } from '@/api'
 import { useSidebarFooter } from '@/hooks/sidebar/use-sidebar-footer'
@@ -30,9 +34,10 @@ import { useTeams } from '@/hooks/teams/use-teams'
 import { groupByTeam } from '@/lib/group-by-team'
 import { CreateTeamDialog } from './create-team-dialog'
 import { useListUrgency } from '@/hooks/tasks/use-list-urgency'
+import { useListUrgencies } from '@/hooks/tasks/use-list-urgencies'
 import { useLivePollInterval } from '@/components/providers/realtime-provider'
 import { cn } from '@/lib/utils'
-import type { Task, List } from '@/payload-types'
+import type { List } from '@/payload-types'
 import {
   LIMIT_ERRORS,
   type LimitError,
@@ -65,18 +70,6 @@ import {
 } from './workspace-switcher'
 import { SidebarCalendarNavSection } from './calendar-nav-section'
 
-function getListUrgency(tasks: Task[]): 'red' | 'orange' | null {
-  const now = Date.now()
-  let hasOrange = false
-  for (const task of tasks) {
-    if (task.status !== 'active' || !task.dueDate) continue
-    const diff = new Date(task.dueDate).getTime() - now
-    if (diff <= 86400000) return 'red'
-    if (diff <= 172800000) hasOrange = true
-  }
-  return hasOrange ? 'orange' : null
-}
-
 function SharedListMenuItem({
   list,
   isActive,
@@ -91,7 +84,7 @@ function SharedListMenuItem({
   return (
     <SidebarMenuSubItem>
       <SidebarMenuSubButton asChild isActive={isActive}>
-        <Link href={href}>
+        <Link prefetch={false} href={href}>
           <span
             className="h-2 w-2 rounded-full shrink-0"
             style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
@@ -136,15 +129,11 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
     queryFn: () => api.lists.list(),
     refetchInterval: isPersonalActive ? false : slowInterval,
   })
-  // Kept fresh by every task mutation's own invalidation — no need to also
-  // refetch the whole task list on every mount/focus (it used staleTime: 0).
-  const { data: tasksData } = useQuery({
-    queryKey: ['tasks'],
-    queryFn: () => api.tasks.list(),
-  })
+  // Only the earliest due date per list (one grouped query) — this used to
+  // download every task the user owns just to color these dots.
+  const listUrgency = useListUrgencies()
 
   const lists = (listsData?.docs ?? []) as List[]
-  const allTasks = (tasksData?.docs ?? []) as Task[]
   const defaultList = lists.find((l: List) => l.isDefault)
   const customLists = lists.filter((l: List) => !l.isDefault && !l.isShared)
   const ownSharedLists = lists.filter((l: List) => l.isShared)
@@ -165,20 +154,6 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
     teams,
   )
 
-  const tasksByList = allTasks.reduce<Record<number, Task[]>>((acc, task) => {
-    const listId =
-      typeof task.list === 'object' && task.list !== null
-        ? (task.list as { id: number }).id
-        : typeof task.list === 'number'
-          ? task.list
-          : null
-    if (listId !== null) {
-      if (!acc[listId]) acc[listId] = []
-      acc[listId].push(task)
-    }
-    return acc
-  }, {})
-
   const nav = (href: string) => {
     setOpenMobile(false)
     return href
@@ -197,17 +172,17 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
     ) : (
       <SidebarMenuSubItem key={list.id}>
         <SidebarMenuSubButton asChild isActive={isActive(`/lists/${list.slug}`)}>
-          <Link href={nav(`/lists/${list.slug}`)}>
+          <Link prefetch={false} href={nav(`/lists/${list.slug}`)}>
             <span
               className="h-2 w-2 rounded-full shrink-0"
               style={{ backgroundColor: list.category?.color ?? '#8b5cf6' }}
             />
             <span className="flex-1 truncate">{list.name}</span>
-            {getListUrgency(tasksByList[list.id] ?? []) && (
+            {listUrgency(list.id) && (
               <span
                 className={cn(
                   'size-1.5 shrink-0 rounded-full',
-                  getListUrgency(tasksByList[list.id] ?? []) === 'red'
+                  listUrgency(list.id) === 'red'
                     ? 'bg-destructive'
                     : 'bg-orange-500',
                 )}
@@ -263,7 +238,7 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={isActive('/dashboard')} tooltip="Home">
-                    <Link href={nav('/dashboard')}>
+                    <Link prefetch={false} href={nav('/dashboard')}>
                       <Home className="h-4 w-4 shrink-0" />
                       <span>Home</span>
                     </Link>
@@ -272,7 +247,7 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
 
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={isActive('/contacts')} tooltip="Contacts">
-                    <Link href={nav('/contacts')}>
+                    <Link prefetch={false} href={nav('/contacts')}>
                       <Users className="h-4 w-4 shrink-0" />
                       <span>Contacts</span>
                     </Link>
@@ -298,7 +273,7 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                       <SidebarMenuSub>
                         <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={isActive('/habits/habits-view')}>
-                            <Link href={nav('/habits/habits-view')}>
+                            <Link prefetch={false} href={nav('/habits/habits-view')}>
                               <Flame className="h-3.5 w-3.5" />
                               Habits
                             </Link>
@@ -309,7 +284,7 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                             asChild
                             isActive={isActive('/habits/habits-analytics')}
                           >
-                            <Link href={nav('/habits/habits-analytics')}>
+                            <Link prefetch={false} href={nav('/habits/habits-analytics')}>
                               <BarChart2 className="h-3.5 w-3.5" />
                               Analytics
                             </Link>
@@ -336,7 +311,7 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                       <SidebarMenuSub>
                         <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={isActive('/timer')}>
-                            <Link href={nav('/timer')}>
+                            <Link prefetch={false} href={nav('/timer')}>
                               <Timer className="h-3.5 w-3.5" />
                               Timer
                             </Link>
@@ -344,7 +319,7 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                         </SidebarMenuSubItem>
                         <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={isActive('/timer-analytics')}>
-                            <Link href={nav('/timer-analytics')}>
+                            <Link prefetch={false} href={nav('/timer-analytics')}>
                               <BarChart2 className="h-3.5 w-3.5" />
                               Analytics
                             </Link>
@@ -381,7 +356,7 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                       <SidebarMenuSub>
                         <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={isActive('/list-analytics')}>
-                            <Link href={nav('/list-analytics')}>
+                            <Link prefetch={false} href={nav('/list-analytics')}>
                               <BarChart2 className="h-3.5 w-3.5" />
                               Analytics
                             </Link>
@@ -389,7 +364,7 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                         </SidebarMenuSubItem>
                         <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={isActive('/lists/today')}>
-                            <Link href={nav('/lists/today')}>
+                            <Link prefetch={false} href={nav('/lists/today')}>
                               <Sun className="h-3.5 w-3.5" />
                               Today
                             </Link>
@@ -397,7 +372,7 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                         </SidebarMenuSubItem>
                         <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={isActive('/lists/recurring')}>
-                            <Link href={nav('/lists/recurring')}>
+                            <Link prefetch={false} href={nav('/lists/recurring')}>
                               <RefreshCw className="h-3.5 w-3.5" />
                               Recurring
                             </Link>
@@ -410,7 +385,7 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                               asChild
                               isActive={isActive(`/lists/${defaultList.slug}`)}
                             >
-                              <Link href={nav(`/lists/${defaultList.slug}`)}>
+                              <Link prefetch={false} href={nav(`/lists/${defaultList.slug}`)}>
                                 <span
                                   className="h-2 w-2 rounded-full shrink-0"
                                   style={{
@@ -418,11 +393,11 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                                   }}
                                 />
                                 <span className="flex-1 truncate">{defaultList.name}</span>
-                                {getListUrgency(tasksByList[defaultList.id] ?? []) && (
+                                {listUrgency(defaultList.id) && (
                                   <span
                                     className={cn(
                                       'size-1.5 shrink-0 rounded-full',
-                                      getListUrgency(tasksByList[defaultList.id] ?? []) === 'red'
+                                      listUrgency(defaultList.id) === 'red'
                                         ? 'bg-destructive'
                                         : 'bg-orange-500',
                                     )}
@@ -440,7 +415,7 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                                   asChild
                                   isActive={isActive(`/lists/${list.slug}`)}
                                 >
-                                  <Link href={nav(`/lists/${list.slug}`)}>
+                                  <Link prefetch={false} href={nav(`/lists/${list.slug}`)}>
                                     <span
                                       className="h-2 w-2 rounded-full shrink-0"
                                       style={{
@@ -448,11 +423,11 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                                       }}
                                     />
                                     <span className="flex-1 truncate">{list.name}</span>
-                                    {getListUrgency(tasksByList[list.id] ?? []) && (
+                                    {listUrgency(list.id) && (
                                       <span
                                         className={cn(
                                           'size-1.5 shrink-0 rounded-full',
-                                          getListUrgency(tasksByList[list.id] ?? []) === 'red'
+                                          listUrgency(list.id) === 'red'
                                             ? 'bg-destructive'
                                             : 'bg-orange-500',
                                         )}
@@ -464,7 +439,7 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                             ))}
                             <SidebarMenuSubItem>
                               <SidebarMenuSubButton asChild>
-                                <Link
+                                <Link prefetch={false}
                                   href={nav('/lists/new-list')}
                                   className="text-muted-foreground/60"
                                 >
@@ -506,7 +481,7 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                                 </div>
                               ) : (
                                 <SidebarMenuSubButton asChild>
-                                  <Link
+                                  <Link prefetch={false}
                                     href={nav('/lists/new-shared-list')}
                                     className="text-muted-foreground/60"
                                   >
@@ -535,7 +510,7 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                             ))}
                             <SidebarMenuSubItem>
                               <SidebarMenuSubButton asChild>
-                                <Link
+                                <Link prefetch={false}
                                   href={nav('/lists/new-list')}
                                   className="text-muted-foreground/60"
                                 >
@@ -564,7 +539,7 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                         isActive={isActive('/workspace-members')}
                         tooltip="Members"
                       >
-                        <Link href={nav('/workspace-members')}>
+                        <Link prefetch={false} href={nav('/workspace-members')}>
                           <Users className="h-4 w-4 shrink-0" />
                           <span>Members</span>
                         </Link>
@@ -590,7 +565,7 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
                                   asChild
                                   isActive={pathname === `/teams/${team.id}`}
                                 >
-                                  <Link href={nav(`/teams/${team.id}`)}>
+                                  <Link prefetch={false} href={nav(`/teams/${team.id}`)}>
                                     <span className="flex-1 truncate">{team.name}</span>
                                     <span className="text-[10px] text-muted-foreground/50">
                                       {team.memberCount}
@@ -624,7 +599,7 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton asChild tooltip="Support">
-                <Link href={nav('/support')}>
+                <Link prefetch={false} href={nav('/support')}>
                   <HelpCircle className="h-4 w-4" />
                   <span>Support</span>
                 </Link>

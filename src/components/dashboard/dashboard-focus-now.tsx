@@ -61,7 +61,7 @@ export function DashboardFocusNow({
             Let&apos;s set up your first day
           </h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Link
+            <Link prefetch={false}
               href="/lists/today"
               className="group flex items-center gap-3 rounded-xl border border-border/60 bg-card/60 p-3.5 transition-colors hover:border-orange-500/40 hover:bg-orange-500/5"
             >
@@ -73,7 +73,7 @@ export function DashboardFocusNow({
                 <p className="text-xs text-muted-foreground">Start with today&apos;s to-dos</p>
               </div>
             </Link>
-            <Link
+            <Link prefetch={false}
               href="/habits/habits-view"
               className="group flex items-center gap-3 rounded-xl border border-border/60 bg-card/60 p-3.5 transition-colors hover:border-teal-500/40 hover:bg-teal-500/5"
             >
@@ -85,7 +85,7 @@ export function DashboardFocusNow({
                 <p className="text-xs text-muted-foreground">Build a routine that sticks</p>
               </div>
             </Link>
-            <Link
+            <Link prefetch={false}
               href="/timer"
               className="group flex items-center gap-3 rounded-xl border border-border/60 bg-card/60 p-3.5 transition-colors hover:border-pink-500/40 hover:bg-pink-500/5"
             >
@@ -121,7 +121,7 @@ export function DashboardFocusNow({
                 </p>
                 <p className="text-xs text-muted-foreground">Worth reviewing before adding more</p>
               </div>
-              <Link
+              <Link prefetch={false}
                 href={overdueReviewHref}
                 className="shrink-0 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
               >
@@ -143,7 +143,7 @@ export function DashboardFocusNow({
                   Top priority · {listName}
                 </p>
               </div>
-              <Link
+              <Link prefetch={false}
                 href="/timer"
                 className="flex shrink-0 items-center gap-1.5 rounded-lg bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-orange-600"
               >
@@ -168,7 +168,7 @@ export function DashboardFocusNow({
                     : 'Not done today'}
                 </p>
               </div>
-              <Link
+              <Link prefetch={false}
                 href="/habits/habits-view"
                 className="shrink-0 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
               >
@@ -188,7 +188,7 @@ export function DashboardFocusNow({
                   Starts at {formatEventTime(nextEvent.startDate)}
                 </p>
               </div>
-              <Link
+              <Link prefetch={false}
                 href="/calendar?view=day"
                 className="shrink-0 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
               >

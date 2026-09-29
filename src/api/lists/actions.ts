@@ -4,6 +4,7 @@ import 'server-only'
 
 import { getPayload, type Where } from 'payload'
 import config from '@/payload.config'
+import { cacheForUser } from '@/lib/server-cache'
 import { revalidatePath } from 'next/cache'
 import { ok, err } from '@/types/result'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -121,7 +122,6 @@ export const createList = async (input: CreateListInput) => {
       },
     })
 
-    revalidatePath('/')
     return ok(newList)
   } catch {
     return err('Error while creating the list')
@@ -246,11 +246,19 @@ export const listPlanArchivedLists = async () => {
   })
 }
 
+// Checked by the app layout on every full render — cached per user (dropped on plan changes and when the relevant documents change, see server-cache.ts).
 export const checkListsCompliance = async () => {
   const userId = await getUserId()
+  if (!userId) return computeCheckListsCompliance(null)
+  return cacheForUser(userId, ['compliance'], ['lists-compliance'], () =>
+    computeCheckListsCompliance(userId),
+  )
+}
+
+async function computeCheckListsCompliance(userId: string | null) {
   if (!userId) return null
 
-  const { limits } = await getUserPlanLimits()
+  const { limits } = await getPlanLimitsForUserId(userId)
   if (limits.lists === Infinity) return null
 
   const payload = await getPayload({ config })
@@ -506,7 +514,6 @@ export const editList = async (id: number, input: EditListInput) => {
       },
     })
 
-    revalidatePath('/')
     return ok(updatedList)
   } catch {
     return err('Error while editing the list')
@@ -551,7 +558,6 @@ export const deleteList = async (id: number) => {
 
     await payload.delete({ collection: 'lists', id })
 
-    revalidatePath('/')
     return ok(true)
   } catch {
     return err('Error while deleting the list')

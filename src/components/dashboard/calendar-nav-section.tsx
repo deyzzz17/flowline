@@ -17,6 +17,10 @@ import {
   UsersRound,
 } from 'lucide-react'
 import Link from 'next/link'
+// Every <Link> here uses prefetch={false}: all app pages are dynamic, so
+// Next's automatic prefetch of each visible sidebar link ran a server
+// function per link (~20–30 per page load) — the biggest source of Vercel
+// Active CPU. Pages still open fast from the React Query cache + loading.tsx.
 import { usePathname } from 'next/navigation'
 import { useCalendarCategories } from '@/hooks/calendar/use-calendar-categories'
 import { useTeams } from '@/hooks/teams/use-teams'
@@ -466,7 +470,7 @@ export function CalendarNavSection({ scope, href, label, onNavigate }: CalendarN
         </button>
         {open && (
           <div className="mt-0.5 ml-3 space-y-0.5 border-l border-border/50 pl-3">
-            <Link
+            <Link prefetch={false}
               {...navLink(href)}
               className={cn(
                 'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',
@@ -712,7 +716,7 @@ export function SidebarCalendarNavSection({ scope, href, label }: CalendarNavSec
             <SidebarMenuSub>
               <SidebarMenuSubItem>
                 <SidebarMenuSubButton asChild isActive={isActive(href)}>
-                  <Link href={nav(href)}>
+                  <Link prefetch={false} href={nav(href)}>
                     <CalendarDays className="h-3.5 w-3.5" />
                     Open calendar
                   </Link>

@@ -208,3 +208,17 @@ export function withCacheInvalidation(
 ): CollectionConfig {
   return withRealtime(config, () => [], onWrite)
 }
+
+/** Runs several onWrite callbacks. */
+export const all =
+  (...fns: ((doc: Doc) => void)[]) =>
+  (doc: Doc): void => {
+    for (const fn of fns) fn(doc)
+  }
+
+/** Invalidates the cached plan-compliance checks of the user in `field` (see the check*Compliance actions). */
+export const invalidateComplianceOf =
+  (field: string) =>
+  (doc: Doc): void => {
+    if (doc[field]) invalidateUserData(String(doc[field]), 'compliance')
+  }

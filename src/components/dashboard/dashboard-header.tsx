@@ -64,7 +64,7 @@ export function DashboardHeader() {
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0 mt-1">
-          <Link href="/profile">
+          <Link prefetch={false} href="/profile">
             <div className="relative">
               <Avatar className="h-9 w-9 cursor-pointer ring-offset-background transition-opacity hover:opacity-80">
                 <AvatarImage src={user?.image ?? undefined} alt={user?.name ?? ''} />
@@ -79,7 +79,7 @@ export function DashboardHeader() {
               )}
             </div>
           </Link>
-          <Link href="/profile">
+          <Link prefetch={false} href="/profile">
             <Button
               variant="outline"
               size="sm"

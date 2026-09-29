@@ -4,7 +4,6 @@ import 'server-only'
 
 import { getPayload } from 'payload'
 import config from '@/payload.config'
-import { revalidatePath } from 'next/cache'
 import { ok, err } from '@/types/result'
 import { getSession } from '@/lib/get-session'
 import { getPlanLimitsForUserId } from '@/lib/get-user-plan'
@@ -247,7 +246,6 @@ export const createTeam = async (input: CreateTeamInput) => {
       })
     }
 
-    revalidatePath('/')
     return ok({ id: team.id, name: team.name })
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Error creating team'
@@ -416,7 +414,6 @@ export const createTeamRole = async (teamId: number, input: TeamRoleInput) => {
       },
     })
 
-    revalidatePath('/')
     return ok({
       id: role.id,
       name: role.name,
@@ -474,7 +471,6 @@ export const updateTeamRole = async (teamId: number, roleId: number, input: Team
       },
     })
 
-    revalidatePath('/')
     return ok({
       id: updated.id,
       name: updated.name,
@@ -510,7 +506,6 @@ export const deleteTeamRole = async (teamId: number, roleId: number) => {
     }
 
     await payload.delete({ collection: 'team-roles', id: roleId })
-    revalidatePath('/')
     return ok(true)
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Error deleting role'
@@ -550,7 +545,6 @@ export const renameTeam = async (teamId: number, name: string) => {
 
     const updated = await payload.update({ collection: 'teams', id: teamId, data: { name: trimmed } })
 
-    revalidatePath('/')
     return ok({ id: updated.id, name: updated.name })
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Error renaming team'
@@ -589,7 +583,6 @@ export const deleteTeam = async (teamId: number) => {
     await payload.delete({ collection: 'team-roles', where: { team: { equals: teamId } } })
     await payload.delete({ collection: 'teams', id: teamId })
 
-    revalidatePath('/')
     return ok(true)
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Error deleting team'
@@ -627,7 +620,6 @@ export const addTeamMember = async (teamId: number, targetUserId: string, roleId
       data: { team: teamId, userId: targetUserId, teamRole: roleId, addedBy: userId },
     })
 
-    revalidatePath('/')
     return ok(true)
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Error adding member'
@@ -656,7 +648,6 @@ export const updateTeamMemberRole = async (teamMemberId: number, roleId: number)
     if (!role || roleTeamId !== memberTeamId) return err('Role not found')
 
     await payload.update({ collection: 'team-members', id: teamMemberId, data: { teamRole: roleId } })
-    revalidatePath('/')
     return ok(true)
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Error updating member'
@@ -681,7 +672,6 @@ export const removeTeamMember = async (teamMemberId: number) => {
     if (!permissions.canManageMembers) return err('Not authorized')
 
     await payload.delete({ collection: 'team-members', id: teamMemberId })
-    revalidatePath('/')
     return ok(true)
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Error removing member'
