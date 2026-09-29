@@ -1,6 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { api } from '@/api'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   Dialog,
   DialogContent,
@@ -33,6 +36,7 @@ import {
   Tag,
   Repeat,
   UsersRound,
+  UserCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
@@ -526,6 +530,8 @@ interface CalendarEventDialogProps {
    * Calendar; the global, cross-workspace Calendar never offers this.
    */
   allowTeamAssociation?: boolean
+  /** Team preselected for a new event (e.g. when created from that team's calendar). */
+  defaultTeamId?: number | null
 }
 
 export function CalendarEventDialog({
@@ -538,6 +544,7 @@ export function CalendarEventDialog({
   isSaving,
   isDeleting,
   allowTeamAssociation = false,
+  defaultTeamId = null,
 }: CalendarEventDialogProps) {
   const isTask = selectedItem?.type === 'task'
   const isExistingEvent = selectedItem?.type === 'event'
@@ -546,6 +553,7 @@ export function CalendarEventDialog({
   // page (global or workspace) it was opened from.
   const { categories } = useCalendarCategories('workspace')
   const { teams } = useTeams(allowTeamAssociation && open)
+
   const { formatTime } = useTimeFormat()
 
   const [mode, setMode] = useState<'view' | 'edit' | 'create'>('create')
@@ -565,6 +573,30 @@ export function CalendarEventDialog({
   const [color, setColor] = useState('#8b5cf6')
   const [categoryId, setCategoryId] = useState<number | null>(null)
   const [teamId, setTeamId] = useState<number | null>(null)
+  const [assignedTo, setAssignedTo] = useState<string[]>([])
+
+  // Who the event can be assigned to: the workspace's members, narrowed to
+  // the event's team members for a team event (same rule as the server).
+  const { data: workspaceMembers } = useQuery({
+    queryKey: ['workspace-members'],
+    queryFn: () => api.workspaces.listMembers(),
+    enabled: allowTeamAssociation && open,
+  })
+  const { data: teamMemberIds } = useQuery({
+    queryKey: ['teams', teamId, 'member-ids'],
+    queryFn: () => api.teams.listMemberIds(teamId!),
+    enabled: allowTeamAssociation && open && teamId !== null,
+  })
+  const assigneeCandidates = useMemo(() => {
+    const all = workspaceMembers?.docs ?? []
+    if (teamId === null) return all
+    const allowed = new Set(teamMemberIds ?? [])
+    return all.filter((m) => allowed.has(m.userId))
+  }, [workspaceMembers, teamId, teamMemberIds])
+  const memberLabel = (userId: string) => {
+    const m = workspaceMembers?.docs.find((d) => d.userId === userId)
+    return m ? m.nickname || m.name : 'Member'
+  }
   const [recurrence, setRecurrence] = useState<RecurrenceRule | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -591,6 +623,7 @@ export function CalendarEventDialog({
       setColor(ev.color)
       setCategoryId(ev.categoryId ?? null)
       setTeamId(ev.teamId ?? null)
+      setAssignedTo(ev.assignedTo ?? [])
       setRecurrence(ev.recurrence ?? null)
       setMode('view')
     } else if (!isTask) {
@@ -603,12 +636,28 @@ export function CalendarEventDialog({
       setAllDay(false)
       setColor('#8b5cf6')
       setCategoryId(null)
-      setTeamId(null)
+      setTeamId(defaultTeamId)
+      setAssignedTo([])
       setRecurrence(null)
       setMode('create')
     }
     setError(null)
-  }, [open, selectedItem, defaultDate, isExistingEvent, isTask])
+  }, [open, selectedItem, defaultDate, isExistingEvent, isTask, defaultTeamId])
+
+  // Switching a new event to a team drops assignees who aren't in it.
+  useEffect(() => {
+    if (teamId === null || !teamMemberIds) return
+    const allowed = new Set(teamMemberIds)
+    setAssignedTo((prev) => {
+      const next = prev.filter((id) => allowed.has(id))
+      return next.length === prev.length ? prev : next
+    })
+  }, [teamId, teamMemberIds])
+
+  const toggleAssignee = (userId: string) =>
+    setAssignedTo((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId],
+    )
 
   const handleCategoryChange = (id: number | null) => {
     setCategoryId(id)
@@ -628,6 +677,7 @@ export function CalendarEventDialog({
     categoryId,
     // Team association is only set at creation — not editable afterwards.
     ...(mode === 'create' && { teamId }),
+    ...(allowTeamAssociation && { assignedTo }),
     recurrence: recurrence ?? undefined,
   })
 
@@ -842,7 +892,14 @@ export function CalendarEventDialog({
               {ev.teamId != null && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <UsersRound className="h-3.5 w-3.5 shrink-0" />
-                  {teams.find((t) => t.id === ev.teamId)?.name ?? 'Team'} only
+                  {teams.find((t) => t.id === ev.teamId)?.name ?? 'Team'}
+                </div>
+              )}
+
+              {allowTeamAssociation && (ev.assignedTo?.length ?? 0) > 0 && (
+                <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                  <UserCheck className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <span>Assigned to {ev.assignedTo!.map(memberLabel).join(', ')}</span>
                 </div>
               )}
 
@@ -1049,7 +1106,8 @@ export function CalendarEventDialog({
                   <span className="text-xs font-normal text-muted-foreground">Optional</span>
                 </Label>
                 <p className="text-xs text-muted-foreground/70">
-                  Scope this event to a team to make it visible only to that team&apos;s members.
+                  Adds this event to the team&apos;s calendar. It only appears in someone&apos;s own
+                  agenda if they&apos;re assigned to it.
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   <button
@@ -1079,6 +1137,46 @@ export function CalendarEventDialog({
                       {t.name}
                     </button>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {allowTeamAssociation && assigneeCandidates.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm flex items-center gap-1.5">
+                  <UserCheck className="h-3.5 w-3.5 text-muted-foreground/60" />
+                  Assigned to
+                  <span className="text-xs font-normal text-muted-foreground">Optional</span>
+                </Label>
+                <p className="text-xs text-muted-foreground/70">
+                  Shows this event in each assignee&apos;s own agenda.
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {assigneeCandidates.map((m) => {
+                    const selected = assignedTo.includes(m.userId)
+                    const label = m.nickname || m.name
+                    return (
+                      <button
+                        key={m.userId}
+                        type="button"
+                        onClick={() => toggleAssignee(m.userId)}
+                        className={cn(
+                          'flex items-center gap-1.5 rounded-full border py-0.5 pl-0.5 pr-2.5 text-xs font-medium transition-all',
+                          selected
+                            ? 'border-violet-500/50 bg-violet-500/15 text-violet-600 dark:text-violet-400'
+                            : 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
+                        )}
+                      >
+                        <Avatar className="h-5 w-5">
+                          <AvatarImage src={m.image ?? undefined} alt={label} />
+                          <AvatarFallback className="text-[9px]">
+                            {label.slice(0, 1).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        {label}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             )}

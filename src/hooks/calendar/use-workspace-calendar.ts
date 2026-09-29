@@ -40,6 +40,20 @@ export const useWorkspaceCalendar = () => {
 
   const view = parseViewFromUrl(searchParams.get('view'))
   const currentDate = parseDateFromUrl(searchParams.get('date'))
+  // Which calendar is shown: the viewer's own agenda (no `cal` param), or one
+  // team's calendar (`cal=<teamId>`). Kept in the URL like view/date.
+  const rawCalendar = searchParams.get('cal')
+  const calendarTeamId = rawCalendar && /^\d+$/.test(rawCalendar) ? Number(rawCalendar) : null
+
+  const setCalendarTeamId = useCallback(
+    (teamId: number | null) => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (teamId === null) params.delete('cal')
+      else params.set('cal', String(teamId))
+      router.push(`${pathname}?${params.toString()}`, { scroll: false })
+    },
+    [router, pathname, searchParams],
+  )
 
   const pushUrl = useCallback(
     (newView: CalendarView, newDate: Date) => {
@@ -83,8 +97,14 @@ export const useWorkspaceCalendar = () => {
   const liveInterval = useLivePollInterval('live')
 
   const { data: eventsData } = useQuery({
-    queryKey: [EVENTS_QUERY_KEY, from.toISOString(), to.toISOString()],
-    queryFn: () => api.calendar.listFlowline(from.toISOString(), to.toISOString(), 'workspace'),
+    queryKey: [EVENTS_QUERY_KEY, calendarTeamId ?? 'mine', from.toISOString(), to.toISOString()],
+    queryFn: () =>
+      api.calendar.listFlowline(
+        from.toISOString(),
+        to.toISOString(),
+        'workspace',
+        calendarTeamId === null ? 'mine' : { teamId: calendarTeamId },
+      ),
     refetchInterval: liveInterval,
   })
 
@@ -93,10 +113,13 @@ export const useWorkspaceCalendar = () => {
   // different workspace doesn't show up here. Other members' changes are
   // pushed on the workspace channel (see src/lib/realtime.ts), with the live
   // poll as a fallback.
+  // Tasks only belong to the viewer's own agenda — a team calendar shows
+  // that team's events and nothing else.
   const { data: tasksData } = useQuery({
     queryKey: ['tasks', 'workspace-calendar'],
     queryFn: () => api.tasks.listForWorkspaceCalendar(),
     refetchInterval: liveInterval,
+    enabled: calendarTeamId === null,
   })
 
   const rawEvents = useMemo(() => (eventsData?.docs ?? []).map(mapEvent), [eventsData])
@@ -226,6 +249,7 @@ export const useWorkspaceCalendar = () => {
   }, [rawEvents, from, to, optimisticExceptions, optimisticParentOverrides])
 
   const tasks: CalendarTask[] = useMemo(() => {
+    if (calendarTeamId !== null) return []
     const allTasks = (tasksData?.docs ?? []) as Task[]
     return allTasks
       .filter((t) => t.dueDate && t.status === 'active')
@@ -242,7 +266,7 @@ export const useWorkspaceCalendar = () => {
           type: 'task' as const,
         }
       })
-  }, [tasksData])
+  }, [tasksData, calendarTeamId])
 
   const eventsWithOverrides = useMemo(
     () =>
@@ -868,6 +892,8 @@ export const useWorkspaceCalendar = () => {
   return {
     view,
     setView,
+    calendarTeamId,
+    setCalendarTeamId,
     currentDate,
     setCurrentDate,
     navigate,

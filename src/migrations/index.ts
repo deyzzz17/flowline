@@ -57,6 +57,7 @@ import * as migration_20260923_120000_custom_roles_granular from './20260923_120
 import * as migration_20260923_130000_lock_docs_rels_teams_custom_roles from './20260923_130000_lock_docs_rels_teams_custom_roles';
 import * as migration_20260924_090000_team_roles_team_settings from './20260924_090000_team_roles_team_settings';
 import * as migration_20260925_100000_calendar_events_team from './20260925_100000_calendar_events_team';
+import * as migration_20260929_120000_calendar_events_assigned_to from './20260929_120000_calendar_events_assigned_to';
 
 export const migrations = [
   {
@@ -353,5 +354,10 @@ export const migrations = [
     up: migration_20260925_100000_calendar_events_team.up,
     down: migration_20260925_100000_calendar_events_team.down,
     name: '20260925_100000_calendar_events_team'
+  },
+  {
+    up: migration_20260929_120000_calendar_events_assigned_to.up,
+    down: migration_20260929_120000_calendar_events_assigned_to.down,
+    name: '20260929_120000_calendar_events_assigned_to'
   },
 ];

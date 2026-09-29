@@ -267,6 +267,31 @@ export interface TeamOverview {
   members: { id: number; userId: string; name: string; image: string | null; roleName: string }[]
 }
 
+/**
+ * userIds of a team's members (plus its creator) — e.g. who an event of this
+ * team can be assigned to. Any member of the workspace may read it.
+ */
+export const listTeamMemberIds = async (teamId: number): Promise<string[]> => {
+  const userId = await getUserId()
+  if (!userId) return []
+  const workspaceId = await getActiveWorkspaceId()
+  if (!workspaceId) return []
+  if (!(await getWorkspaceRoleForUser(workspaceId, userId))) return []
+
+  const payload = await getPayload({ config })
+  const team = await payload.findByID({ collection: 'teams', id: teamId, depth: 0 }).catch(() => null)
+  if (!team || team.workspace !== workspaceId || team.planArchivedAt) return []
+
+  const { docs } = await payload.find({
+    collection: 'team-members',
+    where: { team: { equals: teamId } },
+    limit: 0,
+    depth: 0,
+    pagination: false,
+  })
+  return [...new Set([team.createdBy, ...docs.map((d) => d.userId as string)])]
+}
+
 export const getTeamOverview = async (teamId: number): Promise<TeamOverview | null> => {
   const userId = await getUserId()
   if (!userId) return null

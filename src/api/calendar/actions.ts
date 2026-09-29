@@ -11,6 +11,7 @@ import {
   getCurrentWorkspaceId,
   workspaceWhereClause,
   getEffectiveWorkspacePermissions,
+  getWorkspaceRoleForUser,
 } from '@/lib/get-current-workspace'
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
@@ -79,6 +80,12 @@ export interface CalendarEventData {
    * reads it.
    */
   teamId?: number | null
+  /**
+   * userIds of workspace members this event is assigned to (Workspace
+   * Calendar only) — it then shows up in each of their own agendas. For a
+   * team event, only that team's members.
+   */
+  assignedTo?: string[]
   recurrence?: RecurrenceRule | null
   recurrenceId?: number | null
   originalDate?: string | null
@@ -595,10 +602,74 @@ async function fetchGoogleCalendarEvents(
   }
 }
 
+/** Which Workspace Calendar to show: the viewer's own agenda, or one team's calendar. */
+export type WorkspaceCalendarSelection = 'mine' | { teamId: number }
+
+function teamIdOf(team: unknown): number | null {
+  if (team && typeof team === 'object') return (team as { id: number }).id
+  return typeof team === 'number' ? team : null
+}
+
+/** Ids of the events assigned to a user (assignedTo lives in calendar_events_texts). */
+async function getAssignedEventIds(userId: string): Promise<number[]> {
+  const { rows } = await pool.query<{ parent_id: number }>(
+    `SELECT DISTINCT parent_id FROM calendar_events_texts WHERE path = 'assignedTo' AND text = $1`,
+    [userId],
+  )
+  return rows.map((r) => r.parent_id)
+}
+
+/** The people a team's events can be assigned to: its members plus its creator. */
+async function getTeamMemberUserIds(
+  payload: Awaited<ReturnType<typeof getPayload>>,
+  teamId: number,
+): Promise<Set<string>> {
+  const [{ docs }, team] = await Promise.all([
+    payload.find({
+      collection: 'team-members',
+      where: { team: { equals: teamId } },
+      limit: 0,
+      depth: 0,
+      pagination: false,
+    }),
+    payload.findByID({ collection: 'teams', id: teamId, depth: 0 }).catch(() => null),
+  ])
+  const ids = new Set(docs.map((d) => d.userId as string))
+  if (team?.createdBy) ids.add(team.createdBy)
+  return ids
+}
+
+/**
+ * Validates an event's assignees: members of the workspace, or — for a team
+ * event — of that team. Returns the de-duplicated list, or null if anyone
+ * isn't allowed. Personal has no members, so nothing can be assigned there.
+ */
+async function resolveAssignees(
+  payload: Awaited<ReturnType<typeof getPayload>>,
+  workspaceId: string | null,
+  teamId: number | null,
+  userIds: string[] | undefined,
+): Promise<string[] | null> {
+  const unique = [...new Set(userIds ?? [])]
+  if (unique.length === 0 || !workspaceId) return []
+  if (teamId) {
+    const allowed = await getTeamMemberUserIds(payload, teamId)
+    return unique.every((id) => allowed.has(id)) ? unique : null
+  }
+  const { rows } = await pool.query<{ userId: string }>(
+    `SELECT "userId" FROM member WHERE "organizationId" = $1 AND "userId" = ANY($2)`,
+    [workspaceId, unique],
+  )
+  return rows.length === unique.length ? unique : null
+}
+
+const INVALID_ASSIGNEES = 'Some assignees are not members of this workspace or team'
+
 export const listFlowlineCalendarEvents = async (
   from: string,
   to: string,
   scope: CalendarScope = 'workspace',
+  calendar: WorkspaceCalendarSelection = 'mine',
 ) => {
   const userId = await getUserId()
   if (!userId) return { docs: [] }
@@ -625,36 +696,50 @@ export const listFlowlineCalendarEvents = async (
   }
 
   const workspaceId = await getCurrentWorkspaceId()
-
-  // Within a real (non-Personal) workspace, also surface events from teams
-  // you belong to — a team-scoped event is visible to the whole team, not
-  // just its creator. The workspace's real owner/admin (not a custom role's
-  // derived tier — see deriveBetterAuthRole) sees every team's events too,
-  // same as lists/calendar categories. Personal has no teams, so this is a
-  // no-op there.
-  const visibilityOr: Where[] = [{ userId: { equals: userId } }]
-  if (workspaceId) {
-    const effective = await getEffectiveWorkspacePermissions(workspaceId, userId)
-    const isPlainOwnerOrAdmin =
-      (effective.role === 'owner' || effective.role === 'admin') &&
-      effective.customRoleName === null
-    if (isPlainOwnerOrAdmin) {
-      visibilityOr.push({ team: { exists: true } })
-    } else {
-      const myTeamIds = await getMyTeamIds(payload, workspaceId, userId)
-      if (myTeamIds.length > 0) visibilityOr.push({ team: { in: myTeamIds } })
-    }
+  const findEvents = async (visibility: Where) => {
+    const { docs } = await payload.find({
+      collection: 'calendar-events',
+      limit: 500,
+      sort: 'startDate',
+      where: { and: [workspaceWhereClause(workspaceId), visibility, dateFilter] },
+    })
+    // A recurring series' modified occurrences are separate documents that
+    // may not match the visibility rule themselves (created before they
+    // inherited the series' team/assignees) — without them those
+    // occurrences would vanish, since the series lists them as exceptions.
+    const parentIds = docs
+      .filter((d) => d.recurrence?.frequency && !d.recurrenceId)
+      .map((d) => d.id)
+    if (parentIds.length === 0) return docs
+    const known = new Set(docs.map((d) => d.id))
+    const { docs: overrides } = await payload.find({
+      collection: 'calendar-events',
+      limit: 500,
+      where: { and: [{ recurrenceId: { in: parentIds } }, dateFilter] },
+    })
+    return [...docs, ...overrides.filter((o) => !known.has(o.id))]
   }
 
-  const { docs } = await payload.find({
-    collection: 'calendar-events',
-    limit: 500,
-    sort: 'startDate',
-    where: {
-      and: [workspaceWhereClause(workspaceId), { or: visibilityOr }, dateFilter],
-    },
-  })
-  return { docs }
+  // One team's calendar: every event of that team. Readable by any member of
+  // the workspace (not only the team's own members).
+  if (workspaceId && calendar !== 'mine') {
+    const team = await payload
+      .findByID({ collection: 'teams', id: calendar.teamId, depth: 0 })
+      .catch(() => null)
+    if (!team || team.workspace !== workspaceId || team.planArchivedAt) return { docs: [] }
+    if (!(await getWorkspaceRoleForUser(workspaceId, userId))) return { docs: [] }
+    return { docs: await findEvents({ team: { equals: calendar.teamId } }) }
+  }
+
+  // The viewer's own agenda: events they created outside any team, plus
+  // every event (team or not) someone assigned them to. A team event they're
+  // not assigned to only appears in that team's calendar.
+  const assignedIds = workspaceId ? await getAssignedEventIds(userId) : []
+  const visibilityOr: Where[] = [
+    { and: [{ userId: { equals: userId } }, { team: { exists: false } }] },
+  ]
+  if (assignedIds.length > 0) visibilityOr.push({ id: { in: assignedIds } })
+  return { docs: await findEvents({ or: visibilityOr }) }
 }
 
 export const listGoogleCalendarEvents = async (
@@ -704,6 +789,14 @@ export const createCalendarEvent = async (data: CalendarEventData) => {
       if (!teamPermissions.canManageCalendar) return err('Not authorized')
     }
 
+    const assignedTo = await resolveAssignees(
+      payload,
+      workspaceId,
+      data.teamId ?? null,
+      data.assignedTo,
+    )
+    if (!assignedTo) return err(INVALID_ASSIGNEES)
+
     const event = await payload.create({
       collection: 'calendar-events',
       data: {
@@ -717,6 +810,7 @@ export const createCalendarEvent = async (data: CalendarEventData) => {
         color: data.color ?? '#8b5cf6',
         ...(data.categoryId !== undefined && { categoryId: data.categoryId }),
         ...(data.teamId && { team: data.teamId }),
+        assignedTo,
         ...(data.recurrence ? { recurrence: data.recurrence as any } : {}),
         ...(data.recurrenceId ? { recurrenceId: data.recurrenceId } : {}),
         ...(data.originalDate ? { originalDate: data.originalDate } : {}),
@@ -762,6 +856,20 @@ export const updateCalendarEvent = async (
 
     if (!(await canManageCalendarEvent(existing as any, userId))) return err('Not authorized')
 
+    // Assignees belong to the whole event (series included), whatever the
+    // edit scope — validated against the event's own workspace/team.
+    let assignedTo: string[] | undefined
+    if (data.assignedTo !== undefined) {
+      const resolved = await resolveAssignees(
+        payload,
+        existing.workspace ?? null,
+        teamIdOf(existing.team),
+        data.assignedTo,
+      )
+      if (!resolved) return err(INVALID_ASSIGNEES)
+      assignedTo = resolved
+    }
+
     const isRecurring = !!(existing as any).recurrence?.frequency
     const isOverride = !!(existing as any).recurrenceId
 
@@ -780,12 +888,20 @@ export const updateCalendarEvent = async (
           ...(data.recurrence !== undefined && {
             recurrence: (data.recurrence as any) ?? undefined,
           }),
+          ...(assignedTo !== undefined && { assignedTo }),
         },
       })
       return ok(updated)
     }
 
     const parentId = isOverride ? (existing as any).recurrenceId : id
+    if (assignedTo !== undefined) {
+      await payload.update({
+        collection: 'calendar-events',
+        where: { or: [{ id: { equals: parentId } }, { recurrenceId: { equals: parentId } }] },
+        data: { assignedTo },
+      })
+    }
     const parent = await payload.findByID({ collection: 'calendar-events', id: parentId })
     const parentStart = new Date(parent.startDate)
     const parentEnd = new Date(parent.endDate)
@@ -930,6 +1046,10 @@ export const updateCalendarEvent = async (
               : (existing as any).categoryId
                 ? { categoryId: (existing as any).categoryId }
                 : {}),
+            // A modified occurrence stays part of the series' team and keeps
+            // its assignees, so it stays visible to the same people.
+            ...(teamIdOf((parent as any).team) ? { team: teamIdOf((parent as any).team)! } : {}),
+            assignedTo: assignedTo ?? (((parent as any).assignedTo ?? []) as string[]),
             recurrenceId: parentId,
             originalDate: occDate,
           },

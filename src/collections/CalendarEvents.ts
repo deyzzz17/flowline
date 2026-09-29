@@ -26,6 +26,16 @@ export const CalendarEvents: CollectionConfig = {
           'Optional team (within the same workspace) this event is scoped to — visible only to that team\'s members, and only within the Workspace Calendar (not the global, cross-workspace Calendar). Empty means private to its creator, same as before.',
       },
     },
+    {
+      name: 'assignedTo',
+      type: 'text',
+      hasMany: true,
+      required: false,
+      admin: {
+        description:
+          'userIds of workspace members this event is assigned to — it shows up in their own agenda in the Workspace Calendar. For a team event, only members of that team.',
+      },
+    },
     { name: 'title', type: 'text', required: true },
     { name: 'description', type: 'textarea', required: false },
     {

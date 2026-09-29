@@ -9,7 +9,16 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Plus, User, UsersRound } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { useTeams } from '@/hooks/teams/use-teams'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import {
@@ -36,6 +45,8 @@ export function WorkspaceCalendarClient() {
   const {
     view,
     setView,
+    calendarTeamId,
+    setCalendarTeamId,
     currentDate,
     navigate,
     goToDay,
@@ -58,6 +69,9 @@ export function WorkspaceCalendarClient() {
   } = useWorkspaceCalendar()
 
   const isMobile = useIsMobile()
+  const { teams } = useTeams()
+  const selectedTeam = teams.find((t) => t.id === calendarTeamId) ?? null
+  const calendarLabel = selectedTeam ? selectedTeam.name : 'My agenda'
 
   const handleNavigate = (dir: 'prev' | 'next' | 'today') => {
     if (isMobile && view === 'week' && dir !== 'today') {
@@ -216,6 +230,48 @@ export function WorkspaceCalendarClient() {
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
+            {/* Which calendar: the viewer's own agenda (their events + the
+                ones assigned to them) or one team's calendar. */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 sm:h-8 gap-1.5 text-xs px-2 sm:px-3 max-w-[140px] sm:max-w-[200px]"
+                >
+                  {selectedTeam ? (
+                    <UsersRound className="h-3.5 w-3.5 shrink-0" />
+                  ) : (
+                    <User className="h-3.5 w-3.5 shrink-0" />
+                  )}
+                  <span className="truncate">{calendarLabel}</span>
+                  <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onSelect={() => setCalendarTeamId(null)}>
+                  <User className="h-4 w-4" />
+                  <span className="flex-1">My agenda</span>
+                  {calendarTeamId === null && <Check className="h-4 w-4" />}
+                </DropdownMenuItem>
+                {teams.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-xs text-muted-foreground">
+                      Team calendars
+                    </DropdownMenuLabel>
+                    {teams.map((t) => (
+                      <DropdownMenuItem key={t.id} onSelect={() => setCalendarTeamId(t.id)}>
+                        <UsersRound className="h-4 w-4" />
+                        <span className="flex-1 truncate">{t.name}</span>
+                        {calendarTeamId === t.id && <Check className="h-4 w-4" />}
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <div className="flex items-center gap-0.5 rounded-xl border border-border/60 bg-muted/30 p-0.5 sm:p-1">
               {(['year', 'month', 'week', 'day'] as CalendarView[]).map((v) => (
                 <button
@@ -308,6 +364,7 @@ export function WorkspaceCalendarClient() {
         isSaving={createMutation.isPending || updateMutation.isPending}
         isDeleting={deleteMutation.isPending}
         allowTeamAssociation
+        defaultTeamId={calendarTeamId}
       />
     </DndContext>
   )

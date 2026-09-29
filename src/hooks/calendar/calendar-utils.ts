@@ -12,6 +12,8 @@ export interface CalendarEvent {
   color: string
   categoryId?: number | null
   teamId?: number | null
+  /** userIds this event is assigned to (Workspace Calendar only). */
+  assignedTo?: string[]
   recurrence?: RecurrenceRule | null
   recurrenceId?: number | null
   originalDate?: string | null
@@ -98,6 +100,7 @@ export function mapEvent(e: any) {
     color: e.color ?? '#8b5cf6',
     categoryId: typeof e.categoryId === 'number' ? e.categoryId : null,
     teamId: typeof e.team === 'object' ? (e.team?.id ?? null) : (e.team ?? null),
+    assignedTo: Array.isArray(e.assignedTo) ? (e.assignedTo as string[]) : [],
     recurrence: e.recurrence?.frequency ? (e.recurrence as RecurrenceRule) : null,
     recurrenceId: e.recurrenceId ?? null,
     originalDate: e.originalDate ?? null,
