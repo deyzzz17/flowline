@@ -2,6 +2,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import type { Task } from '@/payload-types'
+import { removeTaskFromCaches } from './task-cache'
 
 export const useDeleteTask = () => {
   const queryClient = useQueryClient()
@@ -25,12 +26,20 @@ export const useDeleteTask = () => {
 
       return { previousData }
     },
-    onError: (_err, _vars, context) => {
+    // Already removed optimistically — nothing to refetch on success.
+    onSuccess: (result, id, context) => {
+      if (result.ok) {
+        removeTaskFromCaches(queryClient, id)
+        return
+      }
       context?.previousData?.forEach(({ queryKey, data }) => {
         queryClient.setQueryData(queryKey as string[], data)
       })
     },
-    onSettled: () => {
+    onError: (_err, _vars, context) => {
+      context?.previousData?.forEach(({ queryKey, data }) => {
+        queryClient.setQueryData(queryKey as string[], data)
+      })
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
     },
   })

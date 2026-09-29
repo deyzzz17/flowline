@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import type { Task } from '@/payload-types'
 import { toast } from 'sonner'
+import { upsertTaskInCaches } from './task-cache'
 
 type TaskType = NonNullable<Task['type']>
 type TaskTag = NonNullable<Task['tags']>[number]
@@ -171,11 +172,20 @@ export const useTaskCreation = () => {
       })
     },
 
-    onSuccess: () => {
-      toast.info('Task created', {
-        description: 'Your task has been successfully created.',
+    // Swap the optimistic placeholder for the server's task in place (and
+    // drop it from other lists' caches it was optimistically added to) —
+    // no refetch of every task query (see task-cache.ts).
+    onSuccess: (result, _input, context) => {
+      if (!result.ok) {
+        context?.previousData?.forEach(({ queryKey, data }) => {
+          queryClient.setQueryData(queryKey as string[], data)
+        })
+        return
+      }
+      upsertTaskInCaches(queryClient, result.value as Task, {
+        replaceId: context?.tempId,
+        insertIntoAll: true,
       })
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
     },
   })
 
@@ -214,7 +224,7 @@ export const useTaskCreation = () => {
     resetForm()
 
     try {
-      const result = await api.tasks.create(input)
+      const result = await createMutation.mutateAsync(input)
       if (!result.ok) return { ok: false, error: result.error }
       return { ok: true }
     } catch {

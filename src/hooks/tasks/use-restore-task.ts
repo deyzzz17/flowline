@@ -2,6 +2,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import type { Task } from '@/payload-types'
+import { upsertTaskInCaches } from './task-cache'
 
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
 
@@ -31,7 +32,7 @@ export const useRestoreTask = () => {
         if (task) break
       }
 
-      if (!task) return { previousData }
+      if (!task) return { previousData, restoredTask: undefined }
 
       const newStatus = getRestoredStatus(task)
       const restoredTask = { ...task, status: newStatus as Task['status'] }
@@ -59,21 +60,29 @@ export const useRestoreTask = () => {
         })
       })
 
-      return { previousData }
+      return { previousData, restoredTask }
+    },
+    // The optimistic version mirrors what the server writes — settle it in
+    // place (and out of other lists' caches) instead of refetching every
+    // task query (see task-cache.ts). Only a task that wasn't in any cache
+    // needs a refetch to show up.
+    onSuccess: (result, _id, context) => {
+      if (result.ok && context?.restoredTask) {
+        upsertTaskInCaches(queryClient, { ...context.restoredTask, trashedAt: null })
+        return
+      }
+      if (!result.ok) {
+        context?.previousData?.forEach(({ queryKey, data }) => {
+          queryClient.setQueryData(queryKey as string[], data)
+        })
+      }
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
     },
     onError: (_err, _vars, context) => {
       context?.previousData?.forEach(({ queryKey, data }) => {
         queryClient.setQueryData(queryKey as string[], data)
       })
-    },
-    onSettled: () => {
-      const queries = queryClient.getQueriesData({ queryKey: ['tasks'] })
-      queries.forEach(([queryKey]) => {
-        const key = queryKey as string[]
-        if (key[1] !== 'recurring') {
-          queryClient.invalidateQueries({ queryKey: key })
-        }
-      })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
     },
   })
 }

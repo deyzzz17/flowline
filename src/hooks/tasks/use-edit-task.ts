@@ -3,6 +3,7 @@
 import { api } from '@/api'
 import { Task } from '@/payload-types'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { upsertTaskInCaches } from './task-cache'
 
 type EditDraft = {
   title?: string
@@ -83,13 +84,22 @@ export const useEditTask = () => {
       return { previousData }
     },
 
-    onError: (_err, _vars, context) => {
+    // The server's version of the task goes straight into the caches — no
+    // refetch of every task query (see task-cache.ts).
+    onSuccess: (result, _vars, context) => {
+      if (result.ok) {
+        upsertTaskInCaches(queryClient, result.value as Task)
+        return
+      }
       context?.previousData?.forEach(({ queryKey, data }) => {
         queryClient.setQueryData(queryKey as string[], data)
       })
     },
 
-    onSettled: () => {
+    onError: (_err, _vars, context) => {
+      context?.previousData?.forEach(({ queryKey, data }) => {
+        queryClient.setQueryData(queryKey as string[], data)
+      })
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
     },
   })

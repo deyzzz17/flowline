@@ -5,6 +5,7 @@ import { useTask } from '@/hooks/tasks/use-task'
 import { useSoftDelete } from '@/hooks/tasks/use-soft-delete'
 import { useDeleteTask } from '@/hooks/tasks/use-delete-task'
 import { useRestoreTask } from '@/hooks/tasks/use-restore-task'
+import { upsertTaskInCaches } from '@/hooks/tasks/task-cache'
 import { useToggleSubtask, useCompleteTaskWithSubtasks } from '@/hooks/tasks/use-toggle-subtasks'
 import { useDeleteSubtask } from '@/hooks/tasks/use-delete-subtask'
 import { usePlanLimits } from '@/hooks/plan/use-plan-limits'
@@ -1214,7 +1215,7 @@ export const TaskCard = ({
                         }
                         return
                       }
-                      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+                      upsertTaskInCaches(queryClient, result.value as Task)
                     }
 
                     return (

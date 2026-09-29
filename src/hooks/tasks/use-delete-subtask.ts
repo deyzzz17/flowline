@@ -2,6 +2,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import type { Task } from '@/payload-types'
+import { patchTaskInCaches } from './task-cache'
 
 type Subtask = NonNullable<Task['subtasks']>[number]
 
@@ -39,12 +40,21 @@ export function useDeleteSubtask() {
 
       return { previousData }
     },
-    onError: (_err, _vars, context) => {
+    // The server returns the task's new subtasks/status — apply them
+    // directly instead of refetching every task query.
+    onSuccess: (result, { taskId }, context) => {
+      if (result.ok) {
+        patchTaskInCaches(queryClient, taskId, result.value as Partial<Task>)
+        return
+      }
       context?.previousData?.forEach(({ queryKey, data }) => {
         queryClient.setQueryData(queryKey as string[], data)
       })
     },
-    onSettled: () => {
+    onError: (_err, _vars, context) => {
+      context?.previousData?.forEach(({ queryKey, data }) => {
+        queryClient.setQueryData(queryKey as string[], data)
+      })
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
     },
   })

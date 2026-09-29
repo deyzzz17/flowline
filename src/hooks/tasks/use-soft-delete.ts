@@ -1,6 +1,7 @@
 import { api } from '@/api'
 import { Task } from '@/payload-types'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { patchTaskInCaches } from './task-cache'
 
 export const useSoftDelete = () => {
   const queryClient = useQueryClient()
@@ -24,19 +25,25 @@ export const useSoftDelete = () => {
 
       return { previousData }
     },
-    onError: (_err, _vars, context) => {
+    // Already applied optimistically — just mirror what the server wrote,
+    // instead of refetching every task query (see task-cache.ts).
+    onSuccess: (result, id, context) => {
+      if (result.ok) {
+        patchTaskInCaches(queryClient, id, {
+          status: 'deleted',
+          trashedAt: new Date().toISOString(),
+        })
+        return
+      }
       context?.previousData?.forEach(({ queryKey, data }) => {
         queryClient.setQueryData(queryKey as string[], data)
       })
     },
-    onSettled: (_data, _error, _id) => {
-      const queries = queryClient.getQueriesData({ queryKey: ['tasks'] })
-      queries.forEach(([queryKey]) => {
-        const key = queryKey as string[]
-        if (key[1] !== 'recurring') {
-          queryClient.invalidateQueries({ queryKey: key })
-        }
+    onError: (_err, _vars, context) => {
+      context?.previousData?.forEach(({ queryKey, data }) => {
+        queryClient.setQueryData(queryKey as string[], data)
       })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
     },
   })
 }

@@ -7,6 +7,7 @@ import { CheckCircle2, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
+import { patchTaskInCaches } from '@/hooks/tasks/task-cache'
 import { createTimerSession } from '@/api/timer/actions'
 import { toast } from 'sonner'
 import type { SessionConfig } from '@/hooks/timer/use-timer'
@@ -74,7 +75,10 @@ export function SessionRatingDialog({
 
   const completeTaskMutation = useMutation({
     mutationFn: (id: number) => api.tasks.toggleStatus(id, 'active'),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+    onSuccess: (result, id) => {
+      if (result.ok) patchTaskInCaches(queryClient, id, { status: 'completed' })
+      else queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    },
   })
 
   const handleClose = () => {
@@ -139,7 +143,7 @@ export function SessionRatingDialog({
         if (taskWasCompleted && capturedConfig.taskId) {
           try {
             await api.tasks.toggleStatus(capturedConfig.taskId, 'completed')
-            queryClient.invalidateQueries({ queryKey: ['tasks'] })
+            patchTaskInCaches(queryClient, capturedConfig.taskId, { status: 'active' })
           } catch {}
         }
 
