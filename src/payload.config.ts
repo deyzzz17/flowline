@@ -28,6 +28,21 @@ import { CustomRoles } from './collections/CustomRoles'
 import { Teams } from './collections/Teams'
 import { TeamRoles } from './collections/TeamRoles'
 import { TeamMembers } from './collections/TeamMembers'
+import {
+  withRealtime,
+  taskRoute,
+  listRoute,
+  listMemberRoute,
+  taskCommentRoute,
+  teamRoute,
+  teamChildRoute,
+  customRoleRoute,
+  calendarEventRoute,
+  calendarCategoryRoute,
+  connectionRoute,
+  workspaceArchiveRoute,
+  invalidateWorkspaceOf,
+} from './collections/hooks/realtime'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -39,30 +54,32 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
+  // withRealtime: pushes live-update hints to other members' open tabs on
+  // every change (see src/collections/hooks/realtime.ts).
   collections: [
     Admins,
     Media,
-    Tasks,
+    withRealtime(Tasks, taskRoute),
     TaskCompletions,
     UserTags,
-    Lists,
+    withRealtime(Lists, listRoute),
     TimerCategories,
     TimerSessions,
     TimerConfigs,
-    CalendarEvents,
-    CalendarCategories,
+    withRealtime(CalendarEvents, calendarEventRoute),
+    withRealtime(CalendarCategories, calendarCategoryRoute),
     GoogleCalendarSyncs,
     Habits,
     HabitCompletions,
-    Connections,
-    ListMembers,
-    TaskComments,
-    WorkspaceMemberArchive,
-    WorkspaceArchive,
-    CustomRoles,
-    Teams,
-    TeamRoles,
-    TeamMembers,
+    withRealtime(Connections, connectionRoute),
+    withRealtime(ListMembers, listMemberRoute),
+    withRealtime(TaskComments, taskCommentRoute),
+    withRealtime(WorkspaceMemberArchive, workspaceArchiveRoute, invalidateWorkspaceOf('organizationId')),
+    withRealtime(WorkspaceArchive, workspaceArchiveRoute, invalidateWorkspaceOf('organizationId')),
+    withRealtime(CustomRoles, customRoleRoute, invalidateWorkspaceOf('workspace')),
+    withRealtime(Teams, teamRoute),
+    withRealtime(TeamRoles, teamChildRoute),
+    withRealtime(TeamMembers, teamChildRoute),
   ],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',

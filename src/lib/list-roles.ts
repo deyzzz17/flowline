@@ -8,7 +8,10 @@ export async function resolveListRole(
   listId: number,
   userId: string,
 ): Promise<ListRole> {
-  const list = await payload.findByID({ collection: 'lists', id: listId }).catch((e) => {
+  // depth 0: only this list's own columns are read here (team is used as an
+  // id) — the default depth also joined the team and its relations on every
+  // permission check.
+  const list = await payload.findByID({ collection: 'lists', id: listId, depth: 0 }).catch((e) => {
     console.error('resolveListRole: failed to fetch list', listId, e)
     return null
   })
@@ -38,7 +41,9 @@ export async function resolveListRole(
       if (isOwner) return 'admin'
       const teamId = typeof list.team === 'object' ? list.team.id : list.team
 
-      const team = await payload.findByID({ collection: 'teams', id: teamId }).catch(() => null)
+      const team = await payload
+        .findByID({ collection: 'teams', id: teamId, depth: 0 })
+        .catch(() => null)
       if (team?.createdBy === userId) return 'admin'
 
       const { docs: memberDocs } = await payload.find({
@@ -81,7 +86,7 @@ export async function resolveListRole(
     // added to (see phase 13/18: this is deliberate, not a bug). We already
     // know the list is shared at this point (private lists returned above).
     if (!isOwner) {
-      const { totalDocs } = await payload.find({
+      const { totalDocs } = await payload.count({
         collection: 'list-members',
         where: {
           and: [
@@ -90,7 +95,6 @@ export async function resolveListRole(
             { status: { equals: 'accepted' } },
           ],
         },
-        limit: 0,
       })
       if (totalDocs === 0) return null
     }
@@ -114,6 +118,8 @@ export async function resolveListRole(
       ],
     },
     limit: 1,
+    depth: 0,
+    pagination: false,
   })
   const memberRole = docs[0]?.role
   return memberRole === 'editor' || memberRole === 'reader' ? memberRole : null
@@ -124,7 +130,9 @@ export async function resolveListRoleForTask(
   taskId: number,
   userId: string,
 ): Promise<ListRole> {
-  const task = await payload.findByID({ collection: 'tasks', id: taskId }).catch(() => null)
+  const task = await payload
+    .findByID({ collection: 'tasks', id: taskId, depth: 0, select: { list: true } })
+    .catch(() => null)
   if (!task || !task.list) return null
   const listId = typeof task.list === 'object' ? task.list.id : task.list
   return resolveListRole(payload, listId, userId)
@@ -142,7 +150,10 @@ export function canViewList(role: ListRole): boolean {
 // (owner) plus every currently-accepted member. Used both to validate an
 // assignment server-side and to resolve assignee profiles for display.
 export async function getListMemberIds(payload: BasePayload, listId: number): Promise<string[]> {
-  const list = await payload.findByID({ collection: 'lists', id: listId }).catch((e) => {
+  // depth 0: only this list's own columns are read here (team is used as an
+  // id) — the default depth also joined the team and its relations on every
+  // permission check.
+  const list = await payload.findByID({ collection: 'lists', id: listId, depth: 0 }).catch((e) => {
     console.error('getListMemberIds: failed to fetch list', listId, e)
     return null
   })

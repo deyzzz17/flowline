@@ -3,7 +3,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
 import type { Task } from '@/payload-types'
-import { SHARED_LIST_POLL_INTERVAL_MS } from '@/lib/realtime'
+import { useLivePollInterval, useRealtimeChannel } from '@/components/providers/realtime-provider'
+import { realtimeChannels } from '@/lib/realtime'
 
 function computeUrgency(tasks: Task[]): 'red' | 'orange' | null {
   const now = Date.now()
@@ -23,10 +24,12 @@ function computeUrgency(tasks: Task[]): 'red' | 'orange' | null {
 // list's urgency dot is correct for every member, admin included, regardless
 // of who actually created the due-soon task.
 export function useListUrgency(listId: number) {
+  const refetchInterval = useLivePollInterval('live')
+  useRealtimeChannel(realtimeChannels.list(listId))
   const { data } = useQuery({
     queryKey: ['tasks', listId],
     queryFn: () => api.tasks.list(1, listId),
-    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
+    refetchInterval,
   })
 
   return computeUrgency((data?.docs ?? []) as Task[])

@@ -19,8 +19,9 @@ export const useGoogleCalendar = () => {
       if ('error' in result) return { connected: false, calendars: [] }
       return { connected: true, calendars: result.value.calendars }
     },
-    staleTime: 60_000,
-    refetchInterval: 30_000,
+    // Each refresh hits Google and the DB (tokens + sync settings); the
+    // connected calendars list practically never changes on its own.
+    staleTime: 5 * 60_000,
   })
 
   const connectMutation = useMutation({

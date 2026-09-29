@@ -6,6 +6,7 @@ import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { revalidatePath } from 'next/cache'
 import { pool } from '@/lib/db-pool'
+import { invalidateWorkspace } from '@/lib/server-cache'
 import { ok, err } from '@/types/result'
 import { getSession } from '@/lib/get-session'
 import { getWorkspaceRoleForUser } from '@/lib/get-current-workspace'
@@ -164,6 +165,7 @@ export const updateCustomRole = async (id: number, input: CustomRoleInput) => {
       deriveBetterAuthRole(input),
       String(id),
     ])
+    invalidateWorkspace(workspaceId)
 
     revalidatePath('/')
     return ok(toDoc(updated))

@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
-import { SHARED_LIST_POLL_INTERVAL_MS } from '@/lib/realtime'
+import { useLivePollInterval } from '@/components/providers/realtime-provider'
 
 export const TEAMS_QUERY_KEY = ['teams']
 export const TEAMS_ACCESS_QUERY_KEY = ['teams', 'access']
@@ -17,11 +17,12 @@ export const useTeamsAccess = (enabled = true) => {
 }
 
 export const useTeams = (enabled = true) => {
+  const refetchInterval = useLivePollInterval('slow')
   const { data, isLoading } = useQuery({
     queryKey: TEAMS_QUERY_KEY,
     queryFn: () => api.teams.list(),
     enabled,
-    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
+    refetchInterval,
   })
   return { teams: data ?? [], isLoading }
 }

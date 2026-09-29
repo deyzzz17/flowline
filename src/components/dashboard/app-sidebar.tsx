@@ -30,7 +30,7 @@ import { useTeams } from '@/hooks/teams/use-teams'
 import { groupByTeam } from '@/lib/group-by-team'
 import { CreateTeamDialog } from './create-team-dialog'
 import { useListUrgency } from '@/hooks/tasks/use-list-urgency'
-import { SHARED_LIST_POLL_INTERVAL_MS } from '@/lib/realtime'
+import { useLivePollInterval } from '@/components/providers/realtime-provider'
 import { cn } from '@/lib/utils'
 import type { Task, List } from '@/payload-types'
 import {
@@ -125,19 +125,22 @@ export function AppSidebar({ initialWorkspaces }: { initialWorkspaces?: Workspac
   const [createTeamOpen, setCreateTeamOpen] = useState(false)
   const { teams } = useTeams(!!activeWorkspace && !activeWorkspace.isPersonal)
 
-  // Inside a workspace, other members can add/remove lists at any time — poll
-  // at the same cadence as the rest of the app's shared/collaborative data
-  // (see src/lib/realtime.ts) so they show up here without a manual refresh.
+  // Inside a workspace, other members can add/remove lists at any time —
+  // pushed on the workspace channel (see src/lib/realtime.ts), with a slow
+  // poll only when push isn't available, so they show up here without a
+  // manual refresh.
   const isPersonalActive = !activeWorkspace || activeWorkspace.isPersonal
+  const slowInterval = useLivePollInterval('slow')
   const { data: listsData } = useQuery({
     queryKey: ['lists'],
     queryFn: () => api.lists.list(),
-    refetchInterval: isPersonalActive ? false : SHARED_LIST_POLL_INTERVAL_MS,
+    refetchInterval: isPersonalActive ? false : slowInterval,
   })
+  // Kept fresh by every task mutation's own invalidation — no need to also
+  // refetch the whole task list on every mount/focus (it used staleTime: 0).
   const { data: tasksData } = useQuery({
     queryKey: ['tasks'],
     queryFn: () => api.tasks.list(),
-    staleTime: 0,
   })
 
   const lists = (listsData?.docs ?? []) as List[]

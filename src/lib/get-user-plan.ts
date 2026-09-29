@@ -5,6 +5,23 @@ import { getSession } from '@/lib/get-session'
 import { getLimits } from '@/lib/plan-limits'
 import type { Plan } from '@/lib/stripe'
 import type { PlanLimits } from '@/lib/plan-limits'
+import { cached, cacheTags } from '@/lib/server-cache'
+
+// Cached across requests, tagged per user — every write to plan/
+// subscriptionStatus (Stripe webhook, billing actions) calls
+// invalidateUserPlan(). Read on nearly every limit check in the app.
+const readPlanRow = cached(
+  async (userId: string): Promise<{ plan: string | null; subscriptionStatus: string | null }> => {
+    const result = await pool.query(
+      `SELECT plan, "subscriptionStatus" FROM "user" WHERE id = $1 LIMIT 1`,
+      [userId],
+    )
+    const row = result.rows[0]
+    return { plan: row?.plan ?? null, subscriptionStatus: row?.subscriptionStatus ?? null }
+  },
+  'user-plan',
+  { tags: (userId) => [cacheTags.userPlan(userId)], revalidate: 600 },
+)
 
 async function resolvePlanFromRow(row: {
   plan?: string | null
@@ -34,24 +51,14 @@ export const getUserPlanLimits = cache(
     if (!userId) {
       return { plan: 'free', limits: getLimits('free'), userId: null }
     }
-    const result = await pool.query(
-      `SELECT plan, "subscriptionStatus" FROM "user" WHERE id = $1 LIMIT 1`,
-      [userId],
-    )
-    const row = result.rows[0]
-    const plan = await resolvePlanFromRow(row ?? {})
+    const plan = await resolvePlanFromRow(await readPlanRow(userId))
     return { plan, limits: getLimits(plan), userId }
   },
 )
 
 export const getPlanLimitsForUserId = cache(
   async (userId: string): Promise<{ plan: Plan; limits: PlanLimits }> => {
-    const result = await pool.query(
-      `SELECT plan, "subscriptionStatus" FROM "user" WHERE id = $1 LIMIT 1`,
-      [userId],
-    )
-    const row = result.rows[0]
-    const plan = await resolvePlanFromRow(row ?? {})
+    const plan = await resolvePlanFromRow(await readPlanRow(userId))
     return { plan, limits: getLimits(plan) }
   },
 )

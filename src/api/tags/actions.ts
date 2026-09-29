@@ -1,6 +1,6 @@
 'use server'
 import 'server-only'
-import { getPayload } from 'payload'
+import { getPayload, type Where } from 'payload'
 import config from '@/payload.config'
 import { ok, err } from '@/types/result'
 import { revalidatePath } from 'next/cache'
@@ -67,7 +67,6 @@ export const createUserTag = async (data: { name: string; color: string }) => {
       },
     })
 
-    revalidatePath('/')
     return ok(tag)
   } catch {
     return err('Error while creating tag')
@@ -78,19 +77,25 @@ export const checkTagsCompliance = async () => {
   const userId = await getUserId()
   if (!userId) return null
 
-  const payload = await getPayload({ config })
   const { limits } = await getUserPlanLimits()
+  if (limits.customTags === Infinity) return null
 
-  const { docs: activeTags, totalDocs } = await payload.find({
+  const payload = await getPayload({ config })
+  const where: Where = {
+    and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: false } }],
+  }
+  // Runs from the app layout on every full render — a cheap COUNT first;
+  // the documents themselves are only needed in the rare over-limit case.
+  const { totalDocs } = await payload.count({ collection: 'user-tags', where })
+  if (totalDocs <= limits.customTags) return null
+
+  const { docs: activeTags } = await payload.find({
     collection: 'user-tags',
     sort: 'createdAt',
     limit: 0,
-    where: {
-      and: [{ userId: { equals: userId } }, { planArchivedAt: { exists: false } }],
-    },
+    pagination: false,
+    where,
   })
-
-  if (totalDocs <= limits.customTags) return null
 
   return { overBy: totalDocs - limits.customTags, limit: limits.customTags, tags: activeTags }
 }
@@ -219,7 +224,6 @@ export const deleteUserTag = async (id: number) => {
     const tag = await payload.findByID({ collection: 'user-tags', id })
     if (tag.userId !== userId) return err('Not authorized')
     await payload.delete({ collection: 'user-tags', id })
-    revalidatePath('/')
     return ok(true)
   } catch {
     return err('Error while deleting tag')
@@ -241,7 +245,6 @@ export const updateUserTag = async (id: number, data: { name?: string; color?: s
         ...(data.color && { color: data.color }),
       },
     })
-    revalidatePath('/')
     return ok(updated)
   } catch {
     return err('Error while updating tag')

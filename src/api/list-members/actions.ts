@@ -2,7 +2,7 @@
 
 import 'server-only'
 
-import { getPayload } from 'payload'
+import { getPayload, type Where } from 'payload'
 import { pool } from '@/lib/db-pool'
 import config from '@/payload.config'
 import { revalidatePath } from 'next/cache'
@@ -627,23 +627,29 @@ export const checkSharedListsCompliance = async () => {
   const userId = await getUserId()
   if (!userId) return null
 
-  const payload = await getPayload({ config })
   const { limits } = await getPlanLimitsForUserId(userId)
+  if (limits.sharedLists === Infinity) return null
 
-  const { docs: activeSharedLists, totalDocs } = await payload.find({
+  const payload = await getPayload({ config })
+  const where: Where = {
+    and: [
+      { userId: { equals: userId } },
+      { isShared: { equals: true } },
+      { planArchivedAt: { exists: false } },
+    ],
+  }
+  // Runs from the app layout on every full render — a cheap COUNT first;
+  // the documents themselves are only needed in the rare over-limit case.
+  const { totalDocs } = await payload.count({ collection: 'lists', where })
+  if (totalDocs <= limits.sharedLists) return null
+
+  const { docs: activeSharedLists } = await payload.find({
     collection: 'lists',
     sort: 'createdAt',
     limit: 0,
-    where: {
-      and: [
-        { userId: { equals: userId } },
-        { isShared: { equals: true } },
-        { planArchivedAt: { exists: false } },
-      ],
-    },
+    pagination: false,
+    where,
   })
-
-  if (totalDocs <= limits.sharedLists) return null
 
   return {
     overBy: totalDocs - limits.sharedLists,

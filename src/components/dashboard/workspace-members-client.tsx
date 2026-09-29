@@ -41,7 +41,7 @@ import {
 import { cn } from '@/lib/utils'
 import { api } from '@/api'
 import { useSession } from '@/lib/auth-client'
-import { SHARED_LIST_POLL_INTERVAL_MS } from '@/lib/realtime'
+import { useLivePollInterval } from '@/components/providers/realtime-provider'
 import type { WorkspaceInviteRole, WorkspaceMember } from '@/api/workspaces/actions'
 import { LIMIT_ERRORS, SAFETY_CAP_ERRORS, type LimitError, type SafetyCapError } from '@/lib/plan-limits'
 import { PlanLimitDialog } from '@/components/ui/plan-limit-dialog'
@@ -232,18 +232,19 @@ export function WorkspaceMembersClient() {
   const queryClient = useQueryClient()
   const { data: session } = useSession()
   const currentUserId = session?.user?.id
+  const slowInterval = useLivePollInterval('slow')
 
   const { data } = useQuery({
     queryKey: ['workspace-members'],
     queryFn: () => api.workspaces.listMembers(),
-    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
+    refetchInterval: slowInterval,
   })
 
   const members = data?.docs ?? []
   const { data: archivedData } = useQuery({
     queryKey: ['workspace-members', 'archived'],
     queryFn: () => api.workspaces.listArchivedMembers(),
-    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
+    refetchInterval: slowInterval,
   })
   const archivedMembers = archivedData?.docs ?? []
   const myMember = members.find((m) => m.userId === currentUserId)

@@ -2,14 +2,15 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
-import { SHARED_LIST_POLL_INTERVAL_MS } from '@/lib/realtime'
+import { useLivePollInterval } from '@/components/providers/realtime-provider'
 
 export const useListMembers = (listId: number) => {
+  const refetchInterval = useLivePollInterval('slow')
   const { data, isLoading } = useQuery({
     queryKey: ['list-members', listId],
     queryFn: () => api.listMembers.listForList(listId),
     enabled: !!listId,
-    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
+    refetchInterval,
   })
 
   return { members: data ?? [], isLoading }

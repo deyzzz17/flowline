@@ -2,7 +2,7 @@
 
 import 'server-only'
 
-import { getPayload } from 'payload'
+import { getPayload, type Where } from 'payload'
 import config from '@/payload.config'
 import { revalidatePath } from 'next/cache'
 import { ok, err } from '@/types/result'
@@ -250,23 +250,29 @@ export const checkListsCompliance = async () => {
   const userId = await getUserId()
   if (!userId) return null
 
-  const payload = await getPayload({ config })
   const { limits } = await getUserPlanLimits()
+  if (limits.lists === Infinity) return null
 
-  const { docs: activeLists, totalDocs } = await payload.find({
+  const payload = await getPayload({ config })
+  const where: Where = {
+    and: [
+      { userId: { equals: userId } },
+      { planArchivedAt: { exists: false } },
+      { isShared: { not_equals: true } },
+    ],
+  }
+  // Runs from the app layout on every full render — a cheap COUNT first;
+  // the documents themselves are only needed in the rare over-limit case.
+  const { totalDocs } = await payload.count({ collection: 'lists', where })
+  if (totalDocs <= limits.lists) return null
+
+  const { docs: activeLists } = await payload.find({
     collection: 'lists',
     sort: 'createdAt',
     limit: 0,
-    where: {
-      and: [
-        { userId: { equals: userId } },
-        { planArchivedAt: { exists: false } },
-        { isShared: { not_equals: true } },
-      ],
-    },
+    pagination: false,
+    where,
   })
-
-  if (totalDocs <= limits.lists) return null
 
   return { overBy: totalDocs - limits.lists, limit: limits.lists, lists: activeLists }
 }

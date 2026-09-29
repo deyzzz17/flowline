@@ -7,6 +7,7 @@ import config from '@/payload.config'
 import { revalidatePath } from 'next/cache'
 import { ok, err } from '@/types/result'
 import { cookies } from 'next/headers'
+import { unstable_cache } from 'next/cache'
 import { Task } from '@/payload-types'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
@@ -316,7 +317,6 @@ export const createTask = async (task: CreateTaskInput) => {
       await notifyNewTaskAssignees(newTask.title, listName, newTaskAssignees, userId)
     }
 
-    revalidatePath('/')
     return ok(newTask)
   } catch {
     return err('Error while creating the task')
@@ -487,6 +487,9 @@ export const listTasks = async (
 
   const payload = await getPayload({ config })
 
+  // depth: 1 everywhere below — clients only read the task's own list and
+  // tags; Payload's default depth (2) also joined each list's team etc. on
+  // every fetch of every task.
   // A single list's page shows every task in that list to every member
   // (admin/editor/reader), not just tasks the current viewer happens to have
   // created — the "created by me" filter below is only for cross-list,
@@ -497,6 +500,7 @@ export const listTasks = async (
 
     return await payload.find({
       collection: 'tasks',
+      depth: 1,
       sort: '-createdAt',
       limit: 0,
       page,
@@ -512,6 +516,7 @@ export const listTasks = async (
 
   return await payload.find({
     collection: 'tasks',
+    depth: 1,
     sort: '-createdAt',
     limit: 0,
     page,
@@ -587,6 +592,7 @@ export const listTasksToday = async (scope: 'workspace' | 'global' = 'workspace'
 
   const dueTodayTasks = await payload.find({
     collection: 'tasks',
+    depth: 1,
     sort: '-createdAt',
     limit: 0,
     where: {
@@ -603,6 +609,7 @@ export const listTasksToday = async (scope: 'workspace' | 'global' = 'workspace'
 
   const recurringTasks = await payload.find({
     collection: 'tasks',
+    depth: 1,
     sort: '-createdAt',
     limit: 0,
     where: {
@@ -637,6 +644,7 @@ export const listTasksRecurring = async () => {
 
   return await payload.find({
     collection: 'tasks',
+    depth: 1,
     sort: '-createdAt',
     limit: 0,
     where: {
@@ -664,6 +672,7 @@ export const listTasksForWorkspaceCalendar = async () => {
 
   return await payload.find({
     collection: 'tasks',
+    depth: 1,
     limit: 0,
     where: {
       and: [
@@ -743,7 +752,6 @@ export const softDeleteTask = async (taskId: number) => {
         trashedAt: new Date().toISOString(),
       },
     })
-    revalidatePath('/')
     return ok(true)
   } catch {
     return err('Error while soft deleting the task')
@@ -754,7 +762,6 @@ export const moveToTrash = async (id: number) => {
   try {
     const result = await deleteTask(id)
     if (!result.ok) return result
-    revalidatePath('/')
     return ok(true)
   } catch {
     return err('Error while deleting the task')
@@ -795,7 +802,6 @@ export const toggleTaskStatus = async (id: number, currentStatus: 'active' | 'co
       },
     })
 
-    revalidatePath('/')
     return ok(true)
   } catch {
     return err('Error while updating the task')
@@ -835,7 +841,6 @@ export const restoreTask = async (id: number) => {
         trashedAt: null,
       },
     })
-    revalidatePath('/')
     return ok(true)
   } catch {
     return err('Error while restoring the task')
@@ -946,7 +951,6 @@ export const editTask = async (id: number, draft: EditTaskInput) => {
       }
     }
 
-    revalidatePath('/')
     return ok(updatedTask)
   } catch {
     return err('Error while editing the task')
@@ -995,7 +999,6 @@ export const toggleSubtask = async (taskId: number, subtaskIndex: number) => {
       },
     })
 
-    revalidatePath('/')
     return ok({ subtasks: updatedSubtasks, status: newStatus })
   } catch {
     return err('Error while toggling subtask')
@@ -1037,68 +1040,87 @@ export const deleteSubtask = async (taskId: number, subtaskIndex: number) => {
       },
     })
 
-    revalidatePath('/')
     return ok({ subtasks: updatedSubtasks, status: newStatus })
   } catch {
     return err('Error while deleting subtask')
   }
 }
 
+// Called from the app layout (after the response) on every full render —
+// but the result can only change once a day, so the actual work runs at
+// most once per user per local day (the cache entry is keyed by the date).
 export const syncRecurringTasksForUser = async () => {
   try {
     const userId = await getUserId()
     if (!userId) return
-
-    const payload = await getPayload({ config })
-    const today = DAYS[new Date().getDay()]
-
-    const { docs } = await payload.find({
-      collection: 'tasks',
-      where: {
-        and: [
-          { userId: { equals: userId } },
-          { type: { equals: 'recurring' } },
-          { status: { not_equals: 'deleted' } },
-        ],
-      },
-      limit: 0,
-    })
-
-    for (const task of docs) {
-      const recurrence = task.recurrence as {
-        frequency: 'daily' | 'custom'
-        days?: string[]
-      } | null
-
-      if (!recurrence) continue
-
-      const shouldBeActive =
-        recurrence.frequency === 'daily' || (recurrence.days?.includes(today) ?? false)
-
-      const subtasks = (task.subtasks ?? []) as NonNullable<Task['subtasks']>
-
-      if (shouldBeActive && task.status === 'inactive') {
-        await payload.update({
-          collection: 'tasks',
-          id: task.id,
-          data: {
-            status: 'active',
-            subtasks: subtasks.map((s) => ({ ...s, done: false })),
-          },
-        })
-      } else if (!shouldBeActive && (task.status === 'active' || task.status === 'completed')) {
-        await payload.update({
-          collection: 'tasks',
-          id: task.id,
-          data: {
-            status: 'inactive',
-            subtasks: subtasks.map((s) => ({ ...s, done: false })),
-          },
-        })
-      }
+    const timezone = await getUserTimezone()
+    let localDay: string
+    try {
+      localDay = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date())
+    } catch {
+      localDay = new Date().toISOString().slice(0, 10)
     }
+    await unstable_cache(
+      async () => {
+        await runRecurringTasksSync(userId)
+        return localDay
+      },
+      ['recurring-sync', userId, localDay],
+      { revalidate: 24 * 60 * 60 },
+    )()
   } catch (e) {
     console.error('syncRecurringTasksForUser error:', e)
+  }
+}
+
+async function runRecurringTasksSync(userId: string) {
+  const payload = await getPayload({ config })
+  const today = DAYS[new Date().getDay()]
+
+  const { docs } = await payload.find({
+    collection: 'tasks',
+    where: {
+      and: [
+        { userId: { equals: userId } },
+        { type: { equals: 'recurring' } },
+        { status: { not_equals: 'deleted' } },
+      ],
+    },
+    limit: 0,
+  })
+
+  for (const task of docs) {
+    const recurrence = task.recurrence as {
+      frequency: 'daily' | 'custom'
+      days?: string[]
+    } | null
+
+    if (!recurrence) continue
+
+    const shouldBeActive =
+      recurrence.frequency === 'daily' || (recurrence.days?.includes(today) ?? false)
+
+    const subtasks = (task.subtasks ?? []) as NonNullable<Task['subtasks']>
+
+    if (shouldBeActive && task.status === 'inactive') {
+      await payload.update({
+        collection: 'tasks',
+        id: task.id,
+        data: {
+          status: 'active',
+          subtasks: subtasks.map((s) => ({ ...s, done: false })),
+        },
+      })
+    } else if (!shouldBeActive && (task.status === 'active' || task.status === 'completed')) {
+      await payload.update({
+        collection: 'tasks',
+        id: task.id,
+        data: {
+          status: 'inactive',
+          subtasks: subtasks.map((s) => ({ ...s, done: false })),
+        },
+      })
+    }
   }
 }
 
@@ -1144,7 +1166,6 @@ export const completeTaskWithSubtasks = async (id: number) => {
         subtasks: subtasks.map((s) => ({ ...s, done: true })),
       },
     })
-    revalidatePath('/')
     return ok(true)
   } catch {
     return err('Error while completing task with subtasks')
@@ -1174,7 +1195,6 @@ export const uncompleteSubtask = async (taskId: number, subtaskIndex: number) =>
         subtasks: updatedSubtasks,
       },
     })
-    revalidatePath('/')
     return ok({ subtasks: updatedSubtasks, status: 'active' })
   } catch {
     return err('Error while uncompleting subtask')

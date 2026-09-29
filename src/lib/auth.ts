@@ -11,6 +11,43 @@ import {
 import { Pool } from 'pg'
 import { sendEmail } from './send-email'
 import { sendWorkspaceInviteEmail } from './notification-emails'
+import { invalidateWorkspace, invalidateUserWorkspaces, invalidateUserTimezones } from './server-cache'
+import { publishInvalidation, isRealtimeConfigured } from './realtime-server'
+import { realtimeChannels } from './realtime'
+
+declare global {
+  var _authPgPool: Pool | undefined
+}
+
+// Reused across warm invocations (and dev HMR reloads) like db-pool.ts —
+// a fresh Pool per module load re-pays the TCP+TLS handshake to Neon.
+const authPool = global._authPgPool ?? new Pool({ connectionString: process.env.DATABASE_URL })
+if (!global._authPgPool) global._authPgPool = authPool
+
+const WORKSPACE_KEYS = [
+  ['workspaces'],
+  ['workspace-members'],
+  ['lists'],
+  ['teams'],
+  ['custom-roles'],
+] as const
+
+/**
+ * A workspace's membership changed: drop the cached roles/permissions (see
+ * server-cache.ts) and push a refresh to the workspace's open tabs and to
+ * the affected user's own tabs (their workspace list / bell changed).
+ */
+function onMembershipChange(organizationId: string, affectedUserId?: string | null) {
+  invalidateWorkspace(organizationId)
+  if (affectedUserId) invalidateUserWorkspaces(affectedUserId)
+  publishInvalidation([realtimeChannels.workspace(organizationId)], WORKSPACE_KEYS)
+  if (affectedUserId) {
+    publishInvalidation(
+      [realtimeChannels.user(affectedUserId)],
+      [['workspaces'], ['notifications'], ['lists']],
+    )
+  }
+}
 
 // Custom 4th role: a hard read-only ceiling. Reuses the exact same
 // owner/admin/member access-control objects Better Auth ships by default —
@@ -27,9 +64,7 @@ const viewerAc = workspaceAc.newRole({
 })
 
 export const auth = betterAuth({
-  database: new Pool({
-    connectionString: process.env.DATABASE_URL,
-  }),
+  database: authPool,
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,
@@ -96,10 +131,22 @@ export const auth = betterAuth({
     },
     autoSignInAfterVerification: true,
   },
+  databaseHooks: {
+    user: {
+      // The hourly maintenance job decides from a cached user→timezone list
+      // whether any user is at local midnight (see maintenance.ts).
+      create: { after: async () => invalidateUserTimezones() },
+      update: { after: async () => invalidateUserTimezones() },
+    },
+  },
   session: {
     cookieCache: {
       enabled: true,
-      maxAge: 60 * 5,
+      // Every getSession() within this window is answered from the signed
+      // cookie alone — no DB read. Session revocation/role changes that live
+      // on the session row (activeOrganizationId) go through nextCookies(),
+      // which rewrites the cookie immediately.
+      maxAge: 60 * 10,
     },
   },
   user: {
@@ -198,6 +245,41 @@ export const auth = betterAuth({
         admin: adminAc,
         member: memberAc,
         viewer: viewerAc,
+      },
+      organizationHooks: {
+        afterAddMember: async ({ member, organization }) => {
+          onMembershipChange(organization.id, member.userId)
+        },
+        afterRemoveMember: async ({ member, organization }) => {
+          onMembershipChange(organization.id, member.userId)
+        },
+        afterUpdateMemberRole: async ({ member, organization }) => {
+          onMembershipChange(organization.id, member.userId)
+        },
+        afterAcceptInvitation: async ({ member, organization }) => {
+          onMembershipChange(organization.id, member.userId)
+        },
+        afterRejectInvitation: async ({ organization }) => {
+          onMembershipChange(organization.id)
+        },
+        afterUpdateOrganization: async ({ organization }) => {
+          if (organization) onMembershipChange(organization.id)
+        },
+        afterDeleteOrganization: async ({ organization }) => {
+          onMembershipChange(organization.id)
+        },
+        afterCreateInvitation: async ({ invitation, organization }) => {
+          onMembershipChange(organization.id)
+          // The invitee's bell — only if they already have an account.
+          if (!isRealtimeConfigured()) return
+          const { rows } = await authPool.query<{ id: string }>(
+            `SELECT id FROM "user" WHERE lower(email) = lower($1) LIMIT 1`,
+            [invitation.email],
+          )
+          if (rows[0]) {
+            publishInvalidation([realtimeChannels.user(rows[0].id)], [['notifications']])
+          }
+        },
       },
       async sendInvitationEmail(data) {
         const roleLabel =

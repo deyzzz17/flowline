@@ -3,6 +3,7 @@ import 'server-only'
 import { cache } from 'react'
 import { pool } from './db-pool'
 import { getSession } from './get-session'
+import { cached, cacheTags } from './server-cache'
 import type { WorkspaceRole } from './workspace-permissions'
 import {
   canModifyWorkspaceContent,
@@ -19,12 +20,91 @@ import {
  * list — until it's restored. Wrapped in `cache()` for the same reason as
  * getWorkspaceRoleForUser below: it's checked repeatedly per render.
  */
-export const isWorkspaceArchived = cache(async (workspaceId: string): Promise<boolean> => {
-  const result = await pool.query(`SELECT 1 FROM workspace_archive WHERE organization_id = $1 LIMIT 1`, [
-    workspaceId,
-  ])
-  return result.rows.length > 0
-})
+export const isWorkspaceArchived = cache(
+  cached(
+    async (workspaceId: string): Promise<boolean> => {
+      const result = await pool.query(
+        `SELECT 1 FROM workspace_archive WHERE organization_id = $1 LIMIT 1`,
+        [workspaceId],
+      )
+      return result.rows.length > 0
+    },
+    'workspace-archived',
+    { tags: (workspaceId) => [cacheTags.workspace(workspaceId)], revalidate: 300 },
+  ),
+)
+
+interface MembershipRow {
+  archived: boolean
+  role: string | null
+  customRole: {
+    name: string
+    canManageWorkspaceSettings: boolean
+    canManageMembers: boolean
+    canManageLists: boolean
+    canManageCalendar: boolean
+    canManageTeams: boolean
+    canPermanentlyDeleteTasks: boolean
+    canDeleteCalendarCategories: boolean
+  } | null
+}
+
+/**
+ * Archive state, base role and custom role of one user in one workspace, in
+ * a single query, cached across requests (tag: the workspace — every
+ * member/role/custom-role/archive write invalidates it, see
+ * src/lib/server-cache.ts). This used to be up to 3 separate round trips,
+ * repeated on nearly every server action.
+ */
+const getMembership = cache(
+  cached(
+    async (workspaceId: string, userId: string): Promise<MembershipRow> => {
+      const result = await pool.query(
+        `SELECT
+           EXISTS (SELECT 1 FROM workspace_archive wa WHERE wa.organization_id = $1) AS archived,
+           m.role,
+           cr.name AS "customRoleName",
+           cr.can_manage_workspace_settings AS "canManageWorkspaceSettings",
+           cr.can_manage_members AS "canManageMembers",
+           cr.can_manage_lists AS "canManageLists",
+           cr.can_manage_calendar AS "canManageCalendar",
+           cr.can_manage_teams AS "canManageTeams",
+           cr.can_permanently_delete_tasks AS "canPermanentlyDeleteTasks",
+           cr.can_delete_calendar_categories AS "canDeleteCalendarCategories"
+         FROM (SELECT 1) AS one
+         LEFT JOIN member m ON m."organizationId" = $1 AND m."userId" = $2
+         LEFT JOIN custom_roles cr ON m."customRoleId" IS NOT NULL AND cr.id::text = m."customRoleId"`,
+        [workspaceId, userId],
+      )
+      const row = result.rows[0] ?? {}
+      return {
+        archived: !!row.archived,
+        role: row.role ?? null,
+        customRole:
+          row.customRoleName != null
+            ? {
+                name: row.customRoleName,
+                canManageWorkspaceSettings: !!row.canManageWorkspaceSettings,
+                canManageMembers: !!row.canManageMembers,
+                canManageLists: !!row.canManageLists,
+                canManageCalendar: !!row.canManageCalendar,
+                canManageTeams: !!row.canManageTeams,
+                canPermanentlyDeleteTasks: !!row.canPermanentlyDeleteTasks,
+                canDeleteCalendarCategories: !!row.canDeleteCalendarCategories,
+              }
+            : null,
+      }
+    },
+    'workspace-membership',
+    {
+      tags: (workspaceId, userId) => [
+        cacheTags.workspace(workspaceId),
+        cacheTags.userWorkspaces(userId),
+      ],
+      revalidate: 300,
+    },
+  ),
+)
 
 /**
  * The active workspace, as a Better Auth organization id. `null` means the
@@ -71,12 +151,8 @@ export function workspaceWhereClause(workspaceId: string | null) {
 export const getWorkspaceRoleForUser = cache(
   async (workspaceId: string | null, userId: string): Promise<WorkspaceRole> => {
     if (!workspaceId) return null
-    if (await isWorkspaceArchived(workspaceId)) return null
-    const result = await pool.query(
-      `SELECT role FROM member WHERE "organizationId" = $1 AND "userId" = $2`,
-      [workspaceId, userId],
-    )
-    const role = result.rows[0]?.role
+    const { archived, role } = await getMembership(workspaceId, userId)
+    if (archived) return null
     return role === 'owner' || role === 'admin' || role === 'member' || role === 'viewer'
       ? role
       : null
@@ -161,33 +237,9 @@ export async function getEffectiveWorkspacePermissions(
   }
   if (!workspaceId || !role) return base
 
-  const result = await pool.query(
-    `SELECT
-       cr.name,
-       cr.can_manage_workspace_settings AS "canManageWorkspaceSettings",
-       cr.can_manage_members AS "canManageMembers",
-       cr.can_manage_lists AS "canManageLists",
-       cr.can_manage_calendar AS "canManageCalendar",
-       cr.can_manage_teams AS "canManageTeams",
-       cr.can_permanently_delete_tasks AS "canPermanentlyDeleteTasks",
-       cr.can_delete_calendar_categories AS "canDeleteCalendarCategories"
-     FROM member m
-     JOIN custom_roles cr ON cr.id::text = m."customRoleId"
-     WHERE m."organizationId" = $1 AND m."userId" = $2 AND m."customRoleId" IS NOT NULL`,
-    [workspaceId, userId],
-  )
-  const row = result.rows[0]
-  if (!row) return base
+  const { customRole } = await getMembership(workspaceId, userId)
+  if (!customRole) return base
 
-  return {
-    role,
-    customRoleName: row.name,
-    canManageWorkspaceSettings: row.canManageWorkspaceSettings,
-    canManageMembers: row.canManageMembers,
-    canManageLists: row.canManageLists,
-    canManageCalendar: row.canManageCalendar,
-    canManageTeams: row.canManageTeams,
-    canPermanentlyDeleteTasks: row.canPermanentlyDeleteTasks,
-    canDeleteCalendarCategories: row.canDeleteCalendarCategories,
-  }
+  const { name, ...flags } = customRole
+  return { role, customRoleName: name, ...flags }
 }

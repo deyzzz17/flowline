@@ -47,7 +47,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { SHARED_LIST_POLL_INTERVAL_MS } from '@/lib/realtime'
+import { useLivePollInterval } from '@/components/providers/realtime-provider'
 import { TeamRolesEditor } from './team-roles-editor'
 import { EditTeamDialog } from './edit-team-dialog'
 import type { TeamOverview } from '@/api/teams/actions'
@@ -81,12 +81,13 @@ export function TeamDetailClient({ teamId, initialOverview }: TeamDetailClientPr
   const router = useRouter()
   const queryClient = useQueryClient()
   const overviewKey = ['teams', teamId, 'overview']
+  const slowInterval = useLivePollInterval('slow')
 
   const { data: overview } = useQuery({
     queryKey: overviewKey,
     queryFn: () => api.teams.getOverview(teamId),
     initialData: initialOverview,
-    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
+    refetchInterval: slowInterval,
   })
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: overviewKey })

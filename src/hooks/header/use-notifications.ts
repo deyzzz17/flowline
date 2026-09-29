@@ -4,9 +4,9 @@ import { useState, useRef, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { api } from '@/api'
 import { WORKSPACE_SCOPED_QUERY_KEYS } from '@/components/dashboard/workspace-switcher'
-import { SHARED_LIST_POLL_INTERVAL_MS } from '@/lib/realtime'
+import { useLivePollInterval } from '@/components/providers/realtime-provider'
+import { getNotificationFeed, type DueSoonTask } from '@/api/notifications/actions'
 import { listHabits } from '@/api/habits/actions'
 import {
   listPendingRequests,
@@ -36,7 +36,6 @@ import {
   declineWorkspaceInvite,
   type WorkspaceInvite,
 } from '@/api/workspaces/actions'
-import type { Task } from '@/payload-types'
 import type { HabitWithStats } from '@/api/habits/actions'
 
 export type NotificationLevel =
@@ -81,6 +80,8 @@ const LIST_INVITES_KEY = ['list-invites', 'mine']
 const COMMENT_MENTIONS_KEY = ['task-comments', 'my-mentions']
 const TASK_ASSIGNMENTS_KEY = ['tasks', 'my-assignments']
 const WORKSPACE_INVITES_KEY = ['workspace-invites', 'mine']
+const ACCEPTED_BY_OTHERS_KEY = ['connections', 'recently-accepted-by-others']
+export const NOTIFICATION_FEED_KEY = ['notifications', 'feed']
 
 function getIdSetFromStorage(key: string): Set<string> {
   if (typeof window === 'undefined') return new Set()
@@ -111,7 +112,7 @@ function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate())
 }
 
-function buildNotifications(tasks: Task[]): TaskNotification[] {
+function buildNotifications(tasks: DueSoonTask[]): TaskNotification[] {
   const now = new Date()
   const todayStart = startOfDay(now).getTime()
   const tomorrowStart = todayStart + 24 * 60 * 60 * 1000
@@ -336,76 +337,75 @@ export const useNotifications = () => {
   toastedIdsRef.current = toastedIds
   const seenIdsRef = useRef<Set<string> | null>(null)
 
-  // All notification sources poll on the same short cadence used elsewhere
-  // in the app for shared/collaborative data (see realtime.ts) — this is
-  // what makes a new invite, mention, or assignment show up live in the
-  // bell without the user ever needing to reload the page.
-  const { data } = useQuery({
-    queryKey: ['tasks'],
-    queryFn: () => api.tasks.list(),
+  // The bell used to run 8 independent queries, each polled every 3s (one
+  // of them re-downloading every task the user owns). Now a single server
+  // round trip fetches all sources at once, on the shared live cadence
+  // (push-driven when realtime is connected — see realtime-provider). The
+  // per-source caches below are still filled from it, because the accept/
+  // decline mutations and other screens (contacts, list invites) read and
+  // optimistically update those same keys.
+  const livePollInterval = useLivePollInterval('live')
+  const { data: feed } = useQuery({
+    queryKey: NOTIFICATION_FEED_KEY,
+    queryFn: async () => {
+      const result = await getNotificationFeed()
+      queryClient.setQueryData(PENDING_RECEIVED_KEY, result.pendingRequests)
+      queryClient.setQueryData(ACCEPTED_BY_OTHERS_KEY, result.acceptedByOthers)
+      queryClient.setQueryData(LIST_INVITES_KEY, result.listInvites)
+      queryClient.setQueryData(COMMENT_MENTIONS_KEY, result.commentMentions)
+      queryClient.setQueryData(TASK_ASSIGNMENTS_KEY, result.taskAssignments)
+      queryClient.setQueryData(WORKSPACE_INVITES_KEY, result.workspaceInvites)
+      return result
+    },
     staleTime: 0,
     refetchOnWindowFocus: true,
-    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
+    refetchInterval: livePollInterval,
   })
 
+  // Habits change only through the viewer's own actions (which invalidate
+  // ['habits']), so no polling here — just the shared cache.
   const { data: habitsData } = useQuery({
     queryKey: ['habits'],
     queryFn: () => listHabits(),
-    staleTime: SHARED_LIST_POLL_INTERVAL_MS,
-    refetchOnWindowFocus: true,
-    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
+    staleTime: 5 * 60_000,
   })
 
+  // Read-only views of the caches the feed fills (never fetch on their own
+  // here — `enabled: false`). Other screens that own these keys still fetch
+  // them normally.
   const { data: pendingRequestsData } = useQuery({
     queryKey: PENDING_RECEIVED_KEY,
     queryFn: () => listPendingRequests(),
-    staleTime: SHARED_LIST_POLL_INTERVAL_MS,
-    refetchOnWindowFocus: true,
-    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
+    enabled: false,
   })
-
   const { data: acceptedByOthersData } = useQuery({
-    queryKey: ['connections', 'recently-accepted-by-others'],
+    queryKey: ACCEPTED_BY_OTHERS_KEY,
     queryFn: () => listRecentlyAcceptedByOthers(),
-    staleTime: SHARED_LIST_POLL_INTERVAL_MS,
-    refetchOnWindowFocus: true,
-    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
+    enabled: false,
   })
-
   const { data: listInvitesData } = useQuery({
     queryKey: LIST_INVITES_KEY,
     queryFn: () => listMyListInvites(),
-    staleTime: SHARED_LIST_POLL_INTERVAL_MS,
-    refetchOnWindowFocus: true,
-    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
+    enabled: false,
   })
-
   const { data: commentMentionsData } = useQuery({
     queryKey: COMMENT_MENTIONS_KEY,
     queryFn: () => listMyCommentMentionNotifications(),
-    staleTime: SHARED_LIST_POLL_INTERVAL_MS,
-    refetchOnWindowFocus: true,
-    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
+    enabled: false,
   })
-
   const { data: taskAssignmentsData } = useQuery({
     queryKey: TASK_ASSIGNMENTS_KEY,
     queryFn: () => listMyTaskAssignmentNotifications(),
-    staleTime: SHARED_LIST_POLL_INTERVAL_MS,
-    refetchOnWindowFocus: true,
-    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
+    enabled: false,
   })
-
   const { data: workspaceInvitesData } = useQuery({
     queryKey: WORKSPACE_INVITES_KEY,
     queryFn: () => listMyWorkspaceInvites(),
-    staleTime: SHARED_LIST_POLL_INTERVAL_MS,
-    refetchOnWindowFocus: true,
-    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
+    enabled: false,
   })
 
   const allNotifications = useMemo(() => {
-    const taskNotifs = buildNotifications((data?.docs ?? []) as Task[])
+    const taskNotifs = buildNotifications(feed?.dueSoonTasks ?? [])
     const goalNotifs = buildGoalClaimNotifications(habitsData ?? [])
     const requestNotifs = buildConnectionRequestNotifications(pendingRequestsData ?? [])
     const acceptedNotifs = buildConnectionAcceptedNotifications(acceptedByOthersData ?? [])
@@ -424,7 +424,7 @@ export const useNotifications = () => {
       ...goalNotifs,
     ]
   }, [
-    data,
+    feed,
     habitsData,
     pendingRequestsData,
     acceptedByOthersData,

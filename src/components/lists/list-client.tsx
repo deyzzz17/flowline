@@ -69,7 +69,8 @@ import {
   type TaskSortBy,
   type AssigneeFilter,
 } from '@/lib/task-sort'
-import { SHARED_LIST_POLL_INTERVAL_MS } from '@/lib/realtime'
+import { useLivePollInterval, useRealtimeChannel } from '@/components/providers/realtime-provider'
+import { realtimeChannels } from '@/lib/realtime'
 import { useListRole } from '@/hooks/lists/use-list-role'
 
 function hexToRgba(hex: string, alpha: number) {
@@ -135,10 +136,14 @@ export const ListClient = ({ list, role: initialRole }: ListClientProps) => {
   const { data: session } = useSession()
   const currentUserId = session?.user?.id
 
+  // Other members' edits are pushed on the list's channel; the interval is
+  // only a fallback for when push isn't connected.
+  const liveInterval = useLivePollInterval('live')
+  useRealtimeChannel(isShared ? realtimeChannels.list(list.id) : null)
   const { data } = useQuery({
     queryKey: ['tasks', list.id],
     queryFn: () => api.tasks.list(1, list.id),
-    refetchInterval: isShared ? SHARED_LIST_POLL_INTERVAL_MS : false,
+    refetchInterval: isShared ? liveInterval : false,
   })
 
   const rawTasks = data?.docs ?? []

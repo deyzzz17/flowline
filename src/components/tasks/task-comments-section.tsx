@@ -10,7 +10,7 @@ import { useListMemberProfiles } from '@/hooks/list-members/use-member-profiles'
 import { useSession } from '@/lib/auth-client'
 import { useUser } from '@/contexts/user-context'
 import { canComment } from '@/lib/plan-limits'
-import { SHARED_LIST_POLL_INTERVAL_MS } from '@/lib/realtime'
+import { useLivePollInterval } from '@/components/providers/realtime-provider'
 import { CommentInput } from './comment-input'
 import { CommentContent } from './comment-content'
 import { extractMentionIds } from './comment-mentions'
@@ -85,10 +85,11 @@ export function TaskCommentsSection({ taskId, listId, isReader }: TaskCommentsSe
     setLastSeenState(getLastSeen(taskId))
   }, [taskId])
 
+  const liveInterval = useLivePollInterval('live')
   const { data: comments = [], isLoading } = useQuery({
     queryKey,
     queryFn: () => api.taskComments.listForTask(taskId),
-    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
+    refetchInterval: liveInterval,
   })
 
   const allowedToPost = !isReader && (!planLimits || canComment(planLimits.plan))

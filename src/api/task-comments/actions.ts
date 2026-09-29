@@ -5,7 +5,6 @@ import 'server-only'
 import { getPayload } from 'payload'
 import type { BasePayload } from 'payload'
 import config from '@/payload.config'
-import { revalidatePath } from 'next/cache'
 import { ok, err } from '@/types/result'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getSession } from '@/lib/get-session'
@@ -194,7 +193,6 @@ export const createComment = async (input: CreateCommentInput) => {
       await notifyCommentMentions(mentions, userId, authorName, ctx.task.title)
     }
 
-    revalidatePath('/')
     return ok(comment)
   } catch {
     return err('Error while posting the comment')
@@ -239,7 +237,6 @@ export const toggleCommentLike = async (commentId: number) => {
       data: { likes: Array.from(likes), dislikes: Array.from(dislikes) },
     })
 
-    revalidatePath('/')
     return ok({
       likeCount: likes.size,
       dislikeCount: dislikes.size,
@@ -278,7 +275,6 @@ export const toggleCommentDislike = async (commentId: number) => {
       data: { likes: Array.from(likes), dislikes: Array.from(dislikes) },
     })
 
-    revalidatePath('/')
     return ok({
       likeCount: likes.size,
       dislikeCount: dislikes.size,
@@ -336,7 +332,6 @@ export const editComment = async (input: EditCommentInput) => {
       await notifyCommentMentions(newlyMentioned, userId, authorName, ctx.task.title)
     }
 
-    revalidatePath('/')
     return ok(comment)
   } catch {
     return err('Error while editing the comment')
@@ -366,7 +361,6 @@ export const deleteComment = async (commentId: number) => {
 
     await payload.delete({ collection: 'task-comments', id: commentId })
 
-    revalidatePath('/')
     return ok(true)
   } catch {
     return err('Error while deleting the comment')

@@ -14,6 +14,7 @@ import {
   sendPaymentReceiptEmail,
 } from '@/lib/billing-emails'
 import { pool } from '@/lib/db-pool'
+import { invalidateUserPlan } from '@/lib/server-cache'
 import type Stripe from 'stripe'
 
 export const runtime = 'nodejs'
@@ -52,6 +53,7 @@ async function updateUserBilling(
   if (sets.length === 0) return
   values.push(userId)
   await pool.query(`UPDATE "user" SET ${sets.join(', ')} WHERE id = $${idx}`, values)
+  invalidateUserPlan(userId)
 }
 
 async function getUserIdFromCustomer(customerId: string): Promise<string | null> {

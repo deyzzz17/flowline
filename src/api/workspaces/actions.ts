@@ -4,6 +4,9 @@ import 'server-only'
 
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
+import { invalidateWorkspace } from '@/lib/server-cache'
+import { publishInvalidation } from '@/lib/realtime-server'
+import { realtimeChannels } from '@/lib/realtime'
 import { pool } from '@/lib/db-pool'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
@@ -61,21 +64,6 @@ function parseMetadata(metadata: unknown): { icon: string; color: string } {
   return { icon, color }
 }
 
-async function getMyRolesByOrgId(userId: string): Promise<Map<string, WorkspaceRole>> {
-  const result = await pool.query(`SELECT "organizationId", role FROM member WHERE "userId" = $1`, [
-    userId,
-  ])
-  const map = new Map<string, WorkspaceRole>()
-  for (const row of result.rows) {
-    const role =
-      row.role === 'owner' || row.role === 'admin' || row.role === 'member' || row.role === 'viewer'
-        ? row.role
-        : null
-    map.set(row.organizationId, role)
-  }
-  return map
-}
-
 // Batched version of isWorkspaceArchived for a whole list of orgs at once —
 // used wherever we're about to render/count a set of workspaces, instead of
 // N separate lookups.
@@ -93,22 +81,37 @@ export const listWorkspaces = async () => {
   const userId = session?.user?.id
   if (!userId) return { docs: [] as WorkspaceSummary[], activeId: null as string | null }
 
-  const orgs = await auth.api.listOrganizations({ headers: await headers() })
-  const rolesByOrgId = await getMyRolesByOrgId(userId)
-  // Archived workspaces are invisible to every member, owner included — not
-  // just hidden from whoever archived them — so this filters the same way
-  // regardless of which member's session called listWorkspaces().
-  const archivedIds = await getArchivedOrgIdSet(orgs.map((o) => o.id))
-  const visibleOrgs = orgs.filter((o) => !archivedIds.has(o.id))
+  // One query for the user's workspaces, their role in each and archive
+  // state (this used to be Better Auth's listOrganizations + 2 more queries,
+  // on every app layout render). Archived workspaces are invisible to every
+  // member, owner included — not just hidden from whoever archived them — so
+  // this filters the same way regardless of which member's session called
+  // listWorkspaces().
+  const result = await pool.query(
+    `SELECT o.id, o.name, o.metadata, m.role,
+            EXISTS (SELECT 1 FROM workspace_archive wa WHERE wa.organization_id = o.id) AS archived
+     FROM member m
+     JOIN organization o ON o.id = m."organizationId"
+     WHERE m."userId" = $1
+     ORDER BY o."createdAt" ASC`,
+    [userId],
+  )
+  const archivedIds = new Set<string>(
+    result.rows.filter((r) => r.archived).map((r) => r.id as string),
+  )
+  const visibleOrgs = result.rows.filter((r) => !r.archived)
 
   const docs: WorkspaceSummary[] = [
     { id: null, name: 'Personal', isPersonal: true, icon: 'User', color: '#8b5cf6', myRole: null },
     ...visibleOrgs.map((o) => ({
-      id: o.id,
-      name: o.name,
+      id: o.id as string,
+      name: o.name as string,
       isPersonal: false,
       ...parseMetadata(o.metadata),
-      myRole: rolesByOrgId.get(o.id) ?? null,
+      myRole:
+        o.role === 'owner' || o.role === 'admin' || o.role === 'member' || o.role === 'viewer'
+          ? (o.role as WorkspaceRole)
+          : null,
     })),
   ]
 
@@ -708,6 +711,9 @@ export const updateWorkspaceMemberRole = async (
       customRoleId ?? null,
       memberId,
     ])
+    // Written outside Better Auth, so its afterUpdateMemberRole hook ran
+    // before this — invalidate the cached permissions again.
+    invalidateWorkspace(workspaceId)
 
     return ok(true)
   } catch (e) {
@@ -769,11 +775,22 @@ export const checkWorkspaceMembersCompliance = async (): Promise<
   const { limits } = await getUserPlanLimits()
   if (limits.workspaceMembers === Infinity) return []
 
+  // Owned workspaces with their non-owner member count, in one query —
+  // this runs from the app layout on every full render, so the full member
+  // lists (Better Auth listMembers, below) are only loaded for workspaces
+  // that are actually over the limit.
+  const keepableSlots = Math.max(0, limits.workspaceMembers - 1)
   const ownedResult = await pool.query(
-    `SELECT "organizationId" FROM member WHERE "userId" = $1 AND role = 'owner'`,
+    `SELECT mine."organizationId",
+            (SELECT count(*) FROM member m
+              WHERE m."organizationId" = mine."organizationId" AND m.role <> 'owner')::int AS "nonOwnerCount"
+     FROM member mine
+     WHERE mine."userId" = $1 AND mine.role = 'owner'`,
     [userId],
   )
-  const allOwnedOrgIds: string[] = ownedResult.rows.map((r) => r.organizationId)
+  const allOwnedOrgIds: string[] = ownedResult.rows
+    .filter((r) => r.nonOwnerCount > keepableSlots)
+    .map((r) => r.organizationId)
   if (allOwnedOrgIds.length === 0) return []
 
   // An already-archived workspace is inaccessible to everyone regardless of
@@ -784,7 +801,6 @@ export const checkWorkspaceMembersCompliance = async (): Promise<
   if (ownedOrgIds.length === 0) return []
 
   const requestHeaders = await headers()
-  const keepableSlots = Math.max(0, limits.workspaceMembers - 1)
   const results: WorkspaceMembersComplianceInfo[] = []
 
   for (const orgId of ownedOrgIds) {
@@ -1063,6 +1079,7 @@ export const updateMemberNickname = async (memberId: string, nickname: string) =
     }
 
     await pool.query(`UPDATE member SET nickname = $1 WHERE id = $2`, [trimmed || null, memberId])
+    publishInvalidation([realtimeChannels.workspace(workspaceId)], [['workspace-members']], userId)
 
     return ok(true)
   } catch {

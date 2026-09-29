@@ -7,7 +7,7 @@ import { api } from '@/api'
 import { type CalendarEventData, type EditScope, type SeriesAdjustment } from '@/api/calendar/actions'
 import { generateOccurrences } from '@/api/calendar/calendar-recurrence'
 import { useCalendarFilter } from '@/components/calendar/calendar-filter-context'
-import { SHARED_LIST_POLL_INTERVAL_MS } from '@/lib/realtime'
+import { useLivePollInterval } from '@/components/providers/realtime-provider'
 import type { Task } from '@/payload-types'
 import { toast } from 'sonner'
 import {
@@ -80,24 +80,23 @@ export const useWorkspaceCalendar = () => {
   const queryClient = useQueryClient()
   const { isCategoryVisible } = useCalendarFilter()
   const { from, to } = getViewRange(currentDate, view)
+  const liveInterval = useLivePollInterval('live')
 
   const { data: eventsData } = useQuery({
     queryKey: [EVENTS_QUERY_KEY, from.toISOString(), to.toISOString()],
     queryFn: () => api.calendar.listFlowline(from.toISOString(), to.toISOString(), 'workspace'),
-    staleTime: SHARED_LIST_POLL_INTERVAL_MS,
-    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
+    refetchInterval: liveInterval,
   })
 
   // Scoped to the active workspace — unlike the plain api.tasks.list() (used
   // by the global calendar, notifications, etc.), so a task due today in a
-  // different workspace doesn't show up here. Polls at the same cadence as
-  // the rest of the app's shared/collaborative data (see src/lib/realtime.ts)
-  // so other members' changes show up here too.
+  // different workspace doesn't show up here. Other members' changes are
+  // pushed on the workspace channel (see src/lib/realtime.ts), with the live
+  // poll as a fallback.
   const { data: tasksData } = useQuery({
     queryKey: ['tasks', 'workspace-calendar'],
     queryFn: () => api.tasks.listForWorkspaceCalendar(),
-    staleTime: SHARED_LIST_POLL_INTERVAL_MS,
-    refetchInterval: SHARED_LIST_POLL_INTERVAL_MS,
+    refetchInterval: liveInterval,
   })
 
   const rawEvents = useMemo(() => (eventsData?.docs ?? []).map(mapEvent), [eventsData])

@@ -86,8 +86,10 @@ export const useCalendar = () => {
   const { data: googleEventsData } = useQuery({
     queryKey: ['calendar-events-google', from.toISOString(), to.toISOString()],
     queryFn: () => api.calendar.listGoogle(from.toISOString(), to.toISOString(), 'global'),
-    staleTime: 0,
-    refetchInterval: 30_000,
+    // External data (Google) — a few minutes of lag is fine, and every
+    // refresh also reads the DB for tokens/sync settings.
+    staleTime: 60_000,
+    refetchInterval: 5 * 60_000,
   })
 
   const { data: tasksData } = useQuery({

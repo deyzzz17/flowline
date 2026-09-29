@@ -2,16 +2,17 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
+import { useLivePollInterval } from '@/components/providers/realtime-provider'
 
 export const LIST_INVITES_KEY = ['list-invites', 'mine']
 
 export const useListInvites = () => {
+  const refetchInterval = useLivePollInterval('live')
   const { data } = useQuery({
     queryKey: LIST_INVITES_KEY,
     queryFn: () => api.listMembers.myInvites(),
-    staleTime: 15_000,
     refetchOnWindowFocus: true,
-    refetchInterval: 30_000,
+    refetchInterval,
   })
 
   return data ?? []

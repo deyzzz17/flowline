@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { stripe, PLANS, type Plan, type BillingInterval } from '@/lib/stripe'
 import { getSession } from '@/lib/get-session'
 import { pool } from '@/lib/db-pool'
+import { invalidateUserPlan } from '@/lib/server-cache'
 import { ok, err } from '@/types/result'
 
 const getUserId = async () => {
@@ -87,6 +88,7 @@ export const getBillingInfo = async (): Promise<BillingInfo | null> => {
             userId,
           ])
         }
+        invalidateUserPlan(userId)
         row.subscriptionStatus = sub.status
       }
     } catch {}
