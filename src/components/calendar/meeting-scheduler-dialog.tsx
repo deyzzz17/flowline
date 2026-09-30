@@ -151,24 +151,29 @@ export function MeetingSchedulerDialog({
   }, [memberIds, teamMemberQueries, myId, members])
 
   const slots = useMemo(() => buildSlots(day, duration), [day, duration])
-  const people = useMemo(
-    () => (myId ? [myId, ...participantIds] : participantIds),
-    [myId, participantIds],
-  )
 
   const rangeStart = new Date(day)
   rangeStart.setHours(DAY_START_HOUR, 0, 0, 0)
   const rangeEnd = new Date(day)
   rangeEnd.setHours(DAY_END_HOUR, 0, 0, 0)
 
-  const { data: availability, isLoading: availabilityLoading } = useQuery({
-    queryKey: ['scheduler-availability', rangeStart.toISOString(), people],
+  // The server identifies the organizer from the session and returns them
+  // first — the grid never depends on the client knowing its own id.
+  const {
+    data: availability,
+    isPending: availabilityPending,
+    isError: availabilityError,
+    refetch: refetchAvailability,
+  } = useQuery({
+    queryKey: ['scheduler-availability', rangeStart.toISOString(), participantIds],
     queryFn: () =>
-      getSchedulingAvailability(rangeStart.toISOString(), rangeEnd.toISOString(), people),
-    enabled: open && step >= 3 && people.length > 1,
+      getSchedulingAvailability(rangeStart.toISOString(), rangeEnd.toISOString(), participantIds),
+    enabled: open && step >= 3 && participantIds.length > 0,
     staleTime: 30_000,
   })
-  const availabilityOf = (userId: string) => availability?.find((a) => a.userId === userId)
+  const organizerId = availability?.organizerId ?? myId
+  const people = useMemo(() => availability?.people.map((p) => p.userId) ?? [], [availability])
+  const availabilityOf = (userId: string) => availability?.people.find((a) => a.userId === userId)
 
   const now = Date.now()
   const rows = useMemo(
@@ -179,8 +184,7 @@ export function MeetingSchedulerDialog({
         const othersFree = statuses.slice(1).filter((st) => st === 'free').length
         // Only slots where the organizer is free and at least one other
         // participant is, and not already in the past.
-        const selectable =
-          !!availability && myStatus === 'free' && othersFree > 0 && slot.start.getTime() > now
+        const selectable = myStatus === 'free' && othersFree > 0 && slot.start.getTime() > now
         const heavy = statuses.slice(1).filter((st) => st === 'busy' || st === 'away').length
         return { slot, statuses, selectable, othersFree, heavy }
       }),
@@ -207,6 +211,18 @@ export function MeetingSchedulerDialog({
   }, [step, rows, suggested, slotStart])
 
   const chosen = rows.find((r) => r.slot.start.toISOString() === slotStart) ?? null
+
+  // Why nothing can be picked, when that's the case.
+  const noSlotReason = (() => {
+    if (suggested) return null
+    if (rows.length === 0) return 'This duration doesn\u2019t fit between 8:00 and 18:00.'
+    if (rows.every((r) => r.slot.start.getTime() <= now)) return 'This day is already over.'
+    const upcoming = rows.filter((r) => r.slot.start.getTime() > now)
+    if (upcoming.every((r) => r.statuses[0] !== 'free')) {
+      return 'You\u2019re not available at any remaining time that day.'
+    }
+    return 'No participant is available when you are that day.'
+  })()
 
   const scheduleMutation = useMutation({
     mutationFn: () =>
@@ -378,7 +394,14 @@ export function MeetingSchedulerDialog({
 
         {step === 3 && (
           <div className="space-y-4">
-            {availabilityLoading || !availability ? (
+            {availabilityError || availability === null ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-12 text-sm text-muted-foreground">
+                Couldn&apos;t load everyone&apos;s availability.
+                <Button type="button" variant="outline" size="sm" onClick={() => refetchAvailability()}>
+                  Retry
+                </Button>
+              </div>
+            ) : availabilityPending ? (
               <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Checking everyone&apos;s availability…
@@ -400,8 +423,7 @@ export function MeetingSchedulerDialog({
                     </p>
                   ) : (
                     <p className="mt-1 text-sm text-muted-foreground">
-                      No slot where you and at least one participant are available that day. Try
-                      another day or a shorter duration.
+                      {noSlotReason} Try another day or a shorter duration.
                     </p>
                   )}
                 </div>
@@ -425,7 +447,7 @@ export function MeetingSchedulerDialog({
                         {people.map((id) => (
                           <th key={id} className="max-w-[90px] px-2 py-2 text-left font-medium">
                             <span className="block truncate">
-                              {id === myId ? 'You' : nameOf(id)}
+                              {id === organizerId ? 'You' : nameOf(id)}
                             </span>
                           </th>
                         ))}

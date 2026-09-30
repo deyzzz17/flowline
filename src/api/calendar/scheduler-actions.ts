@@ -39,6 +39,12 @@ export interface ParticipantAvailability {
   intervals: BusyInterval[]
 }
 
+export interface SchedulingAvailability {
+  /** The caller — the meeting's organizer, always first in `people`. */
+  organizerId: string
+  people: ParticipantAvailability[]
+}
+
 const MAX_PARTICIPANTS = 50
 
 const getUserId = async () => {
@@ -57,30 +63,34 @@ async function filterWorkspaceMembers(workspaceId: string, userIds: string[]): P
 }
 
 /**
- * When each of `userIds` is taken between `from` and `to` (ISO), from their
- * events in the active workspace — the ones they created or are assigned
- * to, recurring series expanded. Events shown as "free" don't count.
+ * When the caller (the organizer) and each of `participantIds` are taken
+ * between `from` and `to` (ISO), from their events in the active workspace
+ * — the ones they created or are assigned to, recurring series expanded.
+ * Events shown as "free" don't count. The organizer is identified from the
+ * session here, so the client never has to know its own id to build the
+ * grid.
  */
 export const getSchedulingAvailability = async (
   from: string,
   to: string,
-  userIds: string[],
-): Promise<ParticipantAvailability[]> => {
+  participantIds: string[],
+): Promise<SchedulingAvailability | null> => {
   const userId = await getUserId()
-  if (!userId) return []
+  if (!userId) return null
   const workspaceId = await getCurrentWorkspaceId()
-  if (!workspaceId) return []
+  if (!workspaceId) return null
 
-  const requested = [...new Set(userIds)].slice(0, MAX_PARTICIPANTS)
+  const requested = [...new Set(participantIds)]
+    .filter((id) => id !== userId)
+    .slice(0, MAX_PARTICIPANTS)
   const members = await filterWorkspaceMembers(workspaceId, [...requested, userId])
-  if (!members.includes(userId)) return []
-  const people = requested.filter((id) => members.includes(id))
-  if (people.length === 0) return []
+  if (!members.includes(userId)) return null
+  const people = [userId, ...requested.filter((id) => members.includes(id))]
 
   const fromDate = new Date(from)
   const toDate = new Date(to)
   if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime()) || toDate <= fromDate) {
-    return []
+    return null
   }
 
   const { rows: assignedRows } = await pool.query<{ parent_id: number; text: string }>(
@@ -156,7 +166,10 @@ export const getSchedulingAvailability = async (
     }
   }
 
-  return people.map((id) => ({ userId: id, intervals: byPerson.get(id)! }))
+  return {
+    organizerId: userId,
+    people: people.map((id) => ({ userId: id, intervals: byPerson.get(id)! })),
+  }
 }
 
 export interface ScheduleMeetingInput {
