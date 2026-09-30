@@ -32,12 +32,23 @@ import {
 import { SHOW_AS_OPTIONS, showAsOption, type ShowAs } from './show-as'
 
 // Meeting scheduler: day → duration → teams & members → suggested slot and
-// availability grid (8:00–18:00) → details, then the meeting is created
+// availability grid over the chosen time window (8:00–18:00 by default, up
+// to the whole day) → details, then the meeting is created
 // linked to the chosen teams and every participant gets an invitation.
 
 const DURATIONS = [15, 30, 45, 60, 90, 120]
-const DAY_START_HOUR = 8
-const DAY_END_HOUR = 18
+// Time window the slots are proposed in, in minutes from midnight (0–1440).
+const DEFAULT_WINDOW_START = 8 * 60
+const DEFAULT_WINDOW_END = 18 * 60
+const WINDOW_STEP = 30
+const WINDOW_OPTIONS = Array.from({ length: 1440 / WINDOW_STEP + 1 }, (_, i) => i * WINDOW_STEP)
+
+/** `day` at `minutes` past its midnight (1440 = the next midnight). */
+function atMinutes(day: Date, minutes: number): Date {
+  const d = new Date(day)
+  d.setHours(0, minutes, 0, 0)
+  return d
+}
 const STATUS_RANK: Record<ShowAs, number> = { free: 0, tentative: 1, busy: 2, away: 3 }
 
 /** Slots start every `duration` minutes (between 15 min and 1 h). */
@@ -45,13 +56,16 @@ function slotStep(duration: number) {
   return Math.min(60, Math.max(15, duration))
 }
 
-function buildSlots(day: Date, duration: number): { start: Date; end: Date }[] {
+function buildSlots(
+  day: Date,
+  duration: number,
+  windowStart: number,
+  windowEnd: number,
+): { start: Date; end: Date }[] {
   const slots: { start: Date; end: Date }[] = []
   const step = slotStep(duration)
-  const dayEnd = new Date(day)
-  dayEnd.setHours(DAY_END_HOUR, 0, 0, 0)
-  const cursor = new Date(day)
-  cursor.setHours(DAY_START_HOUR, 0, 0, 0)
+  const dayEnd = atMinutes(day, windowEnd)
+  const cursor = atMinutes(day, windowStart)
   while (cursor.getTime() + duration * 60_000 <= dayEnd.getTime()) {
     const start = new Date(cursor)
     slots.push({ start, end: new Date(start.getTime() + duration * 60_000) })
@@ -98,6 +112,8 @@ export function MeetingSchedulerDialog({
   const [step, setStep] = useState<Step>(1)
   const [day, setDay] = useState<Date>(defaultDate)
   const [duration, setDuration] = useState(60)
+  const [windowStart, setWindowStart] = useState(DEFAULT_WINDOW_START)
+  const [windowEnd, setWindowEnd] = useState(DEFAULT_WINDOW_END)
   const [teamIds, setTeamIds] = useState<number[]>([])
   const [memberIds, setMemberIds] = useState<string[]>([])
   const [slotStart, setSlotStart] = useState<string | null>(null)
@@ -110,6 +126,8 @@ export function MeetingSchedulerDialog({
     setStep(1)
     setDay(defaultDate)
     setDuration(60)
+    setWindowStart(DEFAULT_WINDOW_START)
+    setWindowEnd(DEFAULT_WINDOW_END)
     setTeamIds([])
     setMemberIds([])
     setSlotStart(null)
@@ -150,12 +168,13 @@ export function MeetingSchedulerDialog({
     return [...ids].filter((id) => members.some((m) => m.userId === id)).sort()
   }, [memberIds, teamMemberQueries, myId, members])
 
-  const slots = useMemo(() => buildSlots(day, duration), [day, duration])
+  const slots = useMemo(
+    () => buildSlots(day, duration, windowStart, windowEnd),
+    [day, duration, windowStart, windowEnd],
+  )
 
-  const rangeStart = new Date(day)
-  rangeStart.setHours(DAY_START_HOUR, 0, 0, 0)
-  const rangeEnd = new Date(day)
-  rangeEnd.setHours(DAY_END_HOUR, 0, 0, 0)
+  const rangeStart = atMinutes(day, windowStart)
+  const rangeEnd = atMinutes(day, windowEnd)
 
   // The server identifies the organizer from the session and returns them
   // first — the grid never depends on the client knowing its own id.
@@ -165,7 +184,12 @@ export function MeetingSchedulerDialog({
     isError: availabilityError,
     refetch: refetchAvailability,
   } = useQuery({
-    queryKey: ['scheduler-availability', rangeStart.toISOString(), participantIds],
+    queryKey: [
+      'scheduler-availability',
+      rangeStart.toISOString(),
+      rangeEnd.toISOString(),
+      participantIds,
+    ],
     queryFn: () =>
       getSchedulingAvailability(rangeStart.toISOString(), rangeEnd.toISOString(), participantIds),
     enabled: open && step >= 3 && participantIds.length > 0,
@@ -215,7 +239,7 @@ export function MeetingSchedulerDialog({
   // Why nothing can be picked, when that's the case.
   const noSlotReason = (() => {
     if (suggested) return null
-    if (rows.length === 0) return 'This duration doesn\u2019t fit between 8:00 and 18:00.'
+    if (rows.length === 0) return 'This duration doesn\u2019t fit in the chosen time window.'
     if (rows.every((r) => r.slot.start.getTime() <= now)) return 'This day is already over.'
     const upcoming = rows.filter((r) => r.slot.start.getTime() > now)
     if (upcoming.every((r) => r.statuses[0] !== 'free')) {
@@ -248,12 +272,17 @@ export function MeetingSchedulerDialog({
     onError: () => toast.error('Error scheduling the meeting'),
   })
 
+  const windowLabel = (minutes: number) =>
+    minutes === 1440 ? '24:00' : formatTime(atMinutes(day, minutes))
+  const isWholeDay = windowStart === 0 && windowEnd === 1440
+
   const toggle = <T,>(list: T[], value: T) =>
     list.includes(value) ? list.filter((v) => v !== value) : [...list, value]
 
+  const windowFits = windowEnd - windowStart >= duration
   const canContinue =
     step === 1
-      ? true
+      ? windowFits
       : step === 2
         ? participantIds.length > 0
         : step === 3
@@ -313,6 +342,71 @@ export function MeetingSchedulerDialog({
                   </button>
                 ))}
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm">Time window</Label>
+              <p className="text-xs text-muted-foreground/70">
+                Slots are only proposed within this range.
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  aria-label="From"
+                  value={windowStart}
+                  onChange={(e) => setWindowStart(Number(e.target.value))}
+                  className="h-8 rounded-lg border border-border/60 bg-background px-2 text-xs"
+                >
+                  {WINDOW_OPTIONS.filter((m) => m < 1440).map((m) => (
+                    <option key={m} value={m}>
+                      {windowLabel(m)}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-xs text-muted-foreground">to</span>
+                <select
+                  aria-label="To"
+                  value={windowEnd}
+                  onChange={(e) => setWindowEnd(Number(e.target.value))}
+                  className="h-8 rounded-lg border border-border/60 bg-background px-2 text-xs"
+                >
+                  {WINDOW_OPTIONS.filter((m) => m > 0).map((m) => (
+                    <option key={m} value={m}>
+                      {windowLabel(m)}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWindowStart(0)
+                    setWindowEnd(1440)
+                  }}
+                  className={cn(
+                    'rounded-full border px-3 py-1 text-xs font-medium transition-all',
+                    isWholeDay
+                      ? 'border-violet-500/50 bg-violet-500/15 text-violet-600 dark:text-violet-400'
+                      : 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
+                  )}
+                >
+                  Whole day
+                </button>
+                {!(windowStart === DEFAULT_WINDOW_START && windowEnd === DEFAULT_WINDOW_END) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWindowStart(DEFAULT_WINDOW_START)
+                      setWindowEnd(DEFAULT_WINDOW_END)
+                    }}
+                    className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                  >
+                    Reset to working hours
+                  </button>
+                )}
+              </div>
+              {!windowFits && (
+                <p className="text-xs text-destructive">
+                  The time window must be at least as long as the meeting.
+                </p>
+              )}
             </div>
           </div>
         )}
