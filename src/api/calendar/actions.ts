@@ -131,12 +131,14 @@ function categoryScopeWhere(workspaceId: string | null, userId: string): Where {
     : { and: [{ workspace: { exists: false } }, { userId: { equals: userId } }] }
 }
 
-// Category names are unique (trimmed, case-insensitive) within one scope —
-// a workspace, or a user's Personal calendar — but the same name can exist
-// in different workspaces.
+// Category names are unique (trimmed, case-insensitive) within one group:
+// a user's Personal calendar, or — inside a workspace — its "All" categories
+// (no team) or one team's categories. The same name can exist in "All" and
+// in a team, in two teams, or in different workspaces.
 async function isCategoryNameTaken(
   payload: Awaited<ReturnType<typeof getPayload>>,
   workspaceId: string | null,
+  teamId: number | null,
   userId: string,
   name: string,
   excludeId?: number,
@@ -146,6 +148,9 @@ async function isCategoryNameTaken(
     where: {
       and: [
         categoryScopeWhere(workspaceId, userId),
+        ...(workspaceId
+          ? [teamId ? { team: { equals: teamId } } : { team: { exists: false } }]
+          : []),
         { planArchivedAt: { exists: false } },
         ...(excludeId !== undefined ? [{ id: { not_equals: excludeId } }] : []),
       ],
@@ -156,6 +161,13 @@ async function isCategoryNameTaken(
   })
   const wanted = normalizeCategoryName(name)
   return docs.some((d) => normalizeCategoryName(d.name) === wanted)
+}
+
+function categoryTeamId(category: { team?: unknown }): number | null {
+  const team = category.team
+  if (typeof team === 'number') return team
+  if (team && typeof team === 'object') return (team as { id: number }).id
+  return null
 }
 
 // An event's color is its category's color, or gray without one — never a
@@ -295,7 +307,7 @@ export const createCalendarCategory = async (
 
     const name = data.name.trim()
     if (!name) return err('Name is required')
-    if (await isCategoryNameTaken(payload, workspaceId, userId, name)) {
+    if (await isCategoryNameTaken(payload, workspaceId, teamId ?? null, userId, name)) {
       return err(CALENDAR_CATEGORY_NAME_TAKEN)
     }
 
@@ -399,7 +411,13 @@ export const restoreArchivedCalendarCategory = async (id: number) => {
     }
 
     if (
-      await isCategoryNameTaken(payload, (category as any).workspace ?? null, userId, category.name)
+      await isCategoryNameTaken(
+        payload,
+        (category as any).workspace ?? null,
+        categoryTeamId(category),
+        userId,
+        category.name,
+      )
     ) {
       return err(CALENDAR_CATEGORY_NAME_TAKEN)
     }
@@ -447,7 +465,9 @@ export const updateCalendarCategory = async (id: number, data: Partial<CalendarC
     if (data.name !== undefined) {
       const name = data.name.trim()
       if (!name) return err('Name is required')
-      if (await isCategoryNameTaken(payload, workspaceId, userId, name, id)) {
+      if (
+        await isCategoryNameTaken(payload, workspaceId, categoryTeamId(category), userId, name, id)
+      ) {
         return err(CALENDAR_CATEGORY_NAME_TAKEN)
       }
       data = { ...data, name }
