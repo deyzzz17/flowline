@@ -1,6 +1,12 @@
 import { Zap, Crown } from 'lucide-react'
 import type { Plan } from '@/lib/stripe'
 
+// A plan feature is a plain label, or an object for one that's announced but
+// not built yet (rendered with a "Coming soon" badge by PlanFeatureItem).
+export type PlanFeature = string | { label: string; comingSoon: true }
+
+const soon = (label: string): PlanFeature => ({ label, comingSoon: true })
+
 export const PLANS_CONFIG = [
   {
     id: 'free' as Plan,
@@ -17,7 +23,7 @@ export const PLANS_CONFIG = [
       'Basic calendar',
       'Basic analytics (7-day history)',
       'Up to 10 saved timer presets',
-      'Voice capture (5 commands/month)',
+      soon('Voice capture (5 commands/month)'),
       'Limited collaboration access',
     ],
     accent: null,
@@ -31,14 +37,14 @@ export const PLANS_CONFIG = [
     description: 'For power users who want more.',
     features: [
       'Everything in Free',
-      'AI Assistant',
+      soon('AI Assistant'),
       'Unlimited personal usage',
       'Shared lists (up to 3)',
       'Workspaces (up to 3, max 3 members)',
       'Task assignments & admin role',
       '6-month analytics history',
       'Up to 10 custom habit tracking fields',
-      'Voice capture (50 commands/month)',
+      soon('Voice capture (50 commands/month)'),
     ],
     accent: 'violet',
     trialDays: 14,
@@ -51,14 +57,14 @@ export const PLANS_CONFIG = [
     description: 'For professionals who want it all.',
     features: [
       'Everything in Plus',
-      'AI Coach with Memory',
+      soon('AI Coach with Memory'),
       'Unlimited shared lists & workspaces',
       'Unlimited collaborators & team management',
       'Comments & collaboration',
       'Unlimited custom habit tracking',
       'Advanced tracking fields with custom lists',
-      'External AI agent integrations',
-      'Unlimited voice capture',
+      soon('External AI agent integrations'),
+      soon('Unlimited voice capture'),
     ],
     accent: 'amber',
     trialDays: 7,

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, Loader2, AlertTriangle, Info } from 'lucide-react'
+import { Loader2, AlertTriangle, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import {
@@ -13,6 +13,7 @@ import {
 } from '@/api/billing/actions'
 import type { Plan, BillingInterval } from '@/lib/stripe'
 import { PLANS_CONFIG, PLAN_ORDER } from '@/components/billing/plans-config'
+import { PlanFeatureItem, planFeatureLabel } from './plan-feature-item'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -251,10 +252,11 @@ function PlanCard({
 
       <ul className="mb-6 flex-1 space-y-2.5">
         {plan.features.map((feature) => (
-          <li key={feature} className="flex items-start gap-2.5 text-sm text-muted-foreground">
-            <Check className={cn('mt-0.5 h-4 w-4 shrink-0', accentColor.check)} />
-            {feature}
-          </li>
+          <PlanFeatureItem
+            key={planFeatureLabel(feature)}
+            feature={feature}
+            checkClassName={accentColor.check}
+          />
         ))}
       </ul>
 

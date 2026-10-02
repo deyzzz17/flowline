@@ -1,11 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { Check } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import type { BillingInterval } from '@/lib/stripe'
 import { PLANS_CONFIG } from '@/components/billing/plans-config'
+import { PlanFeatureItem, planFeatureLabel } from './plan-feature-item'
 
 function PricingCard({
   plan,
@@ -118,10 +118,11 @@ function PricingCard({
 
       <ul className="mb-6 flex-1 space-y-2.5">
         {plan.features.map((feature) => (
-          <li key={feature} className="flex items-start gap-2.5 text-sm text-muted-foreground">
-            <Check className={cn('mt-0.5 h-4 w-4 shrink-0', accentColor.check)} />
-            {feature}
-          </li>
+          <PlanFeatureItem
+            key={planFeatureLabel(feature)}
+            feature={feature}
+            checkClassName={accentColor.check}
+          />
         ))}
       </ul>
 
