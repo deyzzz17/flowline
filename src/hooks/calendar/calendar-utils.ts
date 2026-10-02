@@ -61,6 +61,21 @@ export function capTaskDurationAtMidnight(dueDate: string | Date, minutes: numbe
   const untilMidnight = Math.round((midnight.getTime() - start.getTime()) / 60000)
   return Math.max(1, Math.min(minutes, untilMidnight))
 }
+
+/** A task's stored length, or the default when it has none (not capped). */
+export function getTaskStoredDurationMin(task: { estimatedDuration?: number | null }): number {
+  return task.estimatedDuration != null
+    ? Math.max(MIN_DURATION_MIN, Number(task.estimatedDuration))
+    : DEFAULT_TASK_DURATION_MIN
+}
+
+/** The length a task is shown with in the calendar: never past midnight. */
+export function getTaskDurationMin(task: {
+  dueDate: string
+  estimatedDuration?: number | null
+}): number {
+  return capTaskDurationAtMidnight(task.dueDate, getTaskStoredDurationMin(task))
+}
 export const VALID_VIEWS: CalendarView[] = ['year', 'month', 'week', 'day']
 
 export function minutesToPx(minutes: number) {

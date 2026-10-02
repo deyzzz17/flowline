@@ -5,6 +5,7 @@ import { useDraggable } from '@dnd-kit/core'
 import { cn } from '@/lib/utils'
 import { useTimeFormat } from '@/hooks/calendar/use-time-format'
 import type { CalendarItem, CalendarEvent, CalendarTask } from '@/hooks/calendar/use-calendar'
+import { getTaskDurationMin } from '@/hooks/calendar/calendar-utils'
 
 const SLOT_HEIGHT = 56
 const MIN_DURATION_MIN = 15
@@ -27,7 +28,7 @@ export function getItemTop(item: CalendarItem, viewDate?: Date): number {
 }
 
 export function getItemHeight(item: CalendarItem, viewDate?: Date): number {
-  if (item.type !== 'event') return minutesToPx(30)
+  if (item.type !== 'event') return minutesToPx(getTaskDurationMin(item as CalendarTask))
   const start = new Date(item.startDate)
   const end = new Date(item.endDate)
   let effectiveStart = start
@@ -79,7 +80,7 @@ export function CalendarEventBlock({
   const endDate =
     item.type === 'event'
       ? new Date((item as CalendarEvent).endDate)
-      : new Date(startDate.getTime() + 30 * 60000)
+      : new Date(startDate.getTime() + getTaskDurationMin(item as CalendarTask) * 60000)
 
   const dayStart = viewDate
     ? (() => {

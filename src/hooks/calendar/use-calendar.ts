@@ -31,6 +31,8 @@ import {
   MIN_DURATION_MIN,
   DEFAULT_TASK_DURATION_MIN,
   capTaskDurationAtMidnight,
+  getTaskDurationMin,
+  getTaskStoredDurationMin,
 } from './calendar-utils'
 
 export type { CalendarView, CalendarEvent, CalendarTask, CalendarItem }
@@ -430,12 +432,7 @@ export const useCalendar = () => {
         )
         return minutesToPx(durationMin)
       } else {
-        return minutesToPx(
-          capTaskDurationAtMidnight(
-            item.dueDate,
-            Math.max(MIN_DURATION_MIN, item.estimatedDuration ?? DEFAULT_TASK_DURATION_MIN),
-          ),
-        )
+        return minutesToPx(getTaskDurationMin(item))
       }
     },
     [optimisticOverrides],
@@ -902,13 +899,15 @@ export const useCalendar = () => {
         next.set(`task-${id}`, { startDate: newDueDate.toISOString() })
         return next
       })
-      // Moved late in the day: shorten it so it still ends by midnight.
-      const stored = tasks.find((t) => t.id === id)?.estimatedDuration ?? null
-      const capped = stored !== null ? capTaskDurationAtMidnight(newDueDate, stored) : undefined
+      // Moved late in the day: shorten it (stored length, or the default
+      // 30 min) so it still ends by midnight — e.g. 30 min at 23:45 → 15 min.
+      const task = tasks.find((t) => t.id === id)
+      const length = task ? getTaskStoredDurationMin(task) : DEFAULT_TASK_DURATION_MIN
+      const capped = capTaskDurationAtMidnight(newDueDate, length)
       moveTaskMutation.mutate({
         id,
         dueDate: newDueDate.toISOString(),
-        ...(capped !== undefined && capped !== stored && { estimatedDuration: capped }),
+        ...(capped < length && { estimatedDuration: capped }),
       })
     },
     [tasks, moveTaskMutation],
