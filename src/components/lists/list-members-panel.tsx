@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Users, UserPlus, X, Loader2, Search, Check } from 'lucide-react'
+import { Users, UserPlus, X, Loader2, Search, Check, Crown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
@@ -67,7 +67,7 @@ export function ListMembersPanel({ list, open, onOpenChange }: ListMembersPanelP
   const [pendingRoles, setPendingRoles] = useState<Record<number, ListMemberRole>>({})
 
   const planLimits = usePlanLimits()
-  const { members, isLoading: membersLoading } = useListMembers(list.id)
+  const { creator, viewerId, members, isLoading: membersLoading } = useListMembers(list.id)
   const inviteMutation = useInviteMember(list.id)
   const removeMutation = useRemoveMember(list.id)
   const changeRoleMutation = useChangeMemberRole(list.id)
@@ -113,7 +113,13 @@ export function ListMembersPanel({ list, open, onOpenChange }: ListMembersPanelP
     enabled: open && isWorkspaceList,
   })
 
-  const memberUserIds = useMemo(() => new Set(members.map((m) => m.user.id)), [members])
+  // Already on the list: its members, its creator, and the viewer themself.
+  const memberUserIds = useMemo(() => {
+    const ids = new Set(members.map((m) => m.user.id))
+    ids.add(list.userId)
+    if (viewerId) ids.add(viewerId)
+    return ids
+  }, [members, list.userId, viewerId])
 
   const invitableCandidates = useMemo(() => {
     const candidates = isWorkspaceList
@@ -254,13 +260,37 @@ export function ListMembersPanel({ list, open, onOpenChange }: ListMembersPanelP
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/70">
                 Members
               </p>
+              {!membersLoading && creator && (
+                <div className="rounded-xl px-2 py-1.5">
+                  <div className="flex items-center gap-2.5">
+                    <MemberAvatar name={creator.name} image={creator.image} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {creator.name}
+                        {creator.id === viewerId && (
+                          <span className="ml-1 font-normal text-muted-foreground">(you)</span>
+                        )}
+                      </p>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-violet-600 dark:text-violet-400">
+                        <Crown className="h-2.5 w-2.5" />
+                        Creator
+                      </span>
+                    </div>
+                    <span className="rounded-md bg-muted/50 px-2 py-1 text-[10px] font-medium text-muted-foreground">
+                      All rights
+                    </span>
+                  </div>
+                </div>
+              )}
               {membersLoading ? (
                 <div className="flex items-center justify-center py-6">
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/50" />
                 </div>
               ) : members.length === 0 ? (
                 <p className="py-3 text-center text-xs text-muted-foreground/60">
-                  No members yet — invite someone from your contacts above.
+                  {isWorkspaceList
+                    ? 'No other members yet — add workspace members above.'
+                    : 'No other members yet — invite someone from your contacts above.'}
                 </p>
               ) : (
                 <div className="space-y-1">

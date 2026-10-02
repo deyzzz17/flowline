@@ -53,6 +53,14 @@ export interface ListMemberEntry {
   respondedAt: string | null
 }
 
+export interface ListMembersOverview {
+  /** The list's creator: always on it, with every right — not a member row. */
+  creator: ContactProfile | null
+  /** The caller, so the UI never offers to add themselves. */
+  viewerId: string
+  members: ListMemberEntry[]
+}
+
 export interface ListInvite {
   id: number
   role: ListMemberRole
@@ -259,6 +267,7 @@ export const inviteListMember = async (
     if (callerRole !== 'admin') return err('Not authorized')
 
     if (inviteeUserId === userId) return err('You cannot invite yourself.')
+    if (inviteeUserId === list.userId) return err('The list creator is already on this list.')
 
     const listWorkspaceId = (list as any).workspace ?? null
     // Inside a workspace, the invitee's list role is no longer picked
@@ -455,27 +464,30 @@ export const changeListMemberRole = async (
   }
 }
 
-export const listMembersForList = async (listId: number): Promise<ListMemberEntry[]> => {
+export const listMembersForList = async (listId: number): Promise<ListMembersOverview> => {
   const userId = await getUserId()
-  if (!userId) return []
+  const empty: ListMembersOverview = { creator: null, viewerId: userId ?? '', members: [] }
+  if (!userId) return empty
 
   const payload = await getPayload({ config })
   const role = await resolveListRole(payload, listId, userId)
-  if (role !== 'admin') return []
+  if (role !== 'admin') return empty
 
   const list = await payload.findByID({ collection: 'lists', id: listId }).catch(() => null)
+  if (!list) return empty
   const listWorkspaceId = (list as any)?.workspace ?? null
+  const creatorId = list.userId as string
 
-  const { docs } = await payload.find({
+  const { docs: rows } = await payload.find({
     collection: 'list-members',
     where: { list: { equals: listId } },
     sort: 'createdAt',
     limit: 0,
   })
+  // The creator is shown on their own, never as a regular member.
+  const docs = rows.filter((d) => d.userId !== creatorId)
 
-  if (docs.length === 0) return []
-
-  const usersMap = await findUsersByIds(docs.map((d) => d.userId as string))
+  const usersMap = await findUsersByIds([creatorId, ...docs.map((d) => d.userId as string)])
 
   // Inside a workspace, always show the role currently derived from each
   // member's workspace role rather than the (possibly stale) value stored on
@@ -490,7 +502,10 @@ export const listMembersForList = async (listId: number): Promise<ListMemberEntr
     ? await getWorkspaceNicknames(listWorkspaceId)
     : new Map<string, string>()
 
-  return docs
+  const rawCreator = usersMap.get(creatorId)
+  const creator = rawCreator ? applyWorkspaceNicknames([rawCreator], nicknames)[0] : null
+
+  const members = docs
     .map((d) => {
       const rawUser = usersMap.get(d.userId as string)
       if (!rawUser) return null
@@ -508,6 +523,8 @@ export const listMembersForList = async (listId: number): Promise<ListMemberEntr
       }
     })
     .filter((x): x is ListMemberEntry => x !== null)
+
+  return { creator, viewerId: userId, members }
 }
 
 export const listMemberProfiles = async (listId: number): Promise<ContactProfile[]> => {

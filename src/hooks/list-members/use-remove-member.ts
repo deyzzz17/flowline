@@ -2,7 +2,8 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
-import type { ListMemberEntry } from '@/api/list-members/actions'
+import { listMembersQueryKey } from './use-list-members'
+import type { ListMembersOverview } from '@/api/list-members/actions'
 
 export const useRemoveMember = (listId: number) => {
   const queryClient = useQueryClient()
@@ -11,15 +12,15 @@ export const useRemoveMember = (listId: number) => {
     mutationFn: (memberId: number) => api.listMembers.remove(listId, memberId),
     onMutate: async (memberId) => {
       await queryClient.cancelQueries({ queryKey: ['list-members', listId] })
-      const previous = queryClient.getQueryData<ListMemberEntry[]>(['list-members', listId])
-      queryClient.setQueryData<ListMemberEntry[]>(['list-members', listId], (old) =>
-        (old ?? []).filter((m) => m.id !== memberId),
+      const previous = queryClient.getQueryData<ListMembersOverview>(listMembersQueryKey(listId))
+      queryClient.setQueryData<ListMembersOverview>(listMembersQueryKey(listId), (old) =>
+        old ? { ...old, members: old.members.filter((m) => m.id !== memberId) } : old,
       )
       return { previous }
     },
     onError: (_error, _memberId, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(['list-members', listId], context.previous)
+        queryClient.setQueryData(listMembersQueryKey(listId), context.previous)
       }
     },
     onSettled: () => {
