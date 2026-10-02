@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import { NO_CATEGORY_FILTER_ID } from '@/lib/calendar-colors'
 
 interface CalendarFilterContextValue {
   hiddenCategories: Set<number>
@@ -39,10 +40,8 @@ export function CalendarFilterProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const isCategoryVisible = useCallback(
-    (id: number | null | undefined) => {
-      if (!id) return true
-      return !hiddenCategories.has(id)
-    },
+    // An event without a category follows the virtual "No category" entry.
+    (id: number | null | undefined) => !hiddenCategories.has(id || NO_CATEGORY_FILTER_ID),
     [hiddenCategories],
   )
 

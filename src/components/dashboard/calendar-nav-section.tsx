@@ -71,6 +71,22 @@ import {
   SidebarMenuSubItem,
   useSidebar,
 } from '@/components/ui/sidebar'
+import {
+  NO_CATEGORY_EVENT_COLOR,
+  NO_CATEGORY_FILTER_ID,
+  NO_CATEGORY_LABEL,
+} from '@/lib/calendar-colors'
+import type { CalendarCategory } from '@/hooks/calendar/use-calendar-categories'
+
+// Virtual first row of the category list: toggles events without a category.
+// Not a real category — no edit/delete menu, not counted in plan limits.
+const NO_CATEGORY_ROW: CalendarCategory = {
+  id: NO_CATEGORY_FILTER_ID,
+  name: NO_CATEGORY_LABEL,
+  color: NO_CATEGORY_EVENT_COLOR,
+  isDefault: false,
+  teamId: null,
+}
 
 const PRESET_COLORS = [
   '#8b5cf6',
@@ -420,35 +436,37 @@ export function CalendarNavSection({ scope, href, label, onNavigate }: CalendarN
         >
           {cat.name}
         </span>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="opacity-100 sm:opacity-0 sm:group-hover/cat:opacity-100 flex h-5 w-5 items-center justify-center rounded text-muted-foreground/40 hover:text-foreground hover:bg-muted transition-all"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <MoreHorizontal className="h-3 w-3" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" side="right" className="w-36">
-            <DropdownMenuItem
-              onClick={() => s.handleStartEdit(cat)}
-              className="gap-2 text-xs cursor-pointer"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              Edit
-            </DropdownMenuItem>
-            {canDeleteCategory && (
-              <DropdownMenuItem
-                onClick={() => s.setDeleteTarget({ id: cat.id, name: cat.name })}
-                className="gap-2 text-xs cursor-pointer text-destructive focus:text-destructive"
+        {cat.id !== NO_CATEGORY_FILTER_ID && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="opacity-100 sm:opacity-0 sm:group-hover/cat:opacity-100 flex h-5 w-5 items-center justify-center rounded text-muted-foreground/40 hover:text-foreground hover:bg-muted transition-all"
+                onClick={(e) => e.stopPropagation()}
               >
-                <Trash2 className="h-3.5 w-3.5" />
-                Delete
+                <MoreHorizontal className="h-3 w-3" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="right" className="w-36">
+              <DropdownMenuItem
+                onClick={() => s.handleStartEdit(cat)}
+                className="gap-2 text-xs cursor-pointer"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Edit
               </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              {canDeleteCategory && (
+                <DropdownMenuItem
+                  onClick={() => s.setDeleteTarget({ id: cat.id, name: cat.name })}
+                  className="gap-2 text-xs cursor-pointer text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     )
   }
@@ -525,6 +543,7 @@ export function CalendarNavSection({ scope, href, label, onNavigate }: CalendarN
                 </span>
               </div>
             )}
+            {renderCategoryRow(NO_CATEGORY_ROW)}
             {noTeamCategories.map(renderCategoryRow)}
             {teamCategoryGroups.map((g) => (
               <div key={g.teamId}>
@@ -663,35 +682,37 @@ export function SidebarCalendarNavSection({ scope, href, label }: CalendarNavSec
           >
             {cat.name}
           </span>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="opacity-0 group-hover/cat:opacity-100 flex h-5 w-5 items-center justify-center rounded text-muted-foreground/40 hover:text-foreground hover:bg-muted transition-all"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <MoreHorizontal className="h-3 w-3" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" side="right" className="w-36">
-              <DropdownMenuItem
-                onClick={() => s.handleStartEdit(cat)}
-                className="gap-2 text-xs cursor-pointer"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-                Edit
-              </DropdownMenuItem>
-              {canDeleteCategory && (
-                <DropdownMenuItem
-                  onClick={() => s.setDeleteTarget({ id: cat.id, name: cat.name })}
-                  className="gap-2 text-xs cursor-pointer text-destructive focus:text-destructive"
+          {cat.id !== NO_CATEGORY_FILTER_ID && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="opacity-0 group-hover/cat:opacity-100 flex h-5 w-5 items-center justify-center rounded text-muted-foreground/40 hover:text-foreground hover:bg-muted transition-all"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Delete
+                  <MoreHorizontal className="h-3 w-3" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" side="right" className="w-36">
+                <DropdownMenuItem
+                  onClick={() => s.handleStartEdit(cat)}
+                  className="gap-2 text-xs cursor-pointer"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit
                 </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                {canDeleteCategory && (
+                  <DropdownMenuItem
+                    onClick={() => s.setDeleteTarget({ id: cat.id, name: cat.name })}
+                    className="gap-2 text-xs cursor-pointer text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </SidebarMenuSubItem>
     )
@@ -769,6 +790,7 @@ export function SidebarCalendarNavSection({ scope, href, label }: CalendarNavSec
                   </span>
                 </div>
               )}
+              {renderCategoryRow(NO_CATEGORY_ROW)}
               {noTeamCategories.map(renderCategoryRow)}
               {teamCategoryGroups.map((g) => (
                 <div key={g.teamId}>

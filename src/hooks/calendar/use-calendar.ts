@@ -5,7 +5,11 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '@/api'
-import { type CalendarEventData, type EditScope, type SeriesAdjustment } from '@/api/calendar/actions'
+import {
+  type CalendarEventData,
+  type EditScope,
+  type SeriesAdjustment,
+} from '@/api/calendar/actions'
 import { generateOccurrences } from '@/api/calendar/calendar-recurrence'
 import { useCalendarFilter } from '@/components/calendar/calendar-filter-context'
 import type { Task } from '@/payload-types'
@@ -875,7 +879,7 @@ export const useCalendar = () => {
       const dayEvents = eventsWithOverrides.filter((e) => {
         const isHabit = (e as any).source === 'habit'
         if (isHabit && !habitsVisible) return false
-        if (!isHabit && !isCategoryVisible(e.categoryId)) return false
+        if (!isHabit && e.source !== 'google' && !isCategoryVisible(e.categoryId)) return false
         if (e.source === 'google' && e.googleCalendarId) {
           if (!isGoogleCalendarVisible(e.googleCalendarId)) return false
         }
