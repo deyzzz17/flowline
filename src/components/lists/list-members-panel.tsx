@@ -204,8 +204,9 @@ export function ListMembersPanel({ list, open, onOpenChange }: ListMembersPanelP
               </div>
               {isWorkspaceList ? (
                 <p className="text-[11px] text-muted-foreground/70">
-                  Their access here follows their role in this workspace — Owners, Admins and
-                  Editors get full access, Viewers get read-only access.
+                  Members join as editors — you can switch them to reader below. Workspace
+                  viewers are always read-only, and workspace owners and admins can manage every
+                  shared list.
                 </p>
               ) : (
                 <RolePermissionsHint role={inviteRole} />
@@ -336,9 +337,18 @@ export function ListMembersPanel({ list, open, onOpenChange }: ListMembersPanelP
                               )}
                             </div>
                           </div>
-                          {isWorkspaceList ? (
-                            <span className="rounded-md bg-muted/50 px-2 py-1 text-[10px] font-medium capitalize text-muted-foreground">
-                              {effectiveRole}
+                          {m.roleLock ? (
+                            <span
+                              className="rounded-md bg-muted/50 px-2 py-1 text-[10px] font-medium text-muted-foreground"
+                              title={
+                                m.roleLock === 'workspace-viewer'
+                                  ? 'Workspace viewers are always read-only on lists.'
+                                  : 'Workspace owners and admins can manage every shared list.'
+                              }
+                            >
+                              {m.roleLock === 'workspace-viewer'
+                                ? 'Reader · workspace viewer'
+                                : 'Full access · workspace admin'}
                             </span>
                           ) : (
                             <RoleToggle
@@ -357,7 +367,9 @@ export function ListMembersPanel({ list, open, onOpenChange }: ListMembersPanelP
                             <X className="h-3.5 w-3.5" />
                           </button>
                         </div>
-                        <RolePermissionsHint role={effectiveRole} className="pl-11 pt-1" />
+                        {!m.roleLock && (
+                          <RolePermissionsHint role={effectiveRole} className="pl-11 pt-1" />
+                        )}
                       </div>
                     )
                   })}

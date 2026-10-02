@@ -34,19 +34,29 @@ const getUserId = async () => {
 
 export type ListMemberRole = 'editor' | 'reader'
 
-// Inside a workspace, a list member's role is no longer picked manually — it
-// just mirrors their workspace role. Everyone except a workspace Viewer gets
-// full editor access to lists they're added to; a Viewer is always read-only.
-// resolveListRole() derives this live from the CURRENT workspace role for
-// actual enforcement — this is only used to store a best-effort value at
-// invite time and to compute what to display right after inviting.
+// Inside a workspace, a member added to a list starts as editor — or reader
+// for a workspace Viewer. The list admin can then switch a Member between
+// editor and reader (changeListMemberRole). Two cases stay fixed, enforced
+// live by resolveListRole(): a Viewer is always read-only, and the workspace
+// owner/admins manage every shared list anyway.
 function deriveListRoleFromWorkspaceRole(role: WorkspaceRole): ListMemberRole {
   return role === 'viewer' ? 'reader' : 'editor'
+}
+
+/** Why a workspace list member's role can't be changed on the list, if so. */
+export type ListRoleLock = 'workspace-viewer' | 'workspace-admin'
+
+function listRoleLockFor(role: WorkspaceRole): ListRoleLock | null {
+  if (role === 'viewer') return 'workspace-viewer'
+  if (role === 'owner' || role === 'admin') return 'workspace-admin'
+  return null
 }
 
 export interface ListMemberEntry {
   id: number
   role: ListMemberRole
+  /** Set when the role follows the workspace and can't be changed here. */
+  roleLock: ListRoleLock | null
   status: 'pending' | 'accepted'
   user: ContactProfile
   invitedAt: string
@@ -438,12 +448,7 @@ export const changeListMemberRole = async (
 
     const list = await payload.findByID({ collection: 'lists', id: listId }).catch(() => null)
     if (!list) return err('List not found')
-    // Inside a workspace, a member's list role always mirrors their
-    // workspace role — it's no longer something the list admin can set
-    // independently (see inviteListMember/createSharedList).
-    if ((list as any).workspace) {
-      return err('This member’s role follows their workspace role and cannot be changed here.')
-    }
+    if (role !== 'editor' && role !== 'reader') return err('Invalid role')
 
     const member = await payload
       .findByID({ collection: 'list-members', id: memberId })
@@ -451,6 +456,22 @@ export const changeListMemberRole = async (
     if (!member) return err('Member not found')
     const memberListId = typeof member.list === 'object' ? member.list.id : member.list
     if (memberListId !== listId) return err('Not authorized')
+
+    // Inside a workspace, a Member can be switched between editor and
+    // reader; a Viewer's (read-only) and an owner/admin's (full access)
+    // follow the workspace.
+    const listWorkspaceId = (list as any).workspace ?? null
+    if (listWorkspaceId) {
+      const lock = listRoleLockFor(
+        await getWorkspaceRoleForUser(listWorkspaceId, member.userId as string),
+      )
+      if (lock === 'workspace-viewer') {
+        return err('Workspace viewers are always read-only on lists.')
+      }
+      if (lock === 'workspace-admin') {
+        return err('Workspace owners and admins can manage every shared list.')
+      }
+    }
 
     const updated = await payload.update({
       collection: 'list-members',
@@ -510,12 +531,15 @@ export const listMembersForList = async (listId: number): Promise<ListMembersOve
       const rawUser = usersMap.get(d.userId as string)
       if (!rawUser) return null
       const user = applyWorkspaceNicknames([rawUser], nicknames)[0]
-      const displayRole = listWorkspaceId
-        ? deriveListRoleFromWorkspaceRole(workspaceRoles.get(d.userId as string) ?? null)
-        : (d.role as ListMemberRole)
+      const roleLock = listWorkspaceId
+        ? listRoleLockFor(workspaceRoles.get(d.userId as string) ?? null)
+        : null
+      const displayRole: ListMemberRole =
+        roleLock === 'workspace-viewer' ? 'reader' : d.role === 'reader' ? 'reader' : 'editor'
       return {
         id: d.id,
         role: displayRole,
+        roleLock,
         status: d.status as 'pending' | 'accepted',
         user,
         invitedAt: d.createdAt as string,

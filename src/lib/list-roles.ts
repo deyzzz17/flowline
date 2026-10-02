@@ -81,27 +81,31 @@ export async function resolveListRole(
     // remain visible only to their creator, exactly like Personal lists.
     if (workspaceRole === 'owner' || workspaceRole === 'admin') return 'admin'
 
-    // Editor/Viewer stay membership-gated exactly like before — they only
-    // ever get a role on their own list or one they were specifically
-    // added to (see phase 13/18: this is deliberate, not a bug). We already
-    // know the list is shared at this point (private lists returned above).
-    if (!isOwner) {
-      const { totalDocs } = await payload.count({
-        collection: 'list-members',
-        where: {
-          and: [
-            { list: { equals: listId } },
-            { userId: { equals: userId } },
-            { status: { equals: 'accepted' } },
-          ],
-        },
-      })
-      if (totalDocs === 0) return null
-    }
-
     // A workspace Viewer is a hard read-only ceiling, even on a list they
     // own outright.
-    return workspaceRole === 'viewer' ? 'reader' : isOwner ? 'admin' : 'editor'
+    if (isOwner) return workspaceRole === 'viewer' ? 'reader' : 'admin'
+
+    // Members/Viewers stay membership-gated exactly like before — they only
+    // ever get a role on a list they were specifically added to (see phase
+    // 13/18: this is deliberate, not a bug). We already know the list is
+    // shared at this point (private lists returned above). Their role is the
+    // one set on this list (editor or reader), capped at reader for a Viewer.
+    const { docs: memberDocs } = await payload.find({
+      collection: 'list-members',
+      where: {
+        and: [
+          { list: { equals: listId } },
+          { userId: { equals: userId } },
+          { status: { equals: 'accepted' } },
+        ],
+      },
+      limit: 1,
+      depth: 0,
+      pagination: false,
+    })
+    if (memberDocs.length === 0) return null
+    if (workspaceRole === 'viewer') return 'reader'
+    return memberDocs[0].role === 'reader' ? 'reader' : 'editor'
   }
 
   // Personal: no workspace-role concept — role comes purely from ownership
