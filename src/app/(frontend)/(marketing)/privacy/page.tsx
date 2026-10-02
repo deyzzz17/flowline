@@ -268,16 +268,16 @@ const sections = [
     content: (
       <div className="space-y-2 text-muted-foreground">
         <p>
-          Flowline only uses strictly necessary cookies to operate the application (maintaining your
-          authentication session). We do not use any advertising, tracking, or third-party analytics
-          cookies. See our{' '}
+          Flowline only uses strictly necessary cookies to operate the application (keeping you
+          signed in and securing sign-in, plus a few small app preferences). We do not use any
+          advertising, tracking, or third-party analytics cookies. See our{' '}
           <Link
             href="/cookies"
             className="text-violet-600 dark:text-violet-400 underline underline-offset-2 font-medium"
           >
             Cookie Policy
           </Link>{' '}
-          for the full list of cookies we use.
+          for the full list of cookies and browser storage we use.
         </p>
         <p>
           <CookiePreferencesLink />
