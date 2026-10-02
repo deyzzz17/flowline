@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
 
-function formatSeconds(s: number): string {
+export function formatSeconds(s: number): string {
   if (s === 0) return '0m'
   const h = Math.floor(s / 3600)
   const m = Math.floor((s % 3600) / 60)
@@ -23,6 +23,8 @@ export const useTaskSessions = (taskId: number, enabled = true) => {
     totalSessions: data?.totalSessions ?? 0,
     focusTime: formatSeconds(data?.totalSeconds ?? 0),
     totalSeconds: data?.totalSeconds ?? 0,
+    // Per-subtask totals; the task's own totals above already include them.
+    bySubtask: data?.bySubtask ?? {},
     isLoading,
   }
 }

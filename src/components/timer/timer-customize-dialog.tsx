@@ -28,7 +28,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
 import { DurationPicker, durationToSeconds } from './duration-picker'
 import { TaskSelect } from './task-select'
-import type { SessionConfig } from '@/hooks/timer/use-timer'
+import type { PendingTimerTask, SessionConfig } from '@/hooks/timer/use-timer'
 import { PlanLimitDialog } from '../ui/plan-limit-dialog'
 import { SafetyCapDialog } from '../ui/safety-cap-dialog'
 
@@ -62,18 +62,18 @@ interface TimerCustomizeDialogProps {
   open: boolean
   onOpenChange: (v: boolean) => void
   onStart: (config: SessionConfig) => void
-  // Set when the dialog is opened for a specific task (e.g. from the timer
-  // icon on a task card) — pre-selects it in "Linked task" and expands the
-  // Analytics section so it's visible immediately instead of hidden behind
-  // the collapsed toggle.
-  initialTaskId?: number | null
+  // Set when the dialog is opened for a specific task or subtask (e.g. from
+  // the timer icon on a task card) — pre-selects it in "Linked task" and
+  // expands the Analytics section so it's visible immediately instead of
+  // hidden behind the collapsed toggle.
+  initialTask?: PendingTimerTask | null
 }
 
 export const TimerCustomizeDialog = ({
   open,
   onOpenChange,
   onStart,
-  initialTaskId,
+  initialTask,
 }: TimerCustomizeDialogProps) => {
   const {
     session,
@@ -109,17 +109,24 @@ export const TimerCustomizeDialog = ({
     enabled: open && analyticsOpen,
     staleTime: 30_000,
   })
-  const activeTasks = (tasksData?.docs ?? []).filter((t) => t.status === 'active')
+  const ownActiveTasks = (tasksData?.docs ?? []).filter((t) => t.status === 'active')
+  // api.tasks.list() only returns tasks the viewer created, so a task opened
+  // from a shared list or assigned to them must be added for it to be selectable.
+  const activeTasks =
+    initialTask && !ownActiveTasks.some((t) => t.id === initialTask.task.id)
+      ? [initialTask.task, ...ownActiveTasks]
+      : ownActiveTasks
 
   useEffect(() => {
-    if (open && initialTaskId != null) {
-      update('taskId', initialTaskId)
+    if (open && initialTask) {
+      update('taskId', initialTask.task.id)
+      update('subtaskId', initialTask.subtaskId)
       setAnalyticsOpen(true)
     }
     // Only re-run when the dialog opens (or opens for a different task) —
     // `update`/`setAnalyticsOpen` are stable setters from useTimerCustomize.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initialTaskId])
+  }, [open, initialTask?.task.id, initialTask?.subtaskId])
 
   const toDur = (val: number | '') => {
     const s = val === '' ? 0 : Number(val)
@@ -133,6 +140,9 @@ export const TimerCustomizeDialog = ({
     e.preventDefault()
     if (!isValid) return
     const selectedTask = activeTasks.find((t) => t.id === session.taskId)
+    const selectedSubtask = session.subtaskId
+      ? selectedTask?.subtasks?.find((s) => s.id === session.subtaskId)
+      : undefined
     const config: SessionConfig = {
       sessionDuration: Number(session.sessionDuration),
       workDuration: Number(session.workDuration) || 0,
@@ -142,7 +152,11 @@ export const TimerCustomizeDialog = ({
       subCategory: session.subCategory || undefined,
       subCategoryColor: session.subCategoryColor || undefined,
       taskId: session.taskId,
-      taskTitle: selectedTask?.title,
+      subtaskId: selectedSubtask ? session.subtaskId : null,
+      taskTitle:
+        selectedTask && selectedSubtask
+          ? `${selectedTask.title} › ${selectedSubtask.title}`
+          : selectedTask?.title,
     }
     onStart(config)
     reset()
@@ -491,8 +505,15 @@ export const TimerCustomizeDialog = ({
                   </Label>
                   <TaskSelect
                     tasks={activeTasks}
-                    value={session.taskId}
-                    onChange={(id) => update('taskId', id)}
+                    value={
+                      session.taskId != null
+                        ? { taskId: session.taskId, subtaskId: session.subtaskId }
+                        : null
+                    }
+                    onChange={(selection) => {
+                      update('taskId', selection?.taskId ?? null)
+                      update('subtaskId', selection?.subtaskId ?? null)
+                    }}
                   />
                 </div>
               </div>

@@ -897,7 +897,8 @@ export const editTask = async (id: number, draft: EditTaskInput) => {
       assignedTo:
         role === 'admin'
           ? sanitizeAssignees(s.assignedTo)
-          : (originalSubtasks[i]?.assignedTo ?? []),
+          : ((s.id ? originalSubtasks.find((o) => o.id === s.id) : originalSubtasks[i])
+              ?.assignedTo ?? []),
     }))
 
     const finalAssignedTo =
@@ -1003,6 +1004,30 @@ export const toggleSubtask = async (taskId: number, subtaskIndex: number) => {
     return ok({ subtasks: updatedSubtasks, status: newStatus })
   } catch {
     return err('Error while toggling subtask')
+  }
+}
+
+// Marks a subtask done by its id (not its index, which can shift while a
+// focus session on it is running). No-op if it's already done.
+export const completeSubtask = async (taskId: number, subtaskId: string) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+
+    const payload = await getPayload({ config })
+    const task = await payload.findByID({ collection: 'tasks', id: taskId, depth: 0 })
+
+    const authError = await assertCanViewTask(payload, task, userId)
+    if (authError) return err(authError)
+
+    const subtasks = (task.subtasks ?? []) as Subtask[]
+    const index = subtasks.findIndex((s) => s.id === subtaskId)
+    if (index === -1) return err('Subtask not found')
+    if (subtasks[index].done) return ok({ subtasks, status: task.status })
+
+    return await toggleSubtask(taskId, index)
+  } catch {
+    return err('Error while completing subtask')
   }
 }
 

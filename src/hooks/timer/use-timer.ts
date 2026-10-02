@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useTimerSounds } from './use-timer-sounds'
+import type { Task } from '@/payload-types'
 
 export type TimerPhase = 'work' | 'break' | 'free'
 
@@ -14,7 +15,14 @@ export interface SessionConfig {
   subCategory?: string
   subCategoryColor?: string
   taskId?: number | null
+  // Set when the session targets one of taskId's subtasks.
+  subtaskId?: string | null
   taskTitle?: string
+}
+
+export interface PendingTimerTask {
+  task: Task
+  subtaskId: string | null
 }
 
 const LS_KEY = 'flowline_timer'
@@ -215,8 +223,11 @@ export const useTimer = () => {
   const [ratingOpen, setRatingOpen] = useState(false)
   // Set right before opening the customize dialog for a specific task (e.g.
   // from the timer icon on a task card) so the dialog can pre-select it —
-  // null for a plain "Customize" open with no task attached.
-  const [pendingTaskId, setPendingTaskId] = useState<number | null>(null)
+  // null for a plain "Customize" open with no task attached. The whole task
+  // is kept (not just its id) because the dialog's task list only holds the
+  // viewer's own tasks, and a shared/assigned task must still show up there.
+  // `subtaskId` is set when the timer icon of one of its subtasks was used.
+  const [pendingTask, setPendingTask] = useState<PendingTimerTask | null>(null)
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const ratingTriggeredRef = useRef(false)
@@ -434,7 +445,7 @@ export const useTimer = () => {
     setCustomizeOpen,
     ratingOpen,
     setRatingOpen,
-    pendingTaskId,
-    setPendingTaskId,
+    pendingTask,
+    setPendingTask,
   }
 }

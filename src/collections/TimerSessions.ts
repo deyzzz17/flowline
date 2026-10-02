@@ -52,6 +52,13 @@ export const TimerSessions: CollectionConfig = {
       required: false,
     },
     {
+      // Set when the session targets a subtask (its array-row id); taskId is
+      // then the parent task, so the parent's total includes subtask time.
+      name: 'subtaskId',
+      type: 'text',
+      required: false,
+    },
+    {
       name: 'taskTitle',
       type: 'text',
       required: false,

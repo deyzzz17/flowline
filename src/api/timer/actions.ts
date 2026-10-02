@@ -250,6 +250,7 @@ export interface CreateSessionData {
   subCategory?: string
   subCategoryColor?: string
   taskId?: number | null
+  subtaskId?: string | null
   taskTitle?: string
   rating?: number
   taskCompleted?: boolean
@@ -274,6 +275,8 @@ export const createTimerSession = async (data: CreateSessionData) => {
         subCategory: data.subCategory,
         subCategoryColor: data.subCategoryColor,
         taskId: data.taskId ?? undefined,
+        // A subtask only makes sense under its parent task.
+        subtaskId: data.taskId && data.subtaskId ? data.subtaskId : undefined,
         taskTitle: data.taskTitle,
         rating: data.rating,
         taskCompleted: data.taskCompleted ?? false,
@@ -286,9 +289,18 @@ export const createTimerSession = async (data: CreateSessionData) => {
   }
 }
 
-export const getTaskSessions = async (taskId: number) => {
+export interface TaskSessionTotals {
+  totalSessions: number
+  totalSeconds: number
+}
+
+// Totals for a task — its own sessions plus its subtasks' sessions (those
+// carry the parent's taskId) — and per-subtask totals keyed by subtask id.
+export const getTaskSessions = async (
+  taskId: number,
+): Promise<TaskSessionTotals & { bySubtask: Record<string, TaskSessionTotals> }> => {
   const userId = await getUserId()
-  if (!userId) return { totalSessions: 0, totalSeconds: 0 }
+  if (!userId) return { totalSessions: 0, totalSeconds: 0, bySubtask: {} }
 
   const payload = await getPayload({ config })
   const { docs } = await payload.find({
@@ -297,11 +309,21 @@ export const getTaskSessions = async (taskId: number) => {
       and: [{ userId: { equals: userId } }, { taskId: { equals: taskId } }],
     },
     limit: 0,
+    select: { duration: true, subtaskId: true },
   })
+
+  const bySubtask: Record<string, TaskSessionTotals> = {}
+  for (const d of docs) {
+    if (!d.subtaskId) continue
+    const t = (bySubtask[d.subtaskId] ??= { totalSessions: 0, totalSeconds: 0 })
+    t.totalSessions += 1
+    t.totalSeconds += d.duration
+  }
 
   return {
     totalSessions: docs.length,
     totalSeconds: docs.reduce((s, d) => s + d.duration, 0),
+    bySubtask,
   }
 }
 

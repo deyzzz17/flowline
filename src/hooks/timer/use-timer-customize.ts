@@ -28,6 +28,7 @@ export interface TimerSession {
   subCategory: string
   subCategoryColor: string
   taskId: number | null
+  subtaskId: string | null
 }
 
 function toSeconds(val: number | ''): number {
@@ -50,6 +51,7 @@ export const useTimerCustomize = () => {
     subCategory: '',
     subCategoryColor: '#8b5cf6',
     taskId: null,
+    subtaskId: null,
   })
 
   const queryClient = useQueryClient()
@@ -197,6 +199,7 @@ export const useTimerCustomize = () => {
       subCategory: '',
       subCategoryColor: '#8b5cf6',
       taskId: null,
+      subtaskId: null,
     })
     setShowNewCategory(false)
     setNewCategoryName('')

@@ -409,6 +409,7 @@ export interface TimerSession {
   subCategory?: string | null;
   subCategoryColor?: string | null;
   taskId?: number | null;
+  subtaskId?: string | null;
   taskTitle?: string | null;
   /**
    * Session rating from 0 to 5 (0.5 increments)
@@ -1224,6 +1225,7 @@ export interface TimerSessionsSelect<T extends boolean = true> {
   subCategory?: T;
   subCategoryColor?: T;
   taskId?: T;
+  subtaskId?: T;
   taskTitle?: T;
   rating?: T;
   taskCompleted?: T;

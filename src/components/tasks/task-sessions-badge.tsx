@@ -1,4 +1,4 @@
-import { useTaskSessions } from "@/hooks/timer/use-task-sessions"
+import { formatSeconds, useTaskSessions } from "@/hooks/timer/use-task-sessions"
 import { Timer } from "lucide-react"
 
 export function TaskSessionsBadge({ taskId }: { taskId: number }) {
@@ -16,5 +16,24 @@ export function TaskSessionsBadge({ taskId }: { taskId: number }) {
         {focusTime} focused
       </span>
     </div>
+  )
+}
+
+// Focus time spent on one subtask. Shares the parent task's query (same
+// cache key), so it costs no extra request.
+export function SubtaskFocusTime({ taskId, subtaskId }: { taskId: number; subtaskId: string }) {
+  const { bySubtask } = useTaskSessions(taskId)
+  const totals = bySubtask[subtaskId]
+
+  if (!totals || totals.totalSeconds === 0) return null
+
+  return (
+    <span
+      className="flex shrink-0 items-center gap-1 rounded-full border border-violet-500/20 bg-violet-500/5 px-1.5 py-0.5 text-[10px] font-medium text-violet-600 dark:text-violet-400"
+      title={`${totals.totalSessions} session${totals.totalSessions > 1 ? 's' : ''}`}
+    >
+      <Timer className="h-2.5 w-2.5 shrink-0" />
+      {formatSeconds(totals.totalSeconds)}
+    </span>
   )
 }

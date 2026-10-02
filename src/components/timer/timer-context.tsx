@@ -1,7 +1,12 @@
 'use client'
 
 import { createContext, useContext, type ReactNode } from 'react'
-import { useTimer, type SessionConfig, type TimerPhase } from '@/hooks/timer/use-timer'
+import {
+  useTimer,
+  type PendingTimerTask,
+  type SessionConfig,
+  type TimerPhase,
+} from '@/hooks/timer/use-timer'
 
 interface TimerContextValue {
   isRunning: boolean
@@ -21,8 +26,8 @@ interface TimerContextValue {
   setCustomizeOpen: (v: boolean) => void
   ratingOpen: boolean
   setRatingOpen: (v: boolean) => void
-  pendingTaskId: number | null
-  setPendingTaskId: (v: number | null) => void
+  pendingTask: PendingTimerTask | null
+  setPendingTask: (v: PendingTimerTask | null) => void
   toggle: () => void
   reset: () => void
   forceReset: () => void

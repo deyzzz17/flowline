@@ -14,18 +14,18 @@ import type { SessionConfig } from '@/hooks/timer/use-timer'
 // matching what happens when you start one from the timer page itself.
 export function GlobalTimerDialog() {
   const router = useRouter()
-  const { customizeOpen, setCustomizeOpen, startWithConfig, pendingTaskId, setPendingTaskId } =
+  const { customizeOpen, setCustomizeOpen, startWithConfig, pendingTask, setPendingTask } =
     useTimerContext()
   const { saveConfig, limitError, clearLimitError, capError, clearCapError } = useTimerConfigs()
 
   const handleOpenChange = (v: boolean) => {
     setCustomizeOpen(v)
-    if (!v) setPendingTaskId(null)
+    if (!v) setPendingTask(null)
   }
 
   const handleStart = (config: SessionConfig) => {
     setCustomizeOpen(false)
-    setPendingTaskId(null)
+    setPendingTask(null)
     saveConfig(config)
     startWithConfig(config)
     router.push('/timer')
@@ -37,7 +37,7 @@ export function GlobalTimerDialog() {
         open={customizeOpen}
         onOpenChange={handleOpenChange}
         onStart={handleStart}
-        initialTaskId={pendingTaskId}
+        initialTask={pendingTask}
       />
       <PlanLimitDialog
         open={!!limitError}

@@ -40,7 +40,7 @@ import { MentionTextarea } from './mention-textarea'
 import { MentionRenderer } from './mention-renderer'
 import { toast } from 'sonner'
 import { format, startOfDay } from 'date-fns'
-import { TaskSessionsBadge } from './task-sessions-badge'
+import { SubtaskFocusTime, TaskSessionsBadge } from './task-sessions-badge'
 import { useState } from 'react'
 import {
   LIMIT_ERRORS,
@@ -197,7 +197,7 @@ export const TaskCard = ({
   const deleteSubtask = useDeleteSubtask()
   const workspaceRole = useWorkspaceRole(task.workspace ?? null)
   const canDeleteSubtask = canPermanentlyDeleteTask(workspaceRole)
-  const { setPendingTaskId, setCustomizeOpen } = useTimerContext()
+  const { setPendingTask, setCustomizeOpen } = useTimerContext()
   const queryClient = useQueryClient()
   const planLimits = usePlanLimits()
   const subtasksLimit = planLimits?.limits.subtasksPerTask ?? FALLBACK_SUBTASKS_LIMIT
@@ -286,6 +286,7 @@ export const TaskCard = ({
     setEditDays((task.recurrence?.days ?? []) as RecurrenceDay[])
     setEditSubtasks(
       (task.subtasks ?? []).map((s) => ({
+        id: s.id ?? undefined,
         title: s.title,
         done: s.done ?? false,
         description: s.description ?? '',
@@ -393,6 +394,8 @@ export const TaskCard = ({
       subtasks: editSubtasks
         .filter((s) => s.title.trim() !== '')
         .map((s) => ({
+          // Keep the row id so focus sessions linked to a subtask stay linked.
+          ...(s.id && { id: s.id }),
           title: s.title,
           done: s.done,
           description: s.description ?? '',
@@ -1170,6 +1173,7 @@ export const TaskCard = ({
                           : s,
                       )
                       const payloadSubtasks = updatedSubtasks.map((s) => ({
+                        ...(s.id && { id: s.id }),
                         title: s.title,
                         done: s.done ?? false,
                         description: s.description ?? '',
@@ -1388,6 +1392,9 @@ export const TaskCard = ({
                               >
                                 {subtask.title}
                               </label>
+                              {isActive && subtask.id && (
+                                <SubtaskFocusTime taskId={task.id} subtaskId={subtask.id} />
+                              )}
                               {canAssign && (subtask.assignedTo?.length ?? 0) > 0 && (
                                 <AssigneeBadges
                                   assignedTo={subtask.assignedTo}
@@ -1411,6 +1418,22 @@ export const TaskCard = ({
                                   ) : (
                                     <ChevronDown className="h-3 w-3" />
                                   )}
+                                </button>
+                              )}
+                              {isActive && !readOnly && !subtask.done && subtask.id && (
+                                <button
+                                  type="button"
+                                  className="text-muted-foreground/30 hover:text-violet-500 transition-colors disabled:pointer-events-none"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setPendingTask({ task, subtaskId: subtask.id ?? null })
+                                    setCustomizeOpen(true)
+                                  }}
+                                  disabled={isDisabled}
+                                  aria-label="Start timer for this subtask"
+                                  title="Start timer for this subtask"
+                                >
+                                  <Timer className="h-3.5 w-3.5" />
                                 </button>
                               )}
                               {!isDeleted && !isCompleted && !readOnly && (
@@ -1558,7 +1581,7 @@ export const TaskCard = ({
                 className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground hover:text-violet-500"
                 onClick={(e) => {
                   e.stopPropagation()
-                  setPendingTaskId(task.id)
+                  setPendingTask({ task, subtaskId: null })
                   setCustomizeOpen(true)
                 }}
                 disabled={isDisabled}

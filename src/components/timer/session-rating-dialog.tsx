@@ -117,7 +117,15 @@ export function SessionRatingDialog({
       let taskWasCompleted = false
 
       try {
-        if (capturedTaskCompleted && capturedConfig.taskId) {
+        // For a subtask session, "completed" ticks the subtask, not its parent.
+        if (capturedTaskCompleted && capturedConfig.taskId && capturedConfig.subtaskId) {
+          const result = await api.tasks.completeSubtask(
+            capturedConfig.taskId,
+            capturedConfig.subtaskId,
+          )
+          if (result.ok) patchTaskInCaches(queryClient, capturedConfig.taskId, result.value)
+          else queryClient.invalidateQueries({ queryKey: ['tasks'] })
+        } else if (capturedTaskCompleted && capturedConfig.taskId) {
           await completeTaskMutation.mutateAsync(capturedConfig.taskId)
           taskWasCompleted = true
         }
@@ -131,6 +139,7 @@ export function SessionRatingDialog({
           subCategory: capturedConfig.subCategory,
           subCategoryColor: capturedConfig.subCategoryColor,
           taskId: capturedConfig.taskId,
+          subtaskId: capturedConfig.subtaskId,
           taskTitle: capturedConfig.taskTitle,
           rating: capturedRating > 0 ? capturedRating : undefined,
           taskCompleted: capturedTaskCompleted ?? false,
@@ -139,6 +148,9 @@ export function SessionRatingDialog({
         })
 
         queryClient.invalidateQueries({ queryKey: ['timer-analytics', 'day'] })
+        if (capturedConfig.taskId) {
+          queryClient.invalidateQueries({ queryKey: ['task-sessions', capturedConfig.taskId] })
+        }
       } catch {
         if (taskWasCompleted && capturedConfig.taskId) {
           try {
