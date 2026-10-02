@@ -456,7 +456,14 @@ export const useWorkspaceCalendar = () => {
           let newStartDate = parentDoc.startDate
           let newEndDate = parentDoc.endDate
 
-          if (data.startDate) {
+          if (data.startDate && !parentDoc.recurrence?.frequency) {
+            // A single (non-recurring) event moves to the new day and time as
+            // is — only a series keeps each occurrence's own day.
+            newStartDate = data.startDate
+            newEndDate =
+              data.endDate ??
+              new Date(new Date(data.startDate).getTime() + originalDuration).toISOString()
+          } else if (data.startDate) {
             const newOccStart = new Date(data.startDate)
             newStartDate = new Date(
               parentStart.getFullYear(),
@@ -500,10 +507,13 @@ export const useWorkspaceCalendar = () => {
 
     onSuccess: (_, { id, scope, optimisticKey: key, occDate }) => {
       if (!scope || scope === 'all') {
-        if (key) clearOptimistic(key)
-        else clearOptimisticDate('event', id)
-        clearOptimisticParentOverride(id)
-        queryClient.invalidateQueries({ queryKey: [EVENTS_QUERY_KEY] })
+        // Keep the optimistic position until the fresh data is in, so the
+        // event never flashes back to where it was.
+        queryClient.invalidateQueries({ queryKey: [EVENTS_QUERY_KEY] }).then(() => {
+          if (key) clearOptimistic(key)
+          else clearOptimisticDate('event', id)
+          clearOptimisticParentOverride(id)
+        })
       } else {
         queryClient.invalidateQueries({ queryKey: [EVENTS_QUERY_KEY] }).then(() => {
           if (key) clearOptimistic(key)
