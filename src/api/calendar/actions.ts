@@ -674,12 +674,33 @@ function teamIdOf(team: unknown): number | null {
 }
 
 /** Ids of the events assigned to a user (assignedTo lives in calendar_events_texts). */
-async function getAssignedEventIds(userId: string): Promise<number[]> {
+/**
+ * Events that belong in the user's own agenda because they're on them:
+ * assigned to the user, except meeting invitations they haven't answered
+ * yet (an accepted one counts; a declined one already removed them).
+ */
+async function getMyAgendaEventIds(userId: string): Promise<number[]> {
   const { rows } = await pool.query<{ parent_id: number }>(
-    `SELECT DISTINCT parent_id FROM calendar_events_texts WHERE path = 'assignedTo' AND text = $1`,
+    `SELECT DISTINCT t.parent_id FROM calendar_events_texts t
+      WHERE t.path = 'assignedTo' AND t.text = $1
+        AND NOT EXISTS (
+          SELECT 1 FROM calendar_event_invitations i
+           WHERE i.event_id = t.parent_id AND i.user_id = $1 AND i.status = 'pending'
+        )`,
     [userId],
   )
   return rows.map((r) => r.parent_id)
+}
+
+/** Workspaces the user is currently a member of (archived ones left out). */
+async function getMyActiveWorkspaceIds(userId: string): Promise<string[]> {
+  const { rows } = await pool.query<{ organizationId: string }>(
+    `SELECT m."organizationId" FROM member m
+      WHERE m."userId" = $1
+        AND NOT EXISTS (SELECT 1 FROM workspace_archive wa WHERE wa.organization_id = m."organizationId")`,
+    [userId],
+  )
+  return rows.map((r) => r.organizationId)
 }
 
 /** The people a team's events can be assigned to: its members plus its creator. */
@@ -745,26 +766,12 @@ export const listFlowlineCalendarEvents = async (
     ],
   }
 
-  // The global, cross-workspace Calendar stays exactly as before — strictly
-  // your own events, no team sharing. Team-visible events only exist within
-  // a specific Workspace Calendar.
-  if (scope === 'global') {
-    const { docs } = await payload.find({
-      collection: 'calendar-events',
-      limit: 500,
-      sort: 'startDate',
-      where: { and: [{ userId: { equals: userId } }, dateFilter] },
-    })
-    return { docs }
-  }
-
-  const workspaceId = await getCurrentWorkspaceId()
   const findEvents = async (visibility: Where) => {
     const { docs } = await payload.find({
       collection: 'calendar-events',
       limit: 500,
       sort: 'startDate',
-      where: { and: [workspaceWhereClause(workspaceId), visibility, dateFilter] },
+      where: { and: [visibility, dateFilter] },
     })
     // A recurring series' modified occurrences are separate documents that
     // may not match the visibility rule themselves (created before they
@@ -783,6 +790,25 @@ export const listFlowlineCalendarEvents = async (
     return [...docs, ...overrides.filter((o) => !known.has(o.id))]
   }
 
+  // The global, cross-workspace Calendar: everything that is in the user's
+  // own agenda of every workspace they belong to (see below), plus all of
+  // their own events (Personal included).
+  if (scope === 'global') {
+    const [agendaIds, workspaceIds] = await Promise.all([
+      getMyAgendaEventIds(userId),
+      getMyActiveWorkspaceIds(userId),
+    ])
+    const visibilityOr: Where[] = [{ userId: { equals: userId } }]
+    if (agendaIds.length > 0 && workspaceIds.length > 0) {
+      visibilityOr.push({
+        and: [{ id: { in: agendaIds } }, { workspace: { in: workspaceIds } }],
+      })
+    }
+    return { docs: await findEvents({ or: visibilityOr }) }
+  }
+
+  const workspaceId = await getCurrentWorkspaceId()
+
   // One team's calendar: every event of that team. Readable by any member of
   // the workspace (not only the team's own members).
   if (workspaceId && calendar !== 'mine') {
@@ -793,20 +819,24 @@ export const listFlowlineCalendarEvents = async (
     if (!(await getWorkspaceRoleForUser(workspaceId, userId))) return { docs: [] }
     return {
       docs: await findEvents({
-        or: [{ team: { equals: calendar.teamId } }, { teams: { in: [calendar.teamId] } }],
+        and: [
+          workspaceWhereClause(workspaceId),
+          { or: [{ team: { equals: calendar.teamId } }, { teams: { in: [calendar.teamId] } }] },
+        ],
       }),
     }
   }
 
-  // The viewer's own agenda: events they created outside any team, plus
-  // every event (team or not) someone assigned them to. A team event they're
-  // not assigned to only appears in that team's calendar.
-  const assignedIds = workspaceId ? await getAssignedEventIds(userId) : []
-  const visibilityOr: Where[] = [
-    { and: [{ userId: { equals: userId } }, { team: { exists: false } }] },
-  ]
-  if (assignedIds.length > 0) visibilityOr.push({ id: { in: assignedIds } })
-  return { docs: await findEvents({ or: visibilityOr }) }
+  // The viewer's own agenda: every event they created (team events
+  // included), plus every event they're on — assigned, or an accepted
+  // meeting invitation. A team event they're not on only appears in that
+  // team's calendar.
+  const agendaIds = workspaceId ? await getMyAgendaEventIds(userId) : []
+  const visibilityOr: Where[] = [{ userId: { equals: userId } }]
+  if (agendaIds.length > 0) visibilityOr.push({ id: { in: agendaIds } })
+  return {
+    docs: await findEvents({ and: [workspaceWhereClause(workspaceId), { or: visibilityOr }] }),
+  }
 }
 
 export const listGoogleCalendarEvents = async (

@@ -774,6 +774,8 @@ export const useNotifications = () => {
         return
       }
       queryClient.invalidateQueries({ queryKey: ['workspace-calendar-events'] })
+      // An accepted meeting now shows in the global Calendar too.
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] })
     },
   })
 

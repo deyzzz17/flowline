@@ -162,11 +162,12 @@ export const customRoleRoute: Router = (doc) => ({
 })
 
 // The workspace channel covers everyone looking at a team calendar; the
-// assignees' own channels cover their personal agenda (and previousDoc runs
-// through here too, so someone just unassigned gets refreshed as well).
+// creator's and assignees' own channels cover their personal agenda and
+// their global Calendar (and previousDoc runs through here too, so someone
+// just unassigned gets refreshed as well).
 export const calendarEventRoute: Router = (doc) => ({
-  channels: [ws(doc), ...users(doc.assignedTo)],
-  keys: [['workspace-calendar-events']],
+  channels: [ws(doc), ...users([doc.userId, ...((doc.assignedTo as string[] | undefined) ?? [])])],
+  keys: [['workspace-calendar-events'], ['calendar-events-flowline']],
 })
 
 export const calendarCategoryRoute: Router = (doc) => ({
@@ -243,6 +244,11 @@ export const eventInvitationRoute: Router = async (doc, req) => {
     : null
   return {
     channels: [event ? ws(event as Doc) : null, ...users([doc.userId, doc.invitedBy])],
-    keys: [['notifications'], ['workspace-calendar-events'], ['event-invitations']],
+    keys: [
+      ['notifications'],
+      ['workspace-calendar-events'],
+      ['calendar-events-flowline'],
+      ['event-invitations'],
+    ],
   }
 }
