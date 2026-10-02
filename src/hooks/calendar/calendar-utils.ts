@@ -49,6 +49,18 @@ export type CalendarItem = CalendarEvent | CalendarTask
 export const SLOT_HEIGHT = 56
 export const MIN_DURATION_MIN = 15
 export const DEFAULT_TASK_DURATION_MIN = 30
+
+/**
+ * A task never spans two days in the calendar: its length is capped so it
+ * ends at the latest at midnight after its due date (local time).
+ */
+export function capTaskDurationAtMidnight(dueDate: string | Date, minutes: number): number {
+  const start = new Date(dueDate)
+  const midnight = new Date(start)
+  midnight.setHours(24, 0, 0, 0)
+  const untilMidnight = Math.round((midnight.getTime() - start.getTime()) / 60000)
+  return Math.max(1, Math.min(minutes, untilMidnight))
+}
 export const VALID_VIEWS: CalendarView[] = ['year', 'month', 'week', 'day']
 
 export function minutesToPx(minutes: number) {

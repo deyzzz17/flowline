@@ -4,7 +4,11 @@ import { useCallback, useMemo, useState } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
-import { type CalendarEventData, type EditScope, type SeriesAdjustment } from '@/api/calendar/actions'
+import {
+  type CalendarEventData,
+  type EditScope,
+  type SeriesAdjustment,
+} from '@/api/calendar/actions'
 import { generateOccurrences } from '@/api/calendar/calendar-recurrence'
 import { useCalendarFilter } from '@/components/calendar/calendar-filter-context'
 import { useLivePollInterval } from '@/components/providers/realtime-provider'
@@ -25,6 +29,7 @@ import {
   minutesToPx,
   MIN_DURATION_MIN,
   DEFAULT_TASK_DURATION_MIN,
+  capTaskDurationAtMidnight,
 } from './calendar-utils'
 
 const EVENTS_QUERY_KEY = 'workspace-calendar-events'
@@ -405,7 +410,10 @@ export const useWorkspaceCalendar = () => {
         return minutesToPx(durationMin)
       } else {
         return minutesToPx(
-          Math.max(MIN_DURATION_MIN, item.estimatedDuration ?? DEFAULT_TASK_DURATION_MIN),
+          capTaskDurationAtMidnight(
+            item.dueDate,
+            Math.max(MIN_DURATION_MIN, item.estimatedDuration ?? DEFAULT_TASK_DURATION_MIN),
+          ),
         )
       }
     },
@@ -578,15 +586,33 @@ export const useWorkspaceCalendar = () => {
   })
 
   const moveTaskMutation = useMutation({
-    mutationFn: ({ id, dueDate }: { id: number; dueDate: string }) =>
-      api.tasks.edit(id, { dueDate }),
-    onMutate: async ({ id, dueDate }) => {
+    mutationFn: ({
+      id,
+      dueDate,
+      estimatedDuration,
+    }: {
+      id: number
+      dueDate: string
+      estimatedDuration?: number
+    }) =>
+      api.tasks.edit(id, {
+        dueDate,
+        ...(estimatedDuration !== undefined && { estimatedDuration }),
+      }),
+    onMutate: async ({ id, dueDate, estimatedDuration }) => {
       await queryClient.cancelQueries({ queryKey: ['tasks'] })
       const snapshot = queryClient.getQueriesData({ queryKey: ['tasks'] })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       queryClient.setQueriesData<{ docs: any[] }>({ queryKey: ['tasks'] }, (old) => {
         if (!old?.docs) return old
-        return { ...old, docs: old.docs.map((t) => (t.id === id ? { ...t, dueDate } : t)) }
+        return {
+          ...old,
+          docs: old.docs.map((t) =>
+            t.id === id
+              ? { ...t, dueDate, ...(estimatedDuration !== undefined && { estimatedDuration }) }
+              : t,
+          ),
+        }
       })
       clearOptimisticDate('task', id)
       return { snapshot }
@@ -853,9 +879,16 @@ export const useWorkspaceCalendar = () => {
         next.set(`task-${id}`, { startDate: newDueDate.toISOString() })
         return next
       })
-      moveTaskMutation.mutate({ id, dueDate: newDueDate.toISOString() })
+      // Moved late in the day: shorten it so it still ends by midnight.
+      const stored = tasks.find((t) => t.id === id)?.estimatedDuration ?? null
+      const capped = stored !== null ? capTaskDurationAtMidnight(newDueDate, stored) : undefined
+      moveTaskMutation.mutate({
+        id,
+        dueDate: newDueDate.toISOString(),
+        ...(capped !== undefined && capped !== stored && { estimatedDuration: capped }),
+      })
     },
-    [moveTaskMutation],
+    [tasks, moveTaskMutation],
   )
 
   // A task starts at its due date: resizing only changes its length
@@ -864,10 +897,14 @@ export const useWorkspaceCalendar = () => {
     (id: number, newEndDate: Date) => {
       const task = tasksWithOverrides.find((t) => t.id === id)
       if (!task) return
-      const minutes = Math.round(
-        (newEndDate.getTime() - new Date(task.dueDate).getTime()) / 60000,
-      )
-      resizeTaskMutation.mutate({ id, estimatedDuration: Math.max(MIN_DURATION_MIN, minutes) })
+      const minutes = Math.round((newEndDate.getTime() - new Date(task.dueDate).getTime()) / 60000)
+      resizeTaskMutation.mutate({
+        id,
+        estimatedDuration: capTaskDurationAtMidnight(
+          task.dueDate,
+          Math.max(MIN_DURATION_MIN, minutes),
+        ),
+      })
     },
     [tasksWithOverrides, resizeTaskMutation],
   )
