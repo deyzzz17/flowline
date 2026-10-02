@@ -39,6 +39,8 @@ export interface CalendarTask {
   listName: string
   listColor: string
   listSlug: string
+  /** Length shown in the calendar, in minutes (set by resizing the task). */
+  estimatedDuration: number | null
   type: 'task'
 }
 
@@ -46,6 +48,7 @@ export type CalendarItem = CalendarEvent | CalendarTask
 
 export const SLOT_HEIGHT = 56
 export const MIN_DURATION_MIN = 15
+export const DEFAULT_TASK_DURATION_MIN = 30
 export const VALID_VIEWS: CalendarView[] = ['year', 'month', 'week', 'day']
 
 export function minutesToPx(minutes: number) {

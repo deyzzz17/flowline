@@ -29,6 +29,7 @@ import {
   formatDateForUrl,
   minutesToPx,
   MIN_DURATION_MIN,
+  DEFAULT_TASK_DURATION_MIN,
 } from './calendar-utils'
 
 export type { CalendarView, CalendarEvent, CalendarTask, CalendarItem }
@@ -290,6 +291,7 @@ export const useCalendar = () => {
           listName: list?.name ?? '',
           listColor: list?.category?.color ?? '#8b5cf6',
           listSlug: list?.slug ?? '',
+          estimatedDuration: t.estimatedDuration ?? null,
           type: 'task' as const,
         }
       })
@@ -427,15 +429,9 @@ export const useCalendar = () => {
         )
         return minutesToPx(durationMin)
       } else {
-        const override = optimisticOverrides.get(`task-${item.id}`)
-        if (override?.endDate) {
-          const durationMin = Math.max(
-            MIN_DURATION_MIN,
-            (new Date(override.endDate).getTime() - new Date(item.dueDate).getTime()) / 60000,
-          )
-          return minutesToPx(durationMin)
-        }
-        return minutesToPx(30)
+        return minutesToPx(
+          Math.max(MIN_DURATION_MIN, item.estimatedDuration ?? DEFAULT_TASK_DURATION_MIN),
+        )
       }
     },
     [optimisticOverrides],
@@ -619,6 +615,32 @@ export const useCalendar = () => {
       }
       clearOptimisticDate('task', id)
       toast.error('Failed to reschedule task')
+    },
+  })
+
+  const resizeTaskMutation = useMutation({
+    mutationFn: ({ id, estimatedDuration }: { id: number; estimatedDuration: number }) =>
+      api.tasks.edit(id, { estimatedDuration }),
+    onMutate: async ({ id, estimatedDuration }) => {
+      await queryClient.cancelQueries({ queryKey: ['tasks'] })
+      const snapshot = queryClient.getQueriesData({ queryKey: ['tasks'] })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      queryClient.setQueriesData<{ docs: any[] }>({ queryKey: ['tasks'] }, (old) => {
+        if (!old?.docs) return old
+        return {
+          ...old,
+          docs: old.docs.map((t) => (t.id === id ? { ...t, estimatedDuration } : t)),
+        }
+      })
+      return { snapshot }
+    },
+    onError: (_, __, context) => {
+      if (context?.snapshot) {
+        for (const [queryKey, data] of context.snapshot) {
+          queryClient.setQueryData(queryKey, data)
+        }
+      }
+      toast.error('Failed to resize task')
     },
   })
 
@@ -853,16 +875,18 @@ export const useCalendar = () => {
     [moveTaskMutation],
   )
 
+  // A task starts at its due date: resizing only changes its length
+  // (estimatedDuration), never the due date itself.
   const resizeTask = useCallback(
     (id: number, newEndDate: Date) => {
-      setOptimisticOverrides((prev) => {
-        const next = new Map(prev)
-        next.set(`task-end-${id}`, { endDate: newEndDate.toISOString() })
-        return next
-      })
-      moveTaskMutation.mutate({ id, dueDate: newEndDate.toISOString() })
+      const task = tasksWithOverrides.find((t) => t.id === id)
+      if (!task) return
+      const minutes = Math.round(
+        (newEndDate.getTime() - new Date(task.dueDate).getTime()) / 60000,
+      )
+      resizeTaskMutation.mutate({ id, estimatedDuration: Math.max(MIN_DURATION_MIN, minutes) })
     },
-    [moveTaskMutation],
+    [tasksWithOverrides, resizeTaskMutation],
   )
 
   const getItemsForDate = useCallback(

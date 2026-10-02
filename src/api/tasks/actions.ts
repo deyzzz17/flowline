@@ -44,7 +44,10 @@ type CreateTaskInput = {
 }
 
 type EditTaskInput = Partial<
-  Pick<Task, 'title' | 'description' | 'tags' | 'subtasks' | 'recurrence' | 'dueDate'>
+  Pick<
+    Task,
+    'title' | 'description' | 'tags' | 'subtasks' | 'recurrence' | 'dueDate' | 'estimatedDuration'
+  >
 > & {
   customTags?: number[]
   autoDeleteOnDueDate?: boolean
@@ -923,6 +926,18 @@ export const editTask = async (id: number, draft: EditTaskInput) => {
       }
     }
 
+    // Calendar length in minutes (resizing a task in the calendar).
+    if (
+      draft.estimatedDuration != null &&
+      !(
+        Number.isInteger(draft.estimatedDuration) &&
+        draft.estimatedDuration >= 1 &&
+        draft.estimatedDuration <= 24 * 60
+      )
+    ) {
+      return err('Invalid duration')
+    }
+
     const updatedTask = await payload.update({
       collection: 'tasks',
       id,
@@ -935,6 +950,9 @@ export const editTask = async (id: number, draft: EditTaskInput) => {
         ...(finalAssignedTo !== undefined && { assignedTo: finalAssignedTo }),
         ...(draft.recurrence !== undefined && { recurrence: draft.recurrence }),
         ...(draft.dueDate !== undefined && { dueDate: draft.dueDate }),
+        ...(draft.estimatedDuration !== undefined && {
+          estimatedDuration: draft.estimatedDuration,
+        }),
         ...(draft.autoDeleteOnDueDate !== undefined && {
           autoDeleteOnDueDate: draft.autoDeleteOnDueDate,
         }),
