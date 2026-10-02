@@ -534,6 +534,129 @@ export const listTasks = async (
   })
 }
 
+// Every active task the user can pick for a focus session, across ALL their
+// workspaces (not just the active one): tasks of lists they can view, plus
+// their own tasks without a list. Left out: tasks — and subtasks — assigned
+// only to other people, and tasks of team lists the user isn't part of (even
+// as a workspace owner/admin, who can otherwise open them).
+// Mirrors resolveListRole() with a handful of batched queries instead of a
+// lookup per list.
+export const listTasksForTimer = async (): Promise<{ docs: Task[] }> => {
+  const userId = await getUserId()
+  if (!userId) return { docs: [] }
+  const payload = await getPayload({ config })
+
+  const [{ rows: memberships }, { docs: memberRows }, { docs: teamRows }, { docs: createdTeams }] =
+    await Promise.all([
+      pool.query<{ organizationId: string; role: string }>(
+        `SELECT m."organizationId", m.role FROM member m
+          WHERE m."userId" = $1
+            AND NOT EXISTS (SELECT 1 FROM workspace_archive wa WHERE wa.organization_id = m."organizationId")`,
+        [userId],
+      ),
+      payload.find({
+        collection: 'list-members',
+        where: { and: [{ userId: { equals: userId } }, { status: { equals: 'accepted' } }] },
+        limit: 0,
+        depth: 0,
+        select: { list: true },
+      }),
+      payload.find({
+        collection: 'team-members',
+        where: { userId: { equals: userId } },
+        limit: 0,
+        depth: 0,
+        select: { team: true },
+      }),
+      payload.find({
+        collection: 'teams',
+        where: { createdBy: { equals: userId } },
+        limit: 0,
+        depth: 0,
+        select: { createdBy: true },
+      }),
+    ])
+
+  const workspaceRoles = new Map(memberships.map((m) => [m.organizationId, m.role]))
+  const memberListIds = new Set(
+    memberRows
+      .map((r) => (typeof r.list === 'object' ? r.list?.id : r.list))
+      .filter((id): id is number => typeof id === 'number'),
+  )
+  const myTeamIds = new Set<number>([
+    ...teamRows
+      .map((r) => (typeof r.team === 'object' ? r.team?.id : r.team))
+      .filter((id): id is number => typeof id === 'number'),
+    ...createdTeams.map((t) => t.id),
+  ])
+
+  const { docs: lists } = await payload.find({
+    collection: 'lists',
+    where: {
+      and: [
+        { planArchivedAt: { exists: false } },
+        {
+          or: [
+            { userId: { equals: userId } },
+            ...(memberListIds.size > 0 ? [{ id: { in: [...memberListIds] } }] : []),
+            ...(workspaceRoles.size > 0 ? [{ workspace: { in: [...workspaceRoles.keys()] } }] : []),
+          ],
+        },
+      ],
+    },
+    limit: 0,
+    depth: 0,
+    select: { userId: true, workspace: true, team: true, isShared: true },
+  })
+
+  const canPick = (list: (typeof lists)[number]): boolean => {
+    const isOwner = list.userId === userId
+    const workspaceId = (list as { workspace?: string | null }).workspace ?? null
+    if (!workspaceId) return isOwner || (!!list.isShared && memberListIds.has(list.id))
+    const role = workspaceRoles.get(workspaceId)
+    if (!role) return false // not (or no longer) in that workspace, or it's archived
+    if (list.team) {
+      const teamId = typeof list.team === 'object' ? list.team.id : list.team
+      return isOwner || myTeamIds.has(teamId)
+    }
+    if (isOwner) return true
+    if (!list.isShared) return false
+    return role === 'owner' || role === 'admin' || memberListIds.has(list.id)
+  }
+  const listIds = lists.filter(canPick).map((l) => l.id)
+
+  const { docs: tasks } = await payload.find({
+    collection: 'tasks',
+    where: {
+      and: [
+        { status: { equals: 'active' } },
+        { planArchivedAt: { exists: false } },
+        {
+          or: [
+            ...(listIds.length > 0 ? [{ list: { in: listIds } }] : []),
+            { and: [{ list: { exists: false } }, { userId: { equals: userId } }] },
+          ],
+        },
+      ],
+    },
+    sort: '-createdAt',
+    limit: 0,
+    depth: 1,
+  })
+
+  const isForMe = (assignedTo: unknown) =>
+    !Array.isArray(assignedTo) || assignedTo.length === 0 || assignedTo.includes(userId)
+
+  return {
+    docs: tasks
+      .filter((t) => isForMe(t.assignedTo))
+      .map((t) => ({
+        ...t,
+        subtasks: (t.subtasks ?? []).filter((st) => isForMe(st.assignedTo)),
+      })),
+  }
+}
+
 function getTimezoneOffsetMinutes(date: Date, timeZone: string): number {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone,

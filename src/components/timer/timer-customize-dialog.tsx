@@ -104,14 +104,15 @@ export const TimerCustomizeDialog = ({
   } = useTimerCustomize()
 
   const { data: tasksData } = useQuery({
-    queryKey: ['tasks'],
-    queryFn: () => api.tasks.list(),
+    // Every pickable task across all workspaces (see listTasksForTimer).
+    queryKey: ['tasks', 'timer-selectable'],
+    queryFn: () => api.tasks.listForTimer(),
     enabled: open && analyticsOpen,
     staleTime: 30_000,
   })
   const ownActiveTasks = (tasksData?.docs ?? []).filter((t) => t.status === 'active')
-  // api.tasks.list() only returns tasks the viewer created, so a task opened
-  // from a shared list or assigned to them must be added for it to be selectable.
+  // The task the dialog was opened for is always selectable, even if the
+  // list above doesn't include it (e.g. a task assigned to someone else).
   const activeTasks =
     initialTask && !ownActiveTasks.some((t) => t.id === initialTask.task.id)
       ? [initialTask.task, ...ownActiveTasks]
