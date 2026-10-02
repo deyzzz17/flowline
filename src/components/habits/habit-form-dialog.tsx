@@ -29,7 +29,18 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
-import type { HabitData, HabitWithStats, TrackingField, HabitGoal } from '@/api/habits/actions'
+import type {
+  HabitData,
+  HabitWithStats,
+  TrackingField,
+  TrackingFieldType,
+  HabitGoal,
+} from '@/api/habits/actions'
+import {
+  TRACKING_LIST_MAX_OPTIONS,
+  TRACKING_LIST_MIN_OPTIONS,
+  TRACKING_LIST_OPTION_MAX_LENGTH,
+} from '@/lib/tracking-fields'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { format } from 'date-fns'
@@ -82,7 +93,6 @@ const DEFAULT_TRACKING_FIELDS: Omit<TrackingField, 'enabled'>[] = [
 const FALLBACK_TRACKING_FIELDS_LIMIT = 0
 const FALLBACK_GOALS_LIMIT = 5
 
-type TrackingFieldType = 'number' | 'text' | 'boolean'
 type FieldTarget = { fieldKey: string; targetValue: number }
 
 interface GoalDraft {
@@ -459,6 +469,7 @@ function HabitFormInner({
     planLimits?.limits.trackingFieldsPerHabit ?? FALLBACK_TRACKING_FIELDS_LIMIT
   const goalsLimit = planLimits?.limits.goalsPerHabit ?? FALLBACK_GOALS_LIMIT
   const isCustomFieldsBlocked = trackingFieldsLimit === 0
+  const canCreateListFields = (planLimits?.limits.trackingListFields ?? 0) > 0
 
   const [name, setName] = useState(init.name)
   const [description, setDescription] = useState(init.description)
@@ -482,6 +493,8 @@ function HabitFormInner({
   const [editingGoal, setEditingGoal] = useState<GoalDraft | null>(null)
   const [newFieldLabel, setNewFieldLabel] = useState('')
   const [newFieldType, setNewFieldType] = useState<TrackingFieldType>('number')
+  const [newFieldOptions, setNewFieldOptions] = useState<string[]>([])
+  const [newOptionInput, setNewOptionInput] = useState('')
   const [showAddField, setShowAddField] = useState(false)
   const [repeatEveryDays, setRepeatEveryDays] = useState(init.repeatEveryDays)
   const [limitError, setLimitError] = useState<LimitError | null>(null)
@@ -582,8 +595,35 @@ function HabitFormInner({
       prev.map((f) => (f.key === key ? { ...f, enabled: !f.enabled } : f)),
     )
 
+  const addNewOption = () => {
+    const option = newOptionInput.trim().slice(0, TRACKING_LIST_OPTION_MAX_LENGTH)
+    if (!option) return
+    if (newFieldOptions.some((o) => o.toLowerCase() === option.toLowerCase())) return
+    if (newFieldOptions.length >= TRACKING_LIST_MAX_OPTIONS) return
+    setNewFieldOptions((prev) => [...prev, option])
+    setNewOptionInput('')
+  }
+
+  const resetNewField = () => {
+    setNewFieldLabel('')
+    setNewFieldType('number')
+    setNewFieldOptions([])
+    setNewOptionInput('')
+  }
+
+  const selectNewFieldType = (t: TrackingFieldType) => {
+    if (t === 'list' && !canCreateListFields) {
+      setLimitError(LIMIT_ERRORS.TRACKING_LIST_FIELDS_PRO)
+      return
+    }
+    setNewFieldType(t)
+  }
+
+  const isNewListIncomplete =
+    newFieldType === 'list' && newFieldOptions.length < TRACKING_LIST_MIN_OPTIONS
+
   const addCustomField = () => {
-    if (!newFieldLabel.trim()) return
+    if (!newFieldLabel.trim() || isNewListIncomplete) return
     const customFieldsCount = trackingFields.filter((f) => !f.isDefault).length
     if (customFieldsCount >= trackingFieldsLimit) {
       if (planLimits && isPlanUnlimited(planLimits.plan, 'trackingFieldsPerHabit')) {
@@ -599,12 +639,12 @@ function HabitFormInner({
         key: `custom_${Date.now()}`,
         label: newFieldLabel.trim(),
         type: newFieldType,
+        ...(newFieldType === 'list' && { options: newFieldOptions }),
         isDefault: false,
         enabled: true,
       },
     ])
-    setNewFieldLabel('')
-    setNewFieldType('number')
+    resetNewField()
     setShowAddField(false)
   }
 
@@ -1134,8 +1174,13 @@ function HabitFormInner({
                     <span className="flex-1 text-xs font-medium text-foreground">
                       {field.label}
                     </span>
-                    <span className="text-[10px] text-muted-foreground/50 capitalize">
-                      {field.type}
+                    <span
+                      className="max-w-[45%] truncate text-[10px] text-muted-foreground/50 capitalize"
+                      title={field.type === 'list' ? field.options?.join(', ') : undefined}
+                    >
+                      {field.type === 'list'
+                        ? `List · ${field.options?.join(', ') ?? ''}`
+                        : field.type}
                     </span>
                     <button
                       type="button"
@@ -1165,27 +1210,82 @@ function HabitFormInner({
               }}
             />
             <div className="flex gap-1.5">
-              {(['number', 'text', 'boolean'] as TrackingFieldType[]).map((t) => (
+              {(['number', 'text', 'boolean', 'list'] as TrackingFieldType[]).map((t) => (
                 <button
                   key={t}
                   type="button"
-                  onClick={() => setNewFieldType(t)}
+                  onClick={() => selectNewFieldType(t)}
+                  title={t === 'list' && !canCreateListFields ? 'Pro feature' : undefined}
                   className={cn(
-                    'flex-1 rounded-lg border py-1.5 text-[11px] font-medium capitalize transition-all',
+                    'flex flex-1 items-center justify-center gap-1 rounded-lg border py-1.5 text-[11px] font-medium capitalize transition-all',
                     newFieldType === t
                       ? 'border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400'
                       : 'border-border/60 text-muted-foreground hover:bg-muted',
                   )}
                 >
+                  {t === 'list' && !canCreateListFields && <Lock className="h-2.5 w-2.5" />}
                   {t}
                 </button>
               ))}
             </div>
+            {newFieldType === 'list' && (
+              <div className="space-y-2">
+                <p className="text-[11px] text-muted-foreground">
+                  Options to pick from ({TRACKING_LIST_MIN_OPTIONS}–{TRACKING_LIST_MAX_OPTIONS})
+                </p>
+                {newFieldOptions.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {newFieldOptions.map((o) => (
+                      <span
+                        key={o}
+                        className="flex items-center gap-1 rounded-full border border-border/60 bg-muted/40 py-0.5 pl-2 pr-1 text-[11px] text-foreground"
+                      >
+                        {o}
+                        <button
+                          type="button"
+                          onClick={() => setNewFieldOptions((prev) => prev.filter((x) => x !== o))}
+                          className="text-muted-foreground/60 hover:text-destructive"
+                          aria-label={`Remove ${o}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {newFieldOptions.length < TRACKING_LIST_MAX_OPTIONS && (
+                  <div className="flex gap-1.5">
+                    <Input
+                      value={newOptionInput}
+                      onChange={(e) => setNewOptionInput(e.target.value)}
+                      maxLength={TRACKING_LIST_OPTION_MAX_LENGTH}
+                      placeholder="Add an option..."
+                      className="h-8 text-sm"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          addNewOption()
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={addNewOption}
+                      disabled={!newOptionInput.trim()}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/60 text-muted-foreground hover:bg-muted disabled:opacity-40"
+                      aria-label="Add option"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="flex gap-1.5">
               <button
                 type="button"
                 onClick={addCustomField}
-                disabled={!newFieldLabel.trim()}
+                disabled={!newFieldLabel.trim() || isNewListIncomplete}
                 className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-foreground px-3 py-1.5 text-xs font-semibold text-background disabled:opacity-40"
               >
                 <Plus className="h-3 w-3" />
@@ -1195,7 +1295,7 @@ function HabitFormInner({
                 type="button"
                 onClick={() => {
                   setShowAddField(false)
-                  setNewFieldLabel('')
+                  resetNewField()
                 }}
                 className="rounded-lg border border-border/60 px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted"
               >

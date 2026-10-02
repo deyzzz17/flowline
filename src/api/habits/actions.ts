@@ -1,5 +1,10 @@
 'use server'
 
+import {
+  TRACKING_LIST_MAX_OPTIONS,
+  TRACKING_LIST_MIN_OPTIONS,
+  TRACKING_LIST_OPTION_MAX_LENGTH,
+} from '@/lib/tracking-fields'
 import 'server-only'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
@@ -33,12 +38,61 @@ function addDays(date: Date, n: number): Date {
   return d
 }
 
+export type TrackingFieldType = 'number' | 'text' | 'boolean' | 'list'
+
 export interface TrackingField {
   key: string
   label: string
-  type: 'number' | 'text' | 'boolean'
+  type: TrackingFieldType
+  /** The choices of a "list" field (Pro), in display order. */
+  options?: string[]
   isDefault: boolean
   enabled: boolean
+}
+
+const TRACKING_FIELD_TYPES: TrackingFieldType[] = ['number', 'text', 'boolean', 'list']
+
+/**
+ * Validates and normalizes submitted tracking fields. A "list" field needs a
+ * Pro plan — except one that already existed on the habit (kept after a
+ * downgrade) — and 2–20 distinct, non-empty options.
+ */
+function sanitizeTrackingFields(
+  fields: TrackingField[],
+  existingFields: TrackingField[],
+  canCreateListFields: boolean,
+): { ok: true; fields: TrackingField[] } | { ok: false; error: string } {
+  const existingListKeys = new Set(
+    existingFields.filter((f) => f.type === 'list').map((f) => f.key),
+  )
+  const out: TrackingField[] = []
+  for (const f of fields) {
+    if (!TRACKING_FIELD_TYPES.includes(f.type)) return { ok: false, error: 'Invalid field type' }
+    if (f.type !== 'list') {
+      const { options: _options, ...rest } = f
+      out.push(rest)
+      continue
+    }
+    if (!canCreateListFields && !existingListKeys.has(f.key)) {
+      return { ok: false, error: LIMIT_ERRORS.TRACKING_LIST_FIELDS_PRO }
+    }
+    const seen = new Set<string>()
+    const options: string[] = []
+    for (const raw of f.options ?? []) {
+      const option = String(raw).trim().slice(0, TRACKING_LIST_OPTION_MAX_LENGTH)
+      if (!option || seen.has(option.toLowerCase())) continue
+      seen.add(option.toLowerCase())
+      options.push(option)
+    }
+    if (options.length < TRACKING_LIST_MIN_OPTIONS || options.length > TRACKING_LIST_MAX_OPTIONS) {
+      return {
+        ok: false,
+        error: `A list field needs between ${TRACKING_LIST_MIN_OPTIONS} and ${TRACKING_LIST_MAX_OPTIONS} options`,
+      }
+    }
+    out.push({ ...f, options })
+  }
+  return { ok: true, fields: out }
 }
 
 export interface HabitGoalFieldTarget {
@@ -690,6 +744,13 @@ export const createHabit = async (data: HabitData) => {
       )
     }
 
+    let trackingFields = data.trackingFields
+    if (trackingFields) {
+      const sanitized = sanitizeTrackingFields(trackingFields, [], limits.trackingListFields > 0)
+      if (!sanitized.ok) return err(sanitized.error)
+      trackingFields = sanitized.fields
+    }
+
     const habit = await payload.create({
       collection: 'habits',
       data: {
@@ -709,7 +770,7 @@ export const createHabit = async (data: HabitData) => {
         habitDuration: data.habitDuration ?? undefined,
         relativePosition: data.relativePosition ?? undefined,
         relativeEventId: data.relativeEventId ?? undefined,
-        trackingFields: data.trackingFields ? JSON.stringify(data.trackingFields) : undefined,
+        trackingFields: trackingFields ? JSON.stringify(trackingFields) : undefined,
         goals: data.goals ? JSON.stringify(data.goals) : undefined,
         repeatEveryDays: data.repeatEveryDays ?? undefined,
       } as any,
@@ -1014,6 +1075,16 @@ export const updateHabit = async (id: number, data: Partial<HabitData>) => {
             ? SAFETY_CAP_ERRORS.GOALS_CAP
             : LIMIT_ERRORS.GOALS_LIMIT,
         )
+      }
+
+      if (data.trackingFields) {
+        const sanitized = sanitizeTrackingFields(
+          data.trackingFields,
+          parseJsonField<TrackingField[]>((existing as any).trackingFields) ?? [],
+          limits.trackingListFields > 0,
+        )
+        if (!sanitized.ok) return err(sanitized.error)
+        data = { ...data, trackingFields: sanitized.fields }
       }
     }
 

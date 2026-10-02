@@ -599,6 +599,10 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
         setLimitError(LIMIT_ERRORS.TRACKING_FIELDS_LIMIT)
         return
       }
+      if (result.error === LIMIT_ERRORS.TRACKING_LIST_FIELDS_PRO) {
+        setLimitError(LIMIT_ERRORS.TRACKING_LIST_FIELDS_PRO)
+        return
+      }
       if (result.error === SAFETY_CAP_ERRORS.TRACKING_FIELDS_CAP) {
         setCapError(SAFETY_CAP_ERRORS.TRACKING_FIELDS_CAP)
         return
@@ -654,6 +658,10 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
 
       if (result.error === LIMIT_ERRORS.TRACKING_FIELDS_LIMIT) {
         setLimitError(LIMIT_ERRORS.TRACKING_FIELDS_LIMIT)
+        return
+      }
+      if (result.error === LIMIT_ERRORS.TRACKING_LIST_FIELDS_PRO) {
+        setLimitError(LIMIT_ERRORS.TRACKING_LIST_FIELDS_PRO)
         return
       }
       if (result.error === SAFETY_CAP_ERRORS.TRACKING_FIELDS_CAP) {

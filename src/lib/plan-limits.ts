@@ -7,6 +7,8 @@ export interface PlanLimits {
   subtasksPerTask: number
   customTags: number
   trackingFieldsPerHabit: number
+  /** "List" tracking fields (custom options) per habit — a Pro feature: 0 means "not on this plan". */
+  trackingListFields: number
   goalsPerHabit: number
   calendarCategories: number
   contacts: number
@@ -49,6 +51,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     subtasksPerTask: 10,
     customTags: 10,
     trackingFieldsPerHabit: 0,
+    trackingListFields: 0,
     goalsPerHabit: 5,
     calendarCategories: 20,
     contacts: 10,
@@ -67,6 +70,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     subtasksPerTask: UNLIMITED,
     customTags: UNLIMITED,
     trackingFieldsPerHabit: 10,
+    trackingListFields: 0,
     goalsPerHabit: UNLIMITED,
     calendarCategories: UNLIMITED,
     contacts: UNLIMITED,
@@ -87,6 +91,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     subtasksPerTask: UNLIMITED,
     customTags: UNLIMITED,
     trackingFieldsPerHabit: UNLIMITED,
+    trackingListFields: UNLIMITED,
     goalsPerHabit: UNLIMITED,
     calendarCategories: UNLIMITED,
     contacts: UNLIMITED,
@@ -110,6 +115,10 @@ export function getLimits(plan: Plan): PlanLimits {
     customTags: Math.min(limits.customTags, ABSOLUTE_MAX_CUSTOM_TAGS),
     trackingFieldsPerHabit: Math.min(
       limits.trackingFieldsPerHabit,
+      ABSOLUTE_MAX_TRACKING_FIELDS_PER_HABIT,
+    ),
+    trackingListFields: Math.min(
+      limits.trackingListFields,
       ABSOLUTE_MAX_TRACKING_FIELDS_PER_HABIT,
     ),
     goalsPerHabit: Math.min(limits.goalsPerHabit, ABSOLUTE_MAX_GOALS_PER_HABIT),
@@ -146,6 +155,7 @@ export const LIMIT_ERRORS = {
   SUBTASKS_LIMIT: 'SUBTASKS_LIMIT',
   TAGS_LIMIT: 'TAGS_LIMIT',
   TRACKING_FIELDS_LIMIT: 'TRACKING_FIELDS_LIMIT',
+  TRACKING_LIST_FIELDS_PRO: 'TRACKING_LIST_FIELDS_PRO',
   GOALS_LIMIT: 'GOALS_LIMIT',
   CALENDAR_CATEGORIES_LIMIT: 'CALENDAR_CATEGORIES_LIMIT',
   CONTACTS_LIMIT: 'CONTACTS_LIMIT',

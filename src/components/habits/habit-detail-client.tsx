@@ -445,7 +445,7 @@ export function HabitDetailClient({ habit: initialHabit, initialTrackingAnalytic
   }).reverse()
 
   const activeTrackingFields = (habit.trackingFields ?? []).filter((f) => f.enabled)
-  const hasNumberFields = activeTrackingFields.some((f) => f.type === 'number')
+  const hasTrackingFields = activeTrackingFields.length > 0
 
   return (
     <div className="px-4 pb-16 pt-8 sm:px-6 lg:px-10">
@@ -529,7 +529,7 @@ export function HabitDetailClient({ habit: initialHabit, initialTrackingAnalytic
         </div>
       </div>
 
-      {hasNumberFields && (
+      {hasTrackingFields && (
         <div className="mb-6">
           <HabitTrackingCharts
             habitId={habit.id}

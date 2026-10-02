@@ -22,16 +22,76 @@ export interface TrackingAnalyticsPoint {
   count: number
 }
 
-export interface TrackingFieldAnalytics {
+export interface NumberFieldAnalytics {
   fieldKey: string
   fieldLabel: string
-  fieldType: 'number' | 'text' | 'boolean'
+  fieldType: 'number'
   points: TrackingAnalyticsPoint[]
   total: number
   avg: number
   min: number
   max: number
 }
+
+export interface BooleanAnalyticsPoint {
+  label: string
+  dateKey: string
+  yes: number
+  no: number
+  /** % of "yes" among the answers of this bucket, null without any answer. */
+  rate: number | null
+}
+
+export interface BooleanFieldAnalytics {
+  fieldKey: string
+  fieldLabel: string
+  fieldType: 'boolean'
+  points: BooleanAnalyticsPoint[]
+  yes: number
+  no: number
+  rate: number | null
+}
+
+export interface TextFieldAnalytics {
+  fieldKey: string
+  fieldLabel: string
+  fieldType: 'text'
+  /** Completions with something written in this field. */
+  filled: number
+  /** Most frequent answers (trimmed, case-insensitive), most frequent first. */
+  topValues: { value: string; count: number }[]
+  /** Count of the answers not in topValues. */
+  otherCount: number
+  /** Number of different answers. */
+  distinct: number
+  /** 'journal' when answers are mostly all different (frequencies say nothing). */
+  mode: 'top' | 'journal'
+  /** Latest answers of the period, newest first. */
+  entries: { dateKey: string; value: string }[]
+}
+
+export interface ListAnalyticsPoint {
+  label: string
+  dateKey: string
+  /** How many times each option was picked in this bucket. */
+  counts: Record<string, number>
+  total: number
+}
+
+export interface ListFieldAnalytics {
+  fieldKey: string
+  fieldLabel: string
+  fieldType: 'list'
+  options: { value: string; count: number }[]
+  points: ListAnalyticsPoint[]
+  total: number
+}
+
+export type TrackingFieldAnalytics =
+  | NumberFieldAnalytics
+  | BooleanFieldAnalytics
+  | TextFieldAnalytics
+  | ListFieldAnalytics
 
 export interface HabitTrackingAnalyticsResult {
   periodLabel: string
@@ -159,6 +219,163 @@ function getBuckets(
   return buckets
 }
 
+type TrackedEntry = { at: Date; values: Record<string, unknown> }
+type Bucket = { label: string; dateKey: string; from: Date; to: Date }
+type FieldDef = { key: string; label: string; options?: string[] }
+
+function dateKeyOf(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function numberFieldAnalytics(
+  field: FieldDef,
+  buckets: Bucket[],
+  inBucket: (b: Bucket) => TrackedEntry[],
+): NumberFieldAnalytics {
+  const points: TrackingAnalyticsPoint[] = buckets.map((bucket) => {
+    let sum = 0
+    let count = 0
+    for (const e of inBucket(bucket)) {
+      const v = e.values[field.key]
+      if (typeof v === 'number' && v > 0) {
+        sum += v
+        count++
+      }
+    }
+    return { label: bucket.label, dateKey: bucket.dateKey, value: count > 0 ? sum : 0, count }
+  })
+  const nonZero = points.filter((p) => p.value > 0).map((p) => p.value)
+  return {
+    fieldKey: field.key,
+    fieldLabel: field.label,
+    fieldType: 'number',
+    points,
+    total: nonZero.reduce((s, v) => s + v, 0),
+    avg: nonZero.length > 0 ? Math.round(nonZero.reduce((s, v) => s + v, 0) / nonZero.length) : 0,
+    min: nonZero.length > 0 ? Math.min(...nonZero) : 0,
+    max: nonZero.length > 0 ? Math.max(...nonZero) : 0,
+  }
+}
+
+// Only explicit answers count: a completion without a value for this field
+// (older entries, or a skipped form) is neither "yes" nor "no".
+function booleanFieldAnalytics(
+  field: FieldDef,
+  buckets: Bucket[],
+  inBucket: (b: Bucket) => TrackedEntry[],
+): BooleanFieldAnalytics {
+  let yesTotal = 0
+  let noTotal = 0
+  const points: BooleanAnalyticsPoint[] = buckets.map((bucket) => {
+    let yes = 0
+    let no = 0
+    for (const e of inBucket(bucket)) {
+      const v = e.values[field.key]
+      if (v === true) yes++
+      else if (v === false) no++
+    }
+    yesTotal += yes
+    noTotal += no
+    const answered = yes + no
+    return {
+      label: bucket.label,
+      dateKey: bucket.dateKey,
+      yes,
+      no,
+      rate: answered > 0 ? Math.round((yes / answered) * 100) : null,
+    }
+  })
+  const answered = yesTotal + noTotal
+  return {
+    fieldKey: field.key,
+    fieldLabel: field.label,
+    fieldType: 'boolean',
+    points,
+    yes: yesTotal,
+    no: noTotal,
+    rate: answered > 0 ? Math.round((yesTotal / answered) * 100) : null,
+  }
+}
+
+const TEXT_TOP_VALUES = 8
+const TEXT_JOURNAL_ENTRIES = 20
+// Above this share of distinct answers, frequencies say nothing: show a journal.
+const TEXT_JOURNAL_UNIQUE_RATIO = 0.7
+
+function textFieldAnalytics(field: FieldDef, entries: TrackedEntry[]): TextFieldAnalytics {
+  const answers = entries
+    .map((e) => ({
+      at: e.at,
+      value: typeof e.values[field.key] === 'string' ? (e.values[field.key] as string).trim() : '',
+    }))
+    .filter((a) => a.value !== '')
+
+  // Group case-insensitively, shown with the first spelling met.
+  const groups = new Map<string, { value: string; count: number }>()
+  for (const a of answers) {
+    const k = a.value.toLowerCase()
+    const g = groups.get(k)
+    if (g) g.count++
+    else groups.set(k, { value: a.value, count: 1 })
+  }
+  const sorted = [...groups.values()].sort((a, b) => b.count - a.count)
+  const topValues = sorted.slice(0, TEXT_TOP_VALUES)
+  const otherCount = sorted.slice(TEXT_TOP_VALUES).reduce((s, g) => s + g.count, 0)
+  const mode =
+    answers.length >= 3 && groups.size / answers.length > TEXT_JOURNAL_UNIQUE_RATIO
+      ? 'journal'
+      : 'top'
+
+  return {
+    fieldKey: field.key,
+    fieldLabel: field.label,
+    fieldType: 'text',
+    filled: answers.length,
+    topValues,
+    otherCount,
+    distinct: groups.size,
+    mode,
+    entries: answers
+      .slice(-TEXT_JOURNAL_ENTRIES)
+      .reverse()
+      .map((a) => ({ dateKey: dateKeyOf(a.at), value: a.value })),
+  }
+}
+
+function listFieldAnalytics(
+  field: FieldDef,
+  buckets: Bucket[],
+  inBucket: (b: Bucket) => TrackedEntry[],
+): ListFieldAnalytics {
+  const options = field.options ?? []
+  const totals = new Map(options.map((o) => [o, 0]))
+  const points: ListAnalyticsPoint[] = buckets.map((bucket) => {
+    const point: ListAnalyticsPoint = {
+      label: bucket.label,
+      dateKey: bucket.dateKey,
+      counts: Object.fromEntries(options.map((o) => [o, 0])),
+      total: 0,
+    }
+    for (const e of inBucket(bucket)) {
+      const v = e.values[field.key]
+      // Answers no longer among the options (renamed/removed) are ignored.
+      if (typeof v !== 'string' || !totals.has(v)) continue
+      point.counts[v]++
+      point.total++
+      totals.set(v, totals.get(v)! + 1)
+    }
+    return point
+  })
+  return {
+    fieldKey: field.key,
+    fieldLabel: field.label,
+    fieldType: 'list',
+    options: options.map((o) => ({ value: o, count: totals.get(o) ?? 0 })),
+    points,
+    total: [...totals.values()].reduce((s, n) => s + n, 0),
+  }
+}
+
 // Cached per user (dropped as soon as a habit or completion of theirs changes — see server-cache.ts).
 export const getHabitTrackingAnalytics = async (
   habitId: number,
@@ -167,13 +384,22 @@ export const getHabitTrackingAnalytics = async (
 ): Promise<HabitTrackingAnalyticsResult> => {
   const userId = await getUserId()
   if (!userId) return computeGetHabitTrackingAnalytics(null, habitId, period, offset)
-  return cacheForUser(userId, ['habits'], ['habit-tracking', habitId, period, offset], () =>
+  return cacheForUser(userId, ['habits'], ['habit-tracking-v2', habitId, period, offset], () =>
     computeGetHabitTrackingAnalytics(userId, habitId, period, offset),
   )
 }
 
-async function computeGetHabitTrackingAnalytics(userId: string | null, habitId: number, period: TrackingPeriod, offset: number): Promise<HabitTrackingAnalyticsResult> {
-  const empty: HabitTrackingAnalyticsResult = { periodLabel: '', fields: [], restrictedByPlan: false }
+async function computeGetHabitTrackingAnalytics(
+  userId: string | null,
+  habitId: number,
+  period: TrackingPeriod,
+  offset: number,
+): Promise<HabitTrackingAnalyticsResult> {
+  const empty: HabitTrackingAnalyticsResult = {
+    periodLabel: '',
+    fields: [],
+    restrictedByPlan: false,
+  }
   if (!userId) return empty
 
   const payload = await getPayload({ config })
@@ -187,8 +413,10 @@ async function computeGetHabitTrackingAnalytics(userId: string | null, habitId: 
     trackingFields = typeof raw === 'string' ? JSON.parse(raw) : (raw ?? [])
   } catch {}
 
-  const activeNumberFields = trackingFields.filter((f: any) => f.enabled && f.type === 'number')
-  if (activeNumberFields.length === 0) return empty
+  const activeFields = trackingFields.filter(
+    (f: any) => f.enabled && ['number', 'boolean', 'text', 'list'].includes(f.type),
+  )
+  if (activeFields.length === 0) return empty
 
   const { from, to } = getPeriodRange(period, offset)
   const periodLabel = getPeriodLabel(period, from, to)
@@ -211,43 +439,28 @@ async function computeGetHabitTrackingAnalytics(userId: string | null, habitId: 
     limit: 0,
   })
 
-  const fields: TrackingFieldAnalytics[] = activeNumberFields.map((field: any) => {
-    const points: TrackingAnalyticsPoint[] = buckets.map((bucket) => {
-      const inBucket = completions.filter((c) => {
-        const d = new Date(c.completedAt as string)
-        return d >= bucket.from && d <= bucket.to
-      })
-
-      let sum = 0
-      let count = 0
-      for (const c of inBucket) {
-        let values: Record<string, any> = {}
-        try {
-          const raw = (c as any).trackingValues
-          values = typeof raw === 'string' ? JSON.parse(raw) : (raw ?? {})
-        } catch {}
-        const v = values[field.key]
-        if (typeof v === 'number' && v > 0) {
-          sum += v
-          count++
-        }
-      }
-
-      return { label: bucket.label, dateKey: bucket.dateKey, value: count > 0 ? sum : 0, count }
+  // Each completion's tracked values, parsed once.
+  const entries = completions
+    .map((c) => {
+      let values: Record<string, unknown> = {}
+      try {
+        const raw = (c as any).trackingValues
+        values = typeof raw === 'string' ? JSON.parse(raw) : (raw ?? {})
+      } catch {}
+      return { at: new Date(c.completedAt as string), values }
     })
+    .sort((a, b) => a.at.getTime() - b.at.getTime())
+  const inBucket = (bucket: { from: Date; to: Date }) =>
+    entries.filter((e) => e.at >= bucket.from && e.at <= bucket.to)
 
-    const nonZero = points.filter((p) => p.value > 0).map((p) => p.value)
-    return {
-      fieldKey: field.key,
-      fieldLabel: field.label,
-      fieldType: field.type,
-      points,
-      total: nonZero.reduce((s, v) => s + v, 0),
-      avg: nonZero.length > 0 ? Math.round(nonZero.reduce((s, v) => s + v, 0) / nonZero.length) : 0,
-      min: nonZero.length > 0 ? Math.min(...nonZero) : 0,
-      max: nonZero.length > 0 ? Math.max(...nonZero) : 0,
-    }
-  })
+  const fields: TrackingFieldAnalytics[] = activeFields.map(
+    (field: any): TrackingFieldAnalytics => {
+      if (field.type === 'boolean') return booleanFieldAnalytics(field, buckets, inBucket)
+      if (field.type === 'text') return textFieldAnalytics(field, entries)
+      if (field.type === 'list') return listFieldAnalytics(field, buckets, inBucket)
+      return numberFieldAnalytics(field, buckets, inBucket)
+    },
+  )
 
   return { periodLabel, fields, restrictedByPlan }
 }
@@ -261,7 +474,10 @@ export const getHeatmapAnalytics = async (year: number): Promise<HeatmapAnalytic
   )
 }
 
-async function computeGetHeatmapAnalytics(userId: string | null, year: number): Promise<HeatmapAnalyticsResult> {
+async function computeGetHeatmapAnalytics(
+  userId: string | null,
+  year: number,
+): Promise<HeatmapAnalyticsResult> {
   if (!userId) return { year, data: [], restrictedByPlan: false }
 
   const payload = await getPayload({ config })

@@ -45,6 +45,28 @@ function FieldInput({
     )
   }
 
+  if (field.type === 'list') {
+    return (
+      <div className="flex flex-wrap gap-1.5">
+        {(field.options ?? []).map((option) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => onChange(option)}
+            className={cn(
+              'rounded-full border px-3 py-1 text-xs font-medium transition-all',
+              value === option
+                ? 'border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                : 'border-border/60 text-muted-foreground hover:bg-muted hover:text-foreground',
+            )}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+    )
+  }
+
   if (field.type === 'number') {
     return (
       <div className="flex items-center gap-2">
@@ -100,7 +122,13 @@ export function HabitTrackingDialog({
   if (!open) return null
 
   const handleSubmit = () => {
-    onSubmit(values)
+    // A yes/no field shows "No" until toggled: save that "No" explicitly, so
+    // analytics can tell it apart from a field that wasn't answered at all.
+    const submitted = { ...values }
+    for (const f of fields) {
+      if (f.type === 'boolean' && submitted[f.key] === undefined) submitted[f.key] = false
+    }
+    onSubmit(submitted)
     setValues({})
   }
 

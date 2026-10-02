@@ -50,6 +50,12 @@ const LIMIT_MESSAGES: Record<LimitError, { title: string; description: string; c
       "You've reached the maximum number of custom tracking fields for this habit (10). Delete one of your existing custom fields, or upgrade to Pro for unlimited tracking fields.",
     cta: 'Upgrade for unlimited tracking fields',
   },
+  TRACKING_LIST_FIELDS_PRO: {
+    title: 'List fields are a Pro feature',
+    description:
+      'List tracking fields let you pick from your own options each time you complete a habit, with a chart of how often each one comes up. Upgrade to Pro to create them.',
+    cta: 'Upgrade to Pro',
+  },
   GOALS_LIMIT: {
     title: 'Goal limit reached',
     description:
