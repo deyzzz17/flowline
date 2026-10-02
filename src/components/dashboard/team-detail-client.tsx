@@ -332,6 +332,11 @@ function OverviewTab({ overview }: { overview: TeamOverview }) {
                   </AvatarFallback>
                 </Avatar>
                 <span className="flex-1 truncate text-sm text-foreground">{m.name}</span>
+                {m.isCreator && (
+                  <span className="shrink-0 rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-600 dark:text-violet-400">
+                    Creator
+                  </span>
+                )}
                 <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                   {m.roleName}
                 </span>
@@ -786,6 +791,11 @@ function MembersTab({
                     <span className="flex-1 truncate text-sm font-medium text-foreground">
                       {m.name}
                     </span>
+                    {m.isCreator && (
+                      <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-600 dark:text-violet-400">
+                        Creator
+                      </span>
+                    )}
                     <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                       {m.roleName}
                     </span>
@@ -814,7 +824,7 @@ function MembersTab({
                         </DropdownMenuContent>
                       </DropdownMenu>
                     )}
-                    {canManage && (
+                    {canManage && !m.isCreator && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <button

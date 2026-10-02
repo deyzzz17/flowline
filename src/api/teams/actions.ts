@@ -174,7 +174,44 @@ export const createTeam = async (input: CreateTeamInput) => {
       roleIdByName.set(roleName, role.id)
     }
 
-    for (const member of input.members) {
+    // The creator is always on their own team. They keep every right anyway
+    // (see getTeamPermissionsForUser); their row just makes them a member
+    // everywhere membership counts. Role: the one they picked for themselves,
+    // else the most powerful role of the team (created if there's none).
+    const members = input.members.filter((m) => m.userId !== userId)
+    const creatorPick = input.members.find((m) => m.userId === userId)
+    let creatorRoleId = creatorPick ? roleIdByName.get(creatorPick.roleName.trim()) : undefined
+    if (!creatorRoleId) {
+      const strongest = input.roles
+        .map((r) => ({
+          id: roleIdByName.get(r.name.trim()),
+          power: [r.canManageLists, r.canManageCalendar, r.canManageMembers, r.canManageTeamSettings]
+            .filter(Boolean).length,
+        }))
+        .filter((r): r is { id: number; power: number } => r.id !== undefined)
+        .sort((a, b) => b.power - a.power)[0]
+      creatorRoleId =
+        strongest?.id ??
+        (
+          await payload.create({
+            collection: 'team-roles',
+            data: {
+              team: team.id,
+              name: 'Admin',
+              canManageLists: true,
+              canManageCalendar: true,
+              canManageMembers: true,
+              canManageTeamSettings: true,
+            },
+          })
+        ).id
+    }
+    await payload.create({
+      collection: 'team-members',
+      data: { team: team.id, userId, teamRole: creatorRoleId, addedBy: userId },
+    })
+
+    for (const member of members) {
       const roleId = roleIdByName.get(member.roleName.trim())
       if (!roleId) continue
       await payload.create({
@@ -197,7 +234,15 @@ export interface TeamOverview {
   myPermissions: TeamPermissions
   lists: { id: number; name: string; slug: string; taskCount: number }[]
   calendarCategories: { id: number; name: string; color: string }[]
-  members: { id: number; userId: string; name: string; image: string | null; roleName: string }[]
+  members: {
+    id: number
+    userId: string
+    name: string
+    image: string | null
+    roleName: string
+    /** The team's creator: always a member, can't be removed. */
+    isCreator: boolean
+  }[]
 }
 
 /**
@@ -286,6 +331,7 @@ export const getTeamOverview = async (teamId: number): Promise<TeamOverview | nu
         name: nicknames.get(m.userId as string) ?? profile.name,
         image: profile.image,
         roleName: role?.name ?? 'Member',
+        isCreator: m.userId === team.createdBy,
       }
     })
     .filter((m): m is NonNullable<typeof m> => m !== null)
@@ -638,6 +684,13 @@ export const removeTeamMember = async (teamMemberId: number) => {
 
     const permissions = await getTeamPermissionsForUser(payload, memberTeamId, workspaceId, userId)
     if (!permissions.canManageMembers) return err('Not authorized')
+
+    const team = await payload
+      .findByID({ collection: 'teams', id: memberTeamId, depth: 0 })
+      .catch(() => null)
+    if (team && member.userId === team.createdBy) {
+      return err('The team creator is always a member of their team.')
+    }
 
     await payload.delete({ collection: 'team-members', id: teamMemberId })
     return ok(true)

@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button'
 import { useTeamsAccess, TEAMS_QUERY_KEY } from '@/hooks/teams/use-teams'
 import { TeamRolePermissionsFields } from './team-role-permissions-fields'
 import type { TeamRoleInput } from '@/api/teams/actions'
+import { useSession } from '@/lib/auth-client'
 
 function getInitials(name?: string | null): string {
   if (!name) return '?'
@@ -63,6 +64,10 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
     enabled: open && hasAccess,
   })
   const members = workspaceMembersData?.docs ?? []
+  // The creator is always on their own team (the server adds them even
+  // if unchecked) — shown checked and locked, with a role to pick.
+  const { data: session } = useSession()
+  const myUserId = session?.user?.id ?? null
 
   const reset = () => {
     setName('')
@@ -290,7 +295,8 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
                 </p>
               ) : (
                 members.map((m) => {
-                  const isChecked = selected.has(m.userId)
+                  const isMe = m.userId === myUserId
+                  const isChecked = isMe || selected.has(m.userId)
                   return (
                     <div
                       key={m.userId}
@@ -299,7 +305,11 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
                         isChecked ? 'bg-violet-500/5' : 'hover:bg-muted/40',
                       )}
                     >
-                      <Checkbox checked={isChecked} onCheckedChange={() => toggleMember(m.userId)} />
+                      <Checkbox
+                        checked={isChecked}
+                        disabled={isMe}
+                        onCheckedChange={() => toggleMember(m.userId)}
+                      />
                       <Avatar className="h-7 w-7 shrink-0">
                         <AvatarImage src={m.image ?? undefined} alt={m.nickname || m.name} />
                         <AvatarFallback className="bg-violet-500/10 text-[10px] font-semibold text-violet-600 dark:text-violet-400">
@@ -308,15 +318,26 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
                       </Avatar>
                       <span className="flex-1 truncate text-sm text-foreground">
                         {m.nickname || m.name}
+                        {isMe && (
+                          <span className="ml-1.5 text-xs text-muted-foreground">
+                            (you · creator)
+                          </span>
+                        )}
                       </span>
                       {isChecked && (
                         <select
                           value={selected.get(m.userId) ?? ''}
                           onChange={(e) =>
-                            setSelected((prev) => new Map(prev).set(m.userId, e.target.value))
+                            setSelected((prev) => {
+                              const next = new Map(prev)
+                              if (e.target.value) next.set(m.userId, e.target.value)
+                              else next.delete(m.userId)
+                              return next
+                            })
                           }
                           className="h-7 rounded-md border border-border/60 bg-background px-1.5 text-xs"
                         >
+                          {isMe && <option value="">Auto (most rights)</option>}
                           {roles.map((role) => (
                             <option key={role.name} value={role.name}>
                               {role.name}
