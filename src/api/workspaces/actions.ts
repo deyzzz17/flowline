@@ -16,7 +16,11 @@ import { getSession } from '@/lib/get-session'
 import { getUserPlanLimits, getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { getEffectiveWorkspacePermissions } from '@/lib/get-current-workspace'
+import {
+  getCurrentWorkspaceId,
+  getEffectiveWorkspacePermissions,
+  getWorkspaceRoleForUser,
+} from '@/lib/get-current-workspace'
 import { type ContactProfile } from '@/api/contacts/actions'
 import { findUserByEmail, findUsersByIds } from '@/api/contacts/internal'
 import { deleteCommentsForTaskIds } from '@/api/task-comments/internal'
@@ -1026,6 +1030,83 @@ export interface WorkspaceInvite {
   role: string
   inviterName: string | null
   createdAt: string
+}
+
+export interface WorkspacePendingInvitation {
+  id: string
+  email: string
+  role: string
+  /** Account name, when someone already has an account with that email. */
+  name: string | null
+  image: string | null
+  invitedAt: string
+  inviterName: string | null
+}
+
+/**
+ * Invitations of the active workspace still waiting for an answer. Accepted
+ * ones show up as members instead; declined, canceled or expired ones are
+ * simply gone. Visible to every member of the workspace.
+ */
+export const listWorkspacePendingInvitations = async (): Promise<WorkspacePendingInvitation[]> => {
+  const userId = await getUserId()
+  if (!userId) return []
+  const workspaceId = await getCurrentWorkspaceId()
+  if (!workspaceId) return []
+  if (!(await getWorkspaceRoleForUser(workspaceId, userId))) return []
+
+  const { rows } = await pool.query<{
+    id: string
+    email: string
+    role: string
+    createdAt: Date
+    inviterId: string
+    userName: string | null
+    userImage: string | null
+  }>(
+    `SELECT i.id, i.email, i.role, i."createdAt", i."inviterId",
+            u.name AS "userName", u.image AS "userImage"
+       FROM invitation i
+       LEFT JOIN "user" u ON lower(u.email) = lower(i.email)
+      WHERE i."organizationId" = $1 AND i.status = 'pending' AND i."expiresAt" > now()
+      ORDER BY i."createdAt" DESC`,
+    [workspaceId],
+  )
+  const inviters = await findUsersByIds([...new Set(rows.map((r) => r.inviterId))])
+  return rows.map((r) => ({
+    id: r.id,
+    email: r.email,
+    role: r.role,
+    name: r.userName,
+    image: r.userImage,
+    invitedAt: new Date(r.createdAt).toISOString(),
+    inviterName: inviters.get(r.inviterId)?.name ?? null,
+  }))
+}
+
+/** Withdraws a pending invitation of the active workspace. */
+export const cancelWorkspaceInvitation = async (invitationId: string) => {
+  try {
+    const userId = await getUserId()
+    if (!userId) return err('Not authenticated')
+    const workspaceId = await getCurrentWorkspaceId()
+    if (!workspaceId) return err('No active workspace')
+
+    const permissions = await getEffectiveWorkspacePermissions(workspaceId, userId)
+    if (!permissions.canManageMembers) return err('Not authorized')
+
+    const { rows } = await pool.query(
+      `SELECT 1 FROM invitation WHERE id = $1 AND "organizationId" = $2 AND status = 'pending'`,
+      [invitationId, workspaceId],
+    )
+    if (rows.length === 0) return err('Invitation not found')
+
+    await auth.api.cancelInvitation({ headers: await headers(), body: { invitationId } })
+    return ok(true)
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Error canceling invitation'
+    return err(message)
+  }
 }
 
 export const listMyWorkspaceInvites = async (): Promise<WorkspaceInvite[]> => {

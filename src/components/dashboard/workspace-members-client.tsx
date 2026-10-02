@@ -13,6 +13,7 @@ import {
   X,
   RotateCcw,
   ShieldCheck,
+  Mail,
   ChevronDown,
   ChevronRight,
   Plus,
@@ -247,6 +248,13 @@ export function WorkspaceMembersClient() {
     refetchInterval: slowInterval,
   })
   const archivedMembers = archivedData?.docs ?? []
+  // Invitations still waiting for an answer (accepted ones become members,
+  // declined/canceled/expired ones disappear).
+  const { data: pendingInvitations = [] } = useQuery({
+    queryKey: ['workspace-invitations', 'pending'],
+    queryFn: () => api.workspaces.listPendingInvitations(),
+    refetchInterval: slowInterval,
+  })
   const myMember = members.find((m) => m.userId === currentUserId)
   const myRole = myMember?.role ?? null
   const canManage = myRole === 'owner' || myRole === 'admin'
@@ -412,8 +420,22 @@ export function WorkspaceMembersClient() {
       }
       toast.info('Invitation sent')
       setInviteEmail('')
+      queryClient.invalidateQueries({ queryKey: ['workspace-invitations'] })
     },
     onError: () => toast.error('Error sending invitation'),
+  })
+
+  const cancelInvitationMutation = useMutation({
+    mutationFn: (invitationId: string) => api.workspaces.cancelInvitation(invitationId),
+    onSuccess: (result) => {
+      if (!result.ok) {
+        toast.error(result.error || 'Error canceling invitation')
+        return
+      }
+      toast.info('Invitation canceled')
+    },
+    onError: () => toast.error('Error canceling invitation'),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['workspace-invitations'] }),
   })
 
   const removeMutation = useMutation({
@@ -890,6 +912,60 @@ export function WorkspaceMembersClient() {
           )}
         </div>
       </div>
+
+      {pendingInvitations.length > 0 && (
+        <div className="mt-6 rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm">
+          <div className="flex items-center justify-between border-b border-border/50 px-5 py-3.5">
+            <div className="flex items-center gap-2">
+              <Mail className="h-3.5 w-3.5 text-muted-foreground/60" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
+                Pending invitations
+              </span>
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                {pendingInvitations.length}
+              </span>
+            </div>
+          </div>
+          <div className="space-y-1 p-3 sm:p-5">
+            {pendingInvitations.map((inv) => (
+              <div
+                key={inv.id}
+                className="flex items-center gap-2.5 rounded-xl px-2 py-2 transition-colors hover:bg-muted/40"
+              >
+                <MemberAvatar name={inv.name ?? inv.email} image={inv.image} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {inv.name ?? inv.email}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground/70">
+                    {inv.name ? `${inv.email} · ` : ''}
+                    Invited {new Date(inv.invitedAt).toLocaleDateString()}
+                    {inv.inviterName ? ` by ${inv.inviterName}` : ''}
+                  </p>
+                </div>
+                <span className="hidden rounded-md bg-muted/50 px-2 py-1 text-[10px] font-medium capitalize text-muted-foreground sm:inline">
+                  {inv.role}
+                </span>
+                <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                  Pending
+                </span>
+                {canManage && (
+                  <button
+                    type="button"
+                    onClick={() => cancelInvitationMutation.mutate(inv.id)}
+                    disabled={cancelInvitationMutation.isPending}
+                    title="Cancel invitation"
+                    aria-label="Cancel invitation"
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {canManage && archivedMembers.length > 0 && (
         <div className="mt-6 rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm">

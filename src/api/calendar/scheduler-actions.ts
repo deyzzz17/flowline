@@ -406,9 +406,11 @@ export const listEventAttendees = async (eventId: number): Promise<EventAttendee
     .catch(() => null)
   if (!event || event.workspace !== workspaceId) return []
 
+  // Someone who declined is off the event (and off its assignees) — they're
+  // no longer listed.
   const { docs } = await payload.find({
     collection: 'calendar-event-invitations',
-    where: { event: { equals: eventId } },
+    where: { and: [{ event: { equals: eventId } }, { status: { not_equals: 'declined' } }] },
     limit: MAX_PARTICIPANTS + 1,
     depth: 0,
   })

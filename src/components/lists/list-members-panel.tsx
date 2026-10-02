@@ -322,11 +322,11 @@ export function ListMembersPanel({ list, open, onOpenChange }: ListMembersPanelP
                                 )}
                               >
                                 {m.status === 'pending' ? (
-                                  'Invited'
+                                  'Pending'
                                 ) : (
                                   <>
                                     <Check className="h-2.5 w-2.5" />
-                                    Member
+                                    Accepted
                                   </>
                                 )}
                               </span>
