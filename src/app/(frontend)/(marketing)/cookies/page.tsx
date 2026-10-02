@@ -103,10 +103,10 @@ export default function CookiesPage() {
             </h2>
             <div className="space-y-2 text-sm leading-relaxed text-muted-foreground">
               <p>
-                When you first visit Flowline, a banner lets you accept all cookies, decline them,
-                or customize your choice. Since we only use strictly necessary cookies today, every
-                choice results in the same experience, but we record it so we can honor it and ask
-                again if that ever changes.
+                When you first visit Flowline, a banner lets you accept all cookies or only the
+                essential ones. Since we only use strictly necessary cookies today, both choices
+                result in the same experience, but we record yours so we can honor it and ask again
+                if that ever changes.
               </p>
               <p>
                 You can review or change your choice at any time:{' '}

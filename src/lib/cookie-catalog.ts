@@ -1,10 +1,10 @@
-// Single source of truth for the cookies Flowline actually sets, shared by
-// the Cookie Policy page and the cookie preferences dialog so the two never
-// drift apart. Every cookie here is genuinely "strictly necessary" — Better
-// Auth's session cookies (via the `nextCookies()` plugin, see src/lib/auth.ts)
-// and the sidebar's own open/collapsed state. There are currently no
-// optional (functional/analytics/marketing) cookies; if one is ever added,
-// give it its own `category` here and both pages update automatically.
+// Single source of truth for the cookies Flowline actually sets, listed on
+// the Cookie Policy page. Every cookie here is genuinely "strictly necessary"
+// — Better Auth's session cookies (via the `nextCookies()` plugin, see
+// src/lib/auth.ts) and the sidebar's own open/collapsed state. There are
+// currently no optional (functional/analytics/marketing) cookies, which is
+// why the consent banner only offers "Essential only" / "Accept all"; if one
+// is ever added, give it its own `category` here and revisit the banner.
 export type CookieCategoryKey = 'strictly_necessary'
 
 export interface CookieCategoryInfo {

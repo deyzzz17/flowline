@@ -1,4 +1,7 @@
-export type CookieConsentStatus = 'accepted_all' | 'essential_only' | 'rejected_all'
+// Only two choices: Flowline sets strictly necessary cookies only (see
+// cookie-catalog.ts), so there's nothing to customize or decline — the
+// choice is recorded so we can ask again if optional cookies are ever added.
+export type CookieConsentStatus = 'accepted_all' | 'essential_only'
 
 export interface CookieConsentRecord {
   status: CookieConsentStatus
@@ -13,13 +16,12 @@ export function getStoredCookieConsent(): CookieConsentRecord | null {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw)
-    if (
-      parsed &&
-      (parsed.status === 'accepted_all' ||
-        parsed.status === 'essential_only' ||
-        parsed.status === 'rejected_all')
-    ) {
+    if (parsed?.status === 'accepted_all' || parsed?.status === 'essential_only') {
       return parsed as CookieConsentRecord
+    }
+    // Recorded by the former "Decline" button — same meaning as essential only.
+    if (parsed?.status === 'rejected_all') {
+      return { status: 'essential_only', decidedAt: parsed.decidedAt }
     }
     return null
   } catch {
