@@ -111,18 +111,31 @@ function getNowInTz(timezone: string): { year: number; month: number; day: numbe
 }
 
 // Cached per user (dropped as soon as a task, completion or tag of theirs changes — see server-cache.ts); keyed by the hour too, since periods follow the user's own timezone.
+// The active workspace is read here, OUTSIDE the cache: reading the session
+// (headers) inside unstable_cache throws when called as a server action —
+// which made every period change (prev/next, day/week/month) fail. It's also
+// part of the key, so switching workspace never serves the other one's data.
 export const getListAnalytics = async (
   period: 'day' | 'week' | 'month' = 'week',
   offset: number = 0,
 ): Promise<ListAnalyticsData> => {
   const userId = await getUserId()
-  if (!userId) return computeGetListAnalytics(null, period, offset)
-  return cacheForUser(userId, ['tasks'], ['list-analytics', period, offset, new Date().toISOString().slice(0, 13)], () =>
-    computeGetListAnalytics(userId, period, offset),
+  if (!userId) return computeGetListAnalytics(null, null, period, offset)
+  const workspaceId = await getCurrentWorkspaceId()
+  return cacheForUser(
+    userId,
+    ['tasks'],
+    ['list-analytics', workspaceId, period, offset, new Date().toISOString().slice(0, 13)],
+    () => computeGetListAnalytics(userId, workspaceId, period, offset),
   )
 }
 
-async function computeGetListAnalytics(userId: string | null, period: 'day' | 'week' | 'month' = 'week', offset: number = 0): Promise<ListAnalyticsData> {
+async function computeGetListAnalytics(
+  userId: string | null,
+  workspaceId: string | null,
+  period: 'day' | 'week' | 'month' = 'week',
+  offset: number = 0,
+): Promise<ListAnalyticsData> {
   if (!userId)
     return {
       donut: [],
@@ -237,8 +250,6 @@ async function computeGetListAnalytics(userId: string | null, period: 'day' | 'w
 
   const fetchStartUTC = donutStartUTC < clampedSeriesStartUTC ? donutStartUTC : clampedSeriesStartUTC
   const fetchEndUTC = donutEndUTC > seriesEndUTC ? donutEndUTC : seriesEndUTC
-
-  const workspaceId = await getCurrentWorkspaceId()
 
   const { docs: completions } = await payload.find({
     collection: 'task-completions',
