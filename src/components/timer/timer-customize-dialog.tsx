@@ -176,7 +176,9 @@ export const TimerCustomizeDialog = ({
         onOpenChange(v)
       }}
     >
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+      {/* overflow-x-hidden: DialogFooter bleeds to the edges with -mx-4, which
+          otherwise adds a horizontal scrollbar once the content scrolls. */}
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-violet-500" />
@@ -184,7 +186,7 @@ export const TimerCustomizeDialog = ({
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6 pt-1">
+        <form onSubmit={handleSubmit} className="min-w-0 space-y-6 pt-1">
           <div className="space-y-5">
             <div className="flex items-center gap-2">
               <Clock className="h-3.5 w-3.5 text-muted-foreground/60" />
@@ -209,43 +211,51 @@ export const TimerCustomizeDialog = ({
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm">
-                Work duration
-                <span className="ml-1.5 text-xs font-normal text-muted-foreground">Optional</span>
-              </Label>
-              <DurationPicker
-                value={toDur(session.workDuration)}
-                onChange={(d) => update('workDuration', durationToSeconds(d) || '')}
-                error={workExceedsSession}
-              />
-              {workExceedsSession && (
-                <p className="text-xs text-destructive">Work duration exceeds session duration.</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-sm">
-                Break duration
-                {breakRequired ? (
-                  <span className="ml-1.5 text-destructive text-xs">*</span>
-                ) : (
+            <div className="grid gap-5 sm:grid-cols-2 sm:gap-4">
+              <div className="min-w-0 space-y-2">
+                <Label className="text-sm">
+                  Work duration
                   <span className="ml-1.5 text-xs font-normal text-muted-foreground">Optional</span>
+                </Label>
+                <DurationPicker
+                  value={toDur(session.workDuration)}
+                  onChange={(d) => update('workDuration', durationToSeconds(d) || '')}
+                  error={workExceedsSession}
+                />
+                {workExceedsSession && (
+                  <p className="text-xs text-destructive">
+                    Work duration exceeds session duration.
+                  </p>
                 )}
-              </Label>
-              <DurationPicker
-                value={toDur(session.breakDuration)}
-                onChange={(d) => update('breakDuration', durationToSeconds(d) || '')}
-                error={breakExceedsSession}
-              />
-              {breakRequired && (
-                <p className="text-xs text-muted-foreground">
-                  Required because work time is shorter than session.
-                </p>
-              )}
-              {breakExceedsSession && (
-                <p className="text-xs text-destructive">Break duration exceeds session duration.</p>
-              )}
+              </div>
+
+              <div className="min-w-0 space-y-2">
+                <Label className="text-sm">
+                  Break duration
+                  {breakRequired ? (
+                    <span className="ml-1.5 text-destructive text-xs">*</span>
+                  ) : (
+                    <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                      Optional
+                    </span>
+                  )}
+                </Label>
+                <DurationPicker
+                  value={toDur(session.breakDuration)}
+                  onChange={(d) => update('breakDuration', durationToSeconds(d) || '')}
+                  error={breakExceedsSession}
+                />
+                {breakRequired && (
+                  <p className="text-xs text-muted-foreground">
+                    Required because work time is shorter than session.
+                  </p>
+                )}
+                {breakExceedsSession && (
+                  <p className="text-xs text-destructive">
+                    Break duration exceeds session duration.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
