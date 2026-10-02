@@ -149,8 +149,20 @@ export function CalendarClient() {
         moveEvent(item.id as number, targetDate)
       }
     } else if (item.type === 'task') {
-      if (view === 'day' && hasSpecificHour) moveTask(item.id as number, targetDate)
-      else setPendingTaskDrop({ task: item as CalendarTask, targetDate })
+      const task = item as CalendarTask
+      // Same day: only the time changes (or nothing, when dropped on a day
+      // cell without a time) — no need to confirm. A new day asks for the
+      // due time.
+      const due = new Date(task.dueDate)
+      const sameDay =
+        due.getFullYear() === targetDate.getFullYear() &&
+        due.getMonth() === targetDate.getMonth() &&
+        due.getDate() === targetDate.getDate()
+      if (sameDay) {
+        if (hasSpecificHour) moveTask(task.id, targetDate)
+      } else {
+        setPendingTaskDrop({ task, targetDate })
+      }
     }
   }
 
