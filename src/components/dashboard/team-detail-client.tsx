@@ -51,6 +51,8 @@ import { useLivePollInterval } from '@/components/providers/realtime-provider'
 import { TeamRolesEditor } from './team-roles-editor'
 import { EditTeamDialog } from './edit-team-dialog'
 import type { TeamOverview } from '@/api/teams/actions'
+import { CALENDAR_CATEGORY_NAME_TAKEN } from '@/lib/calendar-colors'
+import { CATEGORY_NAME_TAKEN_MESSAGE } from '@/hooks/calendar/use-calendar-categories'
 
 function getInitials(name?: string | null): string {
   if (!name) return '?'
@@ -524,7 +526,11 @@ function CalendarTab({
     mutationFn: () => api.calendar.categories.create({ name: name.trim(), color }, teamId),
     onSuccess: (result) => {
       if (!result.ok) {
-        setError('Something went wrong. Please try again.')
+        setError(
+          result.error === CALENDAR_CATEGORY_NAME_TAKEN
+            ? CATEGORY_NAME_TAKEN_MESSAGE
+            : 'Something went wrong. Please try again.',
+        )
         return
       }
       toast.info('Category created')

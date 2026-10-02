@@ -47,19 +47,10 @@ import { useTeams } from '@/hooks/teams/use-teams'
 import { useTimeFormat } from '@/hooks/calendar/use-time-format'
 import type { CalendarItem, CalendarEvent } from '@/hooks/calendar/use-calendar'
 import type { CalendarEventData, RecurrenceRule, EditScope } from '@/api/calendar/actions'
+import { NO_CATEGORY_EVENT_COLOR } from '@/lib/calendar-colors'
 
 type DayValue = '0' | '1' | '2' | '3' | '4' | '5' | '6'
 
-const PRESET_COLORS = [
-  '#8b5cf6',
-  '#6366f1',
-  '#3b82f6',
-  '#0ea5e9',
-  '#10b981',
-  '#f59e0b',
-  '#ef4444',
-  '#ec4899',
-]
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 const MINUTES = [0, 15, 30, 45]
 const DAYS_OF_WEEK: { label: string; value: DayValue }[] = [
@@ -572,7 +563,6 @@ export function CalendarEventDialog({
   const [startDate, setStartDate] = useState<Date>(defaultStart)
   const [endDate, setEndDate] = useState<Date>(defaultEnd)
   const [allDay, setAllDay] = useState(false)
-  const [color, setColor] = useState('#8b5cf6')
   const [categoryId, setCategoryId] = useState<number | null>(null)
   const [teamId, setTeamId] = useState<number | null>(null)
   const [assignedTo, setAssignedTo] = useState<string[]>([])
@@ -632,7 +622,6 @@ export function CalendarEventDialog({
       setStartDate(new Date(ev.startDate))
       setEndDate(new Date(ev.endDate))
       setAllDay(ev.allDay)
-      setColor(ev.color)
       setCategoryId(ev.categoryId ?? null)
       setTeamId(ev.teamId ?? null)
       setAssignedTo(ev.assignedTo ?? [])
@@ -647,7 +636,6 @@ export function CalendarEventDialog({
       setStartDate(start)
       setEndDate(end)
       setAllDay(false)
-      setColor('#8b5cf6')
       setCategoryId(null)
       setTeamId(defaultTeamId)
       setAssignedTo([])
@@ -673,13 +661,9 @@ export function CalendarEventDialog({
       prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId],
     )
 
-  const handleCategoryChange = (id: number | null) => {
-    setCategoryId(id)
-    if (id) {
-      const cat = categories.find((c) => c.id === id)
-      if (cat) setColor(cat.color)
-    }
-  }
+  // No free color: an event takes its category's color, or gray without one
+  // (the server enforces the same rule).
+  const color = categories.find((c) => c.id === categoryId)?.color ?? NO_CATEGORY_EVENT_COLOR
 
   const buildSaveData = (): CalendarEventData => ({
     title: title.trim(),
@@ -921,7 +905,9 @@ export function CalendarEventDialog({
 
               {allowTeamAssociation && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className={cn('h-2 w-2 rounded-full shrink-0', showAsOption(ev.showAs).dot)} />
+                  <span
+                    className={cn('h-2 w-2 rounded-full shrink-0', showAsOption(ev.showAs).dot)}
+                  />
                   Shown as {showAsOption(ev.showAs).label.toLowerCase()}
                 </div>
               )}
@@ -934,7 +920,10 @@ export function CalendarEventDialog({
                   </p>
                   <div className="space-y-1 pl-5">
                     {attendees.map((a) => (
-                      <div key={a.userId} className="flex items-center justify-between gap-2 text-xs">
+                      <div
+                        key={a.userId}
+                        className="flex items-center justify-between gap-2 text-xs"
+                      >
                         <span className="truncate text-foreground">{memberLabel(a.userId)}</span>
                         <span
                           className={cn(
@@ -1115,52 +1104,63 @@ export function CalendarEventDialog({
               />
             </div>
 
-            {categories.length > 0 && (
-              <div className="space-y-2">
-                <Label className="text-sm flex items-center gap-1.5">
-                  <Tag className="h-3.5 w-3.5 text-muted-foreground/60" />
-                  Calendar
-                  <span className="text-xs font-normal text-muted-foreground">Optional</span>
-                </Label>
-                <div className="flex flex-wrap gap-1.5">
+            <div className="space-y-2">
+              <Label className="text-sm flex items-center gap-1.5">
+                <Tag className="h-3.5 w-3.5 text-muted-foreground/60" />
+                Calendar
+                <span className="text-xs font-normal text-muted-foreground">Optional</span>
+              </Label>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setCategoryId(null)}
+                  className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all"
+                  style={
+                    categoryId === null
+                      ? {
+                          backgroundColor: hexToRgba(NO_CATEGORY_EVENT_COLOR, 0.15),
+                          borderColor: hexToRgba(NO_CATEGORY_EVENT_COLOR, 0.5),
+                          color: 'var(--foreground)',
+                        }
+                      : { borderColor: 'var(--border)', opacity: 0.7 }
+                  }
+                >
+                  <span
+                    className="h-1.5 w-1.5 rounded-full shrink-0"
+                    style={{ backgroundColor: NO_CATEGORY_EVENT_COLOR }}
+                  />
+                  No category
+                </button>
+                {categories.map((cat) => (
                   <button
+                    key={cat.id}
                     type="button"
-                    onClick={() => setCategoryId(null)}
-                    className={cn(
-                      'rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
-                      categoryId === null
-                        ? 'border-border bg-muted text-foreground'
-                        : 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
-                    )}
+                    onClick={() => setCategoryId(cat.id)}
+                    className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all"
+                    style={
+                      categoryId === cat.id
+                        ? {
+                            backgroundColor: hexToRgba(cat.color, 0.15),
+                            borderColor: hexToRgba(cat.color, 0.5),
+                            color: cat.color,
+                          }
+                        : { borderColor: 'var(--border)', opacity: 0.7 }
+                    }
                   >
-                    None
+                    <span
+                      className="h-1.5 w-1.5 rounded-full shrink-0"
+                      style={{ backgroundColor: cat.color }}
+                    />
+                    {cat.name}
                   </button>
-                  {categories.map((cat) => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => handleCategoryChange(cat.id)}
-                      className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all"
-                      style={
-                        categoryId === cat.id
-                          ? {
-                              backgroundColor: hexToRgba(cat.color, 0.15),
-                              borderColor: hexToRgba(cat.color, 0.5),
-                              color: cat.color,
-                            }
-                          : { borderColor: 'var(--border)', opacity: 0.7 }
-                      }
-                    >
-                      <span
-                        className="h-1.5 w-1.5 rounded-full shrink-0"
-                        style={{ backgroundColor: cat.color }}
-                      />
-                      {cat.name}
-                    </button>
-                  ))}
-                </div>
+                ))}
               </div>
-            )}
+              {categories.length === 0 && (
+                <p className="text-xs text-muted-foreground/70">
+                  Create a calendar category to give events a color.
+                </p>
+              )}
+            </div>
 
             {allowTeamAssociation && teams.length > 0 && mode === 'create' && (
               <div className="space-y-2">
@@ -1305,40 +1305,6 @@ export function CalendarEventDialog({
             </div>
 
             <RecurrencePicker value={recurrence} onChange={setRecurrence} startDate={startDate} />
-
-            {!categoryId && (
-              <div className="space-y-2">
-                <Label className="text-sm">Color</Label>
-                <div className="flex items-center gap-1.5">
-                  {PRESET_COLORS.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setColor(c)}
-                      className={cn(
-                        'h-6 w-6 rounded-full transition-all hover:scale-110',
-                        color === c && 'ring-2 ring-offset-2 ring-offset-background',
-                      )}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
-                  <div className="relative ml-1">
-                    <div
-                      className="h-6 w-6 rounded-full border-2 border-dashed border-border/60 cursor-pointer"
-                      style={{
-                        backgroundColor: PRESET_COLORS.includes(color) ? 'transparent' : color,
-                      }}
-                    />
-                    <input
-                      type="color"
-                      value={color}
-                      onChange={(e) => setColor(e.target.value)}
-                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full rounded-full"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
 
             <DialogFooter className="flex-row gap-2 pt-1">
               {mode === 'edit' && (

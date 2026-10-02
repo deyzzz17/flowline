@@ -4,6 +4,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import { toast } from 'sonner'
 import type { CalendarScope } from '@/api/calendar/actions'
+import { CALENDAR_CATEGORY_NAME_TAKEN } from '@/lib/calendar-colors'
+
+export const CATEGORY_NAME_TAKEN_MESSAGE = 'A calendar category with this name already exists.'
+
+const toastIfNameTaken = (result: { ok: boolean; error?: string }) => {
+  if (!result.ok && result.error === CALENDAR_CATEGORY_NAME_TAKEN) {
+    toast.error(CATEGORY_NAME_TAKEN_MESSAGE)
+  }
+}
 
 export interface CalendarCategory {
   id: number
@@ -33,14 +42,23 @@ export const useCalendarCategories = (scope: CalendarScope = 'workspace') => {
   const createMutation = useMutation({
     mutationFn: (data: { name: string; color: string; teamId?: number | null }) =>
       api.calendar.categories.create({ name: data.name, color: data.color }, data.teamId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['calendar-categories'] }),
+    onSuccess: (result) => {
+      toastIfNameTaken(result)
+      queryClient.invalidateQueries({ queryKey: ['calendar-categories'] })
+    },
     onError: () => toast.error('Failed to create category'),
   })
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: { name?: string; color?: string } }) =>
       api.calendar.categories.update(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['calendar-categories'] }),
+    onSuccess: (result) => {
+      toastIfNameTaken(result)
+      queryClient.invalidateQueries({ queryKey: ['calendar-categories'] })
+      // Events take their category's color, so a recolor changes them too.
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] })
+      queryClient.invalidateQueries({ queryKey: ['workspace-calendar-events'] })
+    },
     onError: () => toast.error('Failed to update category'),
   })
 

@@ -18,6 +18,11 @@ import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/l
 import { getTeamPermissions } from '@/api/teams/internal'
 import { getMyTeamIds } from '@/lib/team-access'
 import { countActiveCalendarCategories } from './internal'
+import {
+  CALENDAR_CATEGORY_NAME_TAKEN,
+  NO_CATEGORY_EVENT_COLOR,
+  normalizeCategoryName,
+} from '@/lib/calendar-colors'
 
 const getUserId = async () => {
   const session = await getSession()
@@ -108,6 +113,60 @@ export type EditScope = 'this' | 'thisAndFollowing' | 'all'
  */
 export type CalendarScope = 'global' | 'workspace'
 
+// Where a calendar category lives: a workspace's categories are shared by its
+// members; Personal ones (no workspace) belong to their creator alone, so
+// they must also be filtered by user — `workspaceWhereClause(null)` only
+// says "no workspace" and would match every user's Personal categories.
+function categoryScopeWhere(workspaceId: string | null, userId: string): Where {
+  return workspaceId
+    ? { workspace: { equals: workspaceId } }
+    : { and: [{ workspace: { exists: false } }, { userId: { equals: userId } }] }
+}
+
+// Category names are unique (trimmed, case-insensitive) within one scope —
+// a workspace, or a user's Personal calendar — but the same name can exist
+// in different workspaces.
+async function isCategoryNameTaken(
+  payload: Awaited<ReturnType<typeof getPayload>>,
+  workspaceId: string | null,
+  userId: string,
+  name: string,
+  excludeId?: number,
+): Promise<boolean> {
+  const { docs } = await payload.find({
+    collection: 'calendar-categories',
+    where: {
+      and: [
+        categoryScopeWhere(workspaceId, userId),
+        { planArchivedAt: { exists: false } },
+        ...(excludeId !== undefined ? [{ id: { not_equals: excludeId } }] : []),
+      ],
+    },
+    limit: 0,
+    depth: 0,
+    select: { name: true },
+  })
+  const wanted = normalizeCategoryName(name)
+  return docs.some((d) => normalizeCategoryName(d.name) === wanted)
+}
+
+// An event's color is its category's color, or gray without one — never a
+// free choice. The category must belong to the event's own scope.
+async function resolveEventColor(
+  payload: Awaited<ReturnType<typeof getPayload>>,
+  categoryId: number | null | undefined,
+  workspaceId: string | null,
+  userId: string,
+): Promise<string | null> {
+  if (!categoryId) return NO_CATEGORY_EVENT_COLOR
+  const category = await payload
+    .findByID({ collection: 'calendar-categories', id: categoryId, depth: 0 })
+    .catch(() => null)
+  if (!category || (category.workspace ?? null) !== workspaceId) return null
+  if (!workspaceId && category.userId !== userId) return null
+  return category.color
+}
+
 const DEFAULT_CALENDAR_CATEGORIES = [
   { name: 'Personal', color: '#8b5cf6', isDefault: true },
   { name: 'Work', color: '#3b82f6', isDefault: true },
@@ -134,7 +193,7 @@ export const listCalendarCategories = async (scope: CalendarScope = 'workspace')
   const existing = await payload.find({
     collection: 'calendar-categories',
     where: {
-      and: [workspaceWhereClause(workspaceId), { planArchivedAt: { exists: false } }],
+      and: [categoryScopeWhere(workspaceId, userId), { planArchivedAt: { exists: false } }],
     },
     limit: 0,
     sort: 'createdAt',
@@ -152,7 +211,7 @@ export const listCalendarCategories = async (scope: CalendarScope = 'workspace')
     return payload.find({
       collection: 'calendar-categories',
       where: {
-        and: [workspaceWhereClause(workspaceId), { planArchivedAt: { exists: false } }],
+        and: [categoryScopeWhere(workspaceId, userId), { planArchivedAt: { exists: false } }],
       },
       limit: 0,
       sort: 'createdAt',
@@ -193,7 +252,6 @@ async function filterVisibleCategories<T extends { team?: unknown }>(
   })
 }
 
-
 export const createCalendarCategory = async (
   data: CalendarCategoryData,
   teamId?: number | null,
@@ -227,11 +285,18 @@ export const createCalendarCategory = async (
       if (!teamPermissions.canManageCalendar) return err('Not authorized')
     }
 
+    const name = data.name.trim()
+    if (!name) return err('Name is required')
+    if (await isCategoryNameTaken(payload, workspaceId, userId, name)) {
+      return err(CALENDAR_CATEGORY_NAME_TAKEN)
+    }
+
     return ok(
       await payload.create({
         collection: 'calendar-categories',
         data: {
           ...data,
+          name,
           userId,
           workspace: workspaceId,
           ...(teamId && { team: teamId }),
@@ -325,6 +390,12 @@ export const restoreArchivedCalendarCategory = async (id: number) => {
       return err('LIMIT_FULL')
     }
 
+    if (
+      await isCategoryNameTaken(payload, (category as any).workspace ?? null, userId, category.name)
+    ) {
+      return err(CALENDAR_CATEGORY_NAME_TAKEN)
+    }
+
     await payload.update({
       collection: 'calendar-categories',
       id,
@@ -336,7 +407,6 @@ export const restoreArchivedCalendarCategory = async (id: number) => {
     return err('Error while restoring the category')
   }
 }
-
 
 export const listPlanArchivedCalendarCategories = async () => {
   const userId = await getUserId()
@@ -366,7 +436,31 @@ export const updateCalendarCategory = async (id: number, data: Partial<CalendarC
     const permissions = await getEffectiveWorkspacePermissions(workspaceId, userId)
     if (!permissions.canManageCalendar) return err('Not authorized')
 
-    return ok(await payload.update({ collection: 'calendar-categories', id, data }))
+    if (data.name !== undefined) {
+      const name = data.name.trim()
+      if (!name) return err('Name is required')
+      if (await isCategoryNameTaken(payload, workspaceId, userId, name, id)) {
+        return err(CALENDAR_CATEGORY_NAME_TAKEN)
+      }
+      data = { ...data, name }
+    }
+
+    const updated = await payload.update({ collection: 'calendar-categories', id, data })
+
+    // Events store their category's color (see resolveEventColor) — keep
+    // every event of this category in sync, series adjustments included.
+    if (data.color !== undefined && data.color !== category.color) {
+      await pool.query('UPDATE "calendar_events" SET "color" = $1 WHERE "category_id" = $2', [
+        data.color,
+        id,
+      ])
+      await pool.query(
+        'UPDATE "calendar_events_adjustments" SET "color" = $1 WHERE "category_id" = $2',
+        [data.color, id],
+      )
+    }
+
+    return ok(updated)
   } catch {
     return err('Error updating category')
   }
@@ -746,7 +840,9 @@ export const createCalendarEvent = async (data: CalendarEventData) => {
 
     if (data.teamId) {
       if (!workspaceId) return err('Team not found')
-      const team = await payload.findByID({ collection: 'teams', id: data.teamId }).catch(() => null)
+      const team = await payload
+        .findByID({ collection: 'teams', id: data.teamId })
+        .catch(() => null)
       if (!team || team.workspace !== workspaceId || team.planArchivedAt) {
         return err('Team not found')
       }
@@ -762,6 +858,9 @@ export const createCalendarEvent = async (data: CalendarEventData) => {
     )
     if (!assignedTo) return err(INVALID_ASSIGNEES)
 
+    const color = await resolveEventColor(payload, data.categoryId, workspaceId, userId)
+    if (!color) return err('Category not found')
+
     const event = await payload.create({
       collection: 'calendar-events',
       data: {
@@ -772,8 +871,8 @@ export const createCalendarEvent = async (data: CalendarEventData) => {
         startDate: data.startDate,
         endDate: data.endDate,
         allDay: data.allDay ?? false,
-        color: data.color ?? '#8b5cf6',
-        ...(data.categoryId !== undefined && { categoryId: data.categoryId }),
+        color,
+        categoryId: data.categoryId ?? null,
         ...(data.teamId && { team: data.teamId }),
         assignedTo,
         ...(data.showAs && { showAs: data.showAs }),
@@ -836,6 +935,21 @@ export const updateCalendarEvent = async (
     const existing = await payload.findByID({ collection: 'calendar-events', id })
 
     if (!(await canManageCalendarEvent(existing as any, userId))) return err('Not authorized')
+
+    // The color follows the category (gray without one): a client-sent color
+    // is ignored, and changing the category recomputes it.
+    const { color: _ignoredColor, ...rest } = data
+    data = rest
+    if (data.categoryId !== undefined) {
+      const color = await resolveEventColor(
+        payload,
+        data.categoryId,
+        existing.workspace ?? null,
+        existing.userId,
+      )
+      if (!color) return err('Category not found')
+      data = { ...data, color }
+    }
 
     // Assignees belong to the whole event (series included), whatever the
     // edit scope — validated against the event's own workspace/team.

@@ -93,7 +93,9 @@ export const CalendarEvents: CollectionConfig = {
       admin: { date: { pickerAppearance: 'dayAndTime' } },
     },
     { name: 'allDay', type: 'checkbox', defaultValue: false },
-    { name: 'color', type: 'text', required: false, defaultValue: '#8b5cf6' },
+    // Mirrors the event's category color (gray without one) — see
+    // resolveEventColor in api/calendar/actions.ts; never chosen freely.
+    { name: 'color', type: 'text', required: false, defaultValue: '#9ca3af' },
     {
       name: 'categoryId',
       type: 'number',

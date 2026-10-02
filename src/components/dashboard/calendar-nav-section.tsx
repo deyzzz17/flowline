@@ -141,6 +141,8 @@ function useCalendarNavState(scope: CalendarScope) {
         setCapDialog(SAFETY_CAP_ERRORS.CALENDAR_CATEGORIES_CAP)
         return
       }
+      // e.g. name already taken — already toasted, keep the form to fix it.
+      return
     }
 
     setNewCategoryName('')
@@ -157,10 +159,12 @@ function useCalendarNavState(scope: CalendarScope) {
 
   const handleSaveEdit = async () => {
     if (!editingCategory || !editName.trim()) return
-    await updateMutation.mutateAsync({
+    const result = await updateMutation.mutateAsync({
       id: editingCategory.id,
       data: { name: editName.trim(), color: editColor },
     })
+    // Name already taken (toasted by the hook) — stay in edit mode.
+    if (!result.ok) return
     setEditingCategory(null)
   }
 
@@ -334,8 +338,8 @@ function CalendarCategoryDialogs({ s }: { s: CalendarNavState }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this category?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete <strong>{s.deleteTarget?.name}</strong> and all
-              calendar events associated with it. This action cannot be undone.
+              This will permanently delete <strong>{s.deleteTarget?.name}</strong> and all calendar
+              events associated with it. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -470,7 +474,8 @@ export function CalendarNavSection({ scope, href, label, onNavigate }: CalendarN
         </button>
         {open && (
           <div className="mt-0.5 ml-3 space-y-0.5 border-l border-border/50 pl-3">
-            <Link prefetch={false}
+            <Link
+              prefetch={false}
               {...navLink(href)}
               className={cn(
                 'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all',

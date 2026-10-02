@@ -60,6 +60,7 @@ import * as migration_20260925_100000_calendar_events_team from './20260925_1000
 import * as migration_20260929_120000_calendar_events_assigned_to from './20260929_120000_calendar_events_assigned_to';
 import * as migration_20260929_140000_calendar_meeting_scheduler from './20260929_140000_calendar_meeting_scheduler';
 import * as migration_20261002_100000_timer_sessions_subtask from './20261002_100000_timer_sessions_subtask';
+import * as migration_20261002_120000_calendar_event_colors_from_category from './20261002_120000_calendar_event_colors_from_category';
 
 export const migrations = [
   {
@@ -371,5 +372,10 @@ export const migrations = [
     up: migration_20261002_100000_timer_sessions_subtask.up,
     down: migration_20261002_100000_timer_sessions_subtask.down,
     name: '20261002_100000_timer_sessions_subtask'
+  },
+  {
+    up: migration_20261002_120000_calendar_event_colors_from_category.up,
+    down: migration_20261002_120000_calendar_event_colors_from_category.down,
+    name: '20261002_120000_calendar_event_colors_from_category'
   },
 ];
