@@ -7,6 +7,12 @@ import { cacheForUser } from '@/lib/server-cache'
 import { getSession } from '@/lib/get-session'
 import { getPlanLimitsForUserId } from '@/lib/get-user-plan'
 import { getAnalyticsWindowStart, clampToAnalyticsWindow } from '@/lib/analytics-window'
+import {
+  normalizeGroupValue,
+  sanitizeTableRows,
+  type TableColumn,
+  type TableRow,
+} from '@/lib/tracking-fields'
 
 const getUserId = async () => {
   const session = await getSession()
@@ -70,28 +76,61 @@ export interface TextFieldAnalytics {
   entries: { dateKey: string; value: string }[]
 }
 
-export interface ListAnalyticsPoint {
-  label: string
-  dateKey: string
-  /** How many times each option was picked in this bucket. */
-  counts: Record<string, number>
-  total: number
+/** Aggregates of one number column, within one group. */
+export interface TableNumberStats {
+  sum: number
+  /** Largest single row value (a record, e.g. heaviest set). */
+  max: number
+  /** Rows with a value. */
+  count: number
 }
 
-export interface ListFieldAnalytics {
+export interface TableAnalyticsPoint {
+  label: string
+  dateKey: string
+  /** Keyed `${groupKey}|${columnKey}`, plus `${groupKey}|#` = number of rows. */
+  stats: Record<string, TableNumberStats>
+}
+
+export interface TableGroupSummary {
+  key: string
+  label: string
+  sessions: number
+  rows: number
+  /** Per number column: whole period, latest session and the one before. */
+  columns: Record<
+    string,
+    { period: TableNumberStats; last: TableNumberStats | null; previous: TableNumberStats | null }
+  >
+}
+
+export interface TableColumnDistribution {
+  columnKey: string
+  /** select: every option; boolean: Yes/No; text: most frequent answers. */
+  values: { value: string; count: number }[]
+}
+
+export interface TableFieldAnalytics {
   fieldKey: string
   fieldLabel: string
   fieldType: 'list'
-  options: { value: string; count: number }[]
-  points: ListAnalyticsPoint[]
-  total: number
+  columns: TableColumn[]
+  groupBy: string | null
+  /** Completions of the period with at least one row. */
+  sessions: number
+  rows: number
+  groups: TableGroupSummary[]
+  points: TableAnalyticsPoint[]
+  distributions: TableColumnDistribution[]
+  /** Latest sessions of the period, newest first. */
+  history: { dateKey: string; rows: TableRow[] }[]
 }
 
 export type TrackingFieldAnalytics =
   | NumberFieldAnalytics
   | BooleanFieldAnalytics
   | TextFieldAnalytics
-  | ListFieldAnalytics
+  | TableFieldAnalytics
 
 export interface HabitTrackingAnalyticsResult {
   periodLabel: string
@@ -221,7 +260,12 @@ function getBuckets(
 
 type TrackedEntry = { at: Date; values: Record<string, unknown> }
 type Bucket = { label: string; dateKey: string; from: Date; to: Date }
-type FieldDef = { key: string; label: string; options?: string[] }
+type FieldDef = {
+  key: string
+  label: string
+  columns?: TableColumn[]
+  groupBy?: string | null
+}
 
 function dateKeyOf(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -342,37 +386,192 @@ function textFieldAnalytics(field: FieldDef, entries: TrackedEntry[]): TextField
   }
 }
 
-function listFieldAnalytics(
+const TABLE_MAX_GROUPS = 12
+const TABLE_HISTORY_SESSIONS = 30
+const TABLE_TEXT_TOP_VALUES = 8
+const ALL_GROUP = '__all__'
+const NONE_GROUP = '__none__'
+const OTHER_GROUP = '__other__'
+
+function emptyStats(): TableNumberStats {
+  return { sum: 0, max: 0, count: 0 }
+}
+
+function addToStats(stats: TableNumberStats, n: number) {
+  stats.sum = Math.round((stats.sum + n) * 1000) / 1000
+  stats.max = stats.count === 0 ? n : Math.max(stats.max, n)
+  stats.count++
+}
+
+// A table field: rows per completion, split by the group-by column when set
+// (e.g. per exercise), with the number columns aggregated per bucket.
+function tableFieldAnalytics(
   field: FieldDef,
   buckets: Bucket[],
-  inBucket: (b: Bucket) => TrackedEntry[],
-): ListFieldAnalytics {
-  const options = field.options ?? []
-  const totals = new Map(options.map((o) => [o, 0]))
-  const points: ListAnalyticsPoint[] = buckets.map((bucket) => {
-    const point: ListAnalyticsPoint = {
-      label: bucket.label,
-      dateKey: bucket.dateKey,
-      counts: Object.fromEntries(options.map((o) => [o, 0])),
-      total: 0,
+  entries: TrackedEntry[],
+): TableFieldAnalytics {
+  const columns = field.columns ?? []
+  const numberColumns = columns.filter((c) => c.type === 'number')
+  const groupColumn = field.groupBy ? columns.find((c) => c.key === field.groupBy) : undefined
+
+  const sessions = entries
+    .map((e) => ({ at: e.at, rows: sanitizeTableRows(columns, e.values[field.key]) }))
+    .filter((s) => s.rows.length > 0)
+
+  // Group of a row (text answers grouped case-insensitively).
+  const rawGroupOf = (row: TableRow): string => {
+    if (!groupColumn) return ALL_GROUP
+    const v = row[groupColumn.key]
+    return typeof v === 'string' && v.trim() ? normalizeGroupValue(v) : NONE_GROUP
+  }
+  const labels = new Map<string, string>()
+  const rowCounts = new Map<string, number>()
+  for (const s of sessions) {
+    for (const row of s.rows) {
+      const g = rawGroupOf(row)
+      rowCounts.set(g, (rowCounts.get(g) ?? 0) + 1)
+      const v = groupColumn ? row[groupColumn.key] : undefined
+      // Shown with the latest spelling used.
+      if (typeof v === 'string' && v.trim()) labels.set(g, v.trim())
     }
-    for (const e of inBucket(bucket)) {
-      const v = e.values[field.key]
-      // Answers no longer among the options (renamed/removed) are ignored.
-      if (typeof v !== 'string' || !totals.has(v)) continue
-      point.counts[v]++
-      point.total++
-      totals.set(v, totals.get(v)! + 1)
+  }
+  // Keep the most used groups; the rest are folded into "Other".
+  const kept = new Set(
+    [...rowCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, TABLE_MAX_GROUPS)
+      .map(([g]) => g),
+  )
+  const groupOf = (row: TableRow) => {
+    const g = rawGroupOf(row)
+    return kept.has(g) ? g : OTHER_GROUP
+  }
+  const groupLabel = (g: string) =>
+    g === ALL_GROUP
+      ? 'All'
+      : g === NONE_GROUP
+        ? 'Unspecified'
+        : g === OTHER_GROUP
+          ? 'Other'
+          : (labels.get(g) ?? g)
+
+  const points: TableAnalyticsPoint[] = buckets.map((bucket) => {
+    const stats: Record<string, TableNumberStats> = {}
+    for (const s of sessions) {
+      if (s.at < bucket.from || s.at > bucket.to) continue
+      for (const row of s.rows) {
+        const g = groupOf(row)
+        const countKey = `${g}|#`
+        stats[countKey] ??= emptyStats()
+        addToStats(stats[countKey], 1)
+        for (const col of numberColumns) {
+          const v = row[col.key]
+          if (typeof v !== 'number') continue
+          const k = `${g}|${col.key}`
+          stats[k] ??= emptyStats()
+          addToStats(stats[k], v)
+        }
+      }
     }
-    return point
+    return { label: bucket.label, dateKey: bucket.dateKey, stats }
   })
+
+  // Per group: period totals, and the latest two sessions it appears in.
+  const summaries = new Map<string, TableGroupSummary>()
+  const sessionStatsByGroup = new Map<string, Record<string, TableNumberStats>[]>()
+  for (const s of sessions) {
+    const perGroup = new Map<string, Record<string, TableNumberStats>>()
+    for (const row of s.rows) {
+      const g = groupOf(row)
+      let summary = summaries.get(g)
+      if (!summary) {
+        summary = {
+          key: g,
+          label: groupLabel(g),
+          sessions: 0,
+          rows: 0,
+          columns: Object.fromEntries(
+            numberColumns.map((c) => [c.key, { period: emptyStats(), last: null, previous: null }]),
+          ),
+        }
+        summaries.set(g, summary)
+      }
+      summary.rows++
+      let sessionStats = perGroup.get(g)
+      if (!sessionStats) {
+        sessionStats = Object.fromEntries(numberColumns.map((c) => [c.key, emptyStats()]))
+        perGroup.set(g, sessionStats)
+        summary.sessions++
+      }
+      for (const col of numberColumns) {
+        const v = row[col.key]
+        if (typeof v !== 'number') continue
+        addToStats(summary.columns[col.key].period, v)
+        addToStats(sessionStats[col.key], v)
+      }
+    }
+    for (const [g, st] of perGroup) {
+      const list = sessionStatsByGroup.get(g) ?? []
+      list.push(st)
+      sessionStatsByGroup.set(g, list)
+    }
+  }
+  for (const [g, list] of sessionStatsByGroup) {
+    const summary = summaries.get(g)!
+    const last = list[list.length - 1]
+    const previous = list.length > 1 ? list[list.length - 2] : null
+    for (const col of numberColumns) {
+      summary.columns[col.key].last = last[col.key].count > 0 ? last[col.key] : null
+      summary.columns[col.key].previous =
+        previous && previous[col.key].count > 0 ? previous[col.key] : null
+    }
+  }
+  const groups = [...summaries.values()].sort((a, b) => {
+    if (a.key === OTHER_GROUP) return 1
+    if (b.key === OTHER_GROUP) return -1
+    return b.rows - a.rows
+  })
+
+  // How the other (non-group) columns were answered.
+  const distributions: TableColumnDistribution[] = columns
+    .filter((c) => c.key !== groupColumn?.key && c.type !== 'number')
+    .map((col) => {
+      const counts = new Map<string, { value: string; count: number }>()
+      if (col.type === 'select')
+        for (const o of col.options ?? []) counts.set(o, { value: o, count: 0 })
+      for (const s of sessions) {
+        for (const row of s.rows) {
+          const v = row[col.key]
+          if (v === undefined) continue
+          const value = col.type === 'boolean' ? (v ? 'Yes' : 'No') : String(v)
+          const k = col.type === 'text' ? normalizeGroupValue(value) : value
+          const c = counts.get(k)
+          if (c) c.count++
+          else counts.set(k, { value, count: 1 })
+        }
+      }
+      let values = [...counts.values()]
+      if (col.type === 'text')
+        values = values.sort((a, b) => b.count - a.count).slice(0, TABLE_TEXT_TOP_VALUES)
+      return { columnKey: col.key, values }
+    })
+    .filter((d) => d.values.some((v) => v.count > 0))
+
   return {
     fieldKey: field.key,
     fieldLabel: field.label,
     fieldType: 'list',
-    options: options.map((o) => ({ value: o, count: totals.get(o) ?? 0 })),
+    columns,
+    groupBy: groupColumn?.key ?? null,
+    sessions: sessions.length,
+    rows: sessions.reduce((n, s) => n + s.rows.length, 0),
+    groups,
     points,
-    total: [...totals.values()].reduce((s, n) => s + n, 0),
+    distributions,
+    history: sessions
+      .slice(-TABLE_HISTORY_SESSIONS)
+      .reverse()
+      .map((s) => ({ dateKey: dateKeyOf(s.at), rows: s.rows })),
   }
 }
 
@@ -384,7 +583,7 @@ export const getHabitTrackingAnalytics = async (
 ): Promise<HabitTrackingAnalyticsResult> => {
   const userId = await getUserId()
   if (!userId) return computeGetHabitTrackingAnalytics(null, habitId, period, offset)
-  return cacheForUser(userId, ['habits'], ['habit-tracking-v2', habitId, period, offset], () =>
+  return cacheForUser(userId, ['habits'], ['habit-tracking-v3', habitId, period, offset], () =>
     computeGetHabitTrackingAnalytics(userId, habitId, period, offset),
   )
 }
@@ -457,7 +656,7 @@ async function computeGetHabitTrackingAnalytics(
     (field: any): TrackingFieldAnalytics => {
       if (field.type === 'boolean') return booleanFieldAnalytics(field, buckets, inBucket)
       if (field.type === 'text') return textFieldAnalytics(field, entries)
-      if (field.type === 'list') return listFieldAnalytics(field, buckets, inBucket)
+      if (field.type === 'list') return tableFieldAnalytics(field, buckets, entries)
       return numberFieldAnalytics(field, buckets, inBucket)
     },
   )

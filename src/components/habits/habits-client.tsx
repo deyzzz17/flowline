@@ -33,6 +33,7 @@ import {
 } from '@/api/habits/actions'
 import { HabitFormDialog } from './habit-form-dialog'
 import { HabitTrackingDialog } from './habit-tracking-dialog'
+import type { TrackingValues } from '@/lib/tracking-fields'
 import { HabitArchivesDrawer } from './habits-archives-drawer'
 import {
   AlertDialog,
@@ -519,7 +520,7 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
     toggleHabit({ habit, timezone: userTimezone })
   }
 
-  const handleTrackingSubmit = async (values: Record<string, number | string | boolean>) => {
+  const handleTrackingSubmit = async (values: TrackingValues) => {
     if (!trackingHabit) return
     const habit = trackingHabit
     setTrackingHabit(null)
@@ -883,6 +884,7 @@ export function HabitsClient({ initialHabits }: HabitsClientProps) {
 
       <HabitTrackingDialog
         open={!!trackingHabit}
+        habitId={trackingHabit?.id}
         habitName={trackingHabit?.name ?? ''}
         habitColor={trackingHabit?.color ?? '#8b5cf6'}
         fields={(trackingHabit?.trackingFields ?? []).filter((f) => f.enabled)}

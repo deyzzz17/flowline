@@ -1,9 +1,12 @@
 'use server'
 
 import {
-  TRACKING_LIST_MAX_OPTIONS,
-  TRACKING_LIST_MIN_OPTIONS,
-  TRACKING_LIST_OPTION_MAX_LENGTH,
+  normalizeGroupValue,
+  sanitizeTableDefinition,
+  sanitizeTableRows,
+  type TableColumn,
+  type TableRow,
+  type TrackingValues,
 } from '@/lib/tracking-fields'
 import 'server-only'
 import { getPayload } from 'payload'
@@ -44,8 +47,10 @@ export interface TrackingField {
   key: string
   label: string
   type: TrackingFieldType
-  /** The choices of a "list" field (Pro), in display order. */
-  options?: string[]
+  /** Columns of a "list" field (Pro) — a table filled with rows each time. */
+  columns?: TableColumn[]
+  /** Column the table's analytics are split by ("per exercise"), if any. */
+  groupBy?: string | null
   isDefault: boolean
   enabled: boolean
 }
@@ -53,9 +58,9 @@ export interface TrackingField {
 const TRACKING_FIELD_TYPES: TrackingFieldType[] = ['number', 'text', 'boolean', 'list']
 
 /**
- * Validates and normalizes submitted tracking fields. A "list" field needs a
- * Pro plan — except one that already existed on the habit (kept after a
- * downgrade) — and 2–20 distinct, non-empty options.
+ * Validates and normalizes submitted tracking fields. A "list" (table) field
+ * needs a Pro plan — except one that already existed on the habit (kept after
+ * a downgrade) — and a valid column definition.
  */
 function sanitizeTrackingFields(
   fields: TrackingField[],
@@ -69,30 +74,45 @@ function sanitizeTrackingFields(
   for (const f of fields) {
     if (!TRACKING_FIELD_TYPES.includes(f.type)) return { ok: false, error: 'Invalid field type' }
     if (f.type !== 'list') {
-      const { options: _options, ...rest } = f
+      const { columns: _columns, groupBy: _groupBy, ...rest } = f
       out.push(rest)
       continue
     }
     if (!canCreateListFields && !existingListKeys.has(f.key)) {
       return { ok: false, error: LIMIT_ERRORS.TRACKING_LIST_FIELDS_PRO }
     }
-    const seen = new Set<string>()
-    const options: string[] = []
-    for (const raw of f.options ?? []) {
-      const option = String(raw).trim().slice(0, TRACKING_LIST_OPTION_MAX_LENGTH)
-      if (!option || seen.has(option.toLowerCase())) continue
-      seen.add(option.toLowerCase())
-      options.push(option)
-    }
-    if (options.length < TRACKING_LIST_MIN_OPTIONS || options.length > TRACKING_LIST_MAX_OPTIONS) {
-      return {
-        ok: false,
-        error: `A list field needs between ${TRACKING_LIST_MIN_OPTIONS} and ${TRACKING_LIST_MAX_OPTIONS} options`,
-      }
-    }
-    out.push({ ...f, options })
+    const table = sanitizeTableDefinition(f.columns, f.groupBy)
+    if (!table.ok) return { ok: false, error: table.error }
+    out.push({ ...f, columns: table.columns, groupBy: table.groupBy })
   }
   return { ok: true, fields: out }
+}
+
+/**
+ * Keeps only values of the habit's enabled fields, each coerced to its type
+ * (table rows cleaned against their columns).
+ */
+function sanitizeTrackingValues(fields: TrackingField[], values: unknown): TrackingValues {
+  const out: TrackingValues = {}
+  if (!values || typeof values !== 'object') return out
+  const raw = values as Record<string, unknown>
+  for (const f of fields) {
+    if (!f.enabled) continue
+    const v = raw[f.key]
+    if (v === undefined || v === null) continue
+    if (f.type === 'list') {
+      const rows = sanitizeTableRows(f.columns ?? [], v)
+      if (rows.length > 0) out[f.key] = rows
+    } else if (f.type === 'number') {
+      const n = Number(v)
+      if (Number.isFinite(n)) out[f.key] = n
+    } else if (f.type === 'boolean') {
+      if (typeof v === 'boolean') out[f.key] = v
+    } else if (typeof v === 'string' && v.trim()) {
+      out[f.key] = v.trim().slice(0, 1000)
+    }
+  }
+  return out
 }
 
 export interface HabitGoalFieldTarget {
@@ -186,7 +206,7 @@ export interface HabitAnalytics {
 
 export interface TrackingDataPoint {
   date: string
-  values: Record<string, number | string | boolean>
+  values: TrackingValues
 }
 
 export interface ArchivedHabit {
@@ -552,7 +572,10 @@ export const listHabits = async (timezone = 'UTC'): Promise<HabitWithStats[]> =>
   )
 }
 
-async function computeListHabits(userId: string | null, timezone = 'UTC'): Promise<HabitWithStats[]> {
+async function computeListHabits(
+  userId: string | null,
+  timezone = 'UTC',
+): Promise<HabitWithStats[]> {
   if (!userId) return []
   const payload = await getPayload({ config })
   const { docs: habits } = await payload.find({
@@ -683,7 +706,7 @@ export const getHabitDetail = async (habitId: number): Promise<HabitDetail | nul
     trackingData: completions
       .filter((c) => (c as any).trackingValues)
       .map((c) => {
-        let values: Record<string, number | string | boolean> = {}
+        let values: TrackingValues = {}
         try {
           const raw = (c as any).trackingValues
           values = typeof raw === 'string' ? JSON.parse(raw) : raw
@@ -726,8 +749,7 @@ export const createHabit = async (data: HabitData) => {
     }
 
     if (
-      (data.trackingFields ?? []).filter((f) => !f.isDefault).length >
-      limits.trackingFieldsPerHabit
+      (data.trackingFields ?? []).filter((f) => !f.isDefault).length > limits.trackingFieldsPerHabit
     ) {
       return err(
         isPlanUnlimited(plan, 'trackingFieldsPerHabit')
@@ -781,7 +803,6 @@ export const createHabit = async (data: HabitData) => {
     return err('Error creating habit')
   }
 }
-
 
 export const checkHabitsCompliance = async () => {
   const userId = await getUserId()
@@ -882,14 +903,16 @@ export const restoreArchivedHabit = async (id: number) => {
   }
 }
 
-
 export interface HabitTrackingFieldsOverLimit {
   habitId: number
   habitName: string
   trackingFields: TrackingField[]
 }
 
-async function listActiveHabitsForCompliance(payload: Awaited<ReturnType<typeof getPayload>>, userId: string) {
+async function listActiveHabitsForCompliance(
+  payload: Awaited<ReturnType<typeof getPayload>>,
+  userId: string,
+) {
   const { docs: habits } = await payload.find({
     collection: 'habits',
     where: {
@@ -1189,13 +1212,18 @@ export const deleteHabit = async (id: number) => {
 export const toggleHabitCompletion = async (
   habitId: number,
   dateStr?: string,
-  trackingValues?: Record<string, number | string | boolean>,
+  trackingValues?: TrackingValues,
   timezone = 'UTC',
 ) => {
   try {
     const userId = await getUserId()
     if (!userId) return err('Not authenticated')
     const payload = await getPayload({ config })
+
+    const habit = await payload
+      .findByID({ collection: 'habits', id: habitId, depth: 0 })
+      .catch(() => null)
+    if (!habit || (habit as any).userId !== userId) return err('Not authorized')
 
     const targetDate = dateStr ?? getTodayKey(timezone)
 
@@ -1224,7 +1252,14 @@ export const toggleHabitCompletion = async (
           userId,
           habitId,
           completedAt: new Date(targetDate + 'T12:00:00Z').toISOString(),
-          trackingValues: trackingValues ? JSON.stringify(trackingValues) : undefined,
+          trackingValues: trackingValues
+            ? JSON.stringify(
+                sanitizeTrackingValues(
+                  parseJsonField<TrackingField[]>((habit as any).trackingFields) ?? [],
+                  trackingValues,
+                ),
+              )
+            : undefined,
         } as any,
       })
       return ok({ completed: true })
@@ -1233,6 +1268,79 @@ export const toggleHabitCompletion = async (
     console.error(e)
     return err('Error toggling completion')
   }
+}
+
+export interface TableFieldHistory {
+  /** Rows of the latest completion that filled this table. */
+  lastRows: TableRow[]
+  /** Previously typed values per text column, most recent first. */
+  suggestions: Record<string, string[]>
+}
+
+const TABLE_SUGGESTIONS_PER_COLUMN = 50
+
+/**
+ * For each table ("list") field of a habit: the last session's rows (to
+ * repeat it) and the values already typed in its text columns (to keep
+ * spellings consistent, e.g. the same exercise names).
+ */
+export const getHabitTableHistory = async (
+  habitId: number,
+): Promise<Record<string, TableFieldHistory>> => {
+  const userId = await getUserId()
+  if (!userId) return {}
+  const payload = await getPayload({ config })
+  const habit = await payload
+    .findByID({ collection: 'habits', id: habitId, depth: 0 })
+    .catch(() => null)
+  if (!habit || (habit as any).userId !== userId) return {}
+
+  const tables = (parseJsonField<TrackingField[]>((habit as any).trackingFields) ?? []).filter(
+    (f) => f.enabled && f.type === 'list',
+  )
+  if (tables.length === 0) return {}
+
+  const { docs } = await payload.find({
+    collection: 'habit-completions',
+    where: { and: [{ userId: { equals: userId } }, { habitId: { equals: habitId } }] },
+    sort: '-completedAt',
+    limit: 200,
+    depth: 0,
+  })
+  const valuesList = docs.map(
+    (d) => parseJsonField<TrackingValues>((d as any).trackingValues) ?? {},
+  )
+
+  const out: Record<string, TableFieldHistory> = {}
+  for (const table of tables) {
+    const columns = table.columns ?? []
+    const textColumns = columns.filter((c) => c.type === 'text')
+    const seen: Record<string, Set<string>> = Object.fromEntries(
+      textColumns.map((c) => [c.key, new Set()]),
+    )
+    const suggestions: Record<string, string[]> = Object.fromEntries(
+      textColumns.map((c) => [c.key, []]),
+    )
+    let lastRows: TableRow[] = []
+    for (const values of valuesList) {
+      const rows = Array.isArray(values[table.key]) ? (values[table.key] as TableRow[]) : []
+      if (rows.length === 0) continue
+      if (lastRows.length === 0) lastRows = sanitizeTableRows(columns, rows)
+      for (const row of rows) {
+        for (const col of textColumns) {
+          const v = row[col.key]
+          if (typeof v !== 'string' || !v.trim()) continue
+          const k = normalizeGroupValue(v)
+          if (seen[col.key].has(k) || suggestions[col.key].length >= TABLE_SUGGESTIONS_PER_COLUMN)
+            continue
+          seen[col.key].add(k)
+          suggestions[col.key].push(v.trim())
+        }
+      }
+    }
+    out[table.key] = { lastRows, suggestions }
+  }
+  return out
 }
 
 // Cached per user (dropped as soon as a habit or completion of theirs changes — see server-cache.ts).
@@ -1465,7 +1573,10 @@ export const getHeatmapAnalytics = async (year: number): Promise<HeatmapAnalytic
   )
 }
 
-async function computeGetHeatmapAnalytics(userId: string | null, year: number): Promise<HeatmapAnalyticsResult> {
+async function computeGetHeatmapAnalytics(
+  userId: string | null,
+  year: number,
+): Promise<HeatmapAnalyticsResult> {
   if (!userId) return { year, data: [] }
 
   const payload = await getPayload({ config })

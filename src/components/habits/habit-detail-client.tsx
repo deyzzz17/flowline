@@ -19,6 +19,7 @@ import {
   HabitWithStats,
 } from '@/api/habits/actions'
 import { HabitTrackingDialog } from './habit-tracking-dialog'
+import type { TrackingValues } from '@/lib/tracking-fields'
 import { HabitTrackingCharts } from './habit-tracking-charts'
 import {
   getHabitTrackingAnalytics,
@@ -286,7 +287,7 @@ export function HabitDetailClient({ habit: initialHabit, initialTrackingAnalytic
     refresh()
   }
 
-  const handleTrackingSubmit = async (values: Record<string, number | string | boolean>) => {
+  const handleTrackingSubmit = async (values: TrackingValues) => {
     setTrackingOpen(false)
     const previous = habit
     setHabit((prev) => ({
@@ -572,6 +573,7 @@ export function HabitDetailClient({ habit: initialHabit, initialTrackingAnalytic
       <HabitTrackingDialog
         key={habit.id}
         open={trackingOpen}
+        habitId={habit.id}
         habitName={habit.name}
         habitColor={habit.color}
         fields={activeTrackingFields}
