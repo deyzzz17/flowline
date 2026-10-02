@@ -55,7 +55,8 @@ export const CalendarEvents: CollectionConfig = {
       name: 'showAs',
       type: 'select',
       required: false,
-      defaultValue: 'busy',
+      // No default here: set by the server — 'busy' unless chosen for a
+      // workspace event, null for a Personal one (see showAsFor).
       options: [
         { label: 'Available', value: 'free' },
         { label: 'Tentative', value: 'tentative' },
@@ -64,7 +65,7 @@ export const CalendarEvents: CollectionConfig = {
       ],
       admin: {
         description:
-          'How this event affects the availability of its creator and assignees in the meeting scheduler (Workspace Calendar).',
+          'How this event affects the availability of its creator and assignees in the meeting scheduler (Workspace Calendar). Empty for Personal events.',
       },
     },
     {

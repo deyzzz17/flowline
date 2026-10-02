@@ -61,6 +61,7 @@ import * as migration_20260929_120000_calendar_events_assigned_to from './202609
 import * as migration_20260929_140000_calendar_meeting_scheduler from './20260929_140000_calendar_meeting_scheduler';
 import * as migration_20261002_100000_timer_sessions_subtask from './20261002_100000_timer_sessions_subtask';
 import * as migration_20261002_120000_calendar_event_colors_from_category from './20261002_120000_calendar_event_colors_from_category';
+import * as migration_20261002_140000_calendar_events_show_as_personal_null from './20261002_140000_calendar_events_show_as_personal_null';
 
 export const migrations = [
   {
@@ -377,5 +378,10 @@ export const migrations = [
     up: migration_20261002_120000_calendar_event_colors_from_category.up,
     down: migration_20261002_120000_calendar_event_colors_from_category.down,
     name: '20261002_120000_calendar_event_colors_from_category'
+  },
+  {
+    up: migration_20261002_140000_calendar_events_show_as_personal_null.up,
+    down: migration_20261002_140000_calendar_events_show_as_personal_null.down,
+    name: '20261002_140000_calendar_events_show_as_personal_null'
   },
 ];

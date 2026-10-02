@@ -467,7 +467,7 @@ export interface CalendarEvent {
    */
   teams?: (number | Team)[] | null;
   /**
-   * How this event affects the availability of its creator and assignees in the meeting scheduler (Workspace Calendar).
+   * How this event affects the availability of its creator and assignees in the meeting scheduler (Workspace Calendar). Empty for Personal events.
    */
   showAs?: ('free' | 'tentative' | 'busy' | 'away') | null;
   /**

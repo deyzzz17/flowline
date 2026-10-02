@@ -106,6 +106,14 @@ export interface CalendarEventData {
 
 export type EditScope = 'this' | 'thisAndFollowing' | 'all'
 
+type ShowAs = NonNullable<CalendarEventData['showAs']>
+
+// Availability status only means something in a workspace (meeting
+// scheduler): workspace events default to busy, Personal events have none.
+function showAsFor(workspaceId: string | null | undefined, showAs?: ShowAs | null) {
+  return workspaceId ? (showAs ?? 'busy') : null
+}
+
 /**
  * 'global' aggregates data across all of the user's workspaces (the common
  * Calendar nav item); 'workspace' scopes it to the currently active workspace
@@ -875,7 +883,7 @@ export const createCalendarEvent = async (data: CalendarEventData) => {
         categoryId: data.categoryId ?? null,
         ...(data.teamId && { team: data.teamId }),
         assignedTo,
-        ...(data.showAs && { showAs: data.showAs }),
+        showAs: showAsFor(workspaceId, data.showAs),
         ...(data.recurrence ? { recurrence: data.recurrence as any } : {}),
         ...(data.recurrenceId ? { recurrenceId: data.recurrenceId } : {}),
         ...(data.originalDate ? { originalDate: data.originalDate } : {}),
@@ -949,6 +957,11 @@ export const updateCalendarEvent = async (
       )
       if (!color) return err('Category not found')
       data = { ...data, color }
+    }
+    // Personal events never carry an availability status.
+    if (!existing.workspace) {
+      const { showAs: _ignoredShowAs, ...withoutShowAs } = data
+      data = withoutShowAs
     }
 
     // Assignees belong to the whole event (series included), whatever the
@@ -1153,7 +1166,7 @@ export const updateCalendarEvent = async (
             ...(((parent as any).teams ?? []).length > 0 && {
               teams: ((parent as any).teams as unknown[]).map((t) => teamIdOf(t)!),
             }),
-            showAs: data.showAs ?? (parent as any).showAs ?? 'busy',
+            showAs: showAsFor(parent.workspace, data.showAs ?? (parent as any).showAs),
             recurrenceId: parentId,
             originalDate: occDate,
           },
