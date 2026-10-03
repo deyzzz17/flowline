@@ -25,8 +25,10 @@ import { useSession } from '@/lib/auth-client'
 import { useTeams } from '@/hooks/teams/use-teams'
 import { useTimeFormat } from '@/hooks/calendar/use-time-format'
 import {
+  getMeetingDetails,
   getSchedulingAvailability,
   scheduleMeeting,
+  updateMeeting,
   type ParticipantAvailability,
 } from '@/api/calendar/scheduler-actions'
 import { SHOW_AS_OPTIONS, showAsOption, type ShowAs } from './show-as'
@@ -35,6 +37,9 @@ import { SHOW_AS_OPTIONS, showAsOption, type ShowAs } from './show-as'
 // availability grid over the chosen time window (8:00–18:00 by default, up
 // to the whole day) → details, then the meeting is created
 // linked to the chosen teams and every participant gets an invitation.
+// With `editEventId`, the same flow changes an existing meeting — the only
+// way to change one (no drag & drop): it's prefilled, the meeting doesn't
+// block its own slot, and everyone is notified of the change.
 
 const DURATIONS = [15, 30, 45, 60, 90, 120]
 // Time window the slots are proposed in, in minutes from midnight (0–1440).
@@ -94,6 +99,8 @@ interface MeetingSchedulerDialogProps {
   defaultDate: Date
   /** Called with the meeting's day once it's created (e.g. to show that day). */
   onScheduled?: (day: Date) => void
+  /** An existing meeting to change, instead of scheduling a new one. */
+  editEventId?: number | null
 }
 
 type Step = 1 | 2 | 3 | 4
@@ -103,7 +110,9 @@ export function MeetingSchedulerDialog({
   onOpenChange,
   defaultDate,
   onScheduled,
+  editEventId = null,
 }: MeetingSchedulerDialogProps) {
+  const isEditing = editEventId !== null
   const queryClient = useQueryClient()
   const { formatTime } = useTimeFormat()
   const { data: session } = useSession()
@@ -121,9 +130,42 @@ export function MeetingSchedulerDialog({
   const [description, setDescription] = useState('')
   const [showAs, setShowAs] = useState<ShowAs>('busy')
 
+  const { data: meeting, isPending: meetingPending } = useQuery({
+    queryKey: ['meeting-details', editEventId],
+    queryFn: () => getMeetingDetails(editEventId!),
+    enabled: open && isEditing,
+    staleTime: 0,
+  })
+
+  // Editing: start from the meeting as it is now.
+  useEffect(() => {
+    if (!open || !isEditing || !meeting) return
+    const start = new Date(meeting.startDate)
+    const end = new Date(meeting.endDate)
+    const startMinutes = start.getHours() * 60 + start.getMinutes()
+    const endMinutes = Math.min(
+      1440,
+      startMinutes + Math.round((end.getTime() - start.getTime()) / 60_000),
+    )
+    setDay(start)
+    setDuration(Math.max(5, Math.round((end.getTime() - start.getTime()) / 60_000)))
+    setWindowStart(
+      Math.min(DEFAULT_WINDOW_START, Math.floor(startMinutes / WINDOW_STEP) * WINDOW_STEP),
+    )
+    setWindowEnd(Math.max(DEFAULT_WINDOW_END, Math.ceil(endMinutes / WINDOW_STEP) * WINDOW_STEP))
+    setTeamIds(meeting.teamIds)
+    setMemberIds(meeting.participantIds)
+    setSlotStart(start.toISOString())
+    setTitle(meeting.title)
+    setDescription(meeting.description ?? '')
+    setShowAs(meeting.showAs)
+  }, [open, isEditing, meeting])
+
   useEffect(() => {
     if (!open) return
     setStep(1)
+    // Editing: the fields come from the meeting (effect above).
+    if (isEditing) return
     setDay(defaultDate)
     setDuration(60)
     setWindowStart(DEFAULT_WINDOW_START)
@@ -168,10 +210,22 @@ export function MeetingSchedulerDialog({
     return [...ids].filter((id) => members.some((m) => m.userId === id)).sort()
   }, [memberIds, teamMemberQueries, myId, members])
 
-  const slots = useMemo(
-    () => buildSlots(day, duration, windowStart, windowEnd),
-    [day, duration, windowStart, windowEnd],
-  )
+  const slots = useMemo(() => {
+    const grid = buildSlots(day, duration, windowStart, windowEnd)
+    // The meeting's current slot stays selectable when editing, even if it
+    // doesn't fall on the grid (same day and length only).
+    if (meeting) {
+      const start = new Date(meeting.startDate)
+      const end = new Date(meeting.endDate)
+      const sameDay = start.toDateString() === day.toDateString()
+      const sameLength = Math.round((end.getTime() - start.getTime()) / 60_000) === duration
+      if (sameDay && sameLength && !grid.some((g) => g.start.getTime() === start.getTime())) {
+        grid.push({ start, end })
+        grid.sort((a, b) => a.start.getTime() - b.start.getTime())
+      }
+    }
+    return grid
+  }, [day, duration, windowStart, windowEnd, meeting])
 
   const rangeStart = atMinutes(day, windowStart)
   const rangeEnd = atMinutes(day, windowEnd)
@@ -189,9 +243,15 @@ export function MeetingSchedulerDialog({
       rangeStart.toISOString(),
       rangeEnd.toISOString(),
       participantIds,
+      editEventId,
     ],
     queryFn: () =>
-      getSchedulingAvailability(rangeStart.toISOString(), rangeEnd.toISOString(), participantIds),
+      getSchedulingAvailability(
+        rangeStart.toISOString(),
+        rangeEnd.toISOString(),
+        participantIds,
+        editEventId ?? undefined,
+      ),
     enabled: open && step >= 3 && participantIds.length > 0,
     staleTime: 30_000,
   })
@@ -249,8 +309,8 @@ export function MeetingSchedulerDialog({
   })()
 
   const scheduleMutation = useMutation({
-    mutationFn: () =>
-      scheduleMeeting({
+    mutationFn: () => {
+      const input = {
         title: title.trim(),
         description: description.trim() || undefined,
         startDate: chosen!.slot.start.toISOString(),
@@ -258,18 +318,28 @@ export function MeetingSchedulerDialog({
         showAs,
         teamIds,
         participantIds,
-      }),
+      }
+      return isEditing ? updateMeeting(editEventId!, input) : scheduleMeeting(input)
+    },
     onSuccess: (result) => {
       if (!result.ok) {
         toast.error(result.error)
         return
       }
-      toast.info('Meeting scheduled', { description: 'Invitations have been sent.' })
+      if (isEditing) {
+        toast.info('Meeting updated', { description: 'Everyone on it has been notified.' })
+      } else {
+        toast.info('Meeting scheduled', { description: 'Invitations have been sent.' })
+      }
       queryClient.invalidateQueries({ queryKey: ['workspace-calendar-events'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-flowline'] })
+      queryClient.invalidateQueries({ queryKey: ['event-invitations'] })
+      queryClient.invalidateQueries({ queryKey: ['meeting-details'] })
       onOpenChange(false)
       onScheduled?.(day)
     },
-    onError: () => toast.error('Error scheduling the meeting'),
+    onError: () =>
+      toast.error(isEditing ? 'Error updating the meeting' : 'Error scheduling the meeting'),
   })
 
   const windowLabel = (minutes: number) =>
@@ -300,351 +370,386 @@ export function MeetingSchedulerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Schedule a meeting</DialogTitle>
+          <DialogTitle>{isEditing ? 'Edit meeting' : 'Schedule a meeting'}</DialogTitle>
           <DialogDescription>
             Step {step} of 4 · {stepTitles[step]}
           </DialogDescription>
         </DialogHeader>
 
-        {step === 1 && (
-          <div className="space-y-5">
-            <div className="space-y-2">
-              <Label className="text-sm">Day</Label>
-              <div className="flex justify-center rounded-xl border border-border/50">
-                <Calendar
-                  mode="single"
-                  selected={day}
-                  onSelect={(d) => d && setDay(d)}
-                  disabled={(d) => {
-                    const today = new Date()
-                    today.setHours(0, 0, 0, 0)
-                    return d < today
-                  }}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm">Duration</Label>
-              <div className="flex flex-wrap gap-1.5">
-                {DURATIONS.map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setDuration(d)}
-                    className={cn(
-                      'rounded-full border px-3 py-1 text-xs font-medium transition-all',
-                      duration === d
-                        ? 'border-violet-500/50 bg-violet-500/15 text-violet-600 dark:text-violet-400'
-                        : 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
-                    )}
-                  >
-                    {d < 60 ? `${d} min` : `${d / 60} h`.replace('.5 h', ' h 30')}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm">Time window</Label>
-              <p className="text-xs text-muted-foreground/70">
-                Slots are only proposed within this range.
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <select
-                  aria-label="From"
-                  value={windowStart}
-                  onChange={(e) => setWindowStart(Number(e.target.value))}
-                  className="h-8 rounded-lg border border-border/60 bg-background px-2 text-xs"
-                >
-                  {WINDOW_OPTIONS.filter((m) => m < 1440).map((m) => (
-                    <option key={m} value={m}>
-                      {windowLabel(m)}
-                    </option>
-                  ))}
-                </select>
-                <span className="text-xs text-muted-foreground">to</span>
-                <select
-                  aria-label="To"
-                  value={windowEnd}
-                  onChange={(e) => setWindowEnd(Number(e.target.value))}
-                  className="h-8 rounded-lg border border-border/60 bg-background px-2 text-xs"
-                >
-                  {WINDOW_OPTIONS.filter((m) => m > 0).map((m) => (
-                    <option key={m} value={m}>
-                      {windowLabel(m)}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setWindowStart(0)
-                    setWindowEnd(1440)
-                  }}
-                  className={cn(
-                    'rounded-full border px-3 py-1 text-xs font-medium transition-all',
-                    isWholeDay
-                      ? 'border-violet-500/50 bg-violet-500/15 text-violet-600 dark:text-violet-400'
-                      : 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
-                  )}
-                >
-                  Whole day
-                </button>
-                {!(windowStart === DEFAULT_WINDOW_START && windowEnd === DEFAULT_WINDOW_END) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setWindowStart(DEFAULT_WINDOW_START)
-                      setWindowEnd(DEFAULT_WINDOW_END)
-                    }}
-                    className="text-xs text-muted-foreground underline-offset-2 hover:underline"
-                  >
-                    Reset to working hours
-                  </button>
-                )}
-              </div>
-              {!windowFits && (
-                <p className="text-xs text-destructive">
-                  The time window must be at least as long as the meeting.
-                </p>
-              )}
-            </div>
+        {isEditing && (meetingPending || !meeting) ? (
+          <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+            {meetingPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading the meeting…
+              </>
+            ) : (
+              'This meeting can\u2019t be edited.'
+            )}
           </div>
-        )}
+        ) : (
+          <>
+            {isEditing && meeting && !meeting.canEdit && (
+              <p className="rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                Only the organizer (or a manager of a linked team) can change this meeting.
+              </p>
+            )}
 
-        {step === 2 && (
-          <div className="space-y-5">
-            {teams.length > 0 && (
-              <div className="space-y-2">
-                <Label className="text-sm flex items-center gap-1.5">
-                  <UsersRound className="h-3.5 w-3.5 text-muted-foreground/60" />
-                  Teams
-                </Label>
-                <p className="text-xs text-muted-foreground/70">
-                  Invites every member and adds the meeting to each team&apos;s calendar.
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {teams.map((t) => (
+            {step === 1 && (
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <Label className="text-sm">Day</Label>
+                  <div className="flex justify-center rounded-xl border border-border/50">
+                    <Calendar
+                      mode="single"
+                      selected={day}
+                      onSelect={(d) => d && setDay(d)}
+                      disabled={(d) => {
+                        const today = new Date()
+                        today.setHours(0, 0, 0, 0)
+                        return d < today
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm">Duration</Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(DURATIONS.includes(duration)
+                      ? DURATIONS
+                      : [...DURATIONS, duration].sort((a, b) => a - b)
+                    ).map((d) => (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => setDuration(d)}
+                        className={cn(
+                          'rounded-full border px-3 py-1 text-xs font-medium transition-all',
+                          duration === d
+                            ? 'border-violet-500/50 bg-violet-500/15 text-violet-600 dark:text-violet-400'
+                            : 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
+                        )}
+                      >
+                        {d < 60
+                          ? `${d} min`
+                          : d % 60 === 0 || d % 60 === 30
+                            ? `${d / 60} h`.replace('.5 h', ' h 30')
+                            : `${Math.floor(d / 60)} h ${d % 60}`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm">Time window</Label>
+                  <p className="text-xs text-muted-foreground/70">
+                    Slots are only proposed within this range.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      aria-label="From"
+                      value={windowStart}
+                      onChange={(e) => setWindowStart(Number(e.target.value))}
+                      className="h-8 rounded-lg border border-border/60 bg-background px-2 text-xs"
+                    >
+                      {WINDOW_OPTIONS.filter((m) => m < 1440).map((m) => (
+                        <option key={m} value={m}>
+                          {windowLabel(m)}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-xs text-muted-foreground">to</span>
+                    <select
+                      aria-label="To"
+                      value={windowEnd}
+                      onChange={(e) => setWindowEnd(Number(e.target.value))}
+                      className="h-8 rounded-lg border border-border/60 bg-background px-2 text-xs"
+                    >
+                      {WINDOW_OPTIONS.filter((m) => m > 0).map((m) => (
+                        <option key={m} value={m}>
+                          {windowLabel(m)}
+                        </option>
+                      ))}
+                    </select>
                     <button
-                      key={t.id}
                       type="button"
-                      onClick={() => setTeamIds((prev) => toggle(prev, t.id))}
+                      onClick={() => {
+                        setWindowStart(0)
+                        setWindowEnd(1440)
+                      }}
                       className={cn(
-                        'rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
-                        teamIds.includes(t.id)
+                        'rounded-full border px-3 py-1 text-xs font-medium transition-all',
+                        isWholeDay
                           ? 'border-violet-500/50 bg-violet-500/15 text-violet-600 dark:text-violet-400'
                           : 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
                       )}
                     >
-                      {t.name}
+                      Whole day
                     </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label className="text-sm">Members</Label>
-              <div className="flex flex-wrap gap-1.5">
-                {members
-                  .filter((m) => m.userId !== myId)
-                  .map((m) => {
-                    const label = m.nickname || m.name
-                    const viaTeam =
-                      participantIds.includes(m.userId) && !memberIds.includes(m.userId)
-                    const selected = memberIds.includes(m.userId) || viaTeam
-                    return (
+                    {!(
+                      windowStart === DEFAULT_WINDOW_START && windowEnd === DEFAULT_WINDOW_END
+                    ) && (
                       <button
-                        key={m.userId}
                         type="button"
-                        disabled={viaTeam}
-                        title={viaTeam ? 'Invited through a selected team' : undefined}
-                        onClick={() => setMemberIds((prev) => toggle(prev, m.userId))}
-                        className={cn(
-                          'flex items-center gap-1.5 rounded-full border py-0.5 pl-0.5 pr-2.5 text-xs font-medium transition-all',
-                          selected
-                            ? 'border-violet-500/50 bg-violet-500/15 text-violet-600 dark:text-violet-400'
-                            : 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
-                          viaTeam && 'opacity-70 cursor-default',
-                        )}
+                        onClick={() => {
+                          setWindowStart(DEFAULT_WINDOW_START)
+                          setWindowEnd(DEFAULT_WINDOW_END)
+                        }}
+                        className="text-xs text-muted-foreground underline-offset-2 hover:underline"
                       >
-                        <Avatar className="h-5 w-5">
-                          <AvatarImage src={m.image ?? undefined} alt={label} />
-                          <AvatarFallback className="text-[9px]">
-                            {label.slice(0, 1).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        {label}
+                        Reset to working hours
                       </button>
-                    )
-                  })}
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {participantIds.length === 0
-                ? 'Pick at least one team or member.'
-                : `${participantIds.length} participant${participantIds.length > 1 ? 's' : ''} + you`}
-            </p>
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="space-y-4">
-            {availabilityError || availability === null ? (
-              <div className="flex flex-col items-center justify-center gap-3 py-12 text-sm text-muted-foreground">
-                Couldn&apos;t load everyone&apos;s availability.
-                <Button type="button" variant="outline" size="sm" onClick={() => refetchAvailability()}>
-                  Retry
-                </Button>
-              </div>
-            ) : availabilityPending ? (
-              <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Checking everyone&apos;s availability…
-              </div>
-            ) : (
-              <>
-                <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-3">
-                  <p className="flex items-center gap-1.5 text-xs font-medium text-violet-600 dark:text-violet-400">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Suggested slot
-                  </p>
-                  {suggested ? (
-                    <p className="mt-1 text-sm text-foreground">
-                      {format(day, 'EEEE, MMM d')} · {formatTime(suggested.slot.start)} –{' '}
-                      {formatTime(suggested.slot.end)}{' '}
-                      <span className="text-muted-foreground">
-                        ({suggested.othersFree}/{participantIds.length} available)
-                      </span>
-                    </p>
-                  ) : (
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {noSlotReason} Try another day or a shorter duration.
+                    )}
+                  </div>
+                  {!windowFits && (
+                    <p className="text-xs text-destructive">
+                      The time window must be at least as long as the meeting.
                     </p>
                   )}
                 </div>
+              </div>
+            )}
 
-                <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
-                  {SHOW_AS_OPTIONS.map((o) => (
-                    <span key={o.value} className="flex items-center gap-1">
-                      <span className={cn('h-2 w-2 rounded-full', o.dot)} />
-                      {o.label}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="overflow-x-auto rounded-xl border border-border/50">
-                  <table className="w-full border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-muted/40">
-                        <th className="sticky left-0 z-10 bg-muted/40 px-2 py-2 text-left font-medium">
-                          Time
-                        </th>
-                        {people.map((id) => (
-                          <th key={id} className="max-w-[90px] px-2 py-2 text-left font-medium">
-                            <span className="block truncate">
-                              {id === organizerId ? 'You' : nameOf(id)}
-                            </span>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((r) => {
-                        const key = r.slot.start.toISOString()
-                        const isChosen = key === slotStart
+            {step === 2 && (
+              <div className="space-y-5">
+                {teams.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-sm flex items-center gap-1.5">
+                      <UsersRound className="h-3.5 w-3.5 text-muted-foreground/60" />
+                      Teams
+                    </Label>
+                    <p className="text-xs text-muted-foreground/70">
+                      Invites every member and adds the meeting to each team&apos;s calendar.
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {teams.map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => setTeamIds((prev) => toggle(prev, t.id))}
+                          className={cn(
+                            'rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
+                            teamIds.includes(t.id)
+                              ? 'border-violet-500/50 bg-violet-500/15 text-violet-600 dark:text-violet-400'
+                              : 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
+                          )}
+                        >
+                          {t.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label className="text-sm">Members</Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {members
+                      .filter((m) => m.userId !== myId)
+                      .map((m) => {
+                        const label = m.nickname || m.name
+                        const viaTeam =
+                          participantIds.includes(m.userId) && !memberIds.includes(m.userId)
+                        const selected = memberIds.includes(m.userId) || viaTeam
                         return (
-                          <tr
-                            key={key}
-                            onClick={() => r.selectable && setSlotStart(key)}
+                          <button
+                            key={m.userId}
+                            type="button"
+                            disabled={viaTeam}
+                            title={viaTeam ? 'Invited through a selected team' : undefined}
+                            onClick={() => setMemberIds((prev) => toggle(prev, m.userId))}
                             className={cn(
-                              'border-t border-border/40',
-                              r.selectable ? 'cursor-pointer hover:bg-muted/40' : 'opacity-40',
-                              isChosen && 'bg-violet-500/10 hover:bg-violet-500/10',
+                              'flex items-center gap-1.5 rounded-full border py-0.5 pl-0.5 pr-2.5 text-xs font-medium transition-all',
+                              selected
+                                ? 'border-violet-500/50 bg-violet-500/15 text-violet-600 dark:text-violet-400'
+                                : 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
+                              viaTeam && 'opacity-70 cursor-default',
                             )}
                           >
-                            <td className="sticky left-0 z-10 bg-background px-2 py-1.5 font-medium whitespace-nowrap">
-                              <span className="flex items-center gap-1">
-                                {isChosen && <Check className="h-3 w-3 text-violet-600" />}
-                                {formatTime(r.slot.start)}
-                              </span>
-                            </td>
-                            {r.statuses.map((st, i) => (
-                              <td key={people[i]} className="px-1 py-1">
-                                <span
-                                  className={cn(
-                                    'block rounded-md px-1.5 py-1 text-center text-[10px] font-medium',
-                                    showAsOption(st).cell,
-                                  )}
-                                >
-                                  {showAsOption(st).label}
-                                </span>
-                              </td>
-                            ))}
-                          </tr>
+                            <Avatar className="h-5 w-5">
+                              <AvatarImage src={m.image ?? undefined} alt={label} />
+                              <AvatarFallback className="text-[9px]">
+                                {label.slice(0, 1).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            {label}
+                          </button>
                         )
                       })}
-                    </tbody>
-                  </table>
+                  </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Only slots where you and at least one participant are available can be picked.
+                  {participantIds.length === 0
+                    ? 'Pick at least one team or member.'
+                    : `${participantIds.length} participant${participantIds.length > 1 ? 's' : ''} + you`}
                 </p>
-              </>
-            )}
-          </div>
-        )}
-
-        {step === 4 && chosen && (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              {format(day, 'EEEE, MMM d')} · {formatTime(chosen.slot.start)} –{' '}
-              {formatTime(chosen.slot.end)} · {participantIds.length + 1} people
-            </p>
-            <div className="space-y-2">
-              <Label htmlFor="meeting-title" className="text-sm">
-                Title
-              </Label>
-              <Input
-                id="meeting-title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Weekly sync"
-                autoFocus
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="meeting-description" className="text-sm">
-                Description{' '}
-                <span className="text-xs font-normal text-muted-foreground">Optional</span>
-              </Label>
-              <Textarea
-                id="meeting-description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm">Show as</Label>
-              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-                {SHOW_AS_OPTIONS.map((o) => (
-                  <button
-                    key={o.value}
-                    type="button"
-                    onClick={() => setShowAs(o.value)}
-                    className={cn(
-                      'flex items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-medium transition-all',
-                      showAs === o.value
-                        ? 'border-violet-500/50 bg-violet-500/15 text-foreground'
-                        : 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
-                    )}
-                  >
-                    <span className={cn('h-2 w-2 rounded-full', o.dot)} />
-                    {o.label}
-                  </button>
-                ))}
               </div>
-            </div>
-          </div>
+            )}
+
+            {step === 3 && (
+              <div className="space-y-4">
+                {availabilityError || availability === null ? (
+                  <div className="flex flex-col items-center justify-center gap-3 py-12 text-sm text-muted-foreground">
+                    Couldn&apos;t load everyone&apos;s availability.
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => refetchAvailability()}
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                ) : availabilityPending ? (
+                  <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Checking everyone&apos;s availability…
+                  </div>
+                ) : (
+                  <>
+                    <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-3">
+                      <p className="flex items-center gap-1.5 text-xs font-medium text-violet-600 dark:text-violet-400">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        Suggested slot
+                      </p>
+                      {suggested ? (
+                        <p className="mt-1 text-sm text-foreground">
+                          {format(day, 'EEEE, MMM d')} · {formatTime(suggested.slot.start)} –{' '}
+                          {formatTime(suggested.slot.end)}{' '}
+                          <span className="text-muted-foreground">
+                            ({suggested.othersFree}/{participantIds.length} available)
+                          </span>
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {noSlotReason} Try another day or a shorter duration.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
+                      {SHOW_AS_OPTIONS.map((o) => (
+                        <span key={o.value} className="flex items-center gap-1">
+                          <span className={cn('h-2 w-2 rounded-full', o.dot)} />
+                          {o.label}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="overflow-x-auto rounded-xl border border-border/50">
+                      <table className="w-full border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-muted/40">
+                            <th className="sticky left-0 z-10 bg-muted/40 px-2 py-2 text-left font-medium">
+                              Time
+                            </th>
+                            {people.map((id) => (
+                              <th key={id} className="max-w-[90px] px-2 py-2 text-left font-medium">
+                                <span className="block truncate">
+                                  {id === organizerId ? 'You' : nameOf(id)}
+                                </span>
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((r) => {
+                            const key = r.slot.start.toISOString()
+                            const isChosen = key === slotStart
+                            return (
+                              <tr
+                                key={key}
+                                onClick={() => r.selectable && setSlotStart(key)}
+                                className={cn(
+                                  'border-t border-border/40',
+                                  r.selectable ? 'cursor-pointer hover:bg-muted/40' : 'opacity-40',
+                                  isChosen && 'bg-violet-500/10 hover:bg-violet-500/10',
+                                )}
+                              >
+                                <td className="sticky left-0 z-10 bg-background px-2 py-1.5 font-medium whitespace-nowrap">
+                                  <span className="flex items-center gap-1">
+                                    {isChosen && <Check className="h-3 w-3 text-violet-600" />}
+                                    {formatTime(r.slot.start)}
+                                  </span>
+                                </td>
+                                {r.statuses.map((st, i) => (
+                                  <td key={people[i]} className="px-1 py-1">
+                                    <span
+                                      className={cn(
+                                        'block rounded-md px-1.5 py-1 text-center text-[10px] font-medium',
+                                        showAsOption(st).cell,
+                                      )}
+                                    >
+                                      {showAsOption(st).label}
+                                    </span>
+                                  </td>
+                                ))}
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Only slots where you and at least one participant are available can be picked.
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
+
+            {step === 4 && chosen && (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  {format(day, 'EEEE, MMM d')} · {formatTime(chosen.slot.start)} –{' '}
+                  {formatTime(chosen.slot.end)} · {participantIds.length + 1} people
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="meeting-title" className="text-sm">
+                    Title
+                  </Label>
+                  <Input
+                    id="meeting-title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Weekly sync"
+                    autoFocus
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="meeting-description" className="text-sm">
+                    Description{' '}
+                    <span className="text-xs font-normal text-muted-foreground">Optional</span>
+                  </Label>
+                  <Textarea
+                    id="meeting-description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    rows={3}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm">Show as</Label>
+                  <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                    {SHOW_AS_OPTIONS.map((o) => (
+                      <button
+                        key={o.value}
+                        type="button"
+                        onClick={() => setShowAs(o.value)}
+                        className={cn(
+                          'flex items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-medium transition-all',
+                          showAs === o.value
+                            ? 'border-violet-500/50 bg-violet-500/15 text-foreground'
+                            : 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
+                        )}
+                      >
+                        <span className={cn('h-2 w-2 rounded-full', o.dot)} />
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         <DialogFooter className="gap-2 sm:justify-between">
@@ -665,7 +770,7 @@ export function MeetingSchedulerDialog({
           {step < 4 ? (
             <Button
               type="button"
-              disabled={!canContinue}
+              disabled={!canContinue || (isEditing && !meeting)}
               onClick={() => setStep((s) => (s + 1) as Step)}
             >
               Continue
@@ -673,11 +778,13 @@ export function MeetingSchedulerDialog({
           ) : (
             <Button
               type="button"
-              disabled={!canContinue || scheduleMutation.isPending}
+              disabled={
+                !canContinue || scheduleMutation.isPending || (isEditing && !meeting?.canEdit)
+              }
               onClick={() => scheduleMutation.mutate()}
             >
               {scheduleMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              Send invitations
+              {isEditing ? 'Save & notify' : 'Send invitations'}
             </Button>
           )}
         </DialogFooter>

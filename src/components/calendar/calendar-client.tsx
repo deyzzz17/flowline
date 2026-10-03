@@ -11,6 +11,7 @@ import {
 } from '@dnd-kit/core'
 import { ChevronLeft, ChevronRight, Plus, MoreHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import {
   DropdownMenu,
@@ -138,6 +139,12 @@ export function CalendarClient() {
     const item = active.data.current?.item
     if (!item) return
     if (item.source === 'google' || item.source === 'habit') return
+    if (item.type === 'event' && item.isMeeting) {
+      toast.info('Meetings are changed from the meeting scheduler', {
+        description: 'Open the meeting and use “Edit meeting” to pick a new slot with everyone.',
+      })
+      return
+    }
 
     const targetDate = new Date(over.id as string)
     const hasSpecificHour = targetDate.getHours() !== 0 || targetDate.getMinutes() !== 0

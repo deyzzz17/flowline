@@ -21,7 +21,12 @@ import {
   type TaskAssignmentNotification,
 } from '@/api/tasks/actions'
 import { listMyWorkspaceInvites, type WorkspaceInvite } from '@/api/workspaces/actions'
-import { listMyEventInvitations, type EventInvitation } from '@/api/calendar/scheduler-actions'
+import {
+  listMyEventInvitations,
+  listMyEventUpdates,
+  type EventInvitation,
+  type EventUpdateNotice,
+} from '@/api/calendar/scheduler-actions'
 
 export interface DueSoonTask {
   id: number
@@ -40,6 +45,8 @@ export interface NotificationFeed {
   taskAssignments: TaskAssignmentNotification[]
   workspaceInvites: WorkspaceInvite[]
   eventInvitations: EventInvitation[]
+  /** Meetings the viewer is on that their organizer changed. */
+  eventUpdates: EventUpdateNotice[]
 }
 
 const EMPTY_FEED: NotificationFeed = {
@@ -51,6 +58,7 @@ const EMPTY_FEED: NotificationFeed = {
   taskAssignments: [],
   workspaceInvites: [],
   eventInvitations: [],
+  eventUpdates: [],
 }
 
 /**
@@ -107,6 +115,7 @@ export async function getNotificationFeed(): Promise<NotificationFeed> {
     taskAssignments,
     workspaceInvites,
     eventInvitations,
+    eventUpdates,
   ] = await Promise.all([
     listDueSoonTasks(userId).catch(() => []),
     listPendingRequests().catch(() => []),
@@ -116,6 +125,7 @@ export async function getNotificationFeed(): Promise<NotificationFeed> {
     listMyTaskAssignmentNotifications().catch(() => []),
     listMyWorkspaceInvites().catch(() => []),
     listMyEventInvitations().catch(() => []),
+    listMyEventUpdates().catch(() => []),
   ])
 
   return {
@@ -127,5 +137,6 @@ export async function getNotificationFeed(): Promise<NotificationFeed> {
     taskAssignments,
     workspaceInvites,
     eventInvitations,
+    eventUpdates,
   }
 }

@@ -466,6 +466,7 @@ export interface CalendarEvent {
    * Teams a scheduled meeting is linked to (it shows in each of their calendars). Single-team events created from the event dialog use `team` instead.
    */
   teams?: (number | Team)[] | null;
+  isMeeting?: boolean | null;
   /**
    * How this event affects the availability of its creator and assignees in the meeting scheduler (Workspace Calendar). Empty for Personal events.
    */
@@ -902,6 +903,8 @@ export interface CalendarEventInvitation {
   invitedBy: string;
   status: 'pending' | 'accepted' | 'declined';
   respondedAt?: string | null;
+  changedAt?: string | null;
+  changeSummary?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1259,6 +1262,7 @@ export interface CalendarEventsSelect<T extends boolean = true> {
   workspace?: T;
   team?: T;
   teams?: T;
+  isMeeting?: T;
   showAs?: T;
   assignedTo?: T;
   title?: T;
@@ -1518,6 +1522,8 @@ export interface CalendarEventInvitationsSelect<T extends boolean = true> {
   invitedBy?: T;
   status?: T;
   respondedAt?: T;
+  changedAt?: T;
+  changeSummary?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -18,6 +18,8 @@ export interface CalendarEvent {
   teamIds?: number[]
   /** Availability status in the meeting scheduler (Workspace Calendar only). */
   showAs?: 'free' | 'tentative' | 'busy' | 'away'
+  /** Created with the meeting scheduler: only changed through it (no drag/resize). */
+  isMeeting?: boolean
   recurrence?: RecurrenceRule | null
   recurrenceId?: number | null
   originalDate?: string | null
@@ -141,6 +143,7 @@ export function mapEvent(e: any) {
           .filter((id): id is number => typeof id === 'number')
       : [],
     showAs: (e.showAs ?? 'busy') as 'free' | 'tentative' | 'busy' | 'away',
+    isMeeting: !!e.isMeeting,
     recurrence: e.recurrence?.frequency ? (e.recurrence as RecurrenceRule) : null,
     recurrenceId: e.recurrenceId ?? null,
     originalDate: e.originalDate ?? null,

@@ -91,6 +91,11 @@ export const NotificationsMenu = () => {
       return
     }
 
+    if (notif.level === 'event_update') {
+      router.push('/workspace-calendar')
+      return
+    }
+
     const targetPath = `/lists/${notif.listSlug}`
     const isSamePage = pathname === targetPath
     if (isSamePage) {
@@ -169,7 +174,7 @@ export const NotificationsMenu = () => {
                         <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500/15">
                           <Users className="h-3 w-3 text-violet-500" />
                         </div>
-                      ) : notif.level === 'event_invite' ? (
+                      ) : notif.level === 'event_invite' || notif.level === 'event_update' ? (
                         <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500/15">
                           <CalendarClock className="h-3 w-3 text-violet-500" />
                         </div>
@@ -208,6 +213,7 @@ export const NotificationsMenu = () => {
                                 : notif.level === 'list_invite' ||
                                     notif.level === 'workspace_invite' ||
                                     notif.level === 'event_invite' ||
+                                    notif.level === 'event_update' ||
                                     notif.level === 'comment_mention' ||
                                     notif.level === 'task_assignment'
                                   ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'

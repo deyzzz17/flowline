@@ -157,15 +157,18 @@ function DraggableItem({
   onClickItem: (item: CalendarItem) => void
   compact?: boolean
 }) {
+  // Meetings are only moved through the meeting scheduler.
+  const isMeeting = item.type === 'event' && !!item.isMeeting
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `${item.type}-${item.id}`,
     data: { item },
+    disabled: isMeeting,
   })
   return (
     <div
       ref={setNodeRef}
-      {...listeners}
-      {...attributes}
+      {...(!isMeeting ? listeners : {})}
+      {...(!isMeeting ? attributes : {})}
       className={cn(isDragging && 'opacity-40')}
       onClick={(e) => e.stopPropagation()}
     >

@@ -100,7 +100,10 @@ export function CalendarEventBlock({
   const continuesNextDay = dayEnd ? endDate > dayEnd : false
   const continuesPrevDay = dayStart ? startDate < dayStart : false
 
-  const isDragDisabled = isGoogle || isHabit || continuesPrevDay
+  // A meeting is only moved/resized through the meeting scheduler, which
+  // checks everyone's availability again.
+  const isMeeting = item.type === 'event' && !!(item as CalendarEvent).isMeeting
+  const isDragDisabled = isGoogle || isHabit || isMeeting || continuesPrevDay
 
   const baseId =
     item.type === 'event'
@@ -273,7 +276,7 @@ export function CalendarEventBlock({
           'absolute inset-0 px-1.5 pt-0.5',
           height > 20 && 'bottom-3',
           !isDragDisabled && 'cursor-grab active:cursor-grabbing',
-          (isGoogle || isHabit) && 'cursor-pointer',
+          (isGoogle || isHabit || isMeeting) && 'cursor-pointer',
           continuesPrevDay && 'cursor-default',
         )}
         onClick={(e) => {
@@ -299,7 +302,7 @@ export function CalendarEventBlock({
         )}
       </div>
 
-      {!continuesNextDay && !isGoogle && !isHabit && (
+      {!continuesNextDay && !isGoogle && !isHabit && !isMeeting && (
         <div
           onMouseDown={handleResizeMouseDown}
           onTouchStart={handleResizeTouchStart}

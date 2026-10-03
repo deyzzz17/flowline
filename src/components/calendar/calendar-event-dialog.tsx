@@ -518,13 +518,16 @@ interface CalendarEventDialogProps {
   isSaving: boolean
   isDeleting: boolean
   /**
-   * Lets an event be scoped to a team — visible only to that team's
-   * members. Only meaningful (and only passed as true) from the Workspace
-   * Calendar; the global, cross-workspace Calendar never offers this.
+   * Workspace Calendar extras: the event's "show as" status (availability in
+   * the meeting scheduler) and, for a meeting, its attendees. Events made
+   * here are always personal — inviting people goes through the scheduler.
    */
   allowTeamAssociation?: boolean
-  /** Team preselected for a new event (e.g. when created from that team's calendar). */
-  defaultTeamId?: number | null
+  /**
+   * Opens the meeting scheduler on this meeting — the only way to change a
+   * meeting. Without it (global Calendar), meetings can't be edited here.
+   */
+  onEditMeeting?: (eventId: number) => void
 }
 
 export function CalendarEventDialog({
@@ -537,7 +540,7 @@ export function CalendarEventDialog({
   isSaving,
   isDeleting,
   allowTeamAssociation = false,
-  defaultTeamId = null,
+  onEditMeeting,
 }: CalendarEventDialogProps) {
   const isTask = selectedItem?.type === 'task'
   const isExistingEvent = selectedItem?.type === 'event'
@@ -564,28 +567,15 @@ export function CalendarEventDialog({
   const [endDate, setEndDate] = useState<Date>(defaultEnd)
   const [allDay, setAllDay] = useState(false)
   const [categoryId, setCategoryId] = useState<number | null>(null)
-  const [teamId, setTeamId] = useState<number | null>(null)
-  const [assignedTo, setAssignedTo] = useState<string[]>([])
   const [showAs, setShowAs] = useState<ShowAs>('busy')
 
-  // Who the event can be assigned to: the workspace's members, narrowed to
-  // the event's team members for a team event (same rule as the server).
+  // Names of the people on an event (assignees of older shared events,
+  // attendees of a meeting).
   const { data: workspaceMembers } = useQuery({
     queryKey: ['workspace-members'],
     queryFn: () => api.workspaces.listMembers(),
     enabled: allowTeamAssociation && open,
   })
-  const { data: teamMemberIds } = useQuery({
-    queryKey: ['teams', teamId, 'member-ids'],
-    queryFn: () => api.teams.listMemberIds(teamId!),
-    enabled: allowTeamAssociation && open && teamId !== null,
-  })
-  const assigneeCandidates = useMemo(() => {
-    const all = workspaceMembers?.docs ?? []
-    if (teamId === null) return all
-    const allowed = new Set(teamMemberIds ?? [])
-    return all.filter((m) => allowed.has(m.userId))
-  }, [workspaceMembers, teamId, teamMemberIds])
   const memberLabel = (userId: string) => {
     const m = workspaceMembers?.docs.find((d) => d.userId === userId)
     return m ? m.nickname || m.name : 'Member'
@@ -623,8 +613,6 @@ export function CalendarEventDialog({
       setEndDate(new Date(ev.endDate))
       setAllDay(ev.allDay)
       setCategoryId(ev.categoryId ?? null)
-      setTeamId(ev.teamId ?? null)
-      setAssignedTo(ev.assignedTo ?? [])
       setShowAs(ev.showAs ?? 'busy')
       setRecurrence(ev.recurrence ?? null)
       setMode('view')
@@ -637,29 +625,12 @@ export function CalendarEventDialog({
       setEndDate(end)
       setAllDay(false)
       setCategoryId(null)
-      setTeamId(defaultTeamId)
-      setAssignedTo([])
       setShowAs('busy')
       setRecurrence(null)
       setMode('create')
     }
     setError(null)
-  }, [open, selectedItem, defaultDate, isExistingEvent, isTask, defaultTeamId])
-
-  // Switching a new event to a team drops assignees who aren't in it.
-  useEffect(() => {
-    if (teamId === null || !teamMemberIds) return
-    const allowed = new Set(teamMemberIds)
-    setAssignedTo((prev) => {
-      const next = prev.filter((id) => allowed.has(id))
-      return next.length === prev.length ? prev : next
-    })
-  }, [teamId, teamMemberIds])
-
-  const toggleAssignee = (userId: string) =>
-    setAssignedTo((prev) =>
-      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId],
-    )
+  }, [open, selectedItem, defaultDate, isExistingEvent, isTask])
 
   // No free color: an event takes its category's color, or gray without one
   // (the server enforces the same rule).
@@ -673,9 +644,8 @@ export function CalendarEventDialog({
     allDay,
     color,
     categoryId,
-    // Team association is only set at creation — not editable afterwards.
-    ...(mode === 'create' && { teamId }),
-    ...(allowTeamAssociation && { assignedTo, showAs }),
+    // A personal event: no team, nobody assigned (the server enforces it).
+    ...(allowTeamAssociation && { showAs }),
     recurrence: recurrence ?? undefined,
   })
 
@@ -993,10 +963,27 @@ export function CalendarEventDialog({
 
               {!isGoogle ? (
                 <div className="flex items-center gap-2 pt-1">
-                  <Button className="flex-1 gap-1.5" size="sm" onClick={() => setMode('edit')}>
-                    <Pencil className="h-3.5 w-3.5" />
-                    Edit event
-                  </Button>
+                  {ev.isMeeting ? (
+                    onEditMeeting ? (
+                      <Button
+                        className="flex-1 gap-1.5"
+                        size="sm"
+                        onClick={() => onEditMeeting(Number(ev.recurrenceId ?? ev.id))}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Edit meeting
+                      </Button>
+                    ) : (
+                      <p className="flex-1 text-xs text-muted-foreground">
+                        Meetings are changed from the Workspace Calendar.
+                      </p>
+                    )
+                  ) : (
+                    <Button className="flex-1 gap-1.5" size="sm" onClick={() => setMode('edit')}>
+                      <Pencil className="h-3.5 w-3.5" />
+                      Edit event
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="icon"
@@ -1162,95 +1149,11 @@ export function CalendarEventDialog({
               )}
             </div>
 
-            {allowTeamAssociation && teams.length > 0 && mode === 'create' && (
-              <div className="space-y-2">
-                <Label className="text-sm flex items-center gap-1.5">
-                  <UsersRound className="h-3.5 w-3.5 text-muted-foreground/60" />
-                  Team
-                  <span className="text-xs font-normal text-muted-foreground">Optional</span>
-                </Label>
-                <p className="text-xs text-muted-foreground/70">
-                  Adds this event to the team&apos;s calendar. It only appears in someone&apos;s own
-                  agenda if they&apos;re assigned to it.
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setTeamId(null)}
-                    className={cn(
-                      'rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
-                      teamId === null
-                        ? 'border-border bg-muted text-foreground'
-                        : 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
-                    )}
-                  >
-                    Whole workspace
-                  </button>
-                  {teams.map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => setTeamId(t.id)}
-                      className={cn(
-                        'rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
-                        teamId === t.id
-                          ? 'border-violet-500/50 bg-violet-500/15 text-violet-600 dark:text-violet-400'
-                          : 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
-                      )}
-                    >
-                      {t.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {allowTeamAssociation && assigneeCandidates.length > 0 && (
-              <div className="space-y-2">
-                <Label className="text-sm flex items-center gap-1.5">
-                  <UserCheck className="h-3.5 w-3.5 text-muted-foreground/60" />
-                  Assigned to
-                  <span className="text-xs font-normal text-muted-foreground">Optional</span>
-                </Label>
-                <p className="text-xs text-muted-foreground/70">
-                  Shows this event in each assignee&apos;s own agenda.
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {assigneeCandidates.map((m) => {
-                    const selected = assignedTo.includes(m.userId)
-                    const label = m.nickname || m.name
-                    return (
-                      <button
-                        key={m.userId}
-                        type="button"
-                        onClick={() => toggleAssignee(m.userId)}
-                        className={cn(
-                          'flex items-center gap-1.5 rounded-full border py-0.5 pl-0.5 pr-2.5 text-xs font-medium transition-all',
-                          selected
-                            ? 'border-violet-500/50 bg-violet-500/15 text-violet-600 dark:text-violet-400'
-                            : 'border-border/60 bg-background text-muted-foreground hover:bg-muted',
-                        )}
-                      >
-                        <Avatar className="h-5 w-5">
-                          <AvatarImage src={m.image ?? undefined} alt={label} />
-                          <AvatarFallback className="text-[9px]">
-                            {label.slice(0, 1).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        {label}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-
             {allowTeamAssociation && (
               <div className="space-y-2">
                 <Label className="text-sm">Show as</Label>
                 <p className="text-xs text-muted-foreground/70">
-                  How this event affects your and the assignees&apos; availability when others
-                  schedule a meeting.
+                  How this event affects your availability when others schedule a meeting.
                 </p>
                 <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
                   {SHOW_AS_OPTIONS.map((o) => (

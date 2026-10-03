@@ -52,6 +52,15 @@ export const CalendarEvents: CollectionConfig = {
       },
     },
     {
+      // Created with the meeting scheduler: it has invitations, and its
+      // time/participants are only changed through the scheduler again
+      // (availability check) — never by drag & drop or the event dialog.
+      name: 'isMeeting',
+      type: 'checkbox',
+      defaultValue: false,
+      index: true,
+    },
+    {
       name: 'showAs',
       type: 'select',
       required: false,

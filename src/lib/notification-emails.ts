@@ -140,27 +140,30 @@ function escapeHtml(text: string): string {
 }
 
 /** A meeting invitation from the Workspace Calendar's scheduler, dated in the recipient's timezone. */
+function formatMeetingWhen(start: Date, end: Date, timezone: string): string {
+  try {
+    const day = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+    }).format(start)
+    const time = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+    return `${day}, ${time.format(start)} – ${time.format(end)}`
+  } catch {
+    return `${start.toUTCString()} (UTC)`
+  }
+}
+
 export async function sendEventInvitationEmail(
   to: string,
   args: { title: string; inviterName: string | null; start: Date; end: Date; timezone: string },
 ) {
-  let when: string
-  try {
-    const day = new Intl.DateTimeFormat('en-US', {
-      timeZone: args.timezone,
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-    }).format(args.start)
-    const time = new Intl.DateTimeFormat('en-US', {
-      timeZone: args.timezone,
-      hour: 'numeric',
-      minute: '2-digit',
-    })
-    when = `${day}, ${time.format(args.start)} – ${time.format(args.end)}`
-  } catch {
-    when = `${args.start.toUTCString()} (UTC)`
-  }
+  const when = formatMeetingWhen(args.start, args.end, args.timezone)
   const who = args.inviterName ? `<strong>${escapeHtml(args.inviterName)}</strong>` : 'Someone'
   await sendEmail({
     to,
@@ -172,6 +175,60 @@ export async function sendEventInvitationEmail(
         ) +
         button(loginUrl(), 'Log in to respond') +
         footer('You can accept or decline this invitation from your notifications once logged in.'),
+    ),
+  })
+}
+
+/** A meeting the recipient is invited to was changed by its organizer. */
+export async function sendEventUpdatedEmail(
+  to: string,
+  args: {
+    title: string
+    organizerName: string | null
+    start: Date
+    end: Date
+    timezone: string
+    summary: string
+    /** The time changed: the recipient is asked to answer again. */
+    needsResponse: boolean
+  },
+) {
+  const when = formatMeetingWhen(args.start, args.end, args.timezone)
+  const who = args.organizerName ? `<strong>${escapeHtml(args.organizerName)}</strong>` : 'The organizer'
+  await sendEmail({
+    to,
+    subject: `Meeting updated: "${args.title}"`,
+    html: wrapEmail(
+      heading('Meeting updated') +
+        paragraph(
+          `${who} updated <strong>${escapeHtml(args.title)}</strong> (${escapeHtml(args.summary)}). It now takes place on ${escapeHtml(when)}.`,
+        ) +
+        button(loginUrl(), args.needsResponse ? 'Log in to respond' : 'Open Flowline') +
+        footer(
+          args.needsResponse
+            ? 'The time changed, so please accept or decline again from your notifications.'
+            : 'No action needed — this is just to keep you informed.',
+        ),
+    ),
+  })
+}
+
+/** A meeting the recipient was invited to was canceled (deleted). */
+export async function sendEventCanceledEmail(
+  to: string,
+  args: { title: string; organizerName: string | null; start: Date; end: Date; timezone: string },
+) {
+  const when = formatMeetingWhen(args.start, args.end, args.timezone)
+  const who = args.organizerName ? `<strong>${escapeHtml(args.organizerName)}</strong>` : 'The organizer'
+  await sendEmail({
+    to,
+    subject: `Meeting canceled: "${args.title}"`,
+    html: wrapEmail(
+      heading('Meeting canceled') +
+        paragraph(
+          `${who} canceled <strong>${escapeHtml(args.title)}</strong>, which was planned on ${escapeHtml(when)}.`,
+        ) +
+        footer('It has been removed from your calendar.'),
     ),
   })
 }

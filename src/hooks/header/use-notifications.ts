@@ -34,6 +34,7 @@ import {
   listMyEventInvitations,
   respondToEventInvitation,
   type EventInvitation,
+  type EventUpdateNotice,
 } from '@/api/calendar/scheduler-actions'
 import {
   listMyWorkspaceInvites,
@@ -55,6 +56,7 @@ export type NotificationLevel =
   | 'workspace_invite'
   | 'task_assignment'
   | 'event_invite'
+  | 'event_update'
 
 export interface TaskNotification {
   id: string
@@ -190,6 +192,7 @@ function buildNotifications(tasks: DueSoonTask[]): TaskNotification[] {
     comment_mention: -1,
     task_assignment: -1,
     event_invite: -1,
+    event_update: -1,
     today: 0,
     urgent: 1,
     warning: 2,
@@ -335,6 +338,31 @@ function buildEventInviteNotifications(invites: EventInvitation[]): TaskNotifica
   })
 }
 
+// One per change: the change's time is part of the id, so a new change of
+// the same meeting shows again even after the previous one was dismissed.
+function buildEventUpdateNotifications(updates: EventUpdateNotice[]): TaskNotification[] {
+  return updates.map((u) => {
+    const start = new Date(u.startDate)
+    const when = `${start.toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    })} · ${start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`
+    return {
+      id: `event-update-${u.id}-${new Date(u.changedAt).getTime()}`,
+      taskId: u.eventId,
+      taskTitle: u.title,
+      listName: `${u.organizerName}: ${u.summary} · ${when}`,
+      listSlug: '',
+      listColor: '#8b5cf6',
+      level: 'event_update' as const,
+      message: 'Meeting updated',
+      dueDate: u.changedAt,
+      userImage: u.organizerImage,
+    }
+  })
+}
+
 function buildTaskAssignmentNotifications(
   assignments: TaskAssignmentNotification[],
 ): TaskNotification[] {
@@ -454,11 +482,13 @@ export const useNotifications = () => {
     const taskAssignmentNotifs = buildTaskAssignmentNotifications(taskAssignmentsData ?? [])
     const workspaceInviteNotifs = buildWorkspaceInviteNotifications(workspaceInvitesData ?? [])
     const eventInviteNotifs = buildEventInviteNotifications(eventInvitesData ?? [])
+    const eventUpdateNotifs = buildEventUpdateNotifications(feed?.eventUpdates ?? [])
     return [
       ...requestNotifs,
       ...listInviteNotifs,
       ...workspaceInviteNotifs,
       ...eventInviteNotifs,
+      ...eventUpdateNotifs,
       ...acceptedNotifs,
       ...commentMentionNotifs,
       ...taskAssignmentNotifs,

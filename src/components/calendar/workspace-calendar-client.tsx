@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useTeams } from '@/hooks/teams/use-teams'
 import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import {
   useWorkspaceCalendar,
@@ -84,6 +85,8 @@ export function WorkspaceCalendarClient() {
   const selectedTeam = teams.find((t) => t.id === calendarTeamId) ?? null
   const calendarLabel = selectedTeam ? selectedTeam.name : 'My agenda'
   const [schedulerOpen, setSchedulerOpen] = useState(false)
+  // Set when the scheduler is opened to change an existing meeting.
+  const [editingMeetingId, setEditingMeetingId] = useState<number | null>(null)
   // Viewers are read-only in a workspace — the server would refuse anyway.
   const canSchedule = useActiveWorkspace()?.myRole !== 'viewer'
 
@@ -117,6 +120,12 @@ export function WorkspaceCalendarClient() {
     if (!over) return
     const item = active.data.current?.item
     if (!item) return
+    if (item.type === 'event' && item.isMeeting) {
+      toast.info('Meetings are changed from the meeting scheduler', {
+        description: 'Open the meeting and use “Edit meeting” to pick a new slot with everyone.',
+      })
+      return
+    }
 
     const targetDate = new Date(over.id as string)
     const hasSpecificHour = targetDate.getHours() !== 0 || targetDate.getMinutes() !== 0
@@ -321,7 +330,10 @@ export function WorkspaceCalendarClient() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setSchedulerOpen(true)}
+                onClick={() => {
+                  setEditingMeetingId(null)
+                  setSchedulerOpen(true)
+                }}
                 className="h-7 sm:h-8 gap-1 sm:gap-1.5 text-xs px-2 sm:px-3"
               >
                 <CalendarClock className="h-3.5 w-3.5" />
@@ -402,7 +414,11 @@ export function WorkspaceCalendarClient() {
         isSaving={createMutation.isPending || updateMutation.isPending}
         isDeleting={deleteMutation.isPending}
         allowTeamAssociation
-        defaultTeamId={calendarTeamId}
+        onEditMeeting={(eventId) => {
+          setDialogOpen(false)
+          setEditingMeetingId(eventId)
+          setSchedulerOpen(true)
+        }}
       />
 
       <MeetingSchedulerDialog
@@ -410,6 +426,7 @@ export function WorkspaceCalendarClient() {
         onOpenChange={setSchedulerOpen}
         defaultDate={currentDate}
         onScheduled={goToDay}
+        editEventId={editingMeetingId}
       />
     </DndContext>
   )

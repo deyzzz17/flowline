@@ -17,7 +17,7 @@ import { getUserPlanLimits } from '@/lib/get-user-plan'
 import { isAtLimit, isPlanUnlimited, LIMIT_ERRORS, SAFETY_CAP_ERRORS } from '@/lib/plan-limits'
 import { getTeamPermissions } from '@/api/teams/internal'
 import { getMyTeamIds } from '@/lib/team-access'
-import { countActiveCalendarCategories } from './internal'
+import { countActiveCalendarCategories, notifyMeetingCanceled } from './internal'
 import {
   CALENDAR_CATEGORY_NAME_TAKEN,
   NO_CATEGORY_EVENT_COLOR,
@@ -105,6 +105,9 @@ export interface CalendarEventData {
 }
 
 export type EditScope = 'this' | 'thisAndFollowing' | 'all'
+
+/** Error of an attempt to move/resize/edit a meeting outside the scheduler. */
+const MEETING_USE_SCHEDULER = 'Meetings can only be changed from the meeting scheduler.'
 
 type ShowAs = NonNullable<CalendarEventData['showAs']>
 
@@ -896,26 +899,8 @@ export const createCalendarEvent = async (data: CalendarEventData) => {
     const permissions = await getEffectiveWorkspacePermissions(workspaceId, userId)
     if (!permissions.canManageCalendar) return err('Not authorized')
 
-    if (data.teamId) {
-      if (!workspaceId) return err('Team not found')
-      const team = await payload
-        .findByID({ collection: 'teams', id: data.teamId })
-        .catch(() => null)
-      if (!team || team.workspace !== workspaceId || team.planArchivedAt) {
-        return err('Team not found')
-      }
-      const teamPermissions = await getTeamPermissions(data.teamId, userId)
-      if (!teamPermissions.canManageCalendar) return err('Not authorized')
-    }
-
-    const assignedTo = await resolveAssignees(
-      payload,
-      workspaceId,
-      data.teamId ?? null,
-      data.assignedTo,
-    )
-    if (!assignedTo) return err(INVALID_ASSIGNEES)
-
+    // The event dialog only makes personal events: no team, nobody else on
+    // it. Inviting people goes through the meeting scheduler.
     const color = await resolveEventColor(payload, data.categoryId, workspaceId, userId)
     if (!color) return err('Category not found')
 
@@ -931,8 +916,7 @@ export const createCalendarEvent = async (data: CalendarEventData) => {
         allDay: data.allDay ?? false,
         color,
         categoryId: data.categoryId ?? null,
-        ...(data.teamId && { team: data.teamId }),
-        assignedTo,
+        assignedTo: [],
         showAs: showAsFor(workspaceId, data.showAs),
         ...(data.recurrence ? { recurrence: data.recurrence as any } : {}),
         ...(data.recurrenceId ? { recurrenceId: data.recurrenceId } : {}),
@@ -993,6 +977,15 @@ export const updateCalendarEvent = async (
     const existing = await payload.findByID({ collection: 'calendar-events', id })
 
     if (!(await canManageCalendarEvent(existing as any, userId))) return err('Not authorized')
+
+    // A meeting is only changed through the meeting scheduler (updateMeeting),
+    // which checks everyone's availability again and notifies them.
+    if (existing.isMeeting) return err(MEETING_USE_SCHEDULER)
+    // Events are personal now: assignees are no longer set from here.
+    if (data.assignedTo !== undefined) {
+      const { assignedTo: _ignoredAssignees, ...withoutAssignees } = data
+      data = withoutAssignees
+    }
 
     // The color follows the category (gray without one): a client-sent color
     // is ignored, and changing the category recomputes it.
@@ -1317,6 +1310,8 @@ export const deleteCalendarEvent = async (
     const existing = await payload.findByID({ collection: 'calendar-events', id })
 
     if (!(await canManageCalendarEvent(existing as any, userId))) return err('Not authorized')
+
+    if (existing.isMeeting) await notifyMeetingCanceled(existing, userId)
 
     const isRecurring = !!(existing as any).recurrence?.frequency
     const isOverride = !!(existing as any).recurrenceId

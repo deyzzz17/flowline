@@ -41,5 +41,14 @@ export const CalendarEventInvitations: CollectionConfig = {
       ],
     },
     { name: 'respondedAt', type: 'date', required: false },
+    {
+      // Set each time the organizer changes the meeting, so the participant
+      // gets an "updated" notification (one per change: the date is part of
+      // the notification's id).
+      name: 'changedAt',
+      type: 'date',
+      required: false,
+    },
+    { name: 'changeSummary', type: 'text', required: false },
   ],
 }
